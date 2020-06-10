@@ -1,3 +1,5 @@
+use lazy_static::lazy_static;
+use regex::Regex;
 use unicode_categories::UnicodeCategories;
 
 enum Element {
@@ -22,6 +24,14 @@ fn remove_problematic_unicode(text: String) -> String {
     output
 }
 
+fn remove_boneyard(text: String) -> String {
+    lazy_static! {
+        static ref RE: Regex = Regex::new(r"/\*[^*]*\*/").unwrap();
+    }
+    let output = RE.replace_all(&text, "");
+    output.to_string()
+}
+
 fn main() {
     println!(
         "{}",
@@ -41,4 +51,10 @@ mod tests {
         assert_eq!(remove_problematic_unicode(unicode_string), "Hello, World!");
     }
 
+    #[test]
+    fn test_remove_boneyard() {
+        let boneyard =
+            "/* boneyard */Hello, World!\n\n/* More bones \n Lower bones*/Goodbye!".to_string();
+        assert_eq!(remove_boneyard(boneyard), "Hello, World!\n\nGoodbye!");
+    }
 }
