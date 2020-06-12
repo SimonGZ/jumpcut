@@ -1,5 +1,6 @@
 use lazy_static::lazy_static;
 use regex::Regex;
+use std::str::Lines;
 use unicode_categories::UnicodeCategories;
 
 pub enum Element<'a> {
@@ -32,7 +33,35 @@ fn remove_boneyard(text: &str) -> String {
 }
 
 pub fn parse(text: &str) -> Vec<Element> {
+    let mut fountain_string = remove_problematic_unicode(text);
+    fountain_string = remove_boneyard(&fountain_string);
+    let lines = fountain_string.lines();
+    let newlines_removed: String = lines.filter(|l| !l.trim().is_empty()).collect();
+    println!("{}", newlines_removed);
     vec![Element::SceneHeading("INT. HOUSE - DAY")]
+}
+
+fn lines_to_hunks(lines: Lines) -> Vec<Vec<&str>> {
+    let initial: Vec<Vec<&str>> = vec![vec![]];
+    let output: Vec<Vec<&str>> = lines.fold(initial, |mut acc, l| match l.trim() {
+        "" => {
+            if l.len() == 2 {
+                acc.last_mut()
+                    .expect("There should always be at least one vec")
+                    .push(l);
+            } else {
+                acc.push(vec![]);
+            }
+            acc
+        }
+        l => {
+            acc.last_mut()
+                .expect("There should always be at least on vec")
+                .push(l);
+            acc
+        }
+    });
+    output
 }
 
 // * Tests
@@ -40,6 +69,23 @@ pub fn parse(text: &str) -> Vec<Element> {
 mod tests {
     // Note this useful idiom: importing names from outer (for mod tests) scope.
     use super::*;
+
+    #[test]
+    fn test_lines_to_hunks() {
+        let lines = "hello hello hello\n\nwelcome back\ngoodbye".lines();
+        let expected = vec![vec!["hello hello hello"], vec!["welcome back", "goodbye"]];
+        assert_eq!(lines_to_hunks(lines), expected);
+    }
+
+    #[test]
+    fn test_lines_to_hunks_intentional_blanks() {
+        let lines = "hello hello hello\n\nwelcome back\n  \ngoodbye".lines();
+        let expected = vec![
+            vec!["hello hello hello"],
+            vec!["welcome back", "  ", "goodbye"],
+        ];
+        assert_eq!(lines_to_hunks(lines), expected);
+    }
 
     #[test]
     fn test_remove_problematic_unicode() {
