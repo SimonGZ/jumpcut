@@ -36,14 +36,14 @@ pub fn parse(text: &str) -> Vec<Element> {
     let mut fountain_string = remove_problematic_unicode(text);
     fountain_string = remove_boneyard(&fountain_string);
     let lines = fountain_string.lines();
-    let newlines_removed: String = lines.filter(|l| !l.trim().is_empty()).collect();
-    println!("{}", newlines_removed);
+    let hunks = lines_to_hunks(lines);
+    println!("{:#?}", hunks);
     vec![Element::SceneHeading("INT. HOUSE - DAY")]
 }
 
 fn lines_to_hunks(lines: Lines) -> Vec<Vec<&str>> {
     let initial: Vec<Vec<&str>> = vec![vec![]];
-    let output: Vec<Vec<&str>> = lines.fold(initial, |mut acc, l| match l.trim() {
+    lines.fold(initial, |mut acc, l: &str| match l.trim() {
         "" => {
             if l.len() == 2 {
                 acc.last_mut()
@@ -60,8 +60,7 @@ fn lines_to_hunks(lines: Lines) -> Vec<Vec<&str>> {
                 .push(l);
             acc
         }
-    });
-    output
+    })
 }
 
 // * Tests
