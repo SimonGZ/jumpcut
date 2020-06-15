@@ -36,28 +36,44 @@ pub fn parse(text: &str) -> Vec<Element> {
     let mut fountain_string = remove_problematic_unicode(text);
     fountain_string = remove_boneyard(&fountain_string);
     let lines = fountain_string.lines();
-    let hunks = lines_to_hunks(lines);
-    println!("{:#?}", hunks);
+    let _hunks = lines_to_hunks(lines);
+    // println!("{:#?}", hunks);
     vec![Element::SceneHeading("INT. HOUSE - DAY")]
 }
 
 fn lines_to_hunks(lines: Lines) -> Vec<Vec<&str>> {
     let initial: Vec<Vec<&str>> = vec![vec![]];
     lines.fold(initial, |mut acc, l: &str| match l.trim() {
+        // HANDLE BLANK LINES
         "" => {
+            // If there are exactly two spaces in the line, it's intentional
             if l.len() == 2 {
-                acc.last_mut()
-                    .expect("There should always be at least one vec")
-                    .push(l);
+                acc.last_mut().unwrap().push(l);
+            // Otherwise, start a new element by pushing a new empty vec
             } else {
                 acc.push(vec![]);
             }
             acc
         }
+        /* HANDLE SECTIONS
+         * They don't follow the simple rules of blank line before or after.
+         * So we need this special case to handle them.
+         */
+        l if l.starts_with("#") => {
+            // If the previous hunk was empty, use it.
+            if acc.last().unwrap().is_empty() {
+                acc.last_mut().unwrap().push(l);
+            // If previous hunk wasn't empty, create a new one.
+            } else {
+                acc.push(vec![l]);
+            }
+            // Sections are isolated, so start a new empty hunk for next element.
+            acc.push(vec![]);
+            acc
+        }
+        // HANDLE NORMAL, NON-EMPTY LINES
         l => {
-            acc.last_mut()
-                .expect("There should always be at least on vec")
-                .push(l);
+            acc.last_mut().unwrap().push(l);
             acc
         }
     })
@@ -71,9 +87,36 @@ mod tests {
 
     #[test]
     fn test_lines_to_hunks() {
-        let lines = "hello hello hello\n\nwelcome back\ngoodbye".lines();
-        let expected = vec![vec!["hello hello hello"], vec!["welcome back", "goodbye"]];
-        assert_eq!(lines_to_hunks(lines), expected);
+        let mut lines = "hello hello hello\n\nwelcome back\ngoodbye".lines();
+        let mut expected = vec![vec!["hello hello hello"], vec!["welcome back", "goodbye"]];
+        assert_eq!(
+            lines_to_hunks(lines),
+            expected,
+            "it should handle simple line spacing"
+        );
+
+        lines = "# Act 1\nINT. HOUSE\n\nAn ugly place.".lines();
+        expected = vec![vec!["# Act 1"], vec!["INT. HOUSE"], vec!["An ugly place."]];
+
+        assert_eq!(
+            lines_to_hunks(lines),
+            expected,
+            "it should put sections in their own vec"
+        );
+
+        lines = "SALLY\nYou're screwed!\n\n# Act 1\nINT. HOUSE\n\nAn ugly place.".lines();
+        expected = vec![
+            vec!["SALLY", "You're screwed!"],
+            vec!["# Act 1"],
+            vec!["INT. HOUSE"],
+            vec!["An ugly place."],
+        ];
+
+        assert_eq!(
+            lines_to_hunks(lines),
+            expected,
+            "it should handle sections in middle of content"
+        );
     }
 
     #[test]
