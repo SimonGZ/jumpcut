@@ -3,6 +3,7 @@ use regex::Regex;
 use std::str::Lines;
 use unicode_categories::UnicodeCategories;
 
+#[derive(Debug, PartialEq)]
 pub enum Element<'a> {
     Action(&'a str),
     Character(&'a str),
@@ -36,14 +37,13 @@ pub fn parse(text: &str) -> Vec<Element> {
     let mut fountain_string = remove_problematic_unicode(text);
     fountain_string = remove_boneyard(&fountain_string);
     let lines = fountain_string.lines();
-    let _hunks = lines_to_hunks(lines);
+    let hunks = lines_to_hunks(lines);
     // println!("{:#?}", hunks);
     vec![Element::SceneHeading("INT. HOUSE - DAY")]
 }
 
 fn lines_to_hunks(lines: Lines) -> Vec<Vec<&str>> {
-    let initial: Vec<Vec<&str>> = vec![vec![]];
-    lines.fold(initial, |mut acc, l: &str| match l.trim() {
+    let mut hunks = lines.fold(vec![vec![]], |mut acc, l: &str| match l.trim() {
         // HANDLE BLANK LINES
         "" => {
             // If there are exactly two spaces in the line, it's intentional
@@ -79,7 +79,21 @@ fn lines_to_hunks(lines: Lines) -> Vec<Vec<&str>> {
             acc.last_mut().unwrap().push(l);
             acc
         }
-    })
+    });
+    // Handle space case of an empty string
+    if hunks.len() == 1
+        && hunks
+            .first()
+            .expect("There will always be at least one vec.")
+            .is_empty()
+    {
+        hunks.first_mut().unwrap().push("");
+    };
+    hunks
+}
+
+fn hunks_to_elements<'a>(hunks: Vec<Vec<&'a str>>) -> Vec<Element<'a>> {
+    hunks.into_iter().map(|_| Element::Action("")).collect()
 }
 
 // * Tests
@@ -89,6 +103,18 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_hunks_to_elements() {
+        let hunks = vec![vec![""]];
+        let expected = vec![Element::Action("")];
+
+        assert_eq!(
+            hunks_to_elements(hunks),
+            expected,
+            "it should handle an empty string"
+        );
+    }
+
+    #[test]
     fn test_lines_to_hunks() {
         let mut lines = "hello hello hello\n\nwelcome back\ngoodbye".lines();
         let mut expected = vec![vec!["hello hello hello"], vec!["welcome back", "goodbye"]];
@@ -96,6 +122,15 @@ mod tests {
             lines_to_hunks(lines),
             expected,
             "it should handle simple line spacing"
+        );
+
+        lines = "".lines();
+        expected = vec![vec![""]];
+
+        assert_eq!(
+            lines_to_hunks(lines),
+            expected,
+            "it should handle an empty string"
         );
 
         lines = "# Act 1\nINT. HOUSE\n\nAn ugly place.".lines();
