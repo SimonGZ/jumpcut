@@ -45,6 +45,47 @@ fn lines_to_hunks_simple_match(lines: Lines) -> Vec<Vec<&str>> {
         }
     })
 }
+
+fn lines_to_hunks_complete(lines: Lines) -> Vec<Vec<&str>> {
+    let initial: Vec<Vec<&str>> = vec![vec![]];
+    lines.fold(initial, |mut acc, l: &str| match l.trim() {
+        // HANDLE BLANK LINES
+        "" => {
+            // If there are exactly two spaces in the line, it's intentional
+            if l.len() == 2 {
+                acc.last_mut().unwrap().push(l);
+            // If the previous element was also blank, create an empty string
+            } else if acc.last().unwrap().is_empty() {
+                acc.last_mut().unwrap().push("");
+            // Otherwise, start a new element by pushing a new empty vec
+            } else {
+                acc.push(vec![]);
+            }
+            acc
+        }
+        /* HANDLE SECTIONS
+         * They don't follow the simple rules of blank line before or after.
+         * So we need this special case to handle them.
+         */
+        l if l.starts_with('#') => {
+            // If the previous hunk was empty, use it.
+            if acc.last().unwrap().is_empty() {
+                acc.last_mut().unwrap().push(l);
+            // If previous hunk wasn't empty, create a new one.
+            } else {
+                acc.push(vec![l]);
+            }
+            // Sections are isolated, so start a new empty hunk for next element.
+            acc.push(vec![]);
+            acc
+        }
+        // HANDLE NORMAL, NON-EMPTY LINES
+        l => {
+            acc.last_mut().unwrap().push(l);
+            acc
+        }
+    })
+}
 fn remove_problematic_unicode(text: &str) -> String {
     text.chars().filter(|x| !x.is_other_format()).collect()
 }
@@ -95,6 +136,12 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     let mut hunk_group = c.benchmark_group("Hunks");
 
     let medium_text: Lines = clean_text.lines();
+
+    hunk_group.bench_with_input(
+        BenchmarkId::new("Lines to Hunks", "complete"),
+        &medium_text,
+        |b, s| b.iter(|| lines_to_hunks_complete(s.clone())),
+    );
 
     hunk_group.bench_with_input(
         BenchmarkId::new("Lines to Hunks", "if pattern"),
