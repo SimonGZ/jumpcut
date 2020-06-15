@@ -62,7 +62,7 @@ fn lines_to_hunks(lines: Lines) -> Vec<Vec<&str>> {
          * They don't follow the simple rules of blank line before or after.
          * So we need this special case to handle them.
          */
-        l if l.starts_with("#") => {
+        l if l.starts_with('#') => {
             // If the previous hunk was empty, use it.
             if acc.last().unwrap().is_empty() {
                 acc.last_mut().unwrap().push(l);
