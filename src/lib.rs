@@ -49,6 +49,9 @@ fn lines_to_hunks(lines: Lines) -> Vec<Vec<&str>> {
             // If there are exactly two spaces in the line, it's intentional
             if l.len() == 2 {
                 acc.last_mut().unwrap().push(l);
+            // If the previous element was also blank, create an empty string
+            } else if acc.last().unwrap().is_empty() {
+                acc.last_mut().unwrap().push("");
             // Otherwise, start a new element by pushing a new empty vec
             } else {
                 acc.push(vec![]);
@@ -116,6 +119,22 @@ mod tests {
             lines_to_hunks(lines),
             expected,
             "it should handle sections in middle of content"
+        );
+
+        lines = "John examines the gun.\n\n\n\n\n\n\n\n\n\nBANG!".lines();
+        expected = vec![
+            vec!["John examines the gun."],
+            vec![""],
+            vec![""],
+            vec![""],
+            vec![""],
+            vec!["BANG!"],
+        ];
+
+        assert_eq!(
+            lines_to_hunks(lines),
+            expected,
+            "it should create blank lines from multiple newlines in a row"
         );
     }
 
