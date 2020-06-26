@@ -1,10 +1,6 @@
 use lazy_static::lazy_static;
-use regex::bytes::Regex as Rgxb;
 use regex::Regex;
-use std::borrow::Cow;
-use std::str;
 use std::str::Lines;
-use unicode_categories::UnicodeCategories;
 
 #[derive(Debug, PartialEq)]
 pub enum Element<'a> {
@@ -24,21 +20,8 @@ pub enum Element<'a> {
     EndOfAct(&'a str),
 }
 
-fn remove_problematic_unicode(text: &str) -> String {
-    text.replace(|c: char| c.is_other_format(), "")
-}
-
-fn remove_boneyard(text: &str) -> String {
-    lazy_static! {
-        static ref RE: Regex = Regex::new(r"/\*[^*]*\*/").unwrap();
-    }
-    let output = RE.replace_all(&text, "");
-    output.to_string()
-}
-
 pub fn parse(text: &str) -> Vec<Element> {
-    let mut fountain_string = remove_problematic_unicode(text);
-    fountain_string = remove_boneyard(&fountain_string);
+    let fountain_string = prepare_text(text);
     let lines = fountain_string.lines();
     let hunks: Vec<Vec<&str>> = lines_to_hunks(lines);
     let elements: Vec<Element> = hunks_to_elements(hunks);
@@ -46,15 +29,12 @@ pub fn parse(text: &str) -> Vec<Element> {
     vec![Element::Action("Test")]
 }
 
-fn remove_problematic_unicode3(mut text: &str) {
+/// Strips out problematic unicode and the boneyard element
+fn prepare_text(text: &str) -> String {
     lazy_static! {
-        static ref RE: Rgxb = Rgxb::new(r"/\*[^*]*\*/|\p{gc:Cf}").unwrap();
+        static ref RE: Regex = Regex::new(r"/\*[^*]*\*/|\p{gc:Cf}").unwrap();
     }
-    let byte_text = text.as_bytes();
-    text = match RE.replace_all(byte_text, &b""[..]) {
-        Cow::Borrowed(b) => str::from_utf8(b).unwrap(),
-        Cow::Owned(_) => text,
-    }
+    RE.replace_all(text, "").to_string()
 }
 
 fn lines_to_hunks(lines: Lines) -> Vec<Vec<&str>> {
@@ -201,19 +181,12 @@ mod tests {
     #[test]
     fn test_remove_problematic_unicode() {
         let unicode_string = "Hello\u{200B}, \u{200D}\u{FEFF}World!";
-        assert_eq!(remove_problematic_unicode(unicode_string), "Hello, World!");
-    }
-
-    #[test]
-    fn test_remove_problematic_unicode_in_place() {
-        let unicode_string: &str = "Hello\u{200B}, \u{200D}\u{FEFF}World!";
-        remove_problematic_unicode3(&unicode_string);
-        assert_eq!(unicode_string, "Hello, World!");
+        assert_eq!(prepare_text(unicode_string), "Hello, World!");
     }
 
     #[test]
     fn test_remove_boneyard() {
         let boneyard = "/* boneyard */Hello, World!\n\n/* More bones \n Lower bones*/Goodbye!";
-        assert_eq!(remove_boneyard(boneyard), "Hello, World!\n\nGoodbye!");
+        assert_eq!(prepare_text(boneyard), "Hello, World!\n\nGoodbye!");
     }
 }

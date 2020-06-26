@@ -1,8 +1,6 @@
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use lazy_static::lazy_static;
-use regex::bytes::Regex;
-use std::borrow::Cow;
-use std::str;
+use regex::Regex;
 use std::str::Lines;
 use unicode_categories::UnicodeCategories;
 
@@ -91,23 +89,20 @@ fn lines_to_hunks_complete(lines: Lines) -> Vec<Vec<&str>> {
     })
 }
 
+/// Strips out problematic unicode and the boneyard element
+fn prepare_text(text: &str) -> String {
+    lazy_static! {
+        static ref RE: Regex = Regex::new(r"/\*[^*]*\*/|\p{gc:Cf}").unwrap();
+    }
+    RE.replace_all(text, "").to_string()
+}
+
 fn remove_problematic_unicode(text: &str) -> String {
     text.chars().filter(|x| !x.is_other_format()).collect()
 }
 
 fn remove_problematic_unicode2(text: &str) -> String {
     text.replace(|c: char| c.is_other_format(), "")
-}
-
-fn remove_problematic_unicode3(mut text: &str) {
-    lazy_static! {
-        static ref RE: Regex = Regex::new(r"/\*[^*]*\*/|\p{gc:Cf}").unwrap();
-    }
-    let byte_text = text.as_bytes();
-    text = match RE.replace_all(byte_text, &b""[..]) {
-        Cow::Borrowed(b) => str::from_utf8(b).unwrap(),
-        Cow::Owned(_) => text,
-    }
 }
 
 pub fn criterion_benchmark(c: &mut Criterion) {
@@ -128,9 +123,9 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         |b, s| b.iter(|| remove_problematic_unicode2(s)),
     );
     unicode_group.bench_with_input(
-        BenchmarkId::new("Byte Replace", "short dirty"),
+        BenchmarkId::new("Prepare Text", "short dirty"),
         &short_dirty,
-        |b, s| b.iter(|| remove_problematic_unicode3(s)),
+        |b, s| b.iter(|| prepare_text(s)),
     );
     unicode_group.bench_with_input(
         BenchmarkId::new("Filter", "big dirty"),
@@ -143,9 +138,9 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         |b, s| b.iter(|| remove_problematic_unicode2(s)),
     );
     unicode_group.bench_with_input(
-        BenchmarkId::new("Byte Replace", "big dirty"),
+        BenchmarkId::new("Prepare Text", "big dirty"),
         &big_dirty,
-        |b, s| b.iter(|| remove_problematic_unicode3(s)),
+        |b, s| b.iter(|| prepare_text(s)),
     );
     unicode_group.bench_with_input(
         BenchmarkId::new("Filter", "big clean"),
@@ -158,9 +153,9 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         |b, s| b.iter(|| remove_problematic_unicode2(s)),
     );
     unicode_group.bench_with_input(
-        BenchmarkId::new("Byte Replace", "big clean"),
+        BenchmarkId::new("Prepare Text", "big clean"),
         &clean_text,
-        |b, s| b.iter(|| remove_problematic_unicode3(s)),
+        |b, s| b.iter(|| prepare_text(s)),
     );
     unicode_group.finish();
 
