@@ -1,5 +1,8 @@
 use lazy_static::lazy_static;
+use regex::bytes::Regex as Rgxb;
 use regex::Regex;
+use std::borrow::Cow;
+use std::str;
 use std::str::Lines;
 use unicode_categories::UnicodeCategories;
 
@@ -37,9 +40,21 @@ pub fn parse(text: &str) -> Vec<Element> {
     let mut fountain_string = remove_problematic_unicode(text);
     fountain_string = remove_boneyard(&fountain_string);
     let lines = fountain_string.lines();
-    let hunks = lines_to_hunks(lines);
-    // println!("{:#?}", hunks);
-    vec![Element::SceneHeading("INT. HOUSE - DAY")]
+    let hunks: Vec<Vec<&str>> = lines_to_hunks(lines);
+    let elements: Vec<Element> = hunks_to_elements(hunks);
+    // elements
+    vec![Element::Action("Test")]
+}
+
+fn remove_problematic_unicode3(mut text: &str) {
+    lazy_static! {
+        static ref RE: Rgxb = Rgxb::new(r"/\*[^*]*\*/|\p{gc:Cf}").unwrap();
+    }
+    let byte_text = text.as_bytes();
+    text = match RE.replace_all(byte_text, &b""[..]) {
+        Cow::Borrowed(b) => str::from_utf8(b).unwrap(),
+        Cow::Owned(_) => text,
+    }
 }
 
 fn lines_to_hunks(lines: Lines) -> Vec<Vec<&str>> {
@@ -187,6 +202,13 @@ mod tests {
     fn test_remove_problematic_unicode() {
         let unicode_string = "Hello\u{200B}, \u{200D}\u{FEFF}World!";
         assert_eq!(remove_problematic_unicode(unicode_string), "Hello, World!");
+    }
+
+    #[test]
+    fn test_remove_problematic_unicode_in_place() {
+        let unicode_string: &str = "Hello\u{200B}, \u{200D}\u{FEFF}World!";
+        remove_problematic_unicode3(&unicode_string);
+        assert_eq!(unicode_string, "Hello, World!");
     }
 
     #[test]
