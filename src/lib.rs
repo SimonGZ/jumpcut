@@ -24,8 +24,9 @@ pub fn parse(text: &str) -> Vec<Element> {
     let fountain_string = prepare_text(text);
     let lines = fountain_string.lines();
     let hunks: Vec<Vec<&str>> = lines_to_hunks(lines);
+    println!("{:#?}", hunks);
     let elements: Vec<Element> = hunks_to_elements(hunks);
-    println!("{:#?}", elements);
+    // println!("{:#?}", elements);
     elements
 }
 
@@ -90,7 +91,15 @@ fn lines_to_hunks(lines: Lines) -> Vec<Vec<&str>> {
 fn hunks_to_elements<'a>(hunks: Vec<Vec<&'a str>>) -> Vec<Element> {
     hunks
         .into_iter()
-        .map(|h| Element::Action(h.into_iter().map(|s| s.to_string()).collect()))
+        .map(|h| {
+            if h.len() > 1 {
+                let element_text = h.join("\n");
+                Element::Action(element_text)
+            } else {
+                let element_text = h[0].to_string();
+                Element::Action(element_text)
+            }
+        })
         .collect()
 }
 
