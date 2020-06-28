@@ -3,21 +3,21 @@ use regex::Regex;
 use std::str::Lines;
 
 #[derive(Debug, PartialEq)]
-pub enum Element<'a> {
-    Action(&'a str),
-    Character(&'a str),
-    SceneHeading(&'a str),
-    Lyric(&'a str),
-    Parenthetical(&'a str),
-    Dialogue(&'a str),
-    DialogueBlock(Box<[Element<'a>; 2]>),
-    DualDialogueBlock(Box<[Element<'a>; 2]>),
-    Transition(&'a str),
-    Section(&'a str),
-    Synopsis(&'a str),
-    ColdOpening(&'a str),
-    NewAct(&'a str),
-    EndOfAct(&'a str),
+pub enum Element {
+    Action(String),
+    Character(String),
+    SceneHeading(String),
+    Lyric(String),
+    Parenthetical(String),
+    Dialogue(String),
+    DialogueBlock(Box<[Element; 2]>),
+    DualDialogueBlock(Box<[Element; 2]>),
+    Transition(String),
+    Section(String),
+    Synopsis(String),
+    ColdOpening(String),
+    NewAct(String),
+    EndOfAct(String),
 }
 
 pub fn parse(text: &str) -> Vec<Element> {
@@ -25,8 +25,8 @@ pub fn parse(text: &str) -> Vec<Element> {
     let lines = fountain_string.lines();
     let hunks: Vec<Vec<&str>> = lines_to_hunks(lines);
     let elements: Vec<Element> = hunks_to_elements(hunks);
-    // elements
-    vec![Element::Action("Test")]
+    println!("{:#?}", elements);
+    elements
 }
 
 /// Strips out problematic unicode and the boneyard element
@@ -87,8 +87,11 @@ fn lines_to_hunks(lines: Lines) -> Vec<Vec<&str>> {
     hunks
 }
 
-fn hunks_to_elements<'a>(hunks: Vec<Vec<&'a str>>) -> Vec<Element<'a>> {
-    hunks.into_iter().map(|_| Element::Action("")).collect()
+fn hunks_to_elements<'a>(hunks: Vec<Vec<&'a str>>) -> Vec<Element> {
+    hunks
+        .into_iter()
+        .map(|h| Element::Action(h.into_iter().map(|s| s.to_string()).collect()))
+        .collect()
 }
 
 // * Tests
@@ -96,18 +99,6 @@ fn hunks_to_elements<'a>(hunks: Vec<Vec<&'a str>>) -> Vec<Element<'a>> {
 mod tests {
     // Note this useful idiom: importing names from outer (for mod tests) scope.
     use super::*;
-
-    #[test]
-    fn test_hunks_to_elements() {
-        let hunks = vec![vec![""]];
-        let expected = vec![Element::Action("")];
-
-        assert_eq!(
-            hunks_to_elements(hunks),
-            expected,
-            "it should handle an empty string"
-        );
-    }
 
     #[test]
     fn test_lines_to_hunks() {
