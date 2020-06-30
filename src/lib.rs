@@ -43,9 +43,9 @@ pub fn parse(text: &str) -> Vec<Element> {
     let fountain_string = prepare_text(text);
     let lines = fountain_string.lines();
     let hunks: Vec<Vec<&str>> = lines_to_hunks(lines);
-    println!("{:#?}", hunks);
+    // println!("{:#?}", hunks);
     let elements: Vec<Element> = hunks_to_elements(hunks);
-    // println!("{:#?}", elements);
+    println!("{:#?}", elements);
     elements
 }
 
@@ -125,13 +125,8 @@ fn hunk_to_elements<'a>(hunk: Vec<&'a str>) -> Element {
                 let stripped = line.trim_start_matches(&['!', '@', '~', '.', '>', '#', '='][..]);
                 make_element(stripped.to_string())
             }
-            _ => {
-                if is_scene(&line) {
-                    Element::SceneHeading(line)
-                } else {
-                    Element::Action(line)
-                }
-            }
+            _ if is_scene(&line) => Element::SceneHeading(line),
+            _ => Element::Action(line),
         }
     } else {
         let top_line: String = hunk[0].to_string();
