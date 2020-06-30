@@ -2,6 +2,25 @@ use lazy_static::lazy_static;
 use regex::Regex;
 use std::str::Lines;
 
+const SCENE_LOCATORS: [&str; 16] = [
+    "INT ",
+    "INT.",
+    "EXT ",
+    "EXT.",
+    "EST.",
+    "EST ",
+    "INT./EXT.",
+    "INT./EXT ",
+    "INT/EXT.",
+    "INT/EXT ",
+    "I/E.",
+    "I/E ",
+    "EXT./INT.",
+    "EXT./INT ",
+    "EXT/INT.",
+    "EXT/INT ",
+];
+
 #[derive(Debug, PartialEq)]
 pub enum Element {
     Action(String),
@@ -92,17 +111,66 @@ fn hunks_to_elements<'a>(hunks: Vec<Vec<&'a str>>) -> Vec<Element> {
     hunks
         .into_iter()
         .map(|h| {
-            if h.len() > 1 {
-                let element_text = h.join("\n");
-                Element::Action(element_text)
-            } else {
-                let element_text = h[0].to_string();
-                Element::Action(element_text)
-            }
+            let element = hunk_to_elements(h);
+            element
         })
         .collect()
 }
 
+fn hunk_to_elements<'a>(hunk: Vec<&'a str>) -> Element {
+    if hunk.len() == 1 {
+        let line: String = hunk[0].to_string();
+        match make_forced(&line) {
+            Some(make_element) => {
+                let stripped = line.trim_start_matches(&['!', '@', '~', '.', '>', '#', '='][..]);
+                make_element(stripped.to_string())
+            }
+            _ => {
+                if is_scene(&line) {
+                    Element::SceneHeading(line)
+                } else {
+                    Element::Action(line)
+                }
+            }
+        }
+    } else {
+        let top_line: String = hunk[0].to_string();
+        let element_text = hunk.join("\n");
+        match make_forced(&top_line) {
+            Some(make_element) => {
+                let stripped =
+                    element_text.trim_start_matches(&['!', '@', '~', '.', '>', '#', '='][..]);
+                make_element(stripped.to_string())
+            }
+            _ => Element::Action(element_text),
+        }
+    }
+}
+
+fn is_scene(line: &str) -> bool {
+    let line = line.to_uppercase();
+    SCENE_LOCATORS.iter().any(|&s| line.starts_with(s))
+}
+
+fn is_forced(line: &str) -> bool {
+    match line.get(..1) {
+        Some("!") | Some("@") | Some("~") | Some(".") | Some(">") | Some("#") | Some("=") => true,
+        _ => false,
+    }
+}
+
+fn make_forced(line: &str) -> Option<fn(String) -> Element> {
+    match line.get(..1) {
+        Some("!") => Some(Element::Action),
+        Some("@") => Some(Element::Character),
+        Some("~") => Some(Element::Lyric),
+        Some(".") => Some(Element::SceneHeading),
+        Some(">") => Some(Element::Transition),
+        Some("#") => Some(Element::Section),
+        Some("=") => Some(Element::Section),
+        _ => None,
+    }
+}
 // * Tests
 #[cfg(test)]
 mod tests {
