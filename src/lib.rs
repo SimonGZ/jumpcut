@@ -95,7 +95,7 @@ fn lines_to_hunks(lines: Lines) -> Vec<Vec<&str>> {
             acc
         }
     });
-    // Handle space case of an empty string
+    // Handle special case of an empty string
     if hunks.len() == 1
         && hunks
             .first()
