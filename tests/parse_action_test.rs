@@ -131,3 +131,21 @@ fn it_should_handle_centered_text() {
     // NEED to handle attributes
     assert_eq!(parse(text), expected, "it should handle centered text");
 }
+
+#[test]
+fn it_should_handle_centered_text_with_no_spaces() {
+    let text = ">THE END<";
+    let expected = vec![Element::Action(
+        text.to_string(),
+        Attributes {
+            centered: true,
+            starts_new_page: false,
+        },
+    )];
+    // NEED to handle attributes
+    assert_eq!(
+        parse(text),
+        expected,
+        "it should handle centered text with no spaces"
+    );
+}
