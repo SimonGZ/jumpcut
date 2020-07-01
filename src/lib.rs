@@ -167,13 +167,6 @@ fn is_scene(line: &str) -> bool {
     SCENE_LOCATORS.iter().any(|&s| line.starts_with(s))
 }
 
-fn is_forced(line: &str) -> bool {
-    match line.get(..1) {
-        Some("!") | Some("@") | Some("~") | Some(".") | Some(">") | Some("#") | Some("=") => true,
-        _ => false,
-    }
-}
-
 fn make_forced(line: &str) -> Option<fn(String, Attributes) -> Element> {
     match line.get(..1) {
         Some("!") => Some(Element::Action),
