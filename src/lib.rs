@@ -145,6 +145,13 @@ fn make_single_line_element(line: &str) -> Element {
             make_element(stripped.to_string(), blank_attributes())
         }
         _ if is_scene(&line) => Element::SceneHeading(line.to_string(), blank_attributes()),
+        _ if is_centered(&line) => Element::Action(
+            line.to_string(),
+            Attributes {
+                centered: true,
+                starts_new_page: false,
+            },
+        ),
         _ => Element::Action(line.to_string(), blank_attributes()),
     }
 }
@@ -165,6 +172,11 @@ fn make_multi_line_element(hunk: Vec<&str>) -> Element {
 fn is_scene(line: &str) -> bool {
     let line = line.to_uppercase();
     SCENE_LOCATORS.iter().any(|&s| line.starts_with(s))
+}
+
+fn is_centered(line: &str) -> bool {
+    let trimmed = line.trim();
+    trimmed.starts_with('>') && trimmed.ends_with('<')
 }
 
 fn make_forced(line: &str) -> Option<fn(String, Attributes) -> Element> {
