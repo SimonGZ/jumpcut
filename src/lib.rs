@@ -23,20 +23,33 @@ const SCENE_LOCATORS: [&str; 16] = [
 
 #[derive(Debug, PartialEq)]
 pub enum Element {
-    Action(String),
-    Character(String),
-    SceneHeading(String),
-    Lyric(String),
-    Parenthetical(String),
-    Dialogue(String),
+    Action(String, Attributes),
+    Character(String, Attributes),
+    SceneHeading(String, Attributes),
+    Lyric(String, Attributes),
+    Parenthetical(String, Attributes),
+    Dialogue(String, Attributes),
     DialogueBlock(Box<[Element; 2]>),
     DualDialogueBlock(Box<[Element; 2]>),
-    Transition(String),
-    Section(String),
-    Synopsis(String),
-    ColdOpening(String),
-    NewAct(String),
-    EndOfAct(String),
+    Transition(String, Attributes),
+    Section(String, Attributes),
+    Synopsis(String, Attributes),
+    ColdOpening(String, Attributes),
+    NewAct(String, Attributes),
+    EndOfAct(String, Attributes),
+}
+
+#[derive(Debug, PartialEq)]
+pub struct Attributes {
+    pub centered: bool,
+    pub starts_new_page: bool,
+}
+
+fn blank_attributes() -> Attributes {
+    Attributes {
+        centered: false,
+        starts_new_page: false,
+    }
 }
 
 pub fn parse(text: &str) -> Vec<Element> {
@@ -123,10 +136,10 @@ fn hunk_to_elements<'a>(hunk: Vec<&'a str>) -> Element {
         match make_forced(&line) {
             Some(make_element) => {
                 let stripped = line.trim_start_matches(&['!', '@', '~', '.', '>', '#', '='][..]);
-                make_element(stripped.to_string())
+                make_element(stripped.to_string(), blank_attributes())
             }
-            _ if is_scene(&line) => Element::SceneHeading(line),
-            _ => Element::Action(line),
+            _ if is_scene(&line) => Element::SceneHeading(line, blank_attributes()),
+            _ => Element::Action(line, blank_attributes()),
         }
     } else {
         let top_line: String = hunk[0].to_string();
@@ -135,9 +148,9 @@ fn hunk_to_elements<'a>(hunk: Vec<&'a str>) -> Element {
             Some(make_element) => {
                 let stripped =
                     element_text.trim_start_matches(&['!', '@', '~', '.', '>', '#', '='][..]);
-                make_element(stripped.to_string())
+                make_element(stripped.to_string(), blank_attributes())
             }
-            _ => Element::Action(element_text),
+            _ => Element::Action(element_text, blank_attributes()),
         }
     }
 }
@@ -154,7 +167,7 @@ fn is_forced(line: &str) -> bool {
     }
 }
 
-fn make_forced(line: &str) -> Option<fn(String) -> Element> {
+fn make_forced(line: &str) -> Option<fn(String, Attributes) -> Element> {
     match line.get(..1) {
         Some("!") => Some(Element::Action),
         Some("@") => Some(Element::Character),
