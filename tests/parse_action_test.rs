@@ -47,7 +47,7 @@ fn it_handles_forced_action() {
         Element::Action("No luck. He has no choice to deal the cards.".to_string()),
     ];
 
-    assert_eq!(parse(text), expected, "it should handle Shane Black");
+    assert_eq!(parse(text), expected, "it should handle forced action");
 }
 
 #[test]
@@ -62,7 +62,7 @@ fn it_retains_vertical_space() {
         Element::Action("BANG!".to_string()),
     ];
 
-    assert_eq!(parse(text), expected, "it should handle Shane Black");
+    assert_eq!(parse(text), expected, "it should retain verticle space");
 }
 
 #[test]
@@ -71,5 +71,17 @@ fn it_retains_horizontal_space() {
         "          Jacob Billups\n          Palace Hotel, RM 412\n          1:00 pm tomorrow";
     let expected = vec![Element::Action(text.to_string())];
 
-    assert_eq!(parse(text), expected, "it should handle Shane Black");
+    assert_eq!(parse(text), expected, "it should retain horizontal space");
+}
+
+#[test]
+fn it_retains_horizontal_space_on_single_line() {
+    let text = "          Jacob Billups";
+    let expected = vec![Element::Action(text.to_string())];
+
+    assert_eq!(
+        parse(text),
+        expected,
+        "it should retain horizontal space on a single line"
+    );
 }
