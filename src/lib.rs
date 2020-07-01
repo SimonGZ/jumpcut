@@ -132,26 +132,33 @@ fn hunks_to_elements<'a>(hunks: Vec<Vec<&'a str>>) -> Vec<Element> {
 
 fn hunk_to_elements<'a>(hunk: Vec<&'a str>) -> Element {
     if hunk.len() == 1 {
-        let line: String = hunk[0].to_string();
-        match make_forced(&line) {
-            Some(make_element) => {
-                let stripped = line.trim_start_matches(&['!', '@', '~', '.', '>', '#', '='][..]);
-                make_element(stripped.to_string(), blank_attributes())
-            }
-            _ if is_scene(&line) => Element::SceneHeading(line, blank_attributes()),
-            _ => Element::Action(line, blank_attributes()),
-        }
+        make_single_line_element(hunk[0])
     } else {
-        let top_line: String = hunk[0].to_string();
-        let element_text = hunk.join("\n");
-        match make_forced(&top_line) {
-            Some(make_element) => {
-                let stripped =
-                    element_text.trim_start_matches(&['!', '@', '~', '.', '>', '#', '='][..]);
-                make_element(stripped.to_string(), blank_attributes())
-            }
-            _ => Element::Action(element_text, blank_attributes()),
+        make_multi_line_element(hunk)
+    }
+}
+
+fn make_single_line_element(line: &str) -> Element {
+    match make_forced(&line) {
+        Some(make_element) => {
+            let stripped = line.trim_start_matches(&['!', '@', '~', '.', '>', '#', '='][..]);
+            make_element(stripped.to_string(), blank_attributes())
         }
+        _ if is_scene(&line) => Element::SceneHeading(line.to_string(), blank_attributes()),
+        _ => Element::Action(line.to_string(), blank_attributes()),
+    }
+}
+
+fn make_multi_line_element(hunk: Vec<&str>) -> Element {
+    let top_line: String = hunk[0].to_string();
+    let element_text = hunk.join("\n");
+    match make_forced(&top_line) {
+        Some(make_element) => {
+            let stripped =
+                element_text.trim_start_matches(&['!', '@', '~', '.', '>', '#', '='][..]);
+            make_element(stripped.to_string(), blank_attributes())
+        }
+        _ => Element::Action(element_text, blank_attributes()),
     }
 }
 
