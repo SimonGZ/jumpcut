@@ -180,7 +180,14 @@ fn make_forced(line: &str) -> Option<fn(String, Attributes) -> Element> {
         Some("@") => Some(Element::Character),
         Some("~") => Some(Element::Lyric),
         Some(".") => Some(Element::SceneHeading),
-        Some(">") => Some(Element::Transition),
+        Some(">") => {
+            // check for centered text
+            if line.ends_with('<') {
+                None
+            } else {
+                Some(Element::Transition)
+            }
+        }
         Some("#") => Some(Element::Section),
         Some("=") => Some(Element::Section),
         _ => None,
