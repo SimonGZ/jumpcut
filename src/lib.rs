@@ -45,7 +45,7 @@ pub fn parse(text: &str) -> Vec<Element> {
     let hunks: Vec<Vec<&str>> = lines_to_hunks(lines);
     // println!("{:#?}", hunks);
     let elements: Vec<Element> = hunks_to_elements(hunks);
-    println!("{:#?}", elements);
+    // println!("{:#?}", elements);
     elements
 }
 
@@ -58,12 +58,12 @@ fn prepare_text(text: &str) -> String {
 }
 
 fn lines_to_hunks(lines: Lines) -> Vec<Vec<&str>> {
-    let mut hunks = lines.fold(vec![vec![]], |mut acc, l: &str| match l.trim() {
+    let mut hunks = lines.fold(vec![vec![]], |mut acc, line: &str| match line.trim() {
         // HANDLE BLANK LINES
         "" => {
             // If there are exactly two spaces in the line, it's intentional
-            if l.len() == 2 {
-                acc.last_mut().unwrap().push(l);
+            if line.len() == 2 {
+                acc.last_mut().unwrap().push(line);
             // If the previous element was also blank, create an empty string
             } else if acc.last().unwrap().is_empty() {
                 acc.last_mut().unwrap().push("");
@@ -80,18 +80,18 @@ fn lines_to_hunks(lines: Lines) -> Vec<Vec<&str>> {
         l if l.starts_with('#') => {
             // If the previous hunk was empty, use it.
             if acc.last().unwrap().is_empty() {
-                acc.last_mut().unwrap().push(l);
+                acc.last_mut().unwrap().push(line);
             // If previous hunk wasn't empty, create a new one.
             } else {
-                acc.push(vec![l]);
+                acc.push(vec![line]);
             }
             // Sections are isolated, so start a new empty hunk for next element.
             acc.push(vec![]);
             acc
         }
         // HANDLE NORMAL, NON-EMPTY LINES
-        l => {
-            acc.last_mut().unwrap().push(l);
+        _ => {
+            acc.last_mut().unwrap().push(line);
             acc
         }
     });
