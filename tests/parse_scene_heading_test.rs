@@ -38,3 +38,18 @@ fn it_should_not_convert_other_int_words() {
         "it should not convert words beginning with int into scene headings"
     );
 }
+
+#[test]
+fn it_should_forced_scene_headings() {
+    let text = ".inside the school bus";
+    let expected = vec![Element::SceneHeading(
+        "inside the school bus".to_string(),
+        blank_attributes(),
+    )];
+
+    assert_eq!(
+        parse(text),
+        expected,
+        "it should handle forced scene headings"
+    );
+}
