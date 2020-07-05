@@ -26,3 +26,15 @@ fn it_handles_typical_scene_headings() {
         assert_eq!(parse(text), expecteds[i], "it should handle scene headings");
     }
 }
+
+#[test]
+fn it_should_not_convert_other_int_words() {
+    let text = "INTERCUT HOUSE / BARN";
+    let expected = vec![Element::Action(text.to_string(), blank_attributes())];
+
+    assert_eq!(
+        parse(text),
+        expected,
+        "it should not convert words beginning with int into scene headings"
+    );
+}
