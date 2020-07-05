@@ -58,7 +58,7 @@ pub fn parse(text: &str) -> Vec<Element> {
     let hunks: Vec<Vec<&str>> = lines_to_hunks(lines);
     // println!("{:#?}", hunks);
     let elements: Vec<Element> = hunks_to_elements(hunks);
-    // println!("{:#?}", elements);
+    println!("{:#?}", elements);
     elements
 }
 
@@ -164,6 +164,21 @@ fn make_multi_line_element(hunk: Vec<&str>) -> Element {
             let stripped =
                 element_text.trim_start_matches(&['!', '@', '~', '.', '>', '#', '='][..]);
             make_element(stripped.to_string(), blank_attributes())
+        }
+        // Check if the text is centered
+        _ if hunk.iter().any(|&line| is_centered(line)) => {
+            let cleaned_text = hunk
+                .into_iter()
+                .map(|l| l.trim_matches(&['>', '<'][..]))
+                .collect::<Vec<&str>>()
+                .join("\n");
+            Element::Action(
+                cleaned_text,
+                Attributes {
+                    centered: true,
+                    starts_new_page: false,
+                },
+            )
         }
         _ => Element::Action(element_text, blank_attributes()),
     }

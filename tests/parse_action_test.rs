@@ -149,3 +149,21 @@ fn it_should_handle_centered_text_with_no_spaces() {
         "it should handle centered text with no spaces"
     );
 }
+
+#[test]
+fn it_should_handle_multi_line_centered_text() {
+    let text = ">MISSION CRITICAL<\n>SUMMON JAMES<";
+    let expected = vec![Element::Action(
+        "MISSION CRITICAL\nSUMMON JAMES".to_string(),
+        Attributes {
+            centered: true,
+            starts_new_page: false,
+        },
+    )];
+    // NEED to handle attributes
+    assert_eq!(
+        parse(text),
+        expected,
+        "it should handle multiline centered text"
+    );
+}
