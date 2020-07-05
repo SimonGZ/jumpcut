@@ -158,12 +158,14 @@ fn make_single_line_element(line: &str) -> Element {
 
 fn make_multi_line_element(hunk: Vec<&str>) -> Element {
     let top_line: String = hunk[0].to_string();
-    let element_text = hunk.join("\n");
     match make_forced(&top_line) {
         Some(make_element) => {
-            let stripped =
-                element_text.trim_start_matches(&['!', '@', '~', '.', '>', '#', '='][..]);
-            make_element(stripped.to_string(), blank_attributes())
+            let stripped = hunk
+                .into_iter()
+                .map(|l| l.trim_start_matches(&['!', '@', '~', '.', '>', '#', '='][..]))
+                .collect::<Vec<&str>>()
+                .join("\n");
+            make_element(stripped, blank_attributes())
         }
         // Check if the text is centered
         _ if hunk.iter().any(|&line| is_centered(line)) => {
@@ -180,7 +182,7 @@ fn make_multi_line_element(hunk: Vec<&str>) -> Element {
                 },
             )
         }
-        _ => Element::Action(element_text, blank_attributes()),
+        _ => Element::Action(hunk.join("\n"), blank_attributes()),
     }
 }
 
