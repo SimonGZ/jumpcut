@@ -4,8 +4,7 @@ use pretty_assertions::assert_eq;
 
 fn blank_attributes() -> Attributes {
     Attributes {
-        centered: false,
-        starts_new_page: false,
+        ..Attributes::default()
     }
 }
 
@@ -125,7 +124,7 @@ fn it_should_handle_centered_text() {
         text.to_string(),
         Attributes {
             centered: true,
-            starts_new_page: false,
+            ..Attributes::default()
         },
     )];
     // NEED to handle attributes
@@ -139,7 +138,7 @@ fn it_should_handle_centered_text_with_no_spaces() {
         text.to_string(),
         Attributes {
             centered: true,
-            starts_new_page: false,
+            ..Attributes::default()
         },
     )];
     // NEED to handle attributes
@@ -157,7 +156,7 @@ fn it_should_handle_multi_line_centered_text() {
         "MISSION CRITICAL\nSUMMON JAMES".to_string(),
         Attributes {
             centered: true,
-            starts_new_page: false,
+            ..Attributes::default()
         },
     )];
     // NEED to handle attributes

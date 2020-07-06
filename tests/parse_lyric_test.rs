@@ -4,8 +4,7 @@ use pretty_assertions::assert_eq;
 
 fn blank_attributes() -> Attributes {
     Attributes {
-        centered: false,
-        starts_new_page: false,
+        ..Attributes::default()
     }
 }
 

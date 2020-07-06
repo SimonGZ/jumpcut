@@ -1,5 +1,6 @@
 use lazy_static::lazy_static;
 use regex::Regex;
+use std::default::Default;
 use std::str::Lines;
 
 const SCENE_LOCATORS: [&str; 16] = [
@@ -43,12 +44,22 @@ pub enum Element {
 pub struct Attributes {
     pub centered: bool,
     pub starts_new_page: bool,
+    pub scene_number: Option<String>,
+}
+
+impl Default for Attributes {
+    fn default() -> Self {
+        Attributes {
+            centered: false,
+            starts_new_page: false,
+            scene_number: None,
+        }
+    }
 }
 
 fn blank_attributes() -> Attributes {
     Attributes {
-        centered: false,
-        starts_new_page: false,
+        ..Attributes::default()
     }
 }
 
@@ -149,7 +160,7 @@ fn make_single_line_element(line: &str) -> Element {
             line.to_string(),
             Attributes {
                 centered: true,
-                starts_new_page: false,
+                ..Attributes::default()
             },
         ),
         _ => Element::Action(line.to_string(), blank_attributes()),
@@ -178,7 +189,7 @@ fn make_multi_line_element(hunk: Vec<&str>) -> Element {
                 cleaned_text,
                 Attributes {
                     centered: true,
-                    starts_new_page: false,
+                    ..Attributes::default()
                 },
             )
         }
