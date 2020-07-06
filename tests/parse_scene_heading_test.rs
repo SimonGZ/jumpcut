@@ -64,3 +64,82 @@ fn it_should_not_turn_leading_ellipses_into_scene_headings() {
         "it should not turn leading ellipses into scene headings"
     );
 }
+
+#[test]
+fn it_handles_scene_headings_with_scene_numbers() {
+    let headings: [&str; 8] = [
+        "INT. HOUSE - DAY #1#",
+        "INT. HOUSE - DAY #1A#",
+        "INT. HOUSE - DAY #1a#",
+        "INT. HOUSE - DAY #A1#",
+        "INT. HOUSE - DAY #I-1-A#",
+        "INT. HOUSE - DAY #1.#",
+        "INT. HOUSE - DAY - FLASHBACK (1944) #110A#",
+        ".INSIDE THE BUS #12#",
+    ];
+    let expecteds: Vec<Vec<Element>> = vec![
+        vec![Element::SceneHeading(
+            "INT. HOUSE - DAY".to_string(),
+            Attributes {
+                scene_number: Some("1".to_string()),
+                ..Attributes::default()
+            },
+        )],
+        vec![Element::SceneHeading(
+            "INT. HOUSE - DAY".to_string(),
+            Attributes {
+                scene_number: Some("1A".to_string()),
+                ..Attributes::default()
+            },
+        )],
+        vec![Element::SceneHeading(
+            "INT. HOUSE - DAY".to_string(),
+            Attributes {
+                scene_number: Some("1a".to_string()),
+                ..Attributes::default()
+            },
+        )],
+        vec![Element::SceneHeading(
+            "INT. HOUSE - DAY".to_string(),
+            Attributes {
+                scene_number: Some("A1".to_string()),
+                ..Attributes::default()
+            },
+        )],
+        vec![Element::SceneHeading(
+            "INT. HOUSE - DAY".to_string(),
+            Attributes {
+                scene_number: Some("I-1-A".to_string()),
+                ..Attributes::default()
+            },
+        )],
+        vec![Element::SceneHeading(
+            "INT. HOUSE - DAY".to_string(),
+            Attributes {
+                scene_number: Some("1.".to_string()),
+                ..Attributes::default()
+            },
+        )],
+        vec![Element::SceneHeading(
+            "INT. HOUSE - DAY - FLASHBACK (1944)".to_string(),
+            Attributes {
+                scene_number: Some("110A".to_string()),
+                ..Attributes::default()
+            },
+        )],
+        vec![Element::SceneHeading(
+            "INSIDE THE BUS".to_string(),
+            Attributes {
+                scene_number: Some("12".to_string()),
+                ..Attributes::default()
+            },
+        )],
+    ];
+    for (i, text) in headings.iter().enumerate() {
+        assert_eq!(
+            parse(text),
+            expecteds[i],
+            "it should handle scene headings with scene numbers"
+        );
+    }
+}

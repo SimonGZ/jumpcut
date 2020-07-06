@@ -150,12 +150,60 @@ fn hunk_to_elements<'a>(hunk: Vec<&'a str>) -> Element {
 }
 
 fn make_single_line_element(line: &str) -> Element {
+    lazy_static! {
+        static ref SCENE_NUMBER_REGEX: Regex = Regex::new(r"\s+#(.*)#").unwrap();
+    }
     match make_forced(&line) {
         Some(make_element) => {
-            let stripped = line.trim_start_matches(&['!', '@', '~', '.', '>', '#', '='][..]);
-            make_element(stripped.to_string(), blank_attributes())
+            let stripped: &str = line.trim_start_matches(&['!', '@', '~', '.', '>', '#', '='][..]);
+            if make_element == Element::SceneHeading && SCENE_NUMBER_REGEX.is_match(stripped) {
+                // Handle special case of scene numbers on scene headings
+                match SCENE_NUMBER_REGEX.find(stripped) {
+                    None => make_element(stripped.to_string(), blank_attributes()),
+                    Some(mat) => {
+                        let attributes = Attributes {
+                            scene_number: Some(
+                                stripped
+                                    .get(mat.start()..mat.end())
+                                    .unwrap()
+                                    .trim_matches(&[' ', '#'][..])
+                                    .to_string(),
+                            ),
+                            ..Attributes::default()
+                        };
+                        let text_without_scene_number =
+                            SCENE_NUMBER_REGEX.replace(stripped, "").into_owned();
+                        make_element(text_without_scene_number, attributes)
+                    }
+                }
+            } else {
+                make_element(stripped.to_string(), blank_attributes())
+            }
         }
-        _ if is_scene(&line) => Element::SceneHeading(line.to_string(), blank_attributes()),
+        _ if is_scene(&line) => {
+            // Handle special case of scene numbers on scene headings
+            if SCENE_NUMBER_REGEX.is_match(line) {
+                match SCENE_NUMBER_REGEX.find(line) {
+                    None => Element::SceneHeading(line.to_string(), blank_attributes()),
+                    Some(mat) => {
+                        let attributes = Attributes {
+                            scene_number: Some(
+                                line.get(mat.start()..mat.end())
+                                    .unwrap()
+                                    .trim_matches(&[' ', '#'][..])
+                                    .to_string(),
+                            ),
+                            ..Attributes::default()
+                        };
+                        let text_without_scene_number =
+                            SCENE_NUMBER_REGEX.replace(line, "").into_owned();
+                        Element::SceneHeading(text_without_scene_number, attributes)
+                    }
+                }
+            } else {
+                Element::SceneHeading(line.to_string(), blank_attributes())
+            }
+        }
         _ if is_centered(&line) => Element::Action(
             line.to_string(),
             Attributes {
