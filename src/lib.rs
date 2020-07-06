@@ -88,7 +88,10 @@ fn lines_to_hunks(lines: Lines) -> Vec<Vec<&str>> {
             // If there are exactly two spaces in the line, it's intentional
             if line.len() == 2 {
                 acc.last_mut().unwrap().push(line);
-            // If the previous element was also blank, create an empty string
+            // If the previous element was blank but it was the first element, do nothing
+            } else if acc.last().unwrap().is_empty() && acc.len() == 1 {
+                () // do nothing
+                   // If the previous element was also blank, create an empty string
             } else if acc.last().unwrap().is_empty() {
                 acc.last_mut().unwrap().push("");
             // Otherwise, start a new element by pushing a new empty vec
@@ -115,6 +118,9 @@ fn lines_to_hunks(lines: Lines) -> Vec<Vec<&str>> {
         }
         // HANDLE NORMAL, NON-EMPTY LINES
         _ => {
+            // If previous part of hunk was blank, just replace it.
+            // This usually only occurs if blank lines are placed at the start
+            // of the document.
             acc.last_mut().unwrap().push(line);
             acc
         }

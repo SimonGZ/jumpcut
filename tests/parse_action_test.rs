@@ -34,7 +34,7 @@ fn it_handles_basic_action() {
 #[test]
 fn it_handles_multiline_action() {
     let text = "\nDavid looks around the room cautiously.\nShe's gone. He heads for the drawer, tip-toeing.\nThis is it. The moment he's been waiting for.";
-    let expected = vec![Element::Action("\nDavid looks around the room cautiously.\nShe's gone. He heads for the drawer, tip-toeing.\nThis is it. The moment he's been waiting for.".to_string(), blank_attributes())];
+    let expected = vec![Element::Action("David looks around the room cautiously.\nShe's gone. He heads for the drawer, tip-toeing.\nThis is it. The moment he's been waiting for.".to_string(), blank_attributes())];
 
     assert_eq!(parse(text), expected, "it should handle multi-line action");
 }

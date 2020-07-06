@@ -12,14 +12,19 @@ fn blank_attributes() -> Attributes {
 fn it_handles_typical_scene_headings() {
     let headings: [&str; 5] = [
         "INT. OBSERVATORY - NIGHT",
-        "ext. observatory - day",
+        "\next. observatory - day",
         "int/ext car - morning",
         "i/e carmel - dusk",
         "EXT/INT.  SWAMP SHACK - DAY",
     ];
     let expecteds: Vec<Vec<Element>> = headings
         .iter()
-        .map(|text| vec![Element::SceneHeading(text.to_string(), blank_attributes())])
+        .map(|text| {
+            vec![Element::SceneHeading(
+                text.trim().to_string(),
+                blank_attributes(),
+            )]
+        })
         .collect();
     for (i, text) in headings.iter().enumerate() {
         assert_eq!(parse(text), expecteds[i], "it should handle scene headings");
