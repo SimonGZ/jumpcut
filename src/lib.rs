@@ -161,7 +161,9 @@ fn make_single_line_element(line: &str) -> Element {
     }
     match make_forced(&line) {
         Some(make_element) => {
-            let stripped: &str = line.trim_start_matches(&['!', '@', '~', '.', '>', '#', '='][..]);
+            let stripped: &str = line
+                .trim_start_matches(&['!', '@', '~', '.', '>', '#', '='][..])
+                .trim_start();
             if make_element == Element::SceneHeading && SCENE_NUMBER_REGEX.is_match(stripped) {
                 // Handle special case of scene numbers on scene headings
                 match SCENE_NUMBER_REGEX.find(stripped) {
@@ -210,6 +212,7 @@ fn make_single_line_element(line: &str) -> Element {
                 Element::SceneHeading(line.to_string(), blank_attributes())
             }
         }
+        _ if is_transition(&line) => Element::Transition(line.to_string(), blank_attributes()),
         _ if is_centered(&line) => Element::Action(
             line.to_string(),
             Attributes {
@@ -254,6 +257,11 @@ fn make_multi_line_element(hunk: Vec<&str>) -> Element {
 fn is_scene(line: &str) -> bool {
     let line = line.to_uppercase();
     SCENE_LOCATORS.iter().any(|&s| line.starts_with(s))
+}
+
+fn is_transition(line: &str) -> bool {
+    let line = line.trim().to_uppercase();
+    line.ends_with("TO:")
 }
 
 fn is_centered(line: &str) -> bool {
