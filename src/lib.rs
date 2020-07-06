@@ -201,7 +201,14 @@ fn make_forced(line: &str) -> Option<fn(String, Attributes) -> Element> {
         Some("!") => Some(Element::Action),
         Some("@") => Some(Element::Character),
         Some("~") => Some(Element::Lyric),
-        Some(".") => Some(Element::SceneHeading),
+        Some(".") => {
+            // check for starting ellipsis
+            if line.starts_with("..") {
+                None
+            } else {
+                Some(Element::SceneHeading)
+            }
+        }
         Some(">") => {
             // check for centered text
             if line.ends_with('<') {

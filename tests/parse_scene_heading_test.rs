@@ -40,7 +40,7 @@ fn it_should_not_convert_other_int_words() {
 }
 
 #[test]
-fn it_should_forced_scene_headings() {
+fn it_handles_forced_scene_headings() {
     let text = ".inside the school bus";
     let expected = vec![Element::SceneHeading(
         "inside the school bus".to_string(),
@@ -51,5 +51,17 @@ fn it_should_forced_scene_headings() {
         parse(text),
         expected,
         "it should handle forced scene headings"
+    );
+}
+
+#[test]
+fn it_should_not_turn_leading_ellipses_into_scene_headings() {
+    let text = "...and lowers his guns.";
+    let expected = vec![Element::Action(text.to_string(), blank_attributes())];
+
+    assert_eq!(
+        parse(text),
+        expected,
+        "it should not turn leading ellipses into scene headings"
     );
 }
