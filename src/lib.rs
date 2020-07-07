@@ -30,8 +30,8 @@ pub enum Element {
     Lyric(String, Attributes),
     Parenthetical(String, Attributes),
     Dialogue(String, Attributes),
-    DialogueBlock(Box<[Element; 2]>),
-    DualDialogueBlock(Box<[Element; 2]>),
+    DialogueBlock(Box<Vec<Element>>),
+    DualDialogueBlock(Box<Vec<Element>>),
     Transition(String, Attributes),
     Section(String, Attributes),
     Synopsis(String, Attributes),
@@ -250,6 +250,7 @@ fn make_multi_line_element(hunk: Vec<&str>) -> Element {
                 },
             )
         }
+        _ if is_character(hunk[0]) => make_dialogue_block(hunk),
         _ => Element::Action(hunk.join("\n"), blank_attributes()),
     }
 }
@@ -267,6 +268,14 @@ fn is_transition(line: &str) -> bool {
 fn is_centered(line: &str) -> bool {
     let trimmed = line.trim();
     trimmed.starts_with('>') && trimmed.ends_with('<')
+}
+
+fn is_character(line: &str) -> bool {
+    line == line.to_uppercase()
+}
+
+fn is_parenthetical(line: &str) -> bool {
+    line.trim().starts_with('(') && line.trim().ends_with(')')
 }
 
 fn make_forced(line: &str) -> Option<fn(String, Attributes) -> Element> {
@@ -295,6 +304,21 @@ fn make_forced(line: &str) -> Option<fn(String, Attributes) -> Element> {
         _ => None,
     }
 }
+
+fn make_dialogue_block(hunk: Vec<&str>) -> Element {
+    let mut elements = Vec::with_capacity(hunk.len());
+    let character: Element = Element::Character(hunk[0].trim().to_string(), blank_attributes());
+    elements.push(character);
+    for line in hunk[1..].iter() {
+        if is_parenthetical(line) {
+            elements.push(Element::Parenthetical(line.to_string(), blank_attributes()));
+        } else {
+            elements.push(Element::Dialogue(line.to_string(), blank_attributes()));
+        }
+    }
+    Element::DialogueBlock(Box::new(elements))
+}
+
 // * Tests
 #[cfg(test)]
 mod tests {
