@@ -19,9 +19,26 @@ fn it_handles_basic_dialogue() {
         ),
     ]))];
 
+    assert_eq!(parse(text), expected, "it should handle basic dialogue");
+}
+
+#[test]
+fn it_handles_multiple_parentheticals() {
+    let text = "\nDAVID\n(prissy)\nAnd just what does that mean?\n(sniffing)\nUgh. Pooh!";
+    let expected = vec![Element::DialogueBlock(Box::new(vec![
+        Element::Character("DAVID".to_string(), blank_attributes()),
+        Element::Parenthetical("(prissy)".to_string(), blank_attributes()),
+        Element::Dialogue(
+            "And just what does that mean?".to_string(),
+            blank_attributes(),
+        ),
+        Element::Parenthetical("(sniffing)".to_string(), blank_attributes()),
+        Element::Dialogue("Ugh. Pooh!".to_string(), blank_attributes()),
+    ]))];
+
     assert_eq!(
         parse(text),
         expected,
-        "it should not convert words beginning with int into scene headings"
+        "it should handle dialogue with multiple parentheticals"
     );
 }
