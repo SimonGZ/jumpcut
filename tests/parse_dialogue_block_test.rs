@@ -60,3 +60,18 @@ fn it_handles_dialogue_with_line_breaks() {
         "it should handle dialogue with line breaks"
     );
 }
+
+#[test]
+fn it_handles_forced_character_names() {
+    let text = "\n@McGregor\nWhat the fuck!?";
+    let expected = vec![Element::DialogueBlock(vec![
+        Element::Character("McGregor".to_string(), blank_attributes()),
+        Element::Dialogue("What the fuck!?".to_string(), blank_attributes()),
+    ])];
+
+    assert_eq!(
+        parse(text),
+        expected,
+        "it should handle forced character names"
+    );
+}

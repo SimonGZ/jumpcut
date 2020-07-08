@@ -222,12 +222,22 @@ fn make_multi_line_element(hunk: Vec<&str>) -> Element {
     let top_line: String = hunk[0].to_string();
     match make_forced(&top_line) {
         Some(make_element) => {
-            let stripped = hunk
-                .into_iter()
-                .map(|l| l.trim_start_matches(&['!', '@', '~', '.', '>', '#', '='][..]))
-                .collect::<Vec<&str>>()
-                .join("\n");
-            make_element(stripped, blank_attributes())
+            // Check if it's a forced character because that means dialogueblock
+            if top_line.trim().get(..1) == Some("@") {
+                let stripped_hunk = hunk
+                    .into_iter()
+                    .map(|l| l.trim_start_matches('@'))
+                    .collect::<Vec<&str>>();
+                make_dialogue_block(stripped_hunk)
+            } else {
+                // It's not forced character, so we can create a string with newlines
+                let stripped_string = hunk
+                    .into_iter()
+                    .map(|l| l.trim_start_matches(&['!', '@', '~', '.', '>', '#', '='][..]))
+                    .collect::<Vec<&str>>()
+                    .join("\n");
+                make_element(stripped_string, blank_attributes())
+            }
         }
         // Check if the text is centered
         _ if hunk.iter().any(|&line| is_centered(line)) => {
