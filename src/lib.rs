@@ -30,8 +30,8 @@ pub enum Element {
     Lyric(String, Attributes),
     Parenthetical(String, Attributes),
     Dialogue(String, Attributes),
-    DialogueBlock(Box<Vec<Element>>),
-    DualDialogueBlock(Box<Vec<Element>>),
+    DialogueBlock(Vec<Element>),
+    DualDialogueBlock(Vec<Element>),
     Transition(String, Attributes),
     Section(String, Attributes),
     Synopsis(String, Attributes),
@@ -321,7 +321,7 @@ fn make_dialogue_block(hunk: Vec<&str>) -> Element {
             elements.push(Element::Dialogue(line.to_string(), blank_attributes()));
         }
     }
-    Element::DialogueBlock(Box::new(elements))
+    Element::DialogueBlock(elements)
 }
 
 // * Tests
