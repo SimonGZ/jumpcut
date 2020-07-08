@@ -90,8 +90,8 @@ fn lines_to_hunks(lines: Lines) -> Vec<Vec<&str>> {
                 acc.last_mut().unwrap().push(line);
             // If the previous element was blank but it was the first element, do nothing
             } else if acc.last().unwrap().is_empty() && acc.len() == 1 {
-                () // do nothing
-                   // If the previous element was also blank, create an empty string
+                // do nothing
+                // If the previous element was also blank, create an empty string
             } else if acc.last().unwrap().is_empty() {
                 acc.last_mut().unwrap().push("");
             // Otherwise, start a new element by pushing a new empty vec
@@ -137,17 +137,11 @@ fn lines_to_hunks(lines: Lines) -> Vec<Vec<&str>> {
     hunks
 }
 
-fn hunks_to_elements<'a>(hunks: Vec<Vec<&'a str>>) -> Vec<Element> {
-    hunks
-        .into_iter()
-        .map(|h| {
-            let element = hunk_to_elements(h);
-            element
-        })
-        .collect()
+fn hunks_to_elements(hunks: Vec<Vec<&str>>) -> Vec<Element> {
+    hunks.into_iter().map(hunk_to_elements).collect()
 }
 
-fn hunk_to_elements<'a>(hunk: Vec<&'a str>) -> Element {
+fn hunk_to_elements(hunk: Vec<&str>) -> Element {
     if hunk.len() == 1 {
         make_single_line_element(hunk[0])
     } else {
