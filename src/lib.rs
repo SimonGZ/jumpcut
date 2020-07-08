@@ -164,7 +164,7 @@ fn make_single_line_element(line: &str) -> Element {
             let stripped: &str = line
                 .trim_start_matches(&['!', '@', '~', '.', '>', '#', '='][..])
                 .trim_start();
-            if make_element == Element::SceneHeading && SCENE_NUMBER_REGEX.is_match(stripped) {
+            if line.get(..1) == Some(".") && SCENE_NUMBER_REGEX.is_match(stripped) {
                 // Handle special case of scene numbers on scene headings
                 match SCENE_NUMBER_REGEX.find(stripped) {
                     None => make_element(stripped.to_string(), blank_attributes()),
