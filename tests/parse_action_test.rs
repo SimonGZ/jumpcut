@@ -121,7 +121,7 @@ fn it_retains_horizontal_space_on_single_line() {
 fn it_should_handle_centered_text() {
     let text = "> DUMBO <";
     let expected = vec![Element::Action(
-        text.to_string(),
+        "DUMBO".to_string(),
         Attributes {
             centered: true,
             ..Attributes::default()
@@ -135,7 +135,7 @@ fn it_should_handle_centered_text() {
 fn it_should_handle_centered_text_with_no_spaces() {
     let text = ">THE END<";
     let expected = vec![Element::Action(
-        text.to_string(),
+        "THE END".to_string(),
         Attributes {
             centered: true,
             ..Attributes::default()
@@ -151,7 +151,7 @@ fn it_should_handle_centered_text_with_no_spaces() {
 
 #[test]
 fn it_should_handle_multi_line_centered_text() {
-    let text = ">MISSION CRITICAL<\n>SUMMON JAMES<";
+    let text = "> MISSION CRITICAL <\n>SUMMON JAMES<";
     let expected = vec![Element::Action(
         "MISSION CRITICAL\nSUMMON JAMES".to_string(),
         Attributes {

@@ -208,7 +208,7 @@ fn make_single_line_element(line: &str) -> Element {
         }
         _ if is_transition(&line) => Element::Transition(line.to_string(), blank_attributes()),
         _ if is_centered(&line) => Element::Action(
-            line.to_string(),
+            trim_centered_marks(line).to_string(),
             Attributes {
                 centered: true,
                 ..Attributes::default()
@@ -243,7 +243,7 @@ fn make_multi_line_element(hunk: Vec<&str>) -> Element {
         _ if hunk.iter().any(|&line| is_centered(line)) => {
             let cleaned_text = hunk
                 .into_iter()
-                .map(|l| l.trim_matches(&['>', '<'][..]))
+                .map(trim_centered_marks)
                 .collect::<Vec<&str>>()
                 .join("\n");
             Element::Action(
@@ -272,6 +272,10 @@ fn is_transition(line: &str) -> bool {
 fn is_centered(line: &str) -> bool {
     let trimmed = line.trim();
     trimmed.starts_with('>') && trimmed.ends_with('<')
+}
+
+fn trim_centered_marks(line: &str) -> &str {
+    line.trim_matches(&['>', '<'][..]).trim()
 }
 
 fn is_character(line: &str) -> bool {

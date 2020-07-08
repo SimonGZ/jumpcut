@@ -86,6 +86,24 @@ fn it_handles_dialogue_with_multiple_line_breaks() {
 }
 
 #[test]
+fn it_handles_dialogue_with_forced_blank_lines() {
+    let text = "DEALER\nTen.\nFour.\nDealer gets a seven.\n  \nHit or stand sir?";
+    let expected = vec![Element::DialogueBlock(vec![
+        Element::Character("DEALER".to_string(), blank_attributes()),
+        Element::Dialogue(
+            "Ten.\nFour.\nDealer gets a seven.\n  \nHit or stand sir?".to_string(),
+            blank_attributes(),
+        ),
+    ])];
+
+    assert_eq!(
+        parse(text),
+        expected,
+        "it should handle forced character names"
+    );
+}
+#[test]
+
 fn it_handles_forced_character_names() {
     let text = "\n@McGregor\nWhat the fuck!?";
     let expected = vec![Element::DialogueBlock(vec![
