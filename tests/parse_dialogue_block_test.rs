@@ -42,3 +42,21 @@ fn it_handles_multiple_parentheticals() {
         "it should handle dialogue with multiple parentheticals"
     );
 }
+
+#[test]
+fn it_handles_dialogue_with_line_breaks() {
+    let text = "DAN\nThen let's retire them.\n_Permanently_.";
+    let expected = vec![Element::DialogueBlock(Box::new(vec![
+        Element::Character("DAN".to_string(), blank_attributes()),
+        Element::Dialogue(
+            "Then let's retire them.\n_Permanently_.".to_string(),
+            blank_attributes(),
+        ),
+    ]))];
+
+    assert_eq!(
+        parse(text),
+        expected,
+        "it should handle dialogue with line breaks"
+    );
+}

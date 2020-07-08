@@ -312,7 +312,12 @@ fn make_dialogue_block(hunk: Vec<&str>) -> Element {
     for line in hunk[1..].iter() {
         if is_parenthetical(line) {
             elements.push(Element::Parenthetical(line.to_string(), blank_attributes()));
+        } else if let Element::Dialogue(s, _) = elements.last_mut().unwrap() {
+            // if previous element was dialogue, add this line to that dialogue
+            s.push_str("\n");
+            s.push_str(line);
         } else {
+            // otherwise this is a new dialogue
             elements.push(Element::Dialogue(line.to_string(), blank_attributes()));
         }
     }
