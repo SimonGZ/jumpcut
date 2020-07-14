@@ -69,7 +69,7 @@ pub fn parse(text: &str) -> Vec<Element> {
     let hunks: Vec<Vec<&str>> = lines_to_hunks(lines);
     // println!("{:#?}", hunks);
     let elements: Vec<Element> = hunks_to_elements(hunks);
-    println!("{:#?}", elements);
+    // println!("{:#?}", elements);
     elements
 }
 
@@ -138,10 +138,11 @@ fn lines_to_hunks(lines: Lines) -> Vec<Vec<&str>> {
 }
 
 fn hunks_to_elements(hunks: Vec<Vec<&str>>) -> Vec<Element> {
+    let initial: Vec<Element> = Vec::with_capacity(hunks.len());
     let mut elements = hunks
         .into_iter()
         .rev()
-        .fold(vec![], |mut acc, hunk: Vec<&str>| {
+        .fold(initial, |mut acc, hunk: Vec<&str>| {
             if hunk.len() == 1 {
                 let element = make_single_line_element(hunk[0]);
                 acc.push(element);
