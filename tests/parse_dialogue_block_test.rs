@@ -102,8 +102,8 @@ fn it_handles_dialogue_with_forced_blank_lines() {
         "it should handle forced character names"
     );
 }
-#[test]
 
+#[test]
 fn it_handles_forced_character_names() {
     let text = "\n@McGregor\nWhat the fuck!?";
     let expected = vec![Element::DialogueBlock(vec![
