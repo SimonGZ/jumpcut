@@ -138,15 +138,30 @@ fn lines_to_hunks(lines: Lines) -> Vec<Vec<&str>> {
 }
 
 fn hunks_to_elements(hunks: Vec<Vec<&str>>) -> Vec<Element> {
-    hunks.into_iter().map(hunk_to_elements).collect()
-}
-
-fn hunk_to_elements(hunk: Vec<&str>) -> Element {
-    if hunk.len() == 1 {
-        make_single_line_element(hunk[0])
-    } else {
-        make_multi_line_element(hunk)
-    }
+    let mut elements = hunks
+        .into_iter()
+        .rev()
+        .fold(vec![], |mut acc, hunk: Vec<&str>| {
+            if hunk.len() == 1 {
+                let element = make_single_line_element(hunk[0]);
+                acc.push(element);
+            } else {
+                let element = make_multi_line_element(hunk);
+                match (acc.last_mut(), &element) {
+                    // If the previous element was a dual dialogue block and it only contains one block
+                    // then put this element into that block so long as it's a dialogue element
+                    (Some(Element::DualDialogueBlock(dialogues)), Element::DialogueBlock(_))
+                        if dialogues.len() == 1 =>
+                    {
+                        dialogues.insert(0, element);
+                    }
+                    _ => acc.push(element),
+                }
+            }
+            acc
+        });
+    elements.reverse();
+    elements
 }
 
 fn make_single_line_element(line: &str) -> Element {
@@ -286,6 +301,10 @@ fn is_parenthetical(line: &str) -> bool {
     line.trim().starts_with('(') && line.trim().ends_with(')')
 }
 
+fn is_dual_dialogue(line: &str) -> bool {
+    line.trim().ends_with('^')
+}
+
 fn make_forced(line: &str) -> Option<fn(String, Attributes) -> Element> {
     match line.get(..1) {
         Some("!") => Some(Element::Action),
@@ -315,7 +334,9 @@ fn make_forced(line: &str) -> Option<fn(String, Attributes) -> Element> {
 
 fn make_dialogue_block(hunk: Vec<&str>) -> Element {
     let mut elements = Vec::with_capacity(hunk.len());
-    let character: Element = Element::Character(hunk[0].trim().to_string(), blank_attributes());
+    let raw_name: &str = hunk[0];
+    let clean_name: &str = raw_name.trim().trim_end_matches('^').trim();
+    let character: Element = Element::Character(clean_name.to_string(), blank_attributes());
     elements.push(character);
     for line in hunk[1..].iter() {
         if is_parenthetical(line) {
@@ -329,7 +350,13 @@ fn make_dialogue_block(hunk: Vec<&str>) -> Element {
             elements.push(Element::Dialogue(line.to_string(), blank_attributes()));
         }
     }
-    Element::DialogueBlock(elements)
+    if is_dual_dialogue(raw_name) {
+        let mut blocks = Vec::with_capacity(2);
+        blocks.push(Element::DialogueBlock(elements));
+        Element::DualDialogueBlock(blocks)
+    } else {
+        Element::DialogueBlock(elements)
+    }
 }
 
 // * Tests
