@@ -1,5 +1,6 @@
 use lazy_static::lazy_static;
 use regex::Regex;
+use std::convert::TryInto;
 use std::default::Default;
 use std::str::Lines;
 
@@ -33,7 +34,7 @@ pub enum Element {
     DialogueBlock(Vec<Element>),
     DualDialogueBlock(Vec<Element>),
     Transition(String, Attributes),
-    Section(String, Attributes),
+    Section(String, Attributes, u8),
     Synopsis(String, Attributes),
     ColdOpening(String, Attributes),
     NewAct(String, Attributes),
@@ -173,7 +174,7 @@ fn make_single_line_element(line: &str) -> Element {
     match make_forced(&line) {
         Some(make_element) => {
             let stripped: &str = line
-                .trim_start_matches(&['!', '@', '~', '.', '>', '#', '='][..])
+                .trim_start_matches(&['!', '@', '~', '.', '>', '='][..])
                 .trim_start();
             if line.get(..1) == Some(".") && SCENE_NUMBER_REGEX.is_match(stripped) {
                 // Handle special case of scene numbers on scene headings
@@ -250,7 +251,7 @@ fn make_multi_line_element(hunk: Vec<&str>) -> Element {
                 // It's not forced character, so we can create a string with newlines
                 let stripped_string = hunk
                     .into_iter()
-                    .map(|l| l.trim_start_matches(&['!', '@', '~', '.', '>', '#', '='][..]))
+                    .map(|l| l.trim_start_matches(&['!', '@', '~', '.', '>', '='][..]))
                     .collect::<Vec<&str>>()
                     .join("\n");
                 make_element(stripped_string, blank_attributes())
@@ -328,10 +329,16 @@ fn make_forced(line: &str) -> Option<fn(String, Attributes) -> Element> {
                 Some(Element::Transition)
             }
         }
-        Some("#") => Some(Element::Section),
-        Some("=") => Some(Element::Section),
+        Some("#") => Some(make_section),
+        Some("=") => Some(Element::Synopsis),
         _ => None,
     }
+}
+
+fn make_section(line: String, _: Attributes) -> Element {
+    let trimmed = line.trim().trim_start_matches('#');
+    let level: u8 = (line.len() - trimmed.len()).try_into().unwrap();
+    Element::Section(trimmed.trim().to_string(), blank_attributes(), level)
 }
 
 fn make_dialogue_block(hunk: Vec<&str>) -> Element {
