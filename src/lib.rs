@@ -46,6 +46,7 @@ pub struct Attributes {
     pub centered: bool,
     pub starts_new_page: bool,
     pub scene_number: Option<String>,
+    pub notes: Option<Vec<String>>,
 }
 
 impl Default for Attributes {
@@ -54,11 +55,12 @@ impl Default for Attributes {
             centered: false,
             starts_new_page: false,
             scene_number: None,
+            notes: None,
         }
     }
 }
 
-fn blank_attributes() -> Attributes {
+pub fn blank_attributes() -> Attributes {
     Attributes {
         ..Attributes::default()
     }

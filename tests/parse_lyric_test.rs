@@ -1,12 +1,6 @@
-use fountain_converter::{parse, Attributes, Element};
+use fountain_converter::{blank_attributes, parse, Element};
 #[cfg(test)]
 use pretty_assertions::assert_eq;
-
-fn blank_attributes() -> Attributes {
-    Attributes {
-        ..Attributes::default()
-    }
-}
 
 #[test]
 fn it_handles_single_line_lyric() {

@@ -1,12 +1,6 @@
-use fountain_converter::{parse, Attributes, Element};
+use fountain_converter::{blank_attributes, parse, Attributes, Element};
 #[cfg(test)]
 use pretty_assertions::assert_eq;
-
-fn blank_attributes() -> Attributes {
-    Attributes {
-        ..Attributes::default()
-    }
-}
 
 #[test]
 fn it_handles_empty_action() {
