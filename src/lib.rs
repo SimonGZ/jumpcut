@@ -112,15 +112,16 @@ fn lines_to_hunks(lines: Lines) -> Vec<Vec<&str>> {
             } else {
                 acc.push(vec![line]);
             }
-            // Sections are isolated, so start a new empty hunk for next element.
-            acc.push(vec![]);
             acc
         }
         // HANDLE NORMAL, NON-EMPTY LINES
         _ => {
-            // If previous part of hunk was blank, just replace it.
-            // This usually only occurs if blank lines are placed at the start
-            // of the document.
+            let last_line = acc.last().unwrap().first();
+            // If previous hunk was a section, create a new hunk
+            match last_line {
+                Some(l) if l.starts_with('#') => acc.push(vec![]),
+                _ => (),
+            }
             acc.last_mut().unwrap().push(line);
             acc
         }
@@ -406,6 +407,19 @@ mod tests {
             lines_to_hunks(lines),
             expected,
             "it should handle sections in middle of content"
+        );
+
+        lines = "# Act 1\n## John finds the horse\n\nJOHN\nWhoa!".lines();
+        expected = vec![
+            vec!["# Act 1"],
+            vec!["## John finds the horse"],
+            vec!["JOHN", "Whoa!"],
+        ];
+
+        assert_eq!(
+            lines_to_hunks(lines),
+            expected,
+            "it should handle two newlines after a section"
         );
 
         lines = "John examines the gun.\n\n\n\n\n\n\n\n\n\nBANG!".lines();
