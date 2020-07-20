@@ -1,4 +1,4 @@
-use fountain_converter::{blank_attributes, parse, Attributes, Element};
+use fountain_converter::{blank_attributes, parse, Element};
 
 #[cfg(test)]
 use pretty_assertions::assert_eq;
@@ -21,12 +21,8 @@ fn it_creates_sections() {
 #[test]
 fn it_handles_isolated_synopsis() {
     let text = "= John and Henry find the locomotive.";
-    let expected = vec![Element::Action(
-        "".to_string(),
-        Attributes {
-            notes: Some(vec!["John and Henry find the locomotive.".to_string()]),
-            ..Attributes::default()
-        },
+    let expected = vec![Element::Synopsis(
+        "John and Henry find the locomotive.".to_string(),
     )];
 
     assert_eq!(

@@ -35,7 +35,7 @@ pub enum Element {
     DualDialogueBlock(Vec<Element>),
     Transition(String, Attributes),
     Section(String, Attributes, u8),
-    Synopsis(String, Attributes),
+    Synopsis(String),
     ColdOpening(String, Attributes),
     NewAct(String, Attributes),
     EndOfAct(String, Attributes),
@@ -159,6 +159,9 @@ fn hunks_to_elements(hunks: Vec<Vec<&str>>) -> Vec<Element> {
                         if dialogues.len() == 1 =>
                     {
                         dialogues.insert(0, element);
+                    }
+                    (Some(Element::Section(_, attr, _)), Element::Synopsis(note)) => {
+                        attr.notes = Some(vec![note.to_string()]);
                     }
                     _ => acc.push(element),
                 }
@@ -332,7 +335,7 @@ fn make_forced(line: &str) -> Option<fn(String, Attributes) -> Element> {
             }
         }
         Some("#") => Some(make_section),
-        Some("=") => Some(Element::Synopsis),
+        Some("=") => Some(make_synopsis),
         _ => None,
     }
 }
@@ -341,6 +344,11 @@ fn make_section(line: String, _: Attributes) -> Element {
     let trimmed = line.trim().trim_start_matches('#');
     let level: u8 = (line.len() - trimmed.len()).try_into().unwrap();
     Element::Section(trimmed.trim().to_string(), blank_attributes(), level)
+}
+
+fn make_synopsis(line: String, _: Attributes) -> Element {
+    let trimmed = line.trim().trim_start_matches('=').trim();
+    Element::Synopsis(trimmed.to_string())
 }
 
 fn make_dialogue_block(hunk: Vec<&str>) -> Element {
