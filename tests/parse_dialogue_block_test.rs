@@ -98,6 +98,27 @@ fn it_handles_dialogue_with_forced_blank_lines() {
 }
 
 #[test]
+fn it_ignores_a_single_space_when_forcing_blank_lines() {
+    let text = "DEALER\nTen.\nFour.\nDealer gets a seven.\n \nHit or stand sir?";
+    let expected = vec![
+        Element::DialogueBlock(vec![
+            Element::Character("DEALER".to_string(), blank_attributes()),
+            Element::Dialogue(
+                "Ten.\nFour.\nDealer gets a seven.".to_string(),
+                blank_attributes(),
+            ),
+        ]),
+        Element::Action("Hit or stand sir?".to_string(), blank_attributes()),
+    ];
+
+    assert_eq!(
+        parse(text),
+        expected,
+        "it should not turn a blank line with a single extraneous space into extended dialogue"
+    );
+}
+
+#[test]
 fn it_handles_forced_character_names() {
     let text = "\n@McGregor\nWhat the fuck!?";
     let expected = vec![Element::DialogueBlock(vec![
