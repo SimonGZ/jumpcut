@@ -175,18 +175,28 @@ fn hunks_to_elements(hunks: Vec<Vec<&str>>) -> Vec<Element> {
 fn make_single_line_element(line: &str) -> Element {
     lazy_static! {
         static ref SCENE_NUMBER_REGEX: Regex = Regex::new(r"\s+#(.*)#").unwrap();
+        static ref NOTE_REGEX: Regex = Regex::new(r"\[\[([^\]]+)\]\]").unwrap();
+    }
+    let mut attributes = blank_attributes();
+    if has_note(line) {
+        let notes = retrieve_notes(line);
+        attributes = Attributes {
+            notes: notes,
+            ..attributes
+        };
     }
     match make_forced(&line) {
         Some(make_element) => {
             let stripped: &str = line
                 .trim_start_matches(&['!', '@', '~', '.', '>', '='][..])
                 .trim_start();
+
             if line.get(..1) == Some(".") && SCENE_NUMBER_REGEX.is_match(stripped) {
                 // Handle special case of scene numbers on scene headings
                 match SCENE_NUMBER_REGEX.find(stripped) {
-                    None => make_element(stripped.to_string(), blank_attributes()),
+                    None => make_element(stripped.to_string(), attributes),
                     Some(mat) => {
-                        let attributes = Attributes {
+                        attributes = Attributes {
                             scene_number: Some(
                                 stripped
                                     .get(mat.start()..mat.end())
@@ -194,54 +204,74 @@ fn make_single_line_element(line: &str) -> Element {
                                     .trim_matches(&[' ', '#'][..])
                                     .to_string(),
                             ),
-                            ..Attributes::default()
+                            ..attributes
                         };
-                        let text_without_scene_number =
-                            SCENE_NUMBER_REGEX.replace(stripped, "").into_owned();
-                        make_element(text_without_scene_number, attributes)
+                        let text_without_scene_number = SCENE_NUMBER_REGEX.replace(stripped, "");
+                        let final_text = remove_notes(&text_without_scene_number);
+                        make_element(final_text, attributes)
                     }
                 }
             } else {
-                make_element(stripped.to_string(), blank_attributes())
+                let final_text = remove_notes(stripped);
+                make_element(final_text, attributes)
             }
         }
         _ if is_scene(&line) => {
             // Handle special case of scene numbers on scene headings
             if SCENE_NUMBER_REGEX.is_match(line) {
                 match SCENE_NUMBER_REGEX.find(line) {
-                    None => Element::SceneHeading(line.to_string(), blank_attributes()),
+                    None => Element::SceneHeading(line.to_string(), attributes),
                     Some(mat) => {
-                        let attributes = Attributes {
+                        attributes = Attributes {
                             scene_number: Some(
                                 line.get(mat.start()..mat.end())
                                     .unwrap()
                                     .trim_matches(&[' ', '#'][..])
                                     .to_string(),
                             ),
-                            ..Attributes::default()
+                            ..attributes
                         };
-                        let text_without_scene_number =
-                            SCENE_NUMBER_REGEX.replace(line, "").into_owned();
-                        Element::SceneHeading(text_without_scene_number, attributes)
+                        let text_without_scene_number = SCENE_NUMBER_REGEX.replace(line, "");
+                        let final_text = remove_notes(&text_without_scene_number);
+                        Element::SceneHeading(final_text, attributes)
                     }
                 }
             } else {
-                Element::SceneHeading(line.to_string(), blank_attributes())
+                let final_text = remove_notes(line);
+                Element::SceneHeading(final_text, attributes)
             }
         }
-        _ if is_transition(&line) => Element::Transition(line.to_string(), blank_attributes()),
-        _ if is_centered(&line) => Element::Action(
-            trim_centered_marks(line).to_string(),
-            Attributes {
-                centered: true,
-                ..Attributes::default()
-            },
-        ),
-        _ => Element::Action(line.to_string(), blank_attributes()),
+        _ if is_transition(&line) => {
+            let final_text = remove_notes(line);
+            Element::Transition(final_text, attributes)
+        }
+        _ if is_centered(&line) => {
+            let final_text = remove_notes(trim_centered_marks(line));
+            Element::Action(
+                final_text,
+                Attributes {
+                    centered: true,
+                    ..attributes
+                },
+            )
+        }
+        _ => {
+            let final_text = remove_notes(line);
+            Element::Action(final_text, attributes)
+        }
     }
 }
 
 fn make_multi_line_element(hunk: Vec<&str>) -> Element {
+    let mut attributes = blank_attributes();
+    let temp_joined = hunk.join("\n");
+    if has_note(&temp_joined) {
+        let notes = retrieve_notes(&temp_joined);
+        attributes = Attributes {
+            notes: notes,
+            ..attributes
+        };
+    }
     let top_line: String = hunk[0].to_string();
     match make_forced(&top_line) {
         Some(make_element) => {
@@ -259,7 +289,8 @@ fn make_multi_line_element(hunk: Vec<&str>) -> Element {
                     .map(|l| l.trim_start_matches(&['!', '@', '~', '.', '>', '='][..]))
                     .collect::<Vec<&str>>()
                     .join("\n");
-                make_element(stripped_string, blank_attributes())
+                let final_text = remove_notes(&stripped_string);
+                make_element(final_text, attributes)
             }
         }
         // Check if the text is centered
@@ -269,16 +300,20 @@ fn make_multi_line_element(hunk: Vec<&str>) -> Element {
                 .map(trim_centered_marks)
                 .collect::<Vec<&str>>()
                 .join("\n");
+            let final_text = remove_notes(&cleaned_text);
             Element::Action(
-                cleaned_text,
+                final_text,
                 Attributes {
                     centered: true,
-                    ..Attributes::default()
+                    ..attributes
                 },
             )
         }
         _ if is_character(hunk[0]) => make_dialogue_block(hunk),
-        _ => Element::Action(hunk.join("\n"), blank_attributes()),
+        _ => {
+            let final_text = remove_notes(&hunk.join("\n"));
+            Element::Action(final_text, attributes)
+        }
     }
 }
 
@@ -290,6 +325,13 @@ fn is_scene(line: &str) -> bool {
 fn is_transition(line: &str) -> bool {
     let line = line.trim().to_uppercase();
     line.ends_with("TO:")
+}
+
+fn remove_notes(line: &str) -> String {
+    lazy_static! {
+        static ref NOTE_REGEX: Regex = Regex::new(r"\[\[([^\]]+)\]\]").unwrap();
+    }
+    NOTE_REGEX.replace_all(line, "").to_string()
 }
 
 fn is_centered(line: &str) -> bool {
@@ -311,6 +353,10 @@ fn is_parenthetical(line: &str) -> bool {
 
 fn is_dual_dialogue(line: &str) -> bool {
     line.trim().ends_with('^')
+}
+
+fn has_note(line: &str) -> bool {
+    line.contains("[[")
 }
 
 fn make_forced(line: &str) -> Option<fn(String, Attributes) -> Element> {
@@ -358,15 +404,25 @@ fn make_dialogue_block(hunk: Vec<&str>) -> Element {
     let character: Element = Element::Character(clean_name.to_string(), blank_attributes());
     elements.push(character);
     for line in hunk[1..].iter() {
-        if is_parenthetical(line) {
-            elements.push(Element::Parenthetical(line.to_string(), blank_attributes()));
+        let mut processed_line = line.to_string();
+        let mut attributes = blank_attributes();
+        if has_note(line) {
+            let notes = retrieve_notes(line);
+            attributes = Attributes {
+                notes: notes,
+                ..attributes
+            };
+            processed_line = remove_notes(line);
+        }
+        if is_parenthetical(&processed_line) {
+            elements.push(Element::Parenthetical(processed_line, attributes));
         } else if let Element::Dialogue(s, _) = elements.last_mut().unwrap() {
             // if previous element was dialogue, add this line to that dialogue
             s.push_str("\n");
-            s.push_str(line);
+            s.push_str(&processed_line);
         } else {
             // otherwise this is a new dialogue
-            elements.push(Element::Dialogue(line.to_string(), blank_attributes()));
+            elements.push(Element::Dialogue(processed_line, attributes));
         }
     }
     if is_dual_dialogue(raw_name) {
@@ -376,6 +432,20 @@ fn make_dialogue_block(hunk: Vec<&str>) -> Element {
     } else {
         Element::DialogueBlock(elements)
     }
+}
+
+fn retrieve_notes(line: &str) -> Option<Vec<String>> {
+    lazy_static! {
+        static ref RE: Regex = Regex::new(r"\[\[([^\]]+)\]\]").unwrap();
+    }
+    let mut result = vec![];
+    for mat in RE.find_iter(line) {
+        match line.get(mat.start() + 2..mat.end() - 2) {
+            Some(str) => result.push(str.to_string()),
+            None => (),
+        }
+    }
+    Some(result)
 }
 
 // * Tests
