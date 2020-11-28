@@ -67,3 +67,21 @@ fn it_handles_notes_on_dialogue() {
         "it should handle basic dialogue blocks with notes"
     );
 }
+
+#[test]
+fn it_handles_an_empty_line_note() {
+    let text = "[[Dogs?]]";
+    let expected = vec![Element::Action(
+        "".to_string(),
+        Attributes {
+            notes: Some(vec!["Dogs?".to_string()]),
+            ..Attributes::default()
+        },
+    )];
+
+    assert_eq!(
+        parse(text),
+        expected,
+        "it should handle a note on a single blank line"
+    );
+}
