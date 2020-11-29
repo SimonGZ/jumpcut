@@ -7,7 +7,11 @@ fn it_handles_empty_action() {
     let text = "";
     let expected = vec![Element::Action("".to_string(), blank_attributes())];
 
-    assert_eq!(parse(text), expected, "it should handle an empty string");
+    assert_eq!(
+        parse(text).elements,
+        expected,
+        "it should handle an empty string"
+    );
 }
 
 #[test]
@@ -19,7 +23,7 @@ fn it_handles_basic_action() {
     )];
 
     assert_eq!(
-        parse(text),
+        parse(text).elements,
         expected,
         "it should handle a simple action element"
     );
@@ -30,7 +34,11 @@ fn it_handles_multiline_action() {
     let text = "\nDavid looks around the room cautiously.\nShe's gone. He heads for the drawer, tip-toeing.\nThis is it. The moment he's been waiting for.";
     let expected = vec![Element::Action("David looks around the room cautiously.\nShe's gone. He heads for the drawer, tip-toeing.\nThis is it. The moment he's been waiting for.".to_string(), blank_attributes())];
 
-    assert_eq!(parse(text), expected, "it should handle multi-line action");
+    assert_eq!(
+        parse(text).elements,
+        expected,
+        "it should handle multi-line action"
+    );
 }
 
 #[test]
@@ -38,7 +46,11 @@ fn it_handles_shane_black() {
     let text = "Murtaugh, springing hell bent for leather -- and folks, grab your hats ... because just then, a BELL COBRA HELICOPTER crests the edge of the bluff.\n\nAn explosion of sound...\nAs it rises like an avenging angel ...\nHovers, shattering the air with turbo-throb, sandblasting the hillside with a roto-wash of loose dirt, tables, chairs, everything that's not nailed down ...\n\nScreaming, chaos, frenzy.\nThree words that apply to this scene.";
     let expected = vec![Element::Action("Murtaugh, springing hell bent for leather -- and folks, grab your hats ... because just then, a BELL COBRA HELICOPTER crests the edge of the bluff.".to_string(), blank_attributes()), Element::Action("An explosion of sound...\nAs it rises like an avenging angel ...\nHovers, shattering the air with turbo-throb, sandblasting the hillside with a roto-wash of loose dirt, tables, chairs, everything that's not nailed down ...".to_string(), blank_attributes()), Element::Action("Screaming, chaos, frenzy.\nThree words that apply to this scene.".to_string(), blank_attributes())];
 
-    assert_eq!(parse(text), expected, "it should handle Shane Black");
+    assert_eq!(
+        parse(text).elements,
+        expected,
+        "it should handle Shane Black"
+    );
 }
 
 #[test]
@@ -59,7 +71,11 @@ fn it_handles_forced_action() {
         ),
     ];
 
-    assert_eq!(parse(text), expected, "it should handle forced action");
+    assert_eq!(
+        parse(text).elements,
+        expected,
+        "it should handle forced action"
+    );
 }
 
 #[test]
@@ -74,7 +90,11 @@ fn it_retains_vertical_space() {
         Element::Action("BANG!".to_string(), blank_attributes()),
     ];
 
-    assert_eq!(parse(text), expected, "it should retain verticle space");
+    assert_eq!(
+        parse(text).elements,
+        expected,
+        "it should retain verticle space"
+    );
 }
 
 #[test]
@@ -83,7 +103,11 @@ fn it_retains_horizontal_space() {
         "          Jacob Billups\n          Palace Hotel, RM 412\n          1:00 pm tomorrow";
     let expected = vec![Element::Action(text.to_string(), blank_attributes())];
 
-    assert_eq!(parse(text), expected, "it should retain horizontal space");
+    assert_eq!(
+        parse(text).elements,
+        expected,
+        "it should retain horizontal space"
+    );
 }
 
 #[test]
@@ -92,7 +116,7 @@ fn it_retains_horizontal_space_on_single_line() {
     let expected = vec![Element::Action(text.to_string(), blank_attributes())];
 
     assert_eq!(
-        parse(text),
+        parse(text).elements,
         expected,
         "it should retain horizontal space on a single line"
     );
@@ -105,7 +129,7 @@ fn it_retains_horizontal_space_on_single_line() {
 //     let expected = vec![Element::Action("    Marty McFly eats shoes.".to_string())];
 
 //     assert_eq!(
-//         parse(text),
+//         parse(text).elements,
 //         expected,
 //         "it should convert a tab to four spaces"
 //     );
@@ -122,7 +146,11 @@ fn it_should_handle_centered_text() {
         },
     )];
     // NEED to handle attributes
-    assert_eq!(parse(text), expected, "it should handle centered text");
+    assert_eq!(
+        parse(text).elements,
+        expected,
+        "it should handle centered text"
+    );
 }
 
 #[test]
@@ -137,7 +165,7 @@ fn it_should_handle_centered_text_with_no_spaces() {
     )];
     // NEED to handle attributes
     assert_eq!(
-        parse(text),
+        parse(text).elements,
         expected,
         "it should handle centered text with no spaces"
     );
@@ -155,7 +183,7 @@ fn it_should_handle_multi_line_centered_text() {
     )];
     // NEED to handle attributes
     assert_eq!(
-        parse(text),
+        parse(text).elements,
         expected,
         "it should handle multiline centered text"
     );

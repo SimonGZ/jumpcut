@@ -13,7 +13,11 @@ fn it_handles_basic_dialogue() {
         ),
     ])];
 
-    assert_eq!(parse(text), expected, "it should handle basic dialogue");
+    assert_eq!(
+        parse(text).elements,
+        expected,
+        "it should handle basic dialogue"
+    );
 }
 
 #[test]
@@ -31,7 +35,7 @@ fn it_handles_multiple_parentheticals() {
     ])];
 
     assert_eq!(
-        parse(text),
+        parse(text).elements,
         expected,
         "it should handle dialogue with multiple parentheticals"
     );
@@ -49,7 +53,7 @@ fn it_handles_dialogue_with_line_breaks() {
     ])];
 
     assert_eq!(
-        parse(text),
+        parse(text).elements,
         expected,
         "it should handle dialogue with line breaks"
     );
@@ -73,7 +77,7 @@ fn it_handles_dialogue_with_multiple_line_breaks() {
     ];
 
     assert_eq!(
-        parse(text),
+        parse(text).elements,
         expected,
         "it should handle forced character names"
     );
@@ -91,7 +95,7 @@ fn it_handles_dialogue_with_forced_blank_lines() {
     ])];
 
     assert_eq!(
-        parse(text),
+        parse(text).elements,
         expected,
         "it should handle forced character names"
     );
@@ -112,7 +116,7 @@ fn it_ignores_a_single_space_when_forcing_blank_lines() {
     ];
 
     assert_eq!(
-        parse(text),
+        parse(text).elements,
         expected,
         "it should not turn a blank line with a single extraneous space into extended dialogue"
     );
@@ -127,7 +131,7 @@ fn it_handles_forced_character_names() {
     ])];
 
     assert_eq!(
-        parse(text),
+        parse(text).elements,
         expected,
         "it should handle forced character names"
     );

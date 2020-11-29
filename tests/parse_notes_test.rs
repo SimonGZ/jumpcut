@@ -18,7 +18,7 @@ fn it_handles_single_line_interspersed_notes() {
     )];
 
     assert_eq!(
-        parse(text),
+        parse(text).elements,
         expected,
         "it should handle single-line interspersed notes"
     );
@@ -38,7 +38,7 @@ fn it_handles_multi_line_interspersed_notes() {
     )];
 
     assert_eq!(
-        parse(text),
+        parse(text).elements,
         expected,
         "it should handle multi-line interspersed notes"
     );
@@ -62,7 +62,7 @@ fn it_handles_notes_on_dialogue() {
     ])];
 
     assert_eq!(
-        parse(text),
+        parse(text).elements,
         expected,
         "it should handle basic dialogue blocks with notes"
     );
@@ -80,7 +80,7 @@ fn it_handles_an_empty_line_note() {
     )];
 
     assert_eq!(
-        parse(text),
+        parse(text).elements,
         expected,
         "it should handle a note on a single blank line"
     );

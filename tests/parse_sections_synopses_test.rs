@@ -15,7 +15,11 @@ fn it_creates_sections() {
         ]),
     ];
 
-    assert_eq!(parse(text), expected, "it should handle basic sections");
+    assert_eq!(
+        parse(text).elements,
+        expected,
+        "it should handle basic sections"
+    );
 }
 
 #[test]
@@ -26,7 +30,7 @@ fn it_handles_isolated_synopsis() {
     )];
 
     assert_eq!(
-        parse(text),
+        parse(text).elements,
         expected,
         "it should handle an isolated synopsis"
     );

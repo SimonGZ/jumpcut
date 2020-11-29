@@ -11,7 +11,7 @@ fn it_handles_single_line_lyric() {
     )];
 
     assert_eq!(
-        parse(text),
+        parse(text).elements,
         expected,
         "it should handle a single line lyric"
     );
@@ -26,7 +26,7 @@ fn it_handles_multiple_line_lyric() {
     )];
 
     assert_eq!(
-        parse(text),
+        parse(text).elements,
         expected,
         "it should handle multiple line lyrics"
     );

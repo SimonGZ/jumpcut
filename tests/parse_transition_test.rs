@@ -25,7 +25,7 @@ fn it_handles_typical_transitions() {
     ];
     for (i, text) in transitions.iter().enumerate() {
         assert_eq!(
-            parse(text),
+            parse(text).elements,
             expecteds[i],
             "it should handle typical transitions"
         );
@@ -40,5 +40,9 @@ fn it_handles_forced_transitions() {
         blank_attributes(),
     )];
 
-    assert_eq!(parse(text), expected, "it should handle forced transitions");
+    assert_eq!(
+        parse(text).elements,
+        expected,
+        "it should handle forced transitions"
+    );
 }

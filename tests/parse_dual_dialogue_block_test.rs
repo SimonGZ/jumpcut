@@ -17,7 +17,7 @@ fn it_handles_basic_dual_dialogue() {
     ])];
 
     assert_eq!(
-        parse(text),
+        parse(text).elements,
         expected,
         "it should handle basic dual dialogue"
     );

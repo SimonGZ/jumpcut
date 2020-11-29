@@ -1,5 +1,6 @@
 use lazy_static::lazy_static;
 use regex::Regex;
+use std::collections::HashMap;
 use std::convert::TryInto;
 use std::default::Default;
 use std::str::Lines;
@@ -22,6 +23,14 @@ const SCENE_LOCATORS: [&str; 16] = [
     "EXT/INT.",
     "EXT/INT ",
 ];
+
+pub type Metadata = HashMap<String, Vec<String>>;
+
+#[derive(Debug, PartialEq)]
+pub struct Screenplay {
+    pub metadata: Metadata,
+    pub elements: Vec<Element>,
+}
 
 #[derive(Debug, PartialEq)]
 pub enum Element {
@@ -66,14 +75,21 @@ pub fn blank_attributes() -> Attributes {
     }
 }
 
-pub fn parse(text: &str) -> Vec<Element> {
+pub fn blank_metadata() -> Metadata {
+    HashMap::new()
+}
+
+pub fn parse(text: &str) -> Screenplay {
     let fountain_string = prepare_text(text);
     let lines = fountain_string.lines();
     let hunks: Vec<Vec<&str>> = lines_to_hunks(lines);
     // println!("{:#?}", hunks);
     let elements: Vec<Element> = hunks_to_elements(hunks);
     // println!("{:#?}", elements);
-    elements
+    Screenplay {
+        elements: elements,
+        metadata: blank_metadata(),
+    }
 }
 
 /// Strips out problematic unicode and the boneyard element

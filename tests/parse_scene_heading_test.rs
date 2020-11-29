@@ -21,7 +21,11 @@ fn it_handles_typical_scene_headings() {
         })
         .collect();
     for (i, text) in headings.iter().enumerate() {
-        assert_eq!(parse(text), expecteds[i], "it should handle scene headings");
+        assert_eq!(
+            parse(text).elements,
+            expecteds[i],
+            "it should handle scene headings"
+        );
     }
 }
 
@@ -31,7 +35,7 @@ fn it_should_not_convert_other_int_words() {
     let expected = vec![Element::Action(text.to_string(), blank_attributes())];
 
     assert_eq!(
-        parse(text),
+        parse(text).elements,
         expected,
         "it should not convert words beginning with int into scene headings"
     );
@@ -46,7 +50,7 @@ fn it_handles_forced_scene_headings() {
     )];
 
     assert_eq!(
-        parse(text),
+        parse(text).elements,
         expected,
         "it should handle forced scene headings"
     );
@@ -58,7 +62,7 @@ fn it_should_not_turn_leading_ellipses_into_scene_headings() {
     let expected = vec![Element::Action(text.to_string(), blank_attributes())];
 
     assert_eq!(
-        parse(text),
+        parse(text).elements,
         expected,
         "it should not turn leading ellipses into scene headings"
     );
@@ -136,7 +140,7 @@ fn it_handles_scene_headings_with_scene_numbers() {
     ];
     for (i, text) in headings.iter().enumerate() {
         assert_eq!(
-            parse(text),
+            parse(text).elements,
             expecteds[i],
             "it should handle scene headings with scene numbers"
         );
