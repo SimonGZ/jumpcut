@@ -24,19 +24,6 @@ const SCENE_LOCATORS: [&str; 16] = [
     "EXT/INT ",
 ];
 
-const VALID_KEYS: [&str; 10] = [
-    "title:",
-    "credit:",
-    "author:",
-    "authors:",
-    "source:",
-    "date:",
-    "draft date:",
-    "contact:",
-    "format:",
-    "template:",
-];
-
 pub type Metadata = HashMap<String, Vec<String>>;
 
 #[derive(Debug, PartialEq)]
@@ -110,8 +97,10 @@ pub fn parse(text: &str) -> Screenplay {
 }
 
 fn has_key_value(txt: &str) -> bool {
-    let ltxt = txt.to_lowercase();
-    VALID_KEYS.iter().any(|key| ltxt.starts_with(key))
+    lazy_static! {
+        static ref KEY: Regex = Regex::new(r"(?P<key>^[^\s][^:\n\r]+):(?P<value>.*)").unwrap();
+    }
+    KEY.is_match(txt)
 }
 
 fn process_metadata(metadata: &mut Metadata, text: &str) {
