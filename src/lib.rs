@@ -24,6 +24,19 @@ const SCENE_LOCATORS: [&str; 16] = [
     "EXT/INT ",
 ];
 
+const VALID_KEYS: [&str; 10] = [
+    "title:",
+    "credit:",
+    "author:",
+    "authors:",
+    "source:",
+    "date:",
+    "draft date:",
+    "contact:",
+    "format:",
+    "template:",
+];
+
 pub type Metadata = HashMap<String, Vec<String>>;
 
 #[derive(Debug, PartialEq)]
@@ -75,20 +88,60 @@ pub fn blank_attributes() -> Attributes {
     }
 }
 
-pub fn blank_metadata() -> Metadata {
-    HashMap::new()
-}
-
 pub fn parse(text: &str) -> Screenplay {
     let fountain_string = prepare_text(text);
     let lines = fountain_string.lines();
     let hunks: Vec<Vec<&str>> = lines_to_hunks(lines);
     // println!("{:#?}", hunks);
-    let elements: Vec<Element> = hunks_to_elements(hunks);
+    let mut elements: Vec<Element> = hunks_to_elements(hunks);
     // println!("{:#?}", elements);
+    let mut metadata: Metadata = HashMap::new();
+    match elements.first() {
+        Some(Element::Action(txt, _)) if has_key_value(txt) => {
+            process_metadata(&mut metadata, txt);
+            elements.remove(0);
+        }
+        _ => (),
+    }
     Screenplay {
         elements: elements,
-        metadata: blank_metadata(),
+        metadata: metadata,
+    }
+}
+
+fn has_key_value(txt: &str) -> bool {
+    let ltxt = txt.to_lowercase();
+    VALID_KEYS.iter().any(|key| ltxt.starts_with(key))
+}
+
+fn process_metadata(metadata: &mut Metadata, text: &str) {
+    lazy_static! {
+        static ref KEY: Regex = Regex::new(r"(?P<key>^[^\s][^:\n\r]+):(?P<value>.*)").unwrap();
+    }
+    let lines = text.lines();
+    let mut current_key = "".to_string();
+    for line in lines {
+        if KEY.is_match(line) {
+            // Means we have a new key
+            // NOTE: I can safely unwrap these values because of the above is_match
+            let caps = KEY.captures(line).unwrap();
+            let key = caps.name("key").unwrap().as_str();
+            current_key = key.to_lowercase().to_string();
+            let current_value = caps.name("value").unwrap().as_str();
+            if current_value.is_empty() {
+                metadata.insert(current_key.to_string(), vec![]);
+            } else {
+                metadata.insert(
+                    current_key.to_string(),
+                    vec![current_value.trim().to_string()],
+                );
+            }
+        } else {
+            // Means we have a line without a key and thus an additional value to push
+            if let Some(values) = metadata.get_mut(&current_key) {
+                values.push(line.trim().to_string());
+            }
+        }
     }
 }
 
