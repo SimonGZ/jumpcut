@@ -1,14 +1,21 @@
 [package]
-name = "fountain_converter"
-version = "0.1.0"
+name = "jumpcut"
+version = "0.2.0"
 authors = ["Simon Ganz"]
 edition = "2018"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+name = "jumpcut"
+path = "src/lib.rs"
+
+[[bin]]
+name = "jumpcut"
+path = "src/bin/jumpcut.rs"
 
 [dependencies]
 regex = "1.3.9"
 lazy_static = "1.4.0"
+structopt = "0.3"
 
 [dev-dependencies]
 criterion = "0.3"
