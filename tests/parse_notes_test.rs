@@ -1,4 +1,4 @@
-use fountain_converter::{blank_attributes, parse, Attributes, Element};
+use jumpcut::{blank_attributes, p, parse, Attributes, Element};
 
 #[cfg(test)]
 use pretty_assertions::assert_eq;
@@ -7,7 +7,7 @@ use pretty_assertions::assert_eq;
 fn it_handles_single_line_interspersed_notes() {
     let text = "Jack smells the liquor. [[Or should he taste it?]] Not good. [[Or bad?]]";
     let expected = vec![Element::Action(
-        "Jack smells the liquor.  Not good. ".to_string(),
+        p("Jack smells the liquor.  Not good. "),
         Attributes {
             notes: Some(vec![
                 "Or should he taste it?".to_string(),
@@ -28,7 +28,7 @@ fn it_handles_single_line_interspersed_notes() {
 fn it_handles_multi_line_interspersed_notes() {
     let text = "His hand is an inch from the receiver when the phone RINGS.  Scott pauses for a moment, suspicious for some reason.[[This section needs work.\nEither that, or I need coffee.\n  \nDefinitely coffee.]] He looks around.  Phone ringing.";
     let expected = vec![Element::Action(
-        "His hand is an inch from the receiver when the phone RINGS.  Scott pauses for a moment, suspicious for some reason. He looks around.  Phone ringing.".to_string(),
+        p(        "His hand is an inch from the receiver when the phone RINGS.  Scott pauses for a moment, suspicious for some reason. He looks around.  Phone ringing."),
         Attributes {
             notes: Some(vec![
                 "This section needs work.\nEither that, or I need coffee.\n  \nDefinitely coffee.".to_string(),
@@ -51,9 +51,9 @@ fn it_handles_notes_on_dialogue() {
     // I am also NOT including the ability to place notes dialogue with forced line breaks.
     let text = "JAMIE\nWhat's the meaning of this [[that]]shit?";
     let expected = vec![Element::DialogueBlock(vec![
-        Element::Character("JAMIE".to_string(), blank_attributes()),
+        Element::Character(p("JAMIE"), blank_attributes()),
         Element::Dialogue(
-            "What's the meaning of this shit?".to_string(),
+            p("What's the meaning of this shit?"),
             Attributes {
                 notes: Some(vec!["that".to_string()]),
                 ..Attributes::default()
@@ -72,7 +72,7 @@ fn it_handles_notes_on_dialogue() {
 fn it_handles_an_empty_line_note() {
     let text = "[[Dogs?]]";
     let expected = vec![Element::Action(
-        "".to_string(),
+        p(""),
         Attributes {
             notes: Some(vec!["Dogs?".to_string()]),
             ..Attributes::default()

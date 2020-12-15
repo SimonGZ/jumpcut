@@ -1,9 +1,14 @@
 use lazy_static::lazy_static;
 use regex::Regex;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::convert::TryInto;
 use std::default::Default;
 use std::str::Lines;
+
+mod text_style_parser;
+
+use ElementText::*;
 
 const SCENE_LOCATORS: [&str; 16] = [
     "INT ",
@@ -34,20 +39,20 @@ pub struct Screenplay {
 
 #[derive(Debug, PartialEq)]
 pub enum Element {
-    Action(String, Attributes),
-    Character(String, Attributes),
-    SceneHeading(String, Attributes),
-    Lyric(String, Attributes),
-    Parenthetical(String, Attributes),
-    Dialogue(String, Attributes),
+    Action(ElementText, Attributes),
+    Character(ElementText, Attributes),
+    SceneHeading(ElementText, Attributes),
+    Lyric(ElementText, Attributes),
+    Parenthetical(ElementText, Attributes),
+    Dialogue(ElementText, Attributes),
     DialogueBlock(Vec<Element>),
     DualDialogueBlock(Vec<Element>),
-    Transition(String, Attributes),
-    Section(String, Attributes, u8),
-    Synopsis(String),
-    ColdOpening(String, Attributes),
-    NewAct(String, Attributes),
-    EndOfAct(String, Attributes),
+    Transition(ElementText, Attributes),
+    Section(ElementText, Attributes, u8),
+    Synopsis(ElementText),
+    ColdOpening(ElementText, Attributes),
+    NewAct(ElementText, Attributes),
+    EndOfAct(ElementText, Attributes),
 }
 
 #[derive(Debug, PartialEq)]
@@ -56,6 +61,23 @@ pub struct Attributes {
     pub starts_new_page: bool,
     pub scene_number: Option<String>,
     pub notes: Option<Vec<String>>,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum ElementText {
+    Plain(String),
+    Styled(Vec<TextRun>),
+}
+
+// Convenience function
+pub fn p(p: &str) -> ElementText {
+    ElementText::Plain(p.to_string())
+}
+
+#[derive(Debug, PartialEq)]
+pub struct TextRun {
+    pub content: String,
+    pub text_style: HashSet<String>,
 }
 
 impl Default for Attributes {
@@ -84,7 +106,7 @@ pub fn parse(text: &str) -> Screenplay {
     // println!("{:#?}", elements);
     let mut metadata: Metadata = HashMap::new();
     match elements.first() {
-        Some(Element::Action(txt, _)) if has_key_value(txt) => {
+        Some(Element::Action(Plain(txt), _)) if has_key_value(txt) => {
             process_metadata(&mut metadata, txt);
             elements.remove(0);
         }
@@ -218,7 +240,7 @@ fn hunks_to_elements(hunks: Vec<Vec<&str>>) -> Vec<Element> {
                     {
                         dialogues.insert(0, element);
                     }
-                    (Some(Element::Section(_, attr, _)), Element::Synopsis(note)) => {
+                    (Some(Element::Section(_, attr, _)), Element::Synopsis(Plain(note))) => {
                         attr.notes = Some(vec![note.to_string()]);
                     }
                     _ => acc.push(element),
@@ -252,7 +274,7 @@ fn make_single_line_element(line: &str) -> Element {
             if line.get(..1) == Some(".") && SCENE_NUMBER_REGEX.is_match(stripped) {
                 // Handle special case of scene numbers on scene headings
                 match SCENE_NUMBER_REGEX.find(stripped) {
-                    None => make_element(stripped.to_string(), attributes),
+                    None => make_element(Plain(stripped.to_string()), attributes),
                     Some(mat) => {
                         attributes = Attributes {
                             scene_number: Some(
@@ -266,19 +288,19 @@ fn make_single_line_element(line: &str) -> Element {
                         };
                         let text_without_scene_number = SCENE_NUMBER_REGEX.replace(stripped, "");
                         let final_text = remove_notes(&text_without_scene_number);
-                        make_element(final_text, attributes)
+                        make_element(Plain(final_text), attributes)
                     }
                 }
             } else {
                 let final_text = remove_notes(stripped);
-                make_element(final_text, attributes)
+                make_element(Plain(final_text), attributes)
             }
         }
         _ if is_scene(&line) => {
             // Handle special case of scene numbers on scene headings
             if SCENE_NUMBER_REGEX.is_match(line) {
                 match SCENE_NUMBER_REGEX.find(line) {
-                    None => Element::SceneHeading(line.to_string(), attributes),
+                    None => Element::SceneHeading(Plain(line.to_string()), attributes),
                     Some(mat) => {
                         attributes = Attributes {
                             scene_number: Some(
@@ -291,22 +313,22 @@ fn make_single_line_element(line: &str) -> Element {
                         };
                         let text_without_scene_number = SCENE_NUMBER_REGEX.replace(line, "");
                         let final_text = remove_notes(&text_without_scene_number);
-                        Element::SceneHeading(final_text, attributes)
+                        Element::SceneHeading(Plain(final_text), attributes)
                     }
                 }
             } else {
                 let final_text = remove_notes(line);
-                Element::SceneHeading(final_text, attributes)
+                Element::SceneHeading(Plain(final_text), attributes)
             }
         }
         _ if is_transition(&line) => {
             let final_text = remove_notes(line);
-            Element::Transition(final_text, attributes)
+            Element::Transition(Plain(final_text), attributes)
         }
         _ if is_centered(&line) => {
             let final_text = remove_notes(trim_centered_marks(line));
             Element::Action(
-                final_text,
+                Plain(final_text),
                 Attributes {
                     centered: true,
                     ..attributes
@@ -315,7 +337,7 @@ fn make_single_line_element(line: &str) -> Element {
         }
         _ => {
             let final_text = remove_notes(line);
-            Element::Action(final_text, attributes)
+            Element::Action(Plain(final_text), attributes)
         }
     }
 }
@@ -348,7 +370,7 @@ fn make_multi_line_element(hunk: Vec<&str>) -> Element {
                     .collect::<Vec<&str>>()
                     .join("\n");
                 let final_text = remove_notes(&stripped_string);
-                make_element(final_text, attributes)
+                make_element(Plain(final_text), attributes)
             }
         }
         // Check if the text is centered
@@ -360,7 +382,7 @@ fn make_multi_line_element(hunk: Vec<&str>) -> Element {
                 .join("\n");
             let final_text = remove_notes(&cleaned_text);
             Element::Action(
-                final_text,
+                Plain(final_text),
                 Attributes {
                     centered: true,
                     ..attributes
@@ -370,7 +392,7 @@ fn make_multi_line_element(hunk: Vec<&str>) -> Element {
         _ if is_character(hunk[0]) => make_dialogue_block(hunk),
         _ => {
             let final_text = remove_notes(&hunk.join("\n"));
-            Element::Action(final_text, attributes)
+            Element::Action(Plain(final_text), attributes)
         }
     }
 }
@@ -417,7 +439,7 @@ fn has_note(line: &str) -> bool {
     line.contains("[[")
 }
 
-fn make_forced(line: &str) -> Option<fn(String, Attributes) -> Element> {
+fn make_forced(line: &str) -> Option<fn(ElementText, Attributes) -> Element> {
     match line.get(..1) {
         Some("!") => Some(Element::Action),
         Some("@") => Some(Element::Character),
@@ -444,22 +466,32 @@ fn make_forced(line: &str) -> Option<fn(String, Attributes) -> Element> {
     }
 }
 
-fn make_section(line: String, _: Attributes) -> Element {
-    let trimmed = line.trim().trim_start_matches('#');
-    let level: u8 = (line.len() - trimmed.len()).try_into().unwrap();
-    Element::Section(trimmed.trim().to_string(), blank_attributes(), level)
+fn make_section(line: ElementText, _: Attributes) -> Element {
+    match line {
+        Plain(txt) => {
+            let trimmed = txt.trim().trim_start_matches('#');
+            let level: u8 = (txt.len() - trimmed.len()).try_into().unwrap();
+            Element::Section(Plain(trimmed.trim().to_string()), blank_attributes(), level)
+        }
+        _ => panic!("Shouldn't be receiving Styled text here."),
+    }
 }
 
-fn make_synopsis(line: String, _: Attributes) -> Element {
-    let trimmed = line.trim().trim_start_matches('=').trim();
-    Element::Synopsis(trimmed.to_string())
+fn make_synopsis(line: ElementText, _: Attributes) -> Element {
+    match line {
+        Plain(line) => {
+            let trimmed = line.trim().trim_start_matches('=').trim();
+            Element::Synopsis(Plain(trimmed.to_string()))
+        }
+        _ => panic!("Shouldn't be receiving Styled text here."),
+    }
 }
 
 fn make_dialogue_block(hunk: Vec<&str>) -> Element {
     let mut elements = Vec::with_capacity(hunk.len());
     let raw_name: &str = hunk[0];
     let clean_name: &str = raw_name.trim().trim_end_matches('^').trim();
-    let character: Element = Element::Character(clean_name.to_string(), blank_attributes());
+    let character: Element = Element::Character(Plain(clean_name.to_string()), blank_attributes());
     elements.push(character);
     for line in hunk[1..].iter() {
         let mut processed_line = line.to_string();
@@ -473,14 +505,14 @@ fn make_dialogue_block(hunk: Vec<&str>) -> Element {
             processed_line = remove_notes(line);
         }
         if is_parenthetical(&processed_line) {
-            elements.push(Element::Parenthetical(processed_line, attributes));
-        } else if let Element::Dialogue(s, _) = elements.last_mut().unwrap() {
+            elements.push(Element::Parenthetical(Plain(processed_line), attributes));
+        } else if let Element::Dialogue(Plain(s), _) = elements.last_mut().unwrap() {
             // if previous element was dialogue, add this line to that dialogue
             s.push_str("\n");
             s.push_str(&processed_line);
         } else {
             // otherwise this is a new dialogue
-            elements.push(Element::Dialogue(processed_line, attributes));
+            elements.push(Element::Dialogue(Plain(processed_line), attributes));
         }
     }
     if is_dual_dialogue(raw_name) {

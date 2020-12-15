@@ -1,4 +1,4 @@
-use fountain_converter::{blank_attributes, parse, Element, Screenplay};
+use jumpcut::{blank_attributes, p, parse, Element, Screenplay};
 #[cfg(test)]
 use pretty_assertions::assert_eq;
 use std::collections::HashMap;
@@ -89,10 +89,7 @@ fn it_handles_complex_metadata_with_elements() {
         ],
     );
     let expected = Screenplay {
-        elements: vec![Element::SceneHeading(
-            "INT. THE ZOO".to_string(),
-            blank_attributes(),
-        )],
+        elements: vec![Element::SceneHeading(p("INT. THE ZOO"), blank_attributes())],
         metadata: expected_metadata,
     };
 

@@ -1,4 +1,4 @@
-use fountain_converter::{blank_attributes, parse, Element};
+use jumpcut::{blank_attributes, p, parse, Element};
 #[cfg(test)]
 use pretty_assertions::assert_eq;
 
@@ -7,12 +7,12 @@ fn it_handles_basic_dual_dialogue() {
     let text = "BRICK\nScrew retirement.\n\nSTEEL ^\nScrew retirement.";
     let expected = vec![Element::DualDialogueBlock(vec![
         Element::DialogueBlock(vec![
-            Element::Character("BRICK".to_string(), blank_attributes()),
-            Element::Dialogue("Screw retirement.".to_string(), blank_attributes()),
+            Element::Character(p("BRICK"), blank_attributes()),
+            Element::Dialogue(p("Screw retirement."), blank_attributes()),
         ]),
         Element::DialogueBlock(vec![
-            Element::Character("STEEL".to_string(), blank_attributes()),
-            Element::Dialogue("Screw retirement.".to_string(), blank_attributes()),
+            Element::Character(p("STEEL"), blank_attributes()),
+            Element::Dialogue(p("Screw retirement."), blank_attributes()),
         ]),
     ])];
 

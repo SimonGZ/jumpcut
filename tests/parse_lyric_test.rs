@@ -1,4 +1,4 @@
-use fountain_converter::{blank_attributes, parse, Element};
+use jumpcut::{blank_attributes, p, parse, Element};
 #[cfg(test)]
 use pretty_assertions::assert_eq;
 
@@ -6,7 +6,7 @@ use pretty_assertions::assert_eq;
 fn it_handles_single_line_lyric() {
     let text = "~Willy Wonka! Willy Wonka!";
     let expected = vec![Element::Lyric(
-        "Willy Wonka! Willy Wonka!".to_string(),
+        p("Willy Wonka! Willy Wonka!"),
         blank_attributes(),
     )];
 
@@ -21,7 +21,7 @@ fn it_handles_single_line_lyric() {
 fn it_handles_multiple_line_lyric() {
     let text = "~Willy Wonka! Willy Wonka!\n~Loves Chocolate!";
     let expected = vec![Element::Lyric(
-        "Willy Wonka! Willy Wonka!\nLoves Chocolate!".to_string(),
+        p("Willy Wonka! Willy Wonka!\nLoves Chocolate!"),
         blank_attributes(),
     )];
 

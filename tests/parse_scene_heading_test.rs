@@ -1,4 +1,4 @@
-use fountain_converter::{blank_attributes, parse, Attributes, Element};
+use jumpcut::{blank_attributes, p, parse, Attributes, Element};
 #[cfg(test)]
 use pretty_assertions::assert_eq;
 
@@ -13,12 +13,7 @@ fn it_handles_typical_scene_headings() {
     ];
     let expecteds: Vec<Vec<Element>> = headings
         .iter()
-        .map(|text| {
-            vec![Element::SceneHeading(
-                text.trim().to_string(),
-                blank_attributes(),
-            )]
-        })
+        .map(|text| vec![Element::SceneHeading(p(text.trim()), blank_attributes())])
         .collect();
     for (i, text) in headings.iter().enumerate() {
         assert_eq!(
@@ -32,7 +27,7 @@ fn it_handles_typical_scene_headings() {
 #[test]
 fn it_should_not_convert_other_int_words() {
     let text = "INTERCUT HOUSE / BARN";
-    let expected = vec![Element::Action(text.to_string(), blank_attributes())];
+    let expected = vec![Element::Action(p(text), blank_attributes())];
 
     assert_eq!(
         parse(text).elements,
@@ -45,7 +40,7 @@ fn it_should_not_convert_other_int_words() {
 fn it_handles_forced_scene_headings() {
     let text = ".inside the school bus";
     let expected = vec![Element::SceneHeading(
-        "inside the school bus".to_string(),
+        p("inside the school bus"),
         blank_attributes(),
     )];
 
@@ -59,7 +54,7 @@ fn it_handles_forced_scene_headings() {
 #[test]
 fn it_should_not_turn_leading_ellipses_into_scene_headings() {
     let text = "...and lowers his guns.";
-    let expected = vec![Element::Action(text.to_string(), blank_attributes())];
+    let expected = vec![Element::Action(p(text), blank_attributes())];
 
     assert_eq!(
         parse(text).elements,
@@ -82,56 +77,56 @@ fn it_handles_scene_headings_with_scene_numbers() {
     ];
     let expecteds: Vec<Vec<Element>> = vec![
         vec![Element::SceneHeading(
-            "INT. HOUSE - DAY".to_string(),
+            p("INT. HOUSE - DAY"),
             Attributes {
                 scene_number: Some("1".to_string()),
                 ..Attributes::default()
             },
         )],
         vec![Element::SceneHeading(
-            "INT. HOUSE - DAY".to_string(),
+            p("INT. HOUSE - DAY"),
             Attributes {
                 scene_number: Some("1A".to_string()),
                 ..Attributes::default()
             },
         )],
         vec![Element::SceneHeading(
-            "INT. HOUSE - DAY".to_string(),
+            p("INT. HOUSE - DAY"),
             Attributes {
                 scene_number: Some("1a".to_string()),
                 ..Attributes::default()
             },
         )],
         vec![Element::SceneHeading(
-            "INT. HOUSE - DAY".to_string(),
+            p("INT. HOUSE - DAY"),
             Attributes {
                 scene_number: Some("A1".to_string()),
                 ..Attributes::default()
             },
         )],
         vec![Element::SceneHeading(
-            "INT. HOUSE - DAY".to_string(),
+            p("INT. HOUSE - DAY"),
             Attributes {
                 scene_number: Some("I-1-A".to_string()),
                 ..Attributes::default()
             },
         )],
         vec![Element::SceneHeading(
-            "INT. HOUSE - DAY".to_string(),
+            p("INT. HOUSE - DAY"),
             Attributes {
                 scene_number: Some("1.".to_string()),
                 ..Attributes::default()
             },
         )],
         vec![Element::SceneHeading(
-            "INT. HOUSE - DAY - FLASHBACK (1944)".to_string(),
+            p("INT. HOUSE - DAY - FLASHBACK (1944)"),
             Attributes {
                 scene_number: Some("110A".to_string()),
                 ..Attributes::default()
             },
         )],
         vec![Element::SceneHeading(
-            "INSIDE THE BUS".to_string(),
+            p("INSIDE THE BUS"),
             Attributes {
                 scene_number: Some("12".to_string()),
                 ..Attributes::default()

@@ -1,5 +1,5 @@
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
-use fountain_converter::parse;
+use jumpcut::parse;
 use lazy_static::lazy_static;
 use regex::Regex;
 
