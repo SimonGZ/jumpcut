@@ -6,11 +6,30 @@ use unicode_segmentation::UnicodeSegmentation;
 
 impl Element {
     pub fn parse_and_convert_markup(&mut self) {
-        let text_element = match self {
-            Action(plain, _) => plain,
-            _ => unreachable!(),
+        match self {
+            Action(plain, _) => *plain = convert_plain_to_styled(plain),
+            Character(plain, _) => *plain = convert_plain_to_styled(plain),
+            SceneHeading(plain, _) => *plain = convert_plain_to_styled(plain),
+            Lyric(plain, _) => *plain = convert_plain_to_styled(plain),
+            Parenthetical(plain, _) => *plain = convert_plain_to_styled(plain),
+            Dialogue(plain, _) => *plain = convert_plain_to_styled(plain),
+            Transition(plain, _) => *plain = convert_plain_to_styled(plain),
+            ColdOpening(plain, _) => *plain = convert_plain_to_styled(plain),
+            NewAct(plain, _) => *plain = convert_plain_to_styled(plain),
+            EndOfAct(plain, _) => *plain = convert_plain_to_styled(plain),
+            DialogueBlock(elements) => {
+                for e in elements {
+                    e.parse_and_convert_markup()
+                }
+            }
+            DualDialogueBlock(elements) => {
+                for e in elements {
+                    e.parse_and_convert_markup()
+                }
+            }
+            Section(_, _, _) => (),
+            Synopsis(_) => (),
         };
-        *text_element = convert_plain_to_styled(text_element);
     }
 }
 
@@ -28,163 +47,174 @@ fn create_styled_from_string(txt: &mut String) -> ElementText {
         static ref RE_ITALIC: Regex = Regex::new(r"(^|[^\\])\*{1}([^*\n]*[^ \\])\*{1}").unwrap();
         static ref RE_UNDERLINE: Regex = Regex::new(r"(^|[^\\])_{1}([^_\n]*[^ \\])_{1}").unwrap();
     }
-    let mut prepared_text = RE_BOLD_ITALIC.replace_all(&txt, "⏋$1⏋").into_owned();
-    println!("{}", prepared_text);
-    prepared_text = RE_BOLD.replace_all(&prepared_text, "⎿$1⎿").into_owned();
-    prepared_text = RE_ITALIC.replace_all(&prepared_text, "$1⏉$2⏉").into_owned();
-    prepared_text = RE_UNDERLINE
-        .replace_all(&prepared_text, "$1⏊$2⏊")
-        .into_owned();
-    prepared_text = prepared_text.replace("\\*", "*").replace("\\_", "_");
 
-    let mut styled_textruns: Vec<TextRun> = vec![];
-    let mut current_text: String = "".to_string();
-    let mut current_styles: HashSet<String> = HashSet::new();
-    for char in prepared_text.graphemes(true) {
-        match char {
-            "⏋" => {
-                if current_styles.contains(&"Bold".to_string())
-                    && current_styles.contains(&"Italic".to_string())
-                {
-                    // Time to end Bold/Italic style
-                    if current_text.is_empty() {
-                        // Current text is empty but this style hunk is ending.
-                        // That means these styles were immediately preceded by
-                        // another style that just ended. We just need to remove
-                        // these styles and we can move on to building the next
-                        // hunk.
+    if !RE_BOLD_ITALIC.is_match(txt)
+        && !RE_BOLD.is_match(txt)
+        && !RE_ITALIC.is_match(txt)
+        && !RE_UNDERLINE.is_match(txt)
+    {
+        // If none of the regexes match, just return a Plain(txt)
+        *txt = txt.replace("\\*", "*").replace("\\_", "_");
+        Plain(txt.to_string())
+    } else {
+        let mut prepared_text = RE_BOLD_ITALIC.replace_all(&txt, "⏋$1⏋").into_owned();
+        println!("{}", prepared_text);
+        prepared_text = RE_BOLD.replace_all(&prepared_text, "⎿$1⎿").into_owned();
+        prepared_text = RE_ITALIC.replace_all(&prepared_text, "$1⏉$2⏉").into_owned();
+        prepared_text = RE_UNDERLINE
+            .replace_all(&prepared_text, "$1⏊$2⏊")
+            .into_owned();
+        prepared_text = prepared_text.replace("\\*", "*").replace("\\_", "_");
+
+        let mut styled_textruns: Vec<TextRun> = vec![];
+        let mut current_text: String = "".to_string();
+        let mut current_styles: HashSet<String> = HashSet::new();
+        for char in prepared_text.graphemes(true) {
+            match char {
+                "⏋" => {
+                    if current_styles.contains(&"Bold".to_string())
+                        && current_styles.contains(&"Italic".to_string())
+                    {
+                        // Time to end Bold/Italic style
+                        if current_text.is_empty() {
+                            // Current text is empty but this style hunk is ending.
+                            // That means these styles were immediately preceded by
+                            // another style that just ended. We just need to remove
+                            // these styles and we can move on to building the next
+                            // hunk.
+                        } else {
+                            // Current text is NOT empty, so it's time to end this
+                            // textrun.
+                            styled_textruns.push(TextRun {
+                                content: current_text.clone(),
+                                text_style: current_styles.clone(),
+                            });
+                            current_text = "".to_string();
+                        }
+                        current_styles.remove(&"Bold".to_string());
+                        current_styles.remove(&"Italic".to_string());
                     } else {
-                        // Current text is NOT empty, so it's time to end this
-                        // textrun.
-                        styled_textruns.push(TextRun {
-                            content: current_text.clone(),
-                            text_style: current_styles.clone(),
-                        });
+                        // Time to start this hunk
+                        // See if there's another hunk we need to close off
+                        if !current_text.is_empty() {
+                            styled_textruns.push(TextRun {
+                                content: current_text.clone(),
+                                text_style: current_styles.clone(),
+                            });
+                        }
                         current_text = "".to_string();
+                        current_styles.insert("Bold".to_string());
+                        current_styles.insert("Italic".to_string());
                     }
-                    current_styles.remove(&"Bold".to_string());
-                    current_styles.remove(&"Italic".to_string());
-                } else {
-                    // Time to start this hunk
-                    // See if there's another hunk we need to close off
-                    if !current_text.is_empty() {
-                        styled_textruns.push(TextRun {
-                            content: current_text.clone(),
-                            text_style: current_styles.clone(),
-                        });
-                    }
-                    current_text = "".to_string();
-                    current_styles.insert("Bold".to_string());
-                    current_styles.insert("Italic".to_string());
                 }
-            }
-            "⏉" => {
-                if current_styles.contains(&"Italic".to_string()) {
-                    // Time to end Italic style
-                    if current_text.is_empty() {
-                        // Current text is empty but this style hunk is ending.
-                        // That means these styles were immediately preceded by
-                        // another style that just ended. We just need to remove
-                        // these styles and we can move on to building the next
-                        // hunk.
+                "⏉" => {
+                    if current_styles.contains(&"Italic".to_string()) {
+                        // Time to end Italic style
+                        if current_text.is_empty() {
+                            // Current text is empty but this style hunk is ending.
+                            // That means these styles were immediately preceded by
+                            // another style that just ended. We just need to remove
+                            // these styles and we can move on to building the next
+                            // hunk.
+                        } else {
+                            // Current text is NOT empty, so it's time to end this
+                            // textrun.
+                            styled_textruns.push(TextRun {
+                                content: current_text.clone(),
+                                text_style: current_styles.clone(),
+                            });
+                            current_text = "".to_string();
+                        }
+                        current_styles.remove(&"Italic".to_string());
                     } else {
-                        // Current text is NOT empty, so it's time to end this
-                        // textrun.
-                        styled_textruns.push(TextRun {
-                            content: current_text.clone(),
-                            text_style: current_styles.clone(),
-                        });
+                        // Time to start this hunk
+                        // See if there's another hunk we need to close off
+                        if !current_text.is_empty() {
+                            styled_textruns.push(TextRun {
+                                content: current_text.clone(),
+                                text_style: current_styles.clone(),
+                            });
+                        }
                         current_text = "".to_string();
+                        current_styles.insert("Italic".to_string());
                     }
-                    current_styles.remove(&"Italic".to_string());
-                } else {
-                    // Time to start this hunk
-                    // See if there's another hunk we need to close off
-                    if !current_text.is_empty() {
-                        styled_textruns.push(TextRun {
-                            content: current_text.clone(),
-                            text_style: current_styles.clone(),
-                        });
-                    }
-                    current_text = "".to_string();
-                    current_styles.insert("Italic".to_string());
                 }
-            }
-            "⎿" => {
-                if current_styles.contains(&"Bold".to_string()) {
-                    // Time to end Bold style
-                    if current_text.is_empty() {
-                        // Current text is empty but this style hunk is ending.
-                        // That means these styles were immediately preceded by
-                        // another style that just ended. We just need to remove
-                        // these styles and we can move on to building the next
-                        // hunk.
+                "⎿" => {
+                    if current_styles.contains(&"Bold".to_string()) {
+                        // Time to end Bold style
+                        if current_text.is_empty() {
+                            // Current text is empty but this style hunk is ending.
+                            // That means these styles were immediately preceded by
+                            // another style that just ended. We just need to remove
+                            // these styles and we can move on to building the next
+                            // hunk.
+                        } else {
+                            // Current text is NOT empty, so it's time to end this
+                            // textrun.
+                            styled_textruns.push(TextRun {
+                                content: current_text.clone(),
+                                text_style: current_styles.clone(),
+                            });
+                            current_text = "".to_string();
+                        }
+                        current_styles.remove(&"Bold".to_string());
                     } else {
-                        // Current text is NOT empty, so it's time to end this
-                        // textrun.
-                        styled_textruns.push(TextRun {
-                            content: current_text.clone(),
-                            text_style: current_styles.clone(),
-                        });
+                        // Time to start this hunk
+                        // See if there's another hunk we need to close off
+                        if !current_text.is_empty() {
+                            styled_textruns.push(TextRun {
+                                content: current_text.clone(),
+                                text_style: current_styles.clone(),
+                            });
+                        }
                         current_text = "".to_string();
+                        current_styles.insert("Bold".to_string());
                     }
-                    current_styles.remove(&"Bold".to_string());
-                } else {
-                    // Time to start this hunk
-                    // See if there's another hunk we need to close off
-                    if !current_text.is_empty() {
-                        styled_textruns.push(TextRun {
-                            content: current_text.clone(),
-                            text_style: current_styles.clone(),
-                        });
-                    }
-                    current_text = "".to_string();
-                    current_styles.insert("Bold".to_string());
                 }
-            }
-            "⏊" => {
-                if current_styles.contains(&"Underline".to_string()) {
-                    // Time to end Underline style
-                    if current_text.is_empty() {
-                        // Current text is empty but this style hunk is ending.
-                        // That means these styles were immediately preceded by
-                        // another style that just ended. We just need to remove
-                        // these styles and we can move on to building the next
-                        // hunk.
+                "⏊" => {
+                    if current_styles.contains(&"Underline".to_string()) {
+                        // Time to end Underline style
+                        if current_text.is_empty() {
+                            // Current text is empty but this style hunk is ending.
+                            // That means these styles were immediately preceded by
+                            // another style that just ended. We just need to remove
+                            // these styles and we can move on to building the next
+                            // hunk.
+                        } else {
+                            // Current text is NOT empty, so it's time to end this
+                            // textrun.
+                            styled_textruns.push(TextRun {
+                                content: current_text.clone(),
+                                text_style: current_styles.clone(),
+                            });
+                            current_text = "".to_string();
+                        }
+                        current_styles.remove(&"Underline".to_string());
                     } else {
-                        // Current text is NOT empty, so it's time to end this
-                        // textrun.
-                        styled_textruns.push(TextRun {
-                            content: current_text.clone(),
-                            text_style: current_styles.clone(),
-                        });
+                        // Time to start this hunk
+                        // See if there's another hunk we need to close off
+                        if !current_text.is_empty() {
+                            styled_textruns.push(TextRun {
+                                content: current_text.clone(),
+                                text_style: current_styles.clone(),
+                            });
+                        }
                         current_text = "".to_string();
+                        current_styles.insert("Underline".to_string());
                     }
-                    current_styles.remove(&"Underline".to_string());
-                } else {
-                    // Time to start this hunk
-                    // See if there's another hunk we need to close off
-                    if !current_text.is_empty() {
-                        styled_textruns.push(TextRun {
-                            content: current_text.clone(),
-                            text_style: current_styles.clone(),
-                        });
-                    }
-                    current_text = "".to_string();
-                    current_styles.insert("Underline".to_string());
                 }
+                _ => current_text.push_str(char),
             }
-            _ => current_text.push_str(char),
         }
+        // Check if any text wasn't handled in the loop
+        if !current_text.is_empty() {
+            styled_textruns.push(TextRun {
+                content: current_text.clone(),
+                text_style: current_styles.clone(),
+            });
+        }
+        Styled(styled_textruns)
     }
-    // Check if any text wasn't handled in the loop
-    if !current_text.is_empty() {
-        styled_textruns.push(TextRun {
-            content: current_text.clone(),
-            text_style: current_styles.clone(),
-        });
-    }
-    Styled(styled_textruns)
 }
 
 // * Tests
@@ -195,7 +225,7 @@ mod tests {
     use crate::{blank_attributes, p};
     use pretty_assertions::assert_eq;
 
-    // Quick helper function to make writing tests easier.
+    // Convenience function to make writing tests easier.
     fn tr(content: &str, styles: Vec<&str>) -> TextRun {
         let mut style_strings: HashSet<String> = HashSet::new();
         for style in styles {
@@ -211,16 +241,7 @@ mod tests {
     fn test_parse_with_element() {
         let mut element = Action(p("something"), blank_attributes());
         element.parse_and_convert_markup();
-        assert_eq!(
-            element,
-            Action(
-                Styled(vec![TextRun {
-                    content: "something".to_string(),
-                    text_style: HashSet::new()
-                }]),
-                blank_attributes()
-            )
-        );
+        assert_eq!(element, Action(p("something"), blank_attributes()));
     }
 
     #[test]
@@ -513,10 +534,7 @@ mod tests {
         element.parse_and_convert_markup();
         assert_eq!(
             element,
-            Action(
-                Styled(vec![tr("*Fuck this whole place!", vec![]),]),
-                blank_attributes()
-            )
+            Action(p("*Fuck this whole place!"), blank_attributes())
         );
         element = Action(
             p("He dialed *69 and then *23, and then hung up."),
@@ -526,10 +544,7 @@ mod tests {
         assert_eq!(
             element,
             Action(
-                Styled(vec![tr(
-                    "He dialed *69 and then *23, and then hung up.",
-                    vec![]
-                ),]),
+                p("He dialed *69 and then *23, and then hung up."),
                 blank_attributes()
             )
         );
@@ -541,10 +556,7 @@ mod tests {
         assert_eq!(
             element,
             Action(
-                Styled(vec![tr(
-                    "He dialed *69 and then 23*, and then hung up.",
-                    vec![]
-                ),]),
+                p("He dialed *69 and then 23*, and then hung up."),
                 blank_attributes()
             )
         );
@@ -556,10 +568,7 @@ mod tests {
         assert_eq!(
             element,
             Action(
-                Styled(vec![tr(
-                    "He dialed _69 and then 23_, and then hung up.",
-                    vec![]
-                ),]),
+                p("He dialed _69 and then 23_, and then hung up."),
                 blank_attributes()
             )
         );
@@ -571,10 +580,7 @@ mod tests {
         assert_eq!(
             element,
             Action(
-                Styled(vec![tr(
-                    "As he rattles off the long list, Brick and Steel *share a look.\nThis is going to be BAD.*",
-                    vec![]
-                ),]),
+                p("As he rattles off the long list, Brick and Steel *share a look.\nThis is going to be BAD.*"),
                 blank_attributes()
             )
         );

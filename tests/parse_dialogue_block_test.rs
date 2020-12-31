@@ -1,6 +1,19 @@
-use jumpcut::{blank_attributes, p, parse, Element};
+use jumpcut::{blank_attributes, p, parse, Element, ElementText::Styled, TextRun};
 #[cfg(test)]
 use pretty_assertions::assert_eq;
+use std::collections::HashSet;
+
+// Convenience function to make writing tests easier.
+fn tr(content: &str, styles: Vec<&str>) -> TextRun {
+    let mut style_strings: HashSet<String> = HashSet::new();
+    for style in styles {
+        style_strings.insert(style.to_string());
+    }
+    TextRun {
+        content: content.to_string(),
+        text_style: style_strings,
+    }
+}
 
 #[test]
 fn it_handles_basic_dialogue() {
@@ -41,7 +54,11 @@ fn it_handles_dialogue_with_line_breaks() {
     let expected = vec![Element::DialogueBlock(vec![
         Element::Character(p("DAN"), blank_attributes()),
         Element::Dialogue(
-            p("Then let's retire them.\n_Permanently_."),
+            Styled(vec![
+                tr("Then let's retire them.\n", vec![]),
+                tr("Permanently", vec!["Underline"]),
+                tr(".", vec![]),
+            ]),
             blank_attributes(),
         ),
     ])];

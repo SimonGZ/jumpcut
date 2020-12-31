@@ -112,6 +112,9 @@ pub fn parse(text: &str) -> Screenplay {
         }
         _ => (),
     }
+    for element in elements.iter_mut() {
+        element.parse_and_convert_markup();
+    }
     Screenplay {
         elements: elements,
         metadata: metadata,
