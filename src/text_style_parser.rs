@@ -58,7 +58,6 @@ fn create_styled_from_string(txt: &mut String) -> ElementText {
         Plain(txt.to_string())
     } else {
         let mut prepared_text = RE_BOLD_ITALIC.replace_all(&txt, "⏋$1⏋").into_owned();
-        println!("{}", prepared_text);
         prepared_text = RE_BOLD.replace_all(&prepared_text, "⎿$1⎿").into_owned();
         prepared_text = RE_ITALIC.replace_all(&prepared_text, "$1⏉$2⏉").into_owned();
         prepared_text = RE_UNDERLINE
