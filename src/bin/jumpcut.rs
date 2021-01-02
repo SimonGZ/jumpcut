@@ -1,6 +1,6 @@
 use jumpcut::parse;
 use std::fs;
-use std::io::{self, Write};
+use std::io::{self, Read, Write};
 use std::path::PathBuf;
 use structopt::StructOpt;
 
@@ -14,7 +14,7 @@ struct Opt {
     #[structopt(short, long, default_value = "fdx")]
     format: String,
 
-    /// Input file
+    /// Input file, pass a dash ("-") to receive stdin
     #[structopt(parse(from_os_str))]
     input: PathBuf,
 
@@ -25,8 +25,25 @@ struct Opt {
 
 fn main() {
     let opt = Opt::from_args();
-    let content = std::fs::read_to_string(opt.input).expect("Could not read file.");
+    let mut content = String::new();
+    if opt.input.is_file() {
+        content.push_str(&std::fs::read_to_string(opt.input).expect("Could not read file."));
+    } else {
+        if opt.input.to_str() == Some("-") {
+            let mut buffer = String::new();
+            let stdin = io::stdin().read_to_string(&mut buffer);
+            match stdin {
+                Err(_) => panic!("Invalid text piped to function."),
+                Ok(_) => content.push_str(&buffer),
+            }
+        } else {
+            eprintln!("Error: Did not receive a valid file.");
+            std::process::exit(1);
+        }
+    }
+
     let screenplay = parse(&content);
+
     match opt.output {
         Some(outfile) => {
             fs::write(outfile, format!("{:#?}", screenplay)).expect("Unable to write file.")
