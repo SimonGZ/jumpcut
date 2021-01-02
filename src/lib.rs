@@ -164,7 +164,7 @@ fn prepare_text(text: &str) -> String {
     lazy_static! {
         static ref RE: Regex = Regex::new(r"/\*[^*]*\*/|\p{gc:Cf}").unwrap();
     }
-    RE.replace_all(text, "").to_string()
+    RE.replace_all(text.trim_end(), "").to_string()
 }
 
 fn lines_to_hunks(lines: Lines) -> Vec<Vec<&str>> {
