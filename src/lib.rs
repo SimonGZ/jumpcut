@@ -1,5 +1,6 @@
 use lazy_static::lazy_static;
 use regex::Regex;
+use serde::Serialize;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::convert::TryInto;
@@ -31,16 +32,17 @@ const SCENE_LOCATORS: [&str; 16] = [
 
 pub type Metadata = HashMap<String, Vec<String>>;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Serialize)]
 pub struct Screenplay {
     pub metadata: Metadata,
     pub elements: Vec<Element>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Serialize)]
 pub enum Element {
     Action(ElementText, Attributes),
     Character(ElementText, Attributes),
+    #[serde(rename = "Scene Heading")]
     SceneHeading(ElementText, Attributes),
     Lyric(ElementText, Attributes),
     Parenthetical(ElementText, Attributes),
@@ -50,12 +52,15 @@ pub enum Element {
     Transition(ElementText, Attributes),
     Section(ElementText, Attributes, u8),
     Synopsis(ElementText),
+    #[serde(rename = "Cold Opening")]
     ColdOpening(ElementText, Attributes),
+    #[serde(rename = "New Act")]
     NewAct(ElementText, Attributes),
+    #[serde(rename = "End of Act")]
     EndOfAct(ElementText, Attributes),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Serialize)]
 pub struct Attributes {
     pub centered: bool,
     pub starts_new_page: bool,
@@ -63,7 +68,7 @@ pub struct Attributes {
     pub notes: Option<Vec<String>>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Serialize)]
 pub enum ElementText {
     Plain(String),
     Styled(Vec<TextRun>),
@@ -74,7 +79,7 @@ pub fn p(p: &str) -> ElementText {
     ElementText::Plain(p.to_string())
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Serialize)]
 pub struct TextRun {
     pub content: String,
     pub text_style: HashSet<String>,

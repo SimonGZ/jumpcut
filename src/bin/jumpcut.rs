@@ -1,4 +1,5 @@
 use jumpcut::parse;
+use serde_json;
 use std::fs;
 use std::io::{self, Read, Write};
 use std::path::PathBuf;
@@ -10,7 +11,7 @@ use structopt::StructOpt;
     about = "A tool for converting Fountain screenplay documents into Final Draft (FDX) and HTML formats."
 )]
 struct Opt {
-    /// Formats (FDX or HTML)
+    /// Formats (FDX, HTML, JSON)
     #[structopt(short, long, default_value = "fdx")]
     format: String,
 
@@ -44,14 +45,31 @@ fn main() {
 
     let screenplay = parse(&content);
 
-    match opt.output {
-        Some(outfile) => {
-            fs::write(outfile, format!("{:#?}", screenplay)).expect("Unable to write file.")
+    let mut output_text = String::new();
+
+    match opt.format {
+        x if x.to_lowercase() == "json" => {
+            let j = serde_json::to_string_pretty(&screenplay);
+            match j {
+                Ok(json) => output_text = json,
+                Err(e) => eprintln!("{}", e),
+            }
         }
+        x if x.to_lowercase() == "fdx" => {
+            output_text = "fdx".to_string();
+        }
+        x if x.to_lowercase() == "html" => {
+            output_text = "html".to_string();
+        }
+        _ => output_text = "nothing".to_string(),
+    }
+
+    match opt.output {
+        Some(outfile) => fs::write(outfile, output_text).expect("Unable to write file."),
         None => {
             let stdout = io::stdout();
             let mut handle = io::BufWriter::new(stdout);
-            writeln!(handle, "{:#?}", screenplay).expect("Unable to write to buffer.");
+            writeln!(handle, "{}", output_text).expect("Unable to write to buffer.");
         }
     }
 }
