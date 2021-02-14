@@ -115,10 +115,7 @@ pub fn parse(text: &str) -> Screenplay {
     for element in elements.iter_mut() {
         element.parse_and_convert_markup();
     }
-    Screenplay {
-        elements: elements,
-        metadata: metadata,
-    }
+    Screenplay { elements, metadata }
 }
 
 fn has_key_value(txt: &str) -> bool {
@@ -264,7 +261,7 @@ fn make_single_line_element(line: &str) -> Element {
     if has_note(line) {
         let notes = retrieve_notes(line);
         attributes = Attributes {
-            notes: notes,
+            notes,
             ..attributes
         };
     }
@@ -351,7 +348,7 @@ fn make_multi_line_element(hunk: Vec<&str>) -> Element {
     if has_note(&temp_joined) {
         let notes = retrieve_notes(&temp_joined);
         attributes = Attributes {
-            notes: notes,
+            notes,
             ..attributes
         };
     }
@@ -502,7 +499,7 @@ fn make_dialogue_block(hunk: Vec<&str>) -> Element {
         if has_note(line) {
             let notes = retrieve_notes(line);
             attributes = Attributes {
-                notes: notes,
+                notes,
                 ..attributes
             };
             processed_line = remove_notes(line);
