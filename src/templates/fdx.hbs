@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+<FinalDraft DocumentType="Script" Template="No" Version="4">
+    <Content>
+      {{#elements}}
+      {{#unless this.blocks}}
+      {{#unless this.block}}
+      <Paragraph Type="{{type}}">
+              {{#if text.Plain}}
+        <Text>{{text.Plain}}</Text>
+              {{/if}}
+              {{#if text.Styled}}
+                {{#each text.Styled}}
+        <Text
+        {{~#if text_style}} Style="
+          {{~#each text_style}}
+          {{~this~}}{{~#unless @last~}}+{{/unless}}
+          {{~/each}}"
+        {{~/if~}}
+        >{{content}}</Text>
+                {{/each}}
+              {{/if}}
+      </Paragraph>
+      {{/unless}}
+      {{/unless}}
+      {{#block}}
+      <Paragraph Type="{{type}}">
+              {{#if text.Plain}}
+        <Text>{{text.Plain}}</Text>
+              {{/if}}
+              {{#if text.Styled}}
+                {{#each text.Styled}}
+        <Text
+        {{~#if text_style}} Style="
+          {{~#each text_style}}
+          {{~this~}}{{~#unless @last~}}+{{/unless}}
+          {{~/each}}"
+        {{~/if~}}
+        >{{content}}</Text>
+                {{/each}}
+              {{/if}}
+      </Paragraph>
+      {{/block}}
+      {{#if blocks}}
+        <DualDialogue>
+        {{#blocks}}
+          {{#block}}
+      <Paragraph Type="{{type}}">
+              {{#if text.Plain}}
+        <Text>{{text.Plain}}</Text>
+              {{/if}}
+              {{#if text.Styled}}
+                {{#each text.Styled}}
+        <Text
+        {{~#if text_style}} Style="
+          {{~#each text_style}}
+          {{~this~}}{{~#unless @last~}}+{{/unless}}
+          {{~/each}}"
+        {{~/if~}}
+        >{{content}}</Text>
+                {{/each}}
+              {{/if}}
+      </Paragraph>
+          {{/block}}
+        {{/blocks}}
+        </DualDialogue>
+      {{/if}}
+      {{/elements}}
+    </Content>
+</FinalDraft>

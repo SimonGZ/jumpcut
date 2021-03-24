@@ -161,7 +161,7 @@ impl Serialize for Element {
             Element::DualDialogueBlock(ref blocks) => {
                 let mut map = serializer.serialize_map(Some(2))?;
                 map.serialize_entry("type", "DualDialogueBlock")?;
-                map.serialize_entry("block", blocks)?;
+                map.serialize_entry("blocks", blocks)?;
                 map.end()
             }
             Element::Section(ref text, ref attributes, ref level) => {
