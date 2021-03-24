@@ -1,6 +1,6 @@
 use lazy_static::lazy_static;
 use regex::Regex;
-use serde::ser::{SerializeStruct, Serializer};
+use serde::ser::{SerializeMap, Serializer};
 use serde::Serialize;
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -79,86 +79,104 @@ impl Serialize for Element {
                     attributes,
                 };
                 el.serialize(serializer)
-                // let mut el = serializer.serialize_struct("Action", 2)?;
-                // el.serialize_field("text", text)?;
-                // el.serialize_field("attributes", attr)?;
-                // el.end()
             }
-            Element::Character(ref text, ref attr) => {
-                let mut el = serializer.serialize_struct("Character", 2)?;
-                el.serialize_field("text", text)?;
-                el.serialize_field("attributes", attr)?;
-                el.end()
+            Element::Character(ref text, ref attributes) => {
+                let el = SerializeElementHelper {
+                    element_type: "Character",
+                    text,
+                    attributes,
+                };
+                el.serialize(serializer)
             }
-            Element::SceneHeading(ref text, ref attr) => {
-                let mut el = serializer.serialize_struct("Scene Heading", 2)?;
-                el.serialize_field("text", text)?;
-                el.serialize_field("attributes", attr)?;
-                el.end()
+            Element::SceneHeading(ref text, ref attributes) => {
+                let el = SerializeElementHelper {
+                    element_type: "Scene Heading",
+                    text,
+                    attributes,
+                };
+                el.serialize(serializer)
             }
-            Element::Lyric(ref text, ref attr) => {
-                let mut el = serializer.serialize_struct("Lyric", 2)?;
-                el.serialize_field("text", text)?;
-                el.serialize_field("attributes", attr)?;
-                el.end()
+            Element::Lyric(ref text, ref attributes) => {
+                let el = SerializeElementHelper {
+                    element_type: "Lyric",
+                    text,
+                    attributes,
+                };
+                el.serialize(serializer)
             }
-            Element::Parenthetical(ref text, ref attr) => {
-                let mut el = serializer.serialize_struct("Parenthetical", 2)?;
-                el.serialize_field("text", text)?;
-                el.serialize_field("attributes", attr)?;
-                el.end()
+            Element::Parenthetical(ref text, ref attributes) => {
+                let el = SerializeElementHelper {
+                    element_type: "Parenthetical",
+                    text,
+                    attributes,
+                };
+                el.serialize(serializer)
             }
-            Element::Dialogue(ref text, ref attr) => {
-                let mut el = serializer.serialize_struct("Dialogue", 2)?;
-                el.serialize_field("text", text)?;
-                el.serialize_field("attributes", attr)?;
-                el.end()
+            Element::Dialogue(ref text, ref attributes) => {
+                let el = SerializeElementHelper {
+                    element_type: "Dialogue",
+                    text,
+                    attributes,
+                };
+                el.serialize(serializer)
             }
-            Element::Transition(ref text, ref attr) => {
-                let mut el = serializer.serialize_struct("Transition", 2)?;
-                el.serialize_field("text", text)?;
-                el.serialize_field("attributes", attr)?;
-                el.end()
+            Element::Transition(ref text, ref attributes) => {
+                let el = SerializeElementHelper {
+                    element_type: "Transition",
+                    text,
+                    attributes,
+                };
+                el.serialize(serializer)
             }
-            Element::ColdOpening(ref text, ref attr) => {
-                let mut el = serializer.serialize_struct("Cold Opening", 2)?;
-                el.serialize_field("text", text)?;
-                el.serialize_field("attributes", attr)?;
-                el.end()
+            Element::ColdOpening(ref text, ref attributes) => {
+                let el = SerializeElementHelper {
+                    element_type: "Cold Opening",
+                    text,
+                    attributes,
+                };
+                el.serialize(serializer)
             }
-            Element::NewAct(ref text, ref attr) => {
-                let mut el = serializer.serialize_struct("New Act", 2)?;
-                el.serialize_field("text", text)?;
-                el.serialize_field("attributes", attr)?;
-                el.end()
+            Element::NewAct(ref text, ref attributes) => {
+                let el = SerializeElementHelper {
+                    element_type: "New Act",
+                    text,
+                    attributes,
+                };
+                el.serialize(serializer)
             }
-            Element::EndOfAct(ref text, ref attr) => {
-                let mut el = serializer.serialize_struct("End of Act", 2)?;
-                el.serialize_field("text", text)?;
-                el.serialize_field("attributes", attr)?;
-                el.end()
+            Element::EndOfAct(ref text, ref attributes) => {
+                let el = SerializeElementHelper {
+                    element_type: "End of Act",
+                    text,
+                    attributes,
+                };
+                el.serialize(serializer)
             }
             Element::DialogueBlock(ref block) => {
-                let mut el = serializer.serialize_struct("DialogueBlock", 1)?;
-                el.serialize_field("block", block)?;
-                el.end()
+                let mut map = serializer.serialize_map(Some(2))?;
+                map.serialize_entry("type", "DialogueBlock")?;
+                map.serialize_entry("block", block)?;
+                map.end()
             }
             Element::DualDialogueBlock(ref blocks) => {
-                let mut el = serializer.serialize_struct("DualDialogueBlock", 1)?;
-                el.serialize_field("blocks", blocks)?;
-                el.end()
+                let mut map = serializer.serialize_map(Some(2))?;
+                map.serialize_entry("type", "DualDialogueBlock")?;
+                map.serialize_entry("block", blocks)?;
+                map.end()
             }
-            Element::Section(ref text, ref attr, ref level) => {
-                let mut el = serializer.serialize_struct("Section", 3)?;
-                el.serialize_field("text", text)?;
-                el.serialize_field("attributes", attr)?;
-                el.serialize_field("level", level)?;
-                el.end()
+            Element::Section(ref text, ref attributes, ref level) => {
+                let mut map = serializer.serialize_map(Some(4))?;
+                map.serialize_entry("type", "Section")?;
+                map.serialize_entry("text", text)?;
+                map.serialize_entry("attributes", attributes)?;
+                map.serialize_entry("level", level)?;
+                map.end()
             }
             Element::Synopsis(ref text) => {
-                let mut el = serializer.serialize_struct("Synopsis", 1)?;
-                el.serialize_field("text", text)?;
-                el.end()
+                let mut map = serializer.serialize_map(Some(2))?;
+                map.serialize_entry("type", "Synopsis")?;
+                map.serialize_entry("text", text)?;
+                map.end()
             }
         }
     }
