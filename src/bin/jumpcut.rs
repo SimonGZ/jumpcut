@@ -56,7 +56,7 @@ fn main() {
             }
         }
         x if x.to_lowercase() == "fdx" => {
-            output_text = "fdx".to_string();
+            output_text = screenplay.to_final_draft();
         }
         x if x.to_lowercase() == "html" => {
             output_text = "html".to_string();
