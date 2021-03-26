@@ -204,7 +204,17 @@ pub fn p(p: &str) -> ElementText {
 #[derive(Debug, PartialEq, Serialize)]
 pub struct TextRun {
     pub content: String,
+    #[serde(serialize_with = "text_style_serialize")]
     pub text_style: HashSet<String>,
+}
+
+fn text_style_serialize<S>(x: &HashSet<String>, s: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    let mut styles: Vec<String> = x.clone().into_iter().collect();
+    styles.sort();
+    styles.serialize(s)
 }
 
 impl Default for Attributes {
