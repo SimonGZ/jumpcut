@@ -1,10 +1,7 @@
 {{#*inline "Paragraph"}}
       <Paragraph Type="{{type}}">
-              {{#if text.Plain~}}
-        <Text>{{text.Plain}}</Text>
-              {{~/if~}}
-              {{~#if text.Styled~}}{{~#each text.Styled}}
-        <Text
+        {{#if text.Plain~}}<Text>{{text.Plain}}</Text>{{~/if~}}
+        {{~#if text.Styled~}}{{~#each text.Styled}}<Text
             {{~#if text_style}} Style="
                                        {{~#each text_style}}
                                        {{~this~}}{{~#unless @last~}}+{{/unless}}
@@ -30,15 +27,15 @@
       {{#if blocks}}
           <Paragraph Alignment="Left" FirstIndent="0.00" Leading="Regular" LeftIndent="1.50" RightIndent="7.50" SpaceBefore="12" Spacing="1" StartsNewPage="No" Type="General">
               <DualDialogue>
-                  {{#each blocks}}
+                  {{~#each blocks}}
                       {{#each block}}
                           {{~> Paragraph~}}
                       {{/each}}
-                  {{/each}}
+                  {{~/each~}}
               </DualDialogue>
               <Text></Text>
           </Paragraph>
-      {{/if}}
+      {{/if~}}
       {{/each}}
     </Content>
 
