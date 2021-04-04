@@ -29,6 +29,7 @@ impl Element {
             }
             Section(_, _, _) => (),
             Synopsis(_) => (),
+            PageBreak => (),
         };
     }
 }

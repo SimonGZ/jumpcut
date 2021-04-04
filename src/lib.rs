@@ -7,6 +7,7 @@ use std::collections::HashSet;
 use std::convert::TryInto;
 use std::default::Default;
 use std::str::Lines;
+use Element::PageBreak;
 
 mod converters;
 mod text_style_parser;
@@ -56,6 +57,30 @@ pub enum Element {
     ColdOpening(ElementText, Attributes),
     NewAct(ElementText, Attributes),
     EndOfAct(ElementText, Attributes),
+    PageBreak,
+}
+
+impl Element {
+    fn name(&self) -> &str {
+        use Element::*;
+        match *self {
+            Action(_, _) => "Action",
+            Character(_, _) => "Character",
+            SceneHeading(_, _) => "Scene Heading",
+            Lyric(_, _) => "Lyric",
+            Parenthetical(_, _) => "Parenthetical",
+            Dialogue(_, _) => "Dialogue",
+            DialogueBlock(_) => "Dialogue Block",
+            DualDialogueBlock(_) => "Dual Dialogue Block",
+            Transition(_, _) => "Transition",
+            Section(_, _, _) => "Section",
+            Synopsis(_) => "Synopsis",
+            ColdOpening(_, _) => "Cold Opening",
+            NewAct(_, _) => "New Act",
+            EndOfAct(_, _) => "End of Act",
+            PageBreak => "Page Break",
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Serialize)]
@@ -72,81 +97,18 @@ impl Serialize for Element {
         S: Serializer,
     {
         match *self {
-            Element::Action(ref text, ref attributes) => {
+            Element::Action(ref text, ref attributes)
+            | Element::Character(ref text, ref attributes)
+            | Element::SceneHeading(ref text, ref attributes)
+            | Element::Lyric(ref text, ref attributes)
+            | Element::Parenthetical(ref text, ref attributes)
+            | Element::Dialogue(ref text, ref attributes)
+            | Element::Transition(ref text, ref attributes)
+            | Element::ColdOpening(ref text, ref attributes)
+            | Element::NewAct(ref text, ref attributes)
+            | Element::EndOfAct(ref text, ref attributes) => {
                 let el = SerializeElementHelper {
-                    element_type: "Action",
-                    text,
-                    attributes,
-                };
-                el.serialize(serializer)
-            }
-            Element::Character(ref text, ref attributes) => {
-                let el = SerializeElementHelper {
-                    element_type: "Character",
-                    text,
-                    attributes,
-                };
-                el.serialize(serializer)
-            }
-            Element::SceneHeading(ref text, ref attributes) => {
-                let el = SerializeElementHelper {
-                    element_type: "Scene Heading",
-                    text,
-                    attributes,
-                };
-                el.serialize(serializer)
-            }
-            Element::Lyric(ref text, ref attributes) => {
-                let el = SerializeElementHelper {
-                    element_type: "Lyric",
-                    text,
-                    attributes,
-                };
-                el.serialize(serializer)
-            }
-            Element::Parenthetical(ref text, ref attributes) => {
-                let el = SerializeElementHelper {
-                    element_type: "Parenthetical",
-                    text,
-                    attributes,
-                };
-                el.serialize(serializer)
-            }
-            Element::Dialogue(ref text, ref attributes) => {
-                let el = SerializeElementHelper {
-                    element_type: "Dialogue",
-                    text,
-                    attributes,
-                };
-                el.serialize(serializer)
-            }
-            Element::Transition(ref text, ref attributes) => {
-                let el = SerializeElementHelper {
-                    element_type: "Transition",
-                    text,
-                    attributes,
-                };
-                el.serialize(serializer)
-            }
-            Element::ColdOpening(ref text, ref attributes) => {
-                let el = SerializeElementHelper {
-                    element_type: "Cold Opening",
-                    text,
-                    attributes,
-                };
-                el.serialize(serializer)
-            }
-            Element::NewAct(ref text, ref attributes) => {
-                let el = SerializeElementHelper {
-                    element_type: "New Act",
-                    text,
-                    attributes,
-                };
-                el.serialize(serializer)
-            }
-            Element::EndOfAct(ref text, ref attributes) => {
-                let el = SerializeElementHelper {
-                    element_type: "End of Act",
+                    element_type: self.name(),
                     text,
                     attributes,
                 };
@@ -178,6 +140,7 @@ impl Serialize for Element {
                 map.serialize_entry("text", text)?;
                 map.end()
             }
+            PageBreak => serializer.serialize_none(),
         }
     }
 }
@@ -366,7 +329,28 @@ fn hunks_to_elements(hunks: Vec<Vec<&str>>) -> Vec<Element> {
         .fold(initial, |mut acc, hunk: Vec<&str>| {
             if hunk.len() == 1 {
                 let element = make_single_line_element(hunk[0]);
-                acc.push(element);
+                if element == PageBreak {
+                    // If the single line element was a PageBreak, we need to
+                    // mark the next element as startsNewPage = true
+                    let last_element = acc.last_mut();
+                    match last_element {
+                        Some(Element::Action(_, attributes))
+                        | Some(Element::Character(_, attributes))
+                        | Some(Element::SceneHeading(_, attributes))
+                        | Some(Element::Lyric(_, attributes))
+                        | Some(Element::Parenthetical(_, attributes))
+                        | Some(Element::Dialogue(_, attributes))
+                        | Some(Element::Transition(_, attributes))
+                        | Some(Element::ColdOpening(_, attributes))
+                        | Some(Element::NewAct(_, attributes))
+                        | Some(Element::EndOfAct(_, attributes)) => {
+                            attributes.starts_new_page = true
+                        }
+                        Some(_) | None => (),
+                    }
+                } else {
+                    acc.push(element);
+                }
             } else {
                 let element = make_multi_line_element(hunk);
                 match (acc.last_mut(), &element) {
@@ -598,7 +582,15 @@ fn make_forced(line: &str) -> Option<fn(ElementText, Attributes) -> Element> {
             }
         }
         Some("#") => Some(make_section),
-        Some("=") => Some(make_synopsis),
+        Some("=") => {
+            if line.trim() == "===" {
+                Some(make_page_break)
+            } else {
+                Some(make_synopsis)
+            }
+        }
+        // This could also be page-break ("==="),
+        // so we have to run a check in hunks_to_elements
         _ => None,
     }
 }
@@ -612,6 +604,10 @@ fn make_section(line: ElementText, _: Attributes) -> Element {
         }
         _ => panic!("Shouldn't be receiving Styled text here."),
     }
+}
+
+fn make_page_break(_line: ElementText, _: Attributes) -> Element {
+    PageBreak
 }
 
 fn make_synopsis(line: ElementText, _: Attributes) -> Element {
