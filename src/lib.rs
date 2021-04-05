@@ -583,7 +583,7 @@ fn make_forced(line: &str) -> Option<fn(ElementText, Attributes) -> Element> {
         }
         Some("#") => Some(make_section),
         Some("=") => {
-            if line.trim() == "===" {
+            if line.trim().starts_with("===") {
                 Some(make_page_break)
             } else {
                 Some(make_synopsis)
