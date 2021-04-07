@@ -1,4 +1,4 @@
-use crate::Screenplay;
+use crate::{Element::*, Screenplay};
 use handlebars::Handlebars;
 use std::collections::{HashMap, HashSet};
 
@@ -39,6 +39,12 @@ impl Screenplay {
         insert_helper(metadata, "dialogue-spacing", dialogue_spacing);
         insert_helper(metadata, "action-text-style", action_text_style);
         insert_helper(metadata, "font-choice", font_choice);
+
+        // Removing elements incompatible with Final Draft format
+        self.elements.retain(|e| match e {
+            PageBreak | Section(_, _, _) | Synopsis(_) => false,
+            _ => true,
+        });
 
         let template = include_str!("templates/fdx.hbs");
         let mut handlebars = Handlebars::new();
