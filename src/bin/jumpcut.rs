@@ -43,7 +43,7 @@ fn main() {
         }
     }
 
-    let screenplay = parse(&content);
+    let mut screenplay = parse(&content);
 
     let mut output_text = String::new();
 
