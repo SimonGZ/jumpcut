@@ -82,17 +82,60 @@ mod tests {
     fn test_add_fdx_formatting() {
         let mut metadata: Metadata = HashMap::new();
         let mut expected: Metadata = HashMap::new();
-        [
+        let defaults: Vec<(&str, &str)> = vec![
             ("scene-heading-style", "AllCaps"),
             ("space-before-heading", "24"),
             ("dialogue-spacing", "1"),
             ("action-text-style", ""),
             ("font-choice", "Courier Prime"),
-        ]
-        .iter()
-        .for_each(|pair| insert_helper(&mut expected, pair.0, pair.1));
+        ];
+
+        for pair in defaults.iter() {
+            insert_helper(&mut expected, pair.0, pair.1);
+        }
 
         add_fdx_formatting(&mut metadata);
-        assert_eq!(metadata, expected, "it should produce the correct defaults")
+        assert_eq!(metadata, expected, "it should produce the correct defaults");
+
+        metadata = HashMap::new();
+        insert_helper(&mut metadata, "fmt", "bsh ush");
+        insert_helper(
+            &mut expected,
+            "scene-heading-style",
+            "AllCaps+Bold+Underline",
+        );
+        insert_helper(&mut expected, "fmt", "bsh ush");
+        add_fdx_formatting(&mut metadata);
+        assert_eq!(metadata, expected, "it should handle scene-heading-style");
+
+        metadata = HashMap::new();
+        insert_helper(&mut metadata, "fmt", "acat");
+        for pair in defaults.iter() {
+            insert_helper(&mut expected, pair.0, pair.1);
+        }
+        insert_helper(&mut expected, "action-text-style", "AllCaps");
+        insert_helper(&mut expected, "fmt", "acat");
+        add_fdx_formatting(&mut metadata);
+        assert_eq!(metadata, expected, "it should handle action-text-style");
+
+        metadata = HashMap::new();
+        insert_helper(&mut metadata, "fmt", "dsd");
+        for pair in defaults.iter() {
+            insert_helper(&mut expected, pair.0, pair.1);
+        }
+        insert_helper(&mut expected, "dialogue-spacing", "2");
+        insert_helper(&mut expected, "fmt", "dsd");
+        add_fdx_formatting(&mut metadata);
+        assert_eq!(metadata, expected, "it should handle dialogue-spacing");
+
+        metadata = HashMap::new();
+        insert_helper(&mut metadata, "fmt", "cfd");
+        for pair in defaults.iter() {
+            insert_helper(&mut expected, pair.0, pair.1);
+        }
+        insert_helper(&mut expected, "font-choice", "Courier Final Draft");
+        insert_helper(&mut expected, "fmt", "cfd");
+        add_fdx_formatting(&mut metadata);
+        assert_eq!(metadata, expected, "it should handle font-choice");
     }
 }
