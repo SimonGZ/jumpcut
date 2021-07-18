@@ -41,7 +41,7 @@ pub struct Screenplay {
     pub elements: Vec<Element>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Element {
     Action(ElementText, Attributes),
     Character(ElementText, Attributes),
@@ -145,7 +145,7 @@ impl Serialize for Element {
     }
 }
 
-#[derive(Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct Attributes {
     pub centered: bool,
     pub starts_new_page: bool,
@@ -153,7 +153,7 @@ pub struct Attributes {
     pub notes: Option<Vec<String>>,
 }
 
-#[derive(Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 pub enum ElementText {
     Plain(String),
     Styled(Vec<TextRun>),
@@ -164,11 +164,23 @@ pub fn p(p: &str) -> ElementText {
     ElementText::Plain(p.to_string())
 }
 
-#[derive(Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct TextRun {
     pub content: String,
     #[serde(serialize_with = "text_style_serialize")]
     pub text_style: HashSet<String>,
+}
+
+// Convenience function
+pub fn tr(t: &str, s: Vec<&str>) -> TextRun {
+    let mut styles: HashSet<String> = HashSet::new();
+    for str in s {
+        styles.insert(str.to_string());
+    }
+    TextRun {
+        content: t.to_string(),
+        text_style: styles,
+    }
 }
 
 fn text_style_serialize<S>(x: &HashSet<String>, s: S) -> Result<S::Ok, S::Error>
