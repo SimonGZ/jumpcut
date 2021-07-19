@@ -36,7 +36,7 @@ fn insert_helper(metadata: &mut HashMap<String, Vec<String>>, key: &str, value: 
 
 fn add_fdx_formatting(metadata: &mut Metadata) -> () {
     // Set Defaults
-    let mut scene_heading_style = "AllCaps".to_string();
+    let mut scene_heading_styles = vec!["AllCaps"];
     let mut space_before_heading = "24".to_string();
     let mut dialogue_spacing = "1".to_string();
     let mut action_text_style = "".to_string();
@@ -51,8 +51,8 @@ fn add_fdx_formatting(metadata: &mut Metadata) -> () {
                 let options: HashSet<&str> = lowercase.split_whitespace().collect();
                 for option in options {
                     match option {
-                        "bsh" => scene_heading_style.push_str("+Bold"),
-                        "ush" => scene_heading_style.push_str("+Underline"),
+                        "bsh" => scene_heading_styles.push("Bold"),
+                        "ush" => scene_heading_styles.push("Underline"),
                         "acat" => action_text_style.push_str("AllCaps"),
                         "ssbsh" => space_before_heading = "12".to_string(),
                         "dsd" => dialogue_spacing = "2".to_string(),
@@ -64,6 +64,8 @@ fn add_fdx_formatting(metadata: &mut Metadata) -> () {
         }
     }
 
+    scene_heading_styles.sort_unstable();
+    let scene_heading_style: String = scene_heading_styles.join("+");
     insert_helper(metadata, "scene-heading-style", &scene_heading_style);
     insert_helper(metadata, "space-before-heading", &space_before_heading);
     insert_helper(metadata, "dialogue-spacing", &dialogue_spacing);
