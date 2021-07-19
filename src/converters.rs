@@ -1,5 +1,7 @@
 use crate::{Element::*, Metadata, Screenplay};
-use handlebars::Handlebars;
+use handlebars::{
+    handlebars_helper, Context, Handlebars, Helper, Output, RenderContext, RenderError,
+};
 use std::collections::{HashMap, HashSet};
 
 impl Screenplay {
@@ -20,6 +22,28 @@ impl Screenplay {
             .register_template_string("fdx", template)
             .expect("Expect template to load.");
         let result = handlebars.render("fdx", self);
+        match result {
+            Ok(string) => string,
+            Err(error) => {
+                eprint!("Failed conversion: {}", error);
+                "Failed conversion. See error message.".to_string()
+            }
+        }
+    }
+
+    pub fn to_html(&mut self, head: bool) -> String {
+        let template: &str = if head {
+            include_str!("templates/html.hbs")
+        } else {
+            include_str!("templates/body.hbs")
+        };
+        let mut handlebars: Handlebars = Handlebars::new();
+        handlebars.register_helper("type_to_class", Box::new(type_to_class_helper));
+        handlebars.register_helper("style", Box::new(style_helper));
+        handlebars
+            .register_template_string("html", template)
+            .expect("Expect template to load.");
+        let result = handlebars.render("html", self);
         match result {
             Ok(string) => string,
             Err(error) => {
@@ -72,6 +96,39 @@ fn add_fdx_formatting(metadata: &mut Metadata) -> () {
     insert_helper(metadata, "action-text-style", &action_text_style);
     insert_helper(metadata, "font-choice", &font_choice);
 }
+
+fn type_to_class_helper(
+    h: &Helper,
+    _: &Handlebars,
+    _: &Context,
+    _: &mut RenderContext,
+    out: &mut dyn Output,
+) -> Result<(), RenderError> {
+    // get parameter from helper or throw an error
+    let param = h
+        .param(0)
+        .ok_or(RenderError::new("Param 0 is required for format helper."))?;
+    let input = param.render();
+    let output = match input.as_str() {
+        "Scene Heading" => "sceneHeading",
+        "Action" => "action",
+        "Character" => "character",
+        "Dialogue" => "dialogue",
+        "Parenthetical" => "parenthetical",
+        "Transition" => "transition",
+        "Lyric" => "lyric",
+        "Section" => "section",
+        "Synopsis" => "synopsis",
+        "Cold Opening" => "coldOpening",
+        "New Act" => "newAct",
+        "End of Act" => "endOfAct",
+        _ => input.as_str(),
+    };
+    out.write(output)?;
+    Ok(())
+}
+
+handlebars_helper!(style_helper: |s: str| s.to_lowercase());
 
 // * Tests
 #[cfg(test)]

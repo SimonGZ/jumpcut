@@ -59,7 +59,7 @@ fn main() {
             output_text = screenplay.to_final_draft();
         }
         x if x.to_lowercase() == "html" => {
-            output_text = "html".to_string();
+            output_text = screenplay.to_html(true);
         }
         _ => output_text = "nothing".to_string(),
     }
