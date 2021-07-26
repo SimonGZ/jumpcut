@@ -1,0 +1,53 @@
+
+{{#*inline "element"~}}
+      <p class="{{type_to_class type}}{{~#if attributes.starts_new_page}} startsNewPage{{/if~}}{{~#if attributes.centered}} centered{{/if~}}">
+        {{~#if text.Plain~}}{{~text.Plain~}}{{~/if~}}
+        {{~#if text.Styled~}}{{~#each text.Styled~}}
+            {{~#if text_style~}}<span class="
+                                       {{~#each text_style~}}
+                                       {{~style this~}}{{~#unless @last}} {{/unless~}}
+                                       {{~/each~}}">
+            {{~/if~}}
+        {{~content~}}{{~#if text_style~}}</span>{{~/if~}}
+        {{~/each~}}{{~/if~}}
+      </p>
+{{/inline~}}
+
+    {{#with metadata~}}
+    {{~#if title~}}
+        <section class="title-page">
+            <div class="title">
+                <h1>{{#each title}}{{ this }}{{/each}}</h1>
+                <p>{{#each credit}}{{ this }}{{/each}}</p>
+                <p>{{#each author}}{{ this }}{{/each}}{{#each authors}}{{ this }}{{/each}}</p>
+            </div>
+        </section>
+    {{~/if~}}
+    {{~/with}}
+        <section class="body">
+            {{#each elements}}
+                {{~#unless this.blocks~}}
+                {{~#unless this.block~}}
+                {{~> element~}}
+                {{~/unless~}}
+                {{~/unless~}}
+                {{#if block}}
+    <div class="dialogueBlock">
+                    {{~#each block}}
+                        {{> element}}
+                    {{~/each~}}
+                </div>
+                {{/if}}
+            {{~#if blocks}}
+                <div class="dualDialogueBlock">
+                    {{~#each blocks}}
+                    <div class="dialogueBlock">
+                        {{#each block}}
+                            {{> element}}
+                            {{~/each~}}
+                    </div>
+                    {{~/each}}
+                </div>
+            {{/if}}
+            {{~/each}}
+        </section>
