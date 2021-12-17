@@ -474,6 +474,15 @@ mod tests {
                 blank_attributes()
             )
         );
+        element = NewAct(p("_ACT ONE_"), blank_attributes());
+        element.parse_and_convert_markup();
+        assert_eq!(
+            element,
+            NewAct(
+                Styled(vec![tr("ACT ONE", vec!["Underline"])]),
+                blank_attributes()
+            )
+        );
     }
 
     #[test]

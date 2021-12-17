@@ -460,13 +460,31 @@ fn make_single_line_element(line: &str) -> Element {
         }
         _ if is_centered(&line) => {
             let final_text = remove_notes(trim_centered_marks(line));
-            Element::Action(
-                Plain(final_text),
-                Attributes {
-                    centered: true,
-                    ..attributes
-                },
-            )
+            if final_text.to_lowercase().starts_with(&"act ") {
+                Element::NewAct(
+                    Plain(final_text),
+                    Attributes {
+                        centered: true,
+                        ..attributes
+                    },
+                )
+            } else if final_text.to_lowercase().starts_with(&"end ") {
+                Element::EndOfAct(
+                    Plain(final_text),
+                    Attributes {
+                        centered: true,
+                        ..attributes
+                    },
+                )
+            } else {
+                Element::Action(
+                    Plain(final_text),
+                    Attributes {
+                        centered: true,
+                        ..attributes
+                    },
+                )
+            }
         }
         _ => {
             let final_text = remove_notes(line);

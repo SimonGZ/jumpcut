@@ -72,14 +72,14 @@ fn it_handles_page_breaks_following_dialogue() {
 fn it_handles_page_breaks_following_centered_text() {
     let text = "> END ACT TWO <\n\n===\n\n> ACT THREE <";
     let expected = vec![
-        Element::Action(
+        Element::EndOfAct(
             p("END ACT TWO"),
             Attributes {
                 centered: true,
                 ..Attributes::default()
             },
         ),
-        Element::Action(
+        Element::NewAct(
             p("ACT THREE"),
             Attributes {
                 starts_new_page: true,
