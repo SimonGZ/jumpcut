@@ -460,16 +460,17 @@ fn make_single_line_element(line: &str) -> Element {
         }
         _ if is_centered(&line) => {
             let final_text = remove_notes(trim_centered_marks(line));
-            if final_text.to_lowercase().starts_with(&"act ") {
-                Element::NewAct(
+            if is_end_act(&final_text) {
+                // Check end_act first because new act regex also matches end act regex
+                Element::EndOfAct(
                     Plain(final_text),
                     Attributes {
                         centered: true,
                         ..attributes
                     },
                 )
-            } else if final_text.to_lowercase().starts_with(&"end ") {
-                Element::EndOfAct(
+            } else if is_new_act(&final_text) {
+                Element::NewAct(
                     Plain(final_text),
                     Attributes {
                         centered: true,
@@ -556,6 +557,28 @@ fn is_scene(line: &str) -> bool {
 fn is_transition(line: &str) -> bool {
     let line = line.trim().to_uppercase();
     line.ends_with("TO:")
+}
+
+fn is_end_act(line: &str) -> bool {
+    lazy_static! {
+        static ref END_ACT_REGEX: Regex = Regex::new(
+            r"(end (of )*(act ((\d)|one|two|three|four|five|six|seven|eight|nine|ten)|cold open|teaser))"
+        )
+        .unwrap();
+    }
+    let line = line.to_lowercase();
+    END_ACT_REGEX.is_match(&line)
+}
+
+fn is_new_act(line: &str) -> bool {
+    lazy_static! {
+        static ref NEW_ACT_REGEX: Regex = Regex::new(
+            r"(act ((\d)|one|two|three|four|five|six|seven|eight|nine|ten)|cold open|teaser)"
+        )
+        .unwrap();
+    }
+    let line = line.to_lowercase();
+    NEW_ACT_REGEX.is_match(&line)
 }
 
 fn remove_notes(line: &str) -> String {
