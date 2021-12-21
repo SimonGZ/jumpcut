@@ -67,7 +67,7 @@ impl Element {
             Action(_, _) => "Action",
             Character(_, _) => "Character",
             SceneHeading(_, _) => "Scene Heading",
-            Lyric(_, _) => "Lyric",
+            Lyric(_, _) => "Dialogue", // Easier to just treat as Dialogue for FDX
             Parenthetical(_, _) => "Parenthetical",
             Dialogue(_, _) => "Dialogue",
             DialogueBlock(_) => "Dialogue Block",
@@ -605,6 +605,10 @@ fn is_parenthetical(line: &str) -> bool {
     line.trim().starts_with('(') && line.trim().ends_with(')')
 }
 
+fn is_lyric(line: &str) -> bool {
+    line.trim().starts_with('~')
+}
+
 fn is_dual_dialogue(line: &str) -> bool {
     line.trim().ends_with('^')
 }
@@ -692,6 +696,18 @@ fn make_dialogue_block(hunk: Vec<&str>) -> Element {
         }
         if is_parenthetical(&processed_line) {
             elements.push(Element::Parenthetical(Plain(processed_line), attributes));
+        } else if is_lyric(&processed_line) {
+            // Final Draft doesn't have a concept of Lyrics, so this just becomes italicized dialgoue in the end.
+            let stripped_line = processed_line.trim().trim_start_matches('~').trim();
+            let italicized_line = format!("*{}*", stripped_line);
+            if let Element::Lyric(Plain(s), _) = elements.last_mut().unwrap() {
+                // if previous element was lyric and so is this one, add this line to that previous lyric
+                s.push_str("\n");
+                s.push_str(&italicized_line);
+            } else {
+                // this line is lyric but previous line wasn't, create new lyric element
+                elements.push(Element::Lyric(Plain(italicized_line), attributes));
+            }
         } else if let Element::Dialogue(Plain(s), _) = elements.last_mut().unwrap() {
             // if previous element was dialogue, add this line to that dialogue
             s.push_str("\n");

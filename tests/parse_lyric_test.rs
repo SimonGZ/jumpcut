@@ -1,4 +1,4 @@
-use jumpcut::{blank_attributes, p, parse, Element};
+use jumpcut::{blank_attributes, p, parse, tr, Element, ElementText::Styled};
 #[cfg(test)]
 use pretty_assertions::assert_eq;
 
@@ -29,5 +29,46 @@ fn it_handles_multiple_line_lyric() {
         parse(text).elements,
         expected,
         "it should handle multiple line lyrics"
+    );
+}
+
+#[test]
+fn it_handles_dialogue_block_with_lyrics() {
+    let text = "SINGER\n~Willy Wonka! Willy Wonka!\n~Loves Chocolate!";
+    let expected = vec![Element::DialogueBlock(vec![
+        Element::Character(p("SINGER"), blank_attributes()),
+        Element::Lyric(
+            Styled(vec![
+                tr("Willy Wonka! Willy Wonka!", vec!["Italic"]),
+                tr("\n", vec![]),
+                tr("Loves Chocolate!", vec!["Italic"]),
+            ]),
+            blank_attributes(),
+        ),
+    ])];
+
+    assert_eq!(
+        parse(text).elements,
+        expected,
+        "it should dialogue with multiple line lyrics in a row"
+    );
+}
+
+#[test]
+fn it_handles_dialogue_block_with_mixed_dialogue_and_lyrics() {
+    let text = "SINGER\nHow does this sound?\n~Loves Chocolate!";
+    let expected = vec![Element::DialogueBlock(vec![
+        Element::Character(p("SINGER"), blank_attributes()),
+        Element::Dialogue(p("How does this sound?"), blank_attributes()),
+        Element::Lyric(
+            Styled(vec![tr("Loves Chocolate!", vec!["Italic"])]),
+            blank_attributes(),
+        ),
+    ])];
+
+    assert_eq!(
+        parse(text).elements,
+        expected,
+        "it should handle dialogue with mixed dialogue and lyrics"
     );
 }
