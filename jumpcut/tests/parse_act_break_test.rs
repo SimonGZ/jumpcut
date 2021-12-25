@@ -1,5 +1,4 @@
 use jumpcut::{p, parse, tr, Attributes, Element, ElementText};
-#[cfg(test)]
 use pretty_assertions::assert_eq;
 
 #[test]

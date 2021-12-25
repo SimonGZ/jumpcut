@@ -36,16 +36,17 @@ pub fn criterion_benchmark(c: &mut Criterion) {
 
     let titlepage_text = "Title:\n    _**BRICK & STEEL**_\n    _**FULL RETIRED**_\nCredit: Written by\nAuthor: Stu Maschwitz\nSource: Story by KTM\nDraft date: 1/20/2012\nContact:\n    Next Level Productions\n    1588 Mission Dr.\n    Solvang, CA 93463";
 
-    parse_group.bench_with_input(
-        BenchmarkId::new("Has Key Value", "starts_with"),
-        &titlepage_text,
-        |b, s| b.iter(|| has_key_value(s)),
-    );
-    parse_group.bench_with_input(
-        BenchmarkId::new("Has Key Value", "regex"),
-        &titlepage_text,
-        |b, s| b.iter(|| has_key_value_regex(s)),
-    );
+    // Lesson from these benches, Regex is amazingly fast in Rust! Faster than a simple starts_with.
+    // parse_group.bench_with_input(
+    //     BenchmarkId::new("Has Key Value", "starts_with"),
+    //     &titlepage_text,
+    //     |b, s| b.iter(|| has_key_value(s)),
+    // );
+    // parse_group.bench_with_input(
+    //     BenchmarkId::new("Has Key Value", "regex"),
+    //     &titlepage_text,
+    //     |b, s| b.iter(|| has_key_value_regex(s)),
+    // );
     parse_group.bench_with_input(BenchmarkId::new("Parse", "108"), &scd_text, |b, s| {
         b.iter(|| parse(s))
     });
