@@ -2,7 +2,7 @@
 name = "jumpcut-cli"
 version = "0.5.0"
 authors = ["Simon Ganz"]
-edition = "2018"
+edition = "2021"
 
 [[bin]]
 name = "jumpcut"
