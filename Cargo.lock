@@ -351,7 +351,7 @@ dependencies = [
 
 [[package]]
 name = "jumpcut"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "criterion",
  "handlebars",
@@ -359,14 +359,13 @@ dependencies = [
  "pretty_assertions",
  "regex",
  "serde",
- "serde_json",
  "unicode-segmentation",
  "unicode_categories",
 ]
 
 [[package]]
 name = "jumpcut-cli"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "jumpcut",
  "serde",
