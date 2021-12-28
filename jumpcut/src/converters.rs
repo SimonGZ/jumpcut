@@ -2,6 +2,7 @@ use crate::{Element::*, Metadata, Screenplay};
 use handlebars::{
     handlebars_helper, Context, Handlebars, Helper, Output, RenderContext, RenderError,
 };
+use serde_json;
 use std::collections::{HashMap, HashSet};
 
 impl Screenplay {
@@ -51,6 +52,16 @@ impl Screenplay {
                 "Failed conversion. See error message.".to_string()
             }
         }
+    }
+
+    pub fn to_json_string(self) -> String {
+        serde_json::to_string(&self)
+            .expect("Should be impossible for this JSON serialization to fail.")
+    }
+
+    pub fn to_json_value(self) -> serde_json::Value {
+        serde_json::to_value(&self)
+            .expect("Should be impossible for this JSON serialization to fail.")
     }
 }
 

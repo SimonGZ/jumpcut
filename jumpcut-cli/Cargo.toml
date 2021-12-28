@@ -1,6 +1,6 @@
 [package]
 name = "jumpcut-cli"
-version = "0.5.1"
+version = "0.5.2"
 authors = ["Simon Ganz"]
 edition = "2021"
 
