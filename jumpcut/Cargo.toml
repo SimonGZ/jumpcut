@@ -1,6 +1,6 @@
 [package]
 name = "jumpcut"
-version = "0.5.5"
+version = "0.5.6"
 edition = "2021"
 
 [dependencies]
@@ -13,7 +13,7 @@ serde_json = "1.0.74"
 [dependencies.regex]
 version = "1.5.4"
 default-features = false
-features = ["std", "unicode-gencat", "unicode-perl"] # regex currently requires the standard library, you must re-enable it.
+features = ["std", "perf", "unicode-gencat", "unicode-perl"] # regex currently requires the standard library, you must re-enable it.
 
 [dev-dependencies]
 criterion = "0.3.5"
