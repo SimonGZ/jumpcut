@@ -4,6 +4,7 @@ use handlebars::{
     handlebars_helper, Context, Handlebars, Helper, Output, RenderContext, RenderError,
 };
 use serde_json;
+#[cfg(feature = "fdx")]
 use std::collections::{HashMap, HashSet};
 
 impl Screenplay {
@@ -154,6 +155,7 @@ mod tests {
     // Note this useful idiom: importing names from outer (for mod tests) scope.
     use super::*;
     use pretty_assertions::assert_eq;
+    use std::collections::HashMap;
 
     #[test]
     fn test_add_fdx_formatting() {
