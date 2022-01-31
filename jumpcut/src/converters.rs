@@ -68,10 +68,12 @@ impl Screenplay {
     }
 }
 
+#[cfg(feature = "fdx")]
 fn insert_helper(metadata: &mut HashMap<String, Vec<String>>, key: &str, value: &str) -> () {
     metadata.insert(key.to_string(), vec![value.to_owned()]);
 }
 
+#[cfg(feature = "fdx")]
 fn add_fdx_formatting(metadata: &mut Metadata) -> () {
     // Set Defaults
     let mut scene_heading_styles = vec!["AllCaps"];
@@ -111,6 +113,7 @@ fn add_fdx_formatting(metadata: &mut Metadata) -> () {
     insert_helper(metadata, "font-choice", &font_choice);
 }
 
+#[cfg(feature = "html")]
 fn type_to_class_helper(
     h: &Helper,
     _: &Handlebars,
@@ -142,6 +145,7 @@ fn type_to_class_helper(
     Ok(())
 }
 
+#[cfg(feature = "handlebars")]
 handlebars_helper!(style_helper: |s: str| s.to_lowercase());
 
 // * Tests
