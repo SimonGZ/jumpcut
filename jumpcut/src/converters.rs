@@ -1,8 +1,8 @@
 use crate::{Element::*, Metadata, Screenplay};
 #[cfg(feature = "handlebars")]
-use handlebars::{
-    handlebars_helper, Context, Handlebars, Helper, Output, RenderContext, RenderError,
-};
+use handlebars::Handlebars;
+#[cfg(feature = "html")]
+use handlebars::{handlebars_helper, Context, Helper, Output, RenderContext, RenderError};
 use serde_json;
 #[cfg(feature = "fdx")]
 use std::collections::{HashMap, HashSet};
@@ -146,7 +146,7 @@ fn type_to_class_helper(
     Ok(())
 }
 
-#[cfg(feature = "handlebars")]
+#[cfg(feature = "html")]
 handlebars_helper!(style_helper: |s: str| s.to_lowercase());
 
 // * Tests
