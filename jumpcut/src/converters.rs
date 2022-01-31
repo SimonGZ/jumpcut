@@ -1,4 +1,5 @@
 use crate::{Element::*, Metadata, Screenplay};
+#[cfg(feature = "handlebars")]
 use handlebars::{
     handlebars_helper, Context, Handlebars, Helper, Output, RenderContext, RenderError,
 };
@@ -6,6 +7,7 @@ use serde_json;
 use std::collections::{HashMap, HashSet};
 
 impl Screenplay {
+    #[cfg(feature = "fdx")]
     pub fn to_final_draft(&mut self) -> String {
         let metadata = &mut self.metadata;
 
@@ -32,6 +34,7 @@ impl Screenplay {
         }
     }
 
+    #[cfg(feature = "html")]
     pub fn to_html(&mut self, head: bool) -> String {
         let template: &str = if head {
             include_str!("templates/html.hbs")
