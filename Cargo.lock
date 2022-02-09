@@ -342,7 +342,7 @@ dependencies = [
 
 [[package]]
 name = "jumpcut"
-version = "0.5.10"
+version = "0.5.11"
 dependencies = [
  "criterion",
  "handlebars",

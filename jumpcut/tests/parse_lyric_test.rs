@@ -32,6 +32,24 @@ fn it_handles_multiple_line_lyric() {
 }
 
 #[test]
+fn it_handles_longer_multiple_line_lyric() {
+    let text = "SINGER\n~Some holidays we ring in wholeheartedly:\n~Mothers’ Day, Fathers’ Day, or Martin Luther King.\n~But some we celebrate a bit more guardedly.\n~Their history\n~Turns out to be\n~A complex issue, racially.\n~So thoughtfully we sinnnnnng...";
+    let expected = vec![Element::DialogueBlock(vec![
+        Element::Character(p("SINGER"), blank_attributes()),
+        Element::Lyric(
+            p("Some holidays we ring in wholeheartedly:\nMothers’ Day, Fathers’ Day, or Martin Luther King.\nBut some we celebrate a bit more guardedly.\nTheir history\nTurns out to be\nA complex issue, racially.\nSo thoughtfully we sinnnnnng..."),
+            blank_attributes(),
+        ),
+    ])];
+
+    assert_eq!(
+        parse(text).elements,
+        expected,
+        "it should handle multiple line lyrics"
+    );
+}
+
+#[test]
 fn it_handles_dialogue_block_with_lyrics() {
     let text = "SINGER\n~Willy Wonka! Willy Wonka!\n~Loves Chocolate!";
     let expected = vec![Element::DialogueBlock(vec![
