@@ -2,7 +2,7 @@ use crate::{Element::*, Metadata, Screenplay};
 #[cfg(feature = "handlebars")]
 use handlebars::Handlebars;
 #[cfg(feature = "html")]
-use handlebars::{handlebars_helper, Context, Helper, Output, RenderContext, RenderError};
+use handlebars::{handlebars_helper, Context, Helper, Output, RenderContext, RenderError, RenderErrorReason};
 use serde_json;
 #[cfg(feature = "fdx")]
 use std::collections::{HashMap, HashSet};
@@ -125,7 +125,7 @@ fn type_to_class_helper(
     // get parameter from helper or throw an error
     let param = h
         .param(0)
-        .ok_or(RenderError::new("Param 0 is required for format helper."))?;
+        .ok_or(RenderErrorReason::ParamNotFoundForIndex("format", 0))?;
     let input = param.render();
     let output = match input.as_str() {
         "Scene Heading" => "sceneHeading",
