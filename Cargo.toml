@@ -1,7 +1,33 @@
-[workspace]
-resolver = "2"
+[package]
+name = "jumpcut"
+version = "0.7.0"
+edition = "2021"
 
-members = [
-    "jumpcut_cli",
-    "jumpcut"
-]
+[[bin]]
+name = "jumpcut"
+path = "src/bin/main.rs"
+
+[dependencies]
+lazy_static = "1.4.0"
+unicode-segmentation = "1.11.0"
+serde = { version = "1.0.203", features = ["derive"] }
+handlebars = { version = "5.1.2", optional = true }
+serde_json = "1.0.117"
+regex = { version = "1.10.5", default-features = false, features = ["std", "perf", "unicode-gencat", "unicode-perl"] }
+clap = { version = "4.5.7", features = ["derive"], optional = true }
+
+[features]
+default = ["html", "fdx", "cli"]
+html = ["handlebars"]
+fdx = ["handlebars"]
+cli = ["clap"]
+lib-only = ["html", "fdx"]
+
+[dev-dependencies]
+criterion = "0.5.1"
+unicode_categories = "0.1.1"
+pretty_assertions = "1.0.0"
+
+[[bench]]
+name = "jumpcut_benchmarks"
+harness = false

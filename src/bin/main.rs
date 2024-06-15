@@ -1,15 +1,24 @@
+#[cfg(feature = "cli")]
 use jumpcut::parse;
+#[cfg(feature = "cli")]
 use serde_json;
+#[cfg(feature = "cli")]
 use std::fs;
+#[cfg(feature = "cli")]
 use std::io::{self, Read, Write};
+#[cfg(feature = "cli")]
 use std::path::PathBuf;
+#[cfg(feature = "cli")]
 use clap::Parser;
 
+#[cfg(feature = "cli")]
 #[derive(Parser)]
 #[command(
     name = "JumpCut",
-    about = "A tool for converting Fountain screenplay documents into Final Draft (FDX) and HTML formats."
+    about = "A tool for converting Fountain screenplay documents into Final Draft (FDX) and HTML formats.",
+    version
 )]
+#[cfg(feature = "cli")]
 struct Args {
     /// Formats (FDX, HTML, JSON)
     #[arg(short, long, default_value = "fdx")]
@@ -21,7 +30,7 @@ struct Args {
     /// Output file, stdout if not present
     output: Option<PathBuf>,
 }
-
+#[cfg(feature = "cli")]
 fn main() {
     let opt = Args::parse();
     let mut content = String::new();
