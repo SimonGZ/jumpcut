@@ -3,29 +3,27 @@ use serde_json;
 use std::fs;
 use std::io::{self, Read, Write};
 use std::path::PathBuf;
-use structopt::StructOpt;
+use clap::Parser;
 
-#[derive(StructOpt, Debug)]
-#[structopt(
+#[derive(Parser)]
+#[command(
     name = "JumpCut",
     about = "A tool for converting Fountain screenplay documents into Final Draft (FDX) and HTML formats."
 )]
-struct Opt {
+struct Args {
     /// Formats (FDX, HTML, JSON)
-    #[structopt(short, long, default_value = "fdx")]
+    #[arg(short, long, default_value = "fdx")]
     format: String,
 
     /// Input file, pass a dash ("-") to receive stdin
-    #[structopt(parse(from_os_str))]
     input: PathBuf,
 
     /// Output file, stdout if not present
-    #[structopt(parse(from_os_str))]
     output: Option<PathBuf>,
 }
 
 fn main() {
-    let opt = Opt::from_args();
+    let opt = Args::parse();
     let mut content = String::new();
     if opt.input.is_file() {
         content.push_str(&std::fs::read_to_string(opt.input).expect("Could not read file."));

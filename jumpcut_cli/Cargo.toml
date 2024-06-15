@@ -1,6 +1,6 @@
 [package]
 name = "jumpcut_cli"
-version = "0.5.2"
+version = "0.6.0"
 authors = ["Simon Ganz"]
 edition = "2021"
 
@@ -9,7 +9,6 @@ name = "jumpcut"
 path = "src/main.rs"
 
 [dependencies]
-structopt = "0.3"
-serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 jumpcut = { path = "../jumpcut" }
+clap = { version = "4.5.7", features = ["derive"] }
