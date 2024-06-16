@@ -12,13 +12,7 @@ If you want to use JumpCut as a command-line utility, you can install it via Car
 cargo install jumpcut
 ```
 
-By default, all features will be installed.
-
-To use JumpCut as a library, you can use:
-
-`cargo install jumpcut --no-default-features --features "lib-only"`
-
-Or specify the following in your Cargo.toml:
+To use JumpCut as a library, you can specify the following in your Cargo.toml so that the command-line features are not added to your project:
 
 `jumpcut = { version = "0.7", default-features = false, features = ["lib-only"] }`
 
@@ -58,6 +52,7 @@ I have open-sourced it in case it can be useful to other developers and screenwr
 
 ## Changelog
 
+- 0.7.1: Improving documentation.
 - 0.7.0: Initial public release. Supports FDX, HTML, and JSON output.
 
 ## License
