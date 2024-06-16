@@ -2,6 +2,12 @@
 name = "jumpcut"
 version = "0.7.0"
 edition = "2021"
+license = "MIT"
+description = "JumpCut is a library and CLI for converting Fountain-formatted text files into FDX and HTML formats."
+homepage = "https://github.com/SimonGZ/jumpcut"
+repository = "https://github.com/SimonGZ/jumpcut"
+keywords = ["fountain", "screenwriting"]
+readme = "README.md"
 
 [[bin]]
 name = "jumpcut"
