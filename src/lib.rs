@@ -231,14 +231,16 @@ pub fn parse(text: &str) -> Screenplay {
 
 fn has_key_value(txt: &str) -> bool {
     lazy_static! {
-        static ref KEY: Regex = Regex::new(r"(?P<key>^[^\s][^:\n\r]+):(?P<value>.*)").unwrap();
+        static ref KEY: Regex =
+            Regex::new(r"(?P<key>^[^\s!\.@~>][^:\n\r]+):(?P<value>.*)").unwrap();
     }
     KEY.is_match(txt)
 }
 
 fn process_metadata(metadata: &mut Metadata, text: &str) {
     lazy_static! {
-        static ref KEY: Regex = Regex::new(r"(?P<key>^[^\s][^:\n\r]+):(?P<value>.*)").unwrap();
+        static ref KEY: Regex =
+            Regex::new(r"(?P<key>^[^\s!\.@~>][^:\n\r]+):(?P<value>.*)").unwrap();
     }
     let lines = text.lines();
     let mut current_key = "".to_string();
@@ -555,7 +557,7 @@ fn is_scene(line: &str) -> bool {
 
 fn is_transition(line: &str) -> bool {
     let line = line.trim().to_uppercase();
-    line.ends_with("TO:")
+    line.ends_with(" TO:")
 }
 
 fn is_end_act(line: &str) -> bool {
