@@ -127,6 +127,7 @@ I have open-sourced it in case it can be useful to other developers and screenwr
 
 ## Changelog
 
+- 0.7.4: Adding metadata CLI command
 - 0.7.3: Adding new metadata fmt support for arbitrary dialogue margins.
 - 0.7.2: Fixing parser bug where any word ending in "to:" became a transition.
 - 0.7.1: Improving documentation.
