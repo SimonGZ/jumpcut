@@ -30,6 +30,7 @@ FLAGS:
 
 OPTIONS:
     -f, --format <format>    Formats (FDX, HTML, JSON) [default: fdx]
+    -m, --metadata <FILE>    Optional Fountain file to prepend as metadata. Defaults to "metadata.fountain" if flag is present without a value.
 
 ARGS:
     <input>     Input file, pass a dash ("-") to receive stdin
@@ -77,6 +78,46 @@ To have bold and underlined scene headings, all caps action text, double-spaced 
 ```
 Fmt: bsh ush acat dsd dl-2.0 dr-5.5
 ```
+
+## Prepending Metadata
+
+JumpCut allows you to prepend content from a separate Fountain file as metadata to your main screenplay. This is useful for managing common metadata (like title, author, copyright, fmt) across multiple screenplay files without duplicating it in each one.
+
+You can use the `--metadata` (or `-m`) option to specify a metadata file.
+
+### Usage
+
+To use this feature, add the `--metadata` flag to your command.
+
+```
+jumpcut <screenplay-file> --metadata <metadata-file>
+jumpcut <screenplay-file> -m <metadata-file>
+```
+
+If you provide the `--metadata` flag without a file path, JumpCut will look for a file named `metadata.fountain`. The location of this default file depends on your input:
+
+*   **If your input is a file:** JumpCut will look for `metadata.fountain` in the same directory as your input screenplay.
+*   **If your input is from stdin (`-`):** JumpCut will look for `metadata.fountain` in the current working directory.
+
+### Examples
+
+*   **Using a default metadata file alongside an input file:**
+    ```sh
+    jumpcut -m my_screenplay.fountain -f fdx > my_screenplay.fdx
+    # Looks for 'metadata.fountain' in the same directory as 'my_screenplay.fountain'
+    ```
+
+*   **Using a default metadata file with stdin input:**
+    ```sh
+    cat my_screenplay.fountain | jumpcut -m -f html > my_screenplay.html
+    # Looks for 'metadata.fountain' in the current working directory
+    ```
+
+*   **Specifying a custom metadata file:**
+    ```sh
+    jumpcut -m ~/my_templates/common_header.fountain my_screenplay.fountain -f json > my_screenplay.json
+    # Uses 'common_header.fountain' from your templates directory
+    ```
 
 ## Development Plans
 
