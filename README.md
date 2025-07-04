@@ -44,6 +44,40 @@ let output_fdx: String = screenplay.to_final_draft();
 let output_html: String = screenplay.to_html();
 ```
 
+## Custom Formatting for Final Draft (FDX) Export
+
+When converting your screenplay to **Final Draft (FDX)** format, you can specify custom formatting options using the `fmt` metadata key. This allows you to control various aspects of the FDX output, such as text styles, spacing, and margins.
+
+To use these options, add a `fmt` key to your screenplay's metadata (optional `key: value` statements placed at the top of a document), followed by a space-separated list of options.
+
+**Example:**
+
+```
+Title: My Awesome Screenplay
+Author: John Doe
+Fmt: bsh ush acat dsd dl-1.5 dr-7.0
+```
+
+### Available `fmt` Options
+
+  * **`bsh`**: **Bold Scene Headings**. Makes all scene headings bold.
+  * **`ush`**: **Underlined Scene Headings**. Underlines all scene headings.
+      * Note: `bsh` and `ush` can be combined (e.g., `bsh ush` for bold and underlined scene headings).
+  * **`acat`**: **All Caps Action Text**. Converts all action text to uppercase.
+  * **`ssbsh`**: **Single Space Before Scene Headings**. Reduces the space before scene headings from the default (24 points) to 12 points.
+  * **`dsd`**: **Double-Spaced Dialogue**. Changes dialogue spacing from single to double.
+  * **`cfd`**: **Courier Final Draft Font**. Uses "Courier Final Draft" as the primary font instead of the default "Courier Prime".
+  * **`dl-X.XX`**: **Custom Dialogue Left Indent**. Sets the left indent for dialogue blocks. Replace `X.XX` with a numerical value (e.g., `dl-1.25`). The default is 2.50 inches.
+  * **`dr-X.XX`**: **Custom Dialogue Right Indent**. Sets the right indent for dialogue blocks. Replace `X.XX` with a numerical value (e.g., `dr-6.00`). The default is 6.00 inches.
+
+### Combined Example
+
+To have bold and underlined scene headings, all caps action text, double-spaced dialogue, and custom dialogue margins:
+
+```
+Fmt: bsh ush acat dsd dl-2.0 dr-5.5
+```
+
 ## Development Plans
 
 I have no current plans to expand this project. I've used it internally for a few years and it meets my current needs (converting my own screenplays locally and powering my website [FountainLoader.com][]).
@@ -52,6 +86,7 @@ I have open-sourced it in case it can be useful to other developers and screenwr
 
 ## Changelog
 
+- 0.7.3: Adding new metadata fmt support for arbitrary dialogue margins.
 - 0.7.2: Fixing parser bug where any word ending in "to:" became a transition.
 - 0.7.1: Improving documentation.
 - 0.7.0: Initial public release. Supports FDX, HTML, and JSON output.

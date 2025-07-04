@@ -2,7 +2,9 @@ use crate::{Element::*, Metadata, Screenplay};
 #[cfg(feature = "handlebars")]
 use handlebars::Handlebars;
 #[cfg(feature = "html")]
-use handlebars::{handlebars_helper, Context, Helper, Output, RenderContext, RenderError, RenderErrorReason};
+use handlebars::{
+    handlebars_helper, Context, Helper, Output, RenderContext, RenderError, RenderErrorReason,
+};
 use serde_json;
 #[cfg(feature = "fdx")]
 use std::collections::{HashMap, HashSet};
@@ -82,6 +84,8 @@ fn add_fdx_formatting(metadata: &mut Metadata) -> () {
     let mut dialogue_spacing = "1".to_string();
     let mut action_text_style = "".to_string();
     let mut font_choice = "Courier Prime".to_string();
+    let mut dialogue_left_indent = "2.50".to_string();
+    let mut dialogue_right_indent = "6.00".to_string();
 
     let fmt = metadata.get_mut("fmt");
     match fmt {
@@ -98,6 +102,22 @@ fn add_fdx_formatting(metadata: &mut Metadata) -> () {
                         "ssbsh" => space_before_heading = "12".to_string(),
                         "dsd" => dialogue_spacing = "2".to_string(),
                         "cfd" => font_choice = "Courier Final Draft".to_string(),
+                        opt if opt.starts_with("dl-") => {
+                            if let Some(value) = opt.strip_prefix("dl-") {
+                                // validate that value is a valid number
+                                if let Ok(_) = value.parse::<f64>() {
+                                    dialogue_left_indent = value.to_string();
+                                }
+                            }
+                        }
+                        opt if opt.starts_with("dr-") => {
+                            if let Some(value) = opt.strip_prefix("dr-") {
+                                // validate that value is a valid number
+                                if let Ok(_) = value.parse::<f64>() {
+                                    dialogue_right_indent = value.to_string();
+                                }
+                            }
+                        }
                         _ => (),
                     }
                 }
@@ -112,6 +132,8 @@ fn add_fdx_formatting(metadata: &mut Metadata) -> () {
     insert_helper(metadata, "dialogue-spacing", &dialogue_spacing);
     insert_helper(metadata, "action-text-style", &action_text_style);
     insert_helper(metadata, "font-choice", &font_choice);
+    insert_helper(metadata, "dialogue-left-indent", &dialogue_left_indent);
+    insert_helper(metadata, "dialogue-right-indent", &dialogue_right_indent);
 }
 
 #[cfg(feature = "html")]
@@ -167,6 +189,8 @@ mod tests {
             ("dialogue-spacing", "1"),
             ("action-text-style", ""),
             ("font-choice", "Courier Prime"),
+            ("dialogue-left-indent", "2.50"),
+            ("dialogue-right-indent", "6.00"),
         ];
 
         for pair in defaults.iter() {
@@ -216,5 +240,79 @@ mod tests {
         insert_helper(&mut expected, "fmt", "cfd");
         add_fdx_formatting(&mut metadata);
         assert_eq!(metadata, expected, "it should handle font-choice");
+
+        metadata = HashMap::new();
+        insert_helper(&mut metadata, "fmt", "dl-1.25");
+        for pair in defaults.iter() {
+            insert_helper(&mut expected, pair.0, pair.1);
+        }
+        insert_helper(&mut expected, "dialogue-left-indent", "1.25");
+        insert_helper(&mut expected, "fmt", "dl-1.25");
+        add_fdx_formatting(&mut metadata);
+        assert_eq!(metadata, expected, "it should handle dialogue-left-indent");
+
+        metadata = HashMap::new();
+        insert_helper(&mut metadata, "fmt", "dr-4.75");
+        for pair in defaults.iter() {
+            insert_helper(&mut expected, pair.0, pair.1);
+        }
+        insert_helper(&mut expected, "dialogue-right-indent", "4.75");
+        insert_helper(&mut expected, "fmt", "dr-4.75");
+        add_fdx_formatting(&mut metadata);
+        assert_eq!(metadata, expected, "it should handle dialogue-right-indent");
+
+        metadata = HashMap::new();
+        insert_helper(&mut metadata, "fmt", "dl-3.0 dr-5.5");
+        for pair in defaults.iter() {
+            insert_helper(&mut expected, pair.0, pair.1);
+        }
+        insert_helper(&mut expected, "dialogue-left-indent", "3.0");
+        insert_helper(&mut expected, "dialogue-right-indent", "5.5");
+        insert_helper(&mut expected, "fmt", "dl-3.0 dr-5.5");
+        add_fdx_formatting(&mut metadata);
+        assert_eq!(
+            metadata, expected,
+            "it should handle both dialogue indents together"
+        );
+
+        metadata = HashMap::new();
+        insert_helper(&mut metadata, "fmt", "dl-2 dr-8 bsh acat");
+        for pair in defaults.iter() {
+            insert_helper(&mut expected, pair.0, pair.1);
+        }
+        insert_helper(&mut expected, "dialogue-left-indent", "2");
+        insert_helper(&mut expected, "dialogue-right-indent", "8");
+        insert_helper(&mut expected, "scene-heading-style", "AllCaps+Bold");
+        insert_helper(&mut expected, "action-text-style", "AllCaps");
+        insert_helper(&mut expected, "fmt", "dl-2 dr-8 bsh acat");
+        add_fdx_formatting(&mut metadata);
+        assert_eq!(
+            metadata, expected,
+            "it should handle dialogue indents combined with other options"
+        );
+
+        metadata = HashMap::new();
+        insert_helper(&mut metadata, "fmt", "dl-invalid");
+        for pair in defaults.iter() {
+            insert_helper(&mut expected, pair.0, pair.1);
+        }
+        insert_helper(&mut expected, "fmt", "dl-invalid");
+        add_fdx_formatting(&mut metadata);
+        assert_eq!(
+            metadata, expected,
+            "it should ignore invalid dialogue-left-indent values"
+        );
+
+        metadata = HashMap::new();
+        insert_helper(&mut metadata, "fmt", "dr-notanumber");
+        for pair in defaults.iter() {
+            insert_helper(&mut expected, pair.0, pair.1);
+        }
+        insert_helper(&mut expected, "fmt", "dr-notanumber");
+        add_fdx_formatting(&mut metadata);
+        assert_eq!(
+            metadata, expected,
+            "it should ignore invalid dialogue-right-indent values"
+        );
     }
 }
