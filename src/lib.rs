@@ -287,11 +287,11 @@ fn lines_to_hunks(lines: Lines) -> Vec<Vec<&str>> {
             // If the previous element was blank but it was the first element, do nothing
             } else if acc.last().unwrap().is_empty() && acc.len() == 1 {
                 // do nothing
-                // If the previous element was also blank, create an empty string
             } else if acc.last().unwrap().is_empty() {
+                // If the previous element was also blank, create an empty string
                 acc.last_mut().unwrap().push("");
-            // Otherwise, start a new element by pushing a new empty vec
             } else {
+                // Otherwise, start a new element by pushing a new empty vec
                 acc.push(vec![]);
             }
             acc
@@ -313,9 +313,9 @@ fn lines_to_hunks(lines: Lines) -> Vec<Vec<&str>> {
         // HANDLE NORMAL, NON-EMPTY LINES
         _ => {
             let last_line = acc.last().unwrap().first();
-            // If previous hunk was a section, create a new hunk
+            // If previous hunk was a section or blank, create a new hunk
             match last_line {
-                Some(l) if l.starts_with('#') => acc.push(vec![]),
+                Some(l) if l.starts_with('#') || l.is_empty() => acc.push(vec![]),
                 _ => (),
             }
             acc.last_mut().unwrap().push(line);
@@ -814,6 +814,24 @@ mod tests {
             lines_to_hunks(lines),
             expected,
             "it should create blank lines from multiple newlines in a row"
+        );
+    }
+
+    #[test]
+    fn test_lines_to_hunks_odd_number_of_blanks() {
+        let lines = "CHARACTER\nTalking talking talking--\n\n\nINT. PLACE - LATER\n\nA row of interview windows."
+            .lines();
+        let expected = vec![
+            vec!["CHARACTER", "Talking talking talking--"],
+            vec![""],
+            vec!["INT. PLACE - LATER"],
+            vec!["A row of interview windows."],
+        ];
+
+        assert_eq!(
+            lines_to_hunks(lines),
+            expected,
+            "it should handle three returns in a row without creating weird groupings"
         );
     }
 
