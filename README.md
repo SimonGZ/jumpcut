@@ -121,17 +121,7 @@ If you provide the `--metadata` flag without a file path, JumpCut will look for 
 
 ## Development Plans
 
-I have no current plans to expand this project. I've used it internally for a few years and it meets my current needs (converting my own screenplays locally and powering my website [FountainLoader.com][]).
-
-I have open-sourced it in case it can be useful to other developers and screenwriters.
-
-## Changelog
-
-- 0.7.4: Adding metadata CLI command
-- 0.7.3: Adding new metadata fmt support for arbitrary dialogue margins.
-- 0.7.2: Fixing parser bug where any word ending in "to:" became a transition.
-- 0.7.1: Improving documentation.
-- 0.7.0: Initial public release. Supports FDX, HTML, and JSON output.
+I have open-sourced this project in case it can be useful to other developers and screenwriters. But I mostly develop it for my own use on my own projects. Features are added as-needed for my workflow.
 
 ## License
 
