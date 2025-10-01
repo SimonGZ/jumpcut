@@ -2,6 +2,7 @@ use lazy_static::lazy_static;
 use regex::Regex;
 use serde::ser::{SerializeMap, Serializer};
 use serde::Serialize;
+use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;
 use std::default::Default;
@@ -232,39 +233,43 @@ pub fn parse(text: &str) -> Screenplay {
     Screenplay { elements, metadata }
 }
 
-fn has_key_value(txt: &str) -> bool {
-    lazy_static! {
-        static ref KEY: Regex =
-            Regex::new(r"(?P<key>^[^\s!\.@~>][^:\n\r]+):(?P<value>.*)").unwrap();
+fn parse_metadata_line(line: &str) -> Option<(&str, &str)> {
+    let mut chars = line.chars();
+    let first = chars.next()?;
+    if first.is_whitespace() || matches!(first, '!' | '.' | '@' | '~' | '>') {
+        return None;
     }
-    KEY.is_match(txt)
+    let colon_index = line.find(':')?;
+    if colon_index == 0 {
+        return None;
+    }
+    let key = &line[..colon_index];
+    if key.contains(['\n', '\r', ':']) {
+        return None;
+    }
+    let value = &line[colon_index + 1..];
+    Some((key, value))
+}
+
+fn has_key_value(txt: &str) -> bool {
+    txt.lines()
+        .find(|line| !line.trim().is_empty())
+        .and_then(parse_metadata_line)
+        .is_some()
 }
 
 fn process_metadata(metadata: &mut Metadata, text: &str) {
-    lazy_static! {
-        static ref KEY: Regex =
-            Regex::new(r"(?P<key>^[^\s!\.@~>][^:\n\r]+):(?P<value>.*)").unwrap();
-    }
-    let lines = text.lines();
-    let mut current_key = "".to_string();
-    for line in lines {
-        if KEY.is_match(line) {
-            // Means we have a new key
-            // NOTE: I can safely unwrap these values because of the above is_match
-            let caps = KEY.captures(line).unwrap();
-            let key = caps.name("key").unwrap().as_str();
-            current_key = key.to_lowercase().to_string();
-            let current_value = caps.name("value").unwrap().as_str();
-            if current_value.is_empty() {
-                metadata.insert(current_key.to_string(), vec![]);
+    let mut current_key = String::new();
+    for line in text.lines() {
+        if let Some((key, value)) = parse_metadata_line(line) {
+            current_key = key.to_lowercase();
+            let trimmed_value = value.trim();
+            if trimmed_value.is_empty() {
+                metadata.insert(current_key.clone(), vec![]);
             } else {
-                metadata.insert(
-                    current_key.to_string(),
-                    vec![current_value.trim().to_string()],
-                );
+                metadata.insert(current_key.clone(), vec![trimmed_value.to_string()]);
             }
-        } else {
-            // Means we have a line without a key and thus an additional value to push
+        } else if !current_key.is_empty() {
             if let Some(values) = metadata.get_mut(&current_key) {
                 values.push(line.trim().to_string());
             }
@@ -273,11 +278,114 @@ fn process_metadata(metadata: &mut Metadata, text: &str) {
 }
 
 /// Strips out problematic unicode and the boneyard element
+fn is_format_control(ch: char) -> bool {
+    matches!(
+        ch,
+        '\u{00AD}'
+            | '\u{061C}'
+            | '\u{200B}'
+            | '\u{200C}'
+            | '\u{200D}'
+            | '\u{200E}'
+            | '\u{200F}'
+            | '\u{202A}'
+            | '\u{202B}'
+            | '\u{202C}'
+            | '\u{202D}'
+            | '\u{202E}'
+            | '\u{2060}'
+            | '\u{2061}'
+            | '\u{2062}'
+            | '\u{2063}'
+            | '\u{2064}'
+            | '\u{2066}'
+            | '\u{2067}'
+            | '\u{2068}'
+            | '\u{2069}'
+            | '\u{206A}'
+            | '\u{206B}'
+            | '\u{206C}'
+            | '\u{206D}'
+            | '\u{206E}'
+            | '\u{206F}'
+            | '\u{FEFF}'
+    )
+}
+
 fn prepare_text(text: &str) -> String {
-    lazy_static! {
-        static ref RE: Regex = Regex::new(r"/\*[^*]*\*/|\p{gc:Cf}").unwrap();
+    let mut result = String::with_capacity(text.len());
+    let mut chars = text.trim_end().chars().peekable();
+    let mut in_boneyard = false;
+
+    while let Some(ch) = chars.next() {
+        if in_boneyard {
+            if ch == '*' && matches!(chars.peek(), Some('/')) {
+                chars.next();
+                in_boneyard = false;
+            }
+            continue;
+        }
+
+        if ch == '/' && matches!(chars.peek(), Some('*')) {
+            chars.next();
+            in_boneyard = true;
+            continue;
+        }
+
+        if is_format_control(ch) {
+            continue;
+        }
+
+        result.push(ch);
     }
-    RE.replace_all(text.trim_end(), "").to_string()
+
+    result
+}
+
+fn locate_scene_number_span(text: &str) -> Option<(usize, usize, String)> {
+    let chars: Vec<(usize, char)> = text.char_indices().collect();
+    for idx in 0..chars.len() {
+        if chars[idx].1 != '#' {
+            continue;
+        }
+        if idx == 0 || !chars[idx - 1].1.is_whitespace() {
+            continue;
+        }
+        let mut whitespace_start = idx - 1;
+        while whitespace_start > 0 && chars[whitespace_start - 1].1.is_whitespace() {
+            whitespace_start -= 1;
+        }
+        let mut closing_index = None;
+        for candidate in idx + 1..chars.len() {
+            if chars[candidate].1 == '#' {
+                closing_index = Some(candidate);
+            }
+        }
+        if let Some(last_hash) = closing_index {
+            let start = chars[whitespace_start].0;
+            let end = if last_hash + 1 < chars.len() {
+                chars[last_hash + 1].0
+            } else {
+                text.len()
+            };
+            let number = text[chars[idx].0 + 1..chars[last_hash].0]
+                .trim()
+                .to_string();
+            return Some((start, end, number));
+        }
+    }
+    None
+}
+
+fn strip_scene_number<'a>(text: &'a str) -> (Cow<'a, str>, Option<String>) {
+    if let Some((start, end, number)) = locate_scene_number_span(text) {
+        let mut cleaned = String::with_capacity(text.len() - (end - start));
+        cleaned.push_str(&text[..start]);
+        cleaned.push_str(&text[end..]);
+        (Cow::Owned(cleaned), Some(number))
+    } else {
+        (Cow::Borrowed(text), None)
+    }
 }
 
 fn lines_to_hunks(lines: Lines<'_>) -> Vec<Vec<&str>> {
@@ -390,10 +498,6 @@ fn hunks_to_elements(hunks: Vec<Vec<&str>>) -> Vec<Element> {
 }
 
 fn make_single_line_element(line: &str) -> Element {
-    lazy_static! {
-        static ref SCENE_NUMBER_REGEX: Regex = Regex::new(r"\s+#(.*)#").unwrap();
-        static ref NOTE_REGEX: Regex = Regex::new(r"\[\[([^\]]+)\]\]").unwrap();
-    }
     let mut attributes = blank_attributes();
     if has_note(line) {
         let notes = retrieve_notes(line);
@@ -408,26 +512,16 @@ fn make_single_line_element(line: &str) -> Element {
                 .trim_start_matches(&['!', '@', '~', '.', '>', '='][..])
                 .trim_start();
 
-            if line.get(..1) == Some(".") && SCENE_NUMBER_REGEX.is_match(stripped) {
-                // Handle special case of scene numbers on scene headings
-                match SCENE_NUMBER_REGEX.find(stripped) {
-                    None => make_element(Plain(stripped.to_string()), attributes),
-                    Some(mat) => {
-                        attributes = Attributes {
-                            scene_number: Some(
-                                stripped
-                                    .get(mat.start()..mat.end())
-                                    .unwrap()
-                                    .trim_matches(&[' ', '#'][..])
-                                    .to_string(),
-                            ),
-                            ..attributes
-                        };
-                        let text_without_scene_number = SCENE_NUMBER_REGEX.replace(stripped, "");
-                        let final_text = remove_notes(&text_without_scene_number);
-                        make_element(Plain(final_text), attributes)
-                    }
+            if line.get(..1) == Some(".") {
+                let (without_scene_number, scene_number) = strip_scene_number(stripped);
+                if let Some(number) = scene_number {
+                    attributes = Attributes {
+                        scene_number: Some(number),
+                        ..attributes
+                    };
                 }
+                let final_text = remove_notes(without_scene_number.as_ref());
+                make_element(Plain(final_text), attributes)
             } else {
                 let final_text = remove_notes(stripped);
                 make_element(Plain(final_text), attributes)
@@ -435,28 +529,15 @@ fn make_single_line_element(line: &str) -> Element {
         }
         _ if is_scene(&line) => {
             // Handle special case of scene numbers on scene headings
-            if SCENE_NUMBER_REGEX.is_match(line) {
-                match SCENE_NUMBER_REGEX.find(line) {
-                    None => Element::SceneHeading(Plain(line.to_string()), attributes),
-                    Some(mat) => {
-                        attributes = Attributes {
-                            scene_number: Some(
-                                line.get(mat.start()..mat.end())
-                                    .unwrap()
-                                    .trim_matches(&[' ', '#'][..])
-                                    .to_string(),
-                            ),
-                            ..attributes
-                        };
-                        let text_without_scene_number = SCENE_NUMBER_REGEX.replace(line, "");
-                        let final_text = remove_notes(&text_without_scene_number);
-                        Element::SceneHeading(Plain(final_text), attributes)
-                    }
-                }
-            } else {
-                let final_text = remove_notes(line);
-                Element::SceneHeading(Plain(final_text), attributes)
+            let (without_scene_number, scene_number) = strip_scene_number(line);
+            if let Some(number) = scene_number {
+                attributes = Attributes {
+                    scene_number: Some(number),
+                    ..attributes
+                };
             }
+            let final_text = remove_notes(without_scene_number.as_ref());
+            Element::SceneHeading(Plain(final_text), attributes)
         }
         _ if is_transition(&line) => {
             let final_text = remove_notes(line);
@@ -586,10 +667,24 @@ fn is_new_act(line: &str) -> bool {
 }
 
 fn remove_notes(line: &str) -> String {
-    lazy_static! {
-        static ref NOTE_REGEX: Regex = Regex::new(r"\[\[([^\]]+)\]\]").unwrap();
+    let mut result = String::with_capacity(line.len());
+    let mut index = 0;
+
+    while let Some(open_offset) = line[index..].find("[[") {
+        let open_index = index + open_offset;
+        result.push_str(&line[index..open_index]);
+
+        let after_open = open_index + 2;
+        if let Some(close_offset) = line[after_open..].find("]]") {
+            index = after_open + close_offset + 2;
+        } else {
+            result.push_str(&line[open_index..]);
+            return result;
+        }
     }
-    NOTE_REGEX.replace_all(line, "").to_string()
+
+    result.push_str(&line[index..]);
+    result
 }
 
 fn is_centered(line: &str) -> bool {
@@ -729,16 +824,21 @@ fn make_dialogue_block(hunk: Vec<&str>) -> Element {
 }
 
 fn retrieve_notes(line: &str) -> Option<Vec<String>> {
-    lazy_static! {
-        static ref RE: Regex = Regex::new(r"\[\[([^\]]+)\]\]").unwrap();
-    }
-    let mut result = vec![];
-    for mat in RE.find_iter(line) {
-        match line.get(mat.start() + 2..mat.end() - 2) {
-            Some(str) => result.push(str.to_string()),
-            None => (),
+    let mut result = Vec::new();
+    let mut search_start = 0;
+
+    while let Some(open_offset) = line[search_start..].find("[[") {
+        let open_index = search_start + open_offset + 2;
+        let tail = &line[open_index..];
+        if let Some(close_offset) = tail.find("]]") {
+            let close_index = open_index + close_offset;
+            result.push(line[open_index..close_index].to_string());
+            search_start = close_index + 2;
+        } else {
+            break;
         }
     }
+
     Some(result)
 }
 

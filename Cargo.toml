@@ -36,6 +36,7 @@ fdx = ["handlebars"]
 cli = ["clap"]
 lib-only = ["html", "fdx"]
 wasm = ["lib-only"]
+no-regex-parser = []
 
 [dev-dependencies]
 criterion = "0.5.1"
