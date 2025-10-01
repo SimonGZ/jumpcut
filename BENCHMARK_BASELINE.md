@@ -38,4 +38,4 @@ Date: 2025-10-01T22:55:49Z
 Notes:
 - Linear delimiter stack cut runtime roughly in half versus the first prototype, but still trails the regex baseline by ~29%.
 - Criterion emitted mild high outliers for both benches; consider longer warmups when iterating further.
-
+- The regex-free parser is now the default build; the `no-regex-parser` feature remains as a no-op for compatibility.

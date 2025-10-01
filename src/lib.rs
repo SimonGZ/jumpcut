@@ -1,5 +1,3 @@
-use lazy_static::lazy_static;
-use regex::Regex;
 use serde::ser::{SerializeMap, Serializer};
 use serde::Serialize;
 use std::borrow::Cow;
@@ -644,26 +642,82 @@ fn is_transition(line: &str) -> bool {
     line.ends_with(" TO:")
 }
 
+fn tokenize_words(line: &str) -> Vec<String> {
+    line.split(|c: char| !c.is_alphanumeric())
+        .filter(|token| !token.is_empty())
+        .map(|token| token.to_ascii_lowercase())
+        .collect()
+}
+
+fn is_act_designator(token: &str) -> bool {
+    matches!(
+        token,
+        "one" | "two" | "three" | "four" | "five" | "six" | "seven" | "eight" | "nine" | "ten"
+    ) || token.chars().all(|c| c.is_ascii_digit())
+}
+
 fn is_end_act(line: &str) -> bool {
-    lazy_static! {
-        static ref END_ACT_REGEX: Regex = Regex::new(
-            r"(end (of )*(act ((\d)|one|two|three|four|five|six|seven|eight|nine|ten)|cold open|teaser))"
-        )
-        .unwrap();
+    let tokens = tokenize_words(line);
+    if tokens.is_empty() || tokens[0] != "end" {
+        return false;
     }
-    let line = line.to_lowercase();
-    END_ACT_REGEX.is_match(&line)
+
+    let mut idx = 1;
+    while idx < tokens.len() && tokens[idx] == "of" {
+        idx += 1;
+    }
+    if idx >= tokens.len() {
+        return false;
+    }
+
+    match tokens[idx].as_str() {
+        "act" => tokens
+            .get(idx + 1)
+            .map(|next| is_act_designator(next))
+            .unwrap_or(false),
+        "cold" => tokens
+            .get(idx + 1)
+            .map(|next| next == "open")
+            .unwrap_or(false),
+        "teaser" => true,
+        _ => false,
+    }
 }
 
 fn is_new_act(line: &str) -> bool {
-    lazy_static! {
-        static ref NEW_ACT_REGEX: Regex = Regex::new(
-            r"(act ((\d)|one|two|three|four|five|six|seven|eight|nine|ten)|cold open|teaser)"
-        )
-        .unwrap();
+    let tokens = tokenize_words(line);
+    if tokens.is_empty() {
+        return false;
     }
-    let line = line.to_lowercase();
-    NEW_ACT_REGEX.is_match(&line)
+
+    let mut idx = 0;
+    while idx < tokens.len() {
+        match tokens[idx].as_str() {
+            "act" => {
+                if tokens
+                    .get(idx + 1)
+                    .map(|next| is_act_designator(next))
+                    .unwrap_or(false)
+                {
+                    return true;
+                }
+            }
+            "cold" => {
+                if tokens
+                    .get(idx + 1)
+                    .map(|next| next == "open")
+                    .unwrap_or(false)
+                {
+                    return true;
+                }
+            }
+            "teaser" => return true,
+            _ => (),
+        }
+        idx += 1;
+    }
+
+    false
 }
 
 fn remove_notes(line: &str) -> String {

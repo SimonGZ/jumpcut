@@ -18,6 +18,5 @@ Write concise, imperative commits ("Trim centered whitespace"), optionally prefi
 ## WASM Regex-Free Migration Plan
 - Replace metadata, note, and scene-number regex usage with deterministic scanners; validate via `tests/parse_metadata_test.rs`, `tests/parse_notes_test.rs`, and `tests/parse_scene_heading_test.rs`.
 - Reimplement boneyard and control-char stripping with a streaming filter that removes `/* */` blocks and known formatting code points; confirm with `tests/parse_action_test.rs` and `tests/parse_page_breaks_test.rs`.
-- Rewrite `text_style_parser` as a stack-based tokenizer over `chars()`, preserving escapes and nesting; lean on its unit tests plus dialogue integrations in `tests/parse_dialogue_block_test.rs`.
-- Gate the alternative parser behind a cargo feature such as `no-regex-parser`, enabling incremental rollout while running `cargo test`, `cargo test --all-features`, and WASM builds.
-- After each major swap, rerun `cargo bench` and compare against `BENCHMARK_BASELINE.md` to ensure performance parity before flipping the default for WASM.
+- Replace the text-style parser with a stack-based tokenizer over `chars()`, preserving escapes and nesting; lean on its unit tests plus dialogue integrations in `tests/parse_dialogue_block_test.rs`.
+- Bench the regex-free build (`cargo bench`) after major changes and compare against `BENCHMARK_BASELINE.md` to guard against regressions while you iterate on performance.
