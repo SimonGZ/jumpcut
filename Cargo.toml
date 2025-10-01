@@ -1,6 +1,6 @@
 [package]
 name = "jumpcut"
-version = "0.7.5"
+version = "0.7.6"
 edition = "2021"
 license = "MIT"
 description = "JumpCut is a library and CLI for converting Fountain-formatted text files into FDX and HTML formats."
@@ -47,4 +47,4 @@ name = "jumpcut_benchmarks"
 harness = false
 
 [package.metadata.wasm-pack.profile.release]
-wasm-opt = ["-Oz"]
+wasm-opt = ["-Os"]
