@@ -8,6 +8,9 @@ use std::default::Default;
 use std::str::Lines;
 use Element::PageBreak;
 
+#[cfg(target_arch = "wasm32")]
+pub mod wasm_bindings;
+
 mod converters;
 mod text_style_parser;
 
