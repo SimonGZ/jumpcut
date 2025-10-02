@@ -1,6 +1,6 @@
 use crate::{Element, Element::*, ElementText, ElementText::*, TextRun};
 use std::cmp::min;
-use std::collections::{BTreeMap, HashSet};
+use std::collections::HashSet;
 
 const SENTINEL_BOLD_ITALIC: char = '⏋';
 const SENTINEL_BOLD: char = '⎿';
@@ -16,15 +16,6 @@ enum StyleKind {
 }
 
 #[derive(Clone, Copy)]
-struct MarkerPair {
-    open_start: usize,
-    open_len: usize,
-    close_start: usize,
-    close_len: usize,
-    kind: StyleKind,
-}
-
-#[derive(Clone, Copy)]
 struct Delimiter {
     start: usize,
     len: usize,
@@ -32,6 +23,13 @@ struct Delimiter {
     kind: StyleKind,
     can_open: bool,
     can_close: bool,
+}
+
+#[derive(Clone, Copy)]
+struct MarkerEvent {
+    position: usize,
+    len: usize,
+    sentinel: char,
 }
 
 fn sentinel_for(kind: StyleKind) -> char {
@@ -88,127 +86,118 @@ fn is_valid_content_slice(slice: &str) -> bool {
 }
 
 fn insert_markers(text: &str) -> String {
-    let char_indices: Vec<(usize, char)> = text.char_indices().collect();
-    let mut char_pos = 0;
     // Inspired by Markdown delimiter stacks (see pulldown-cmark); we maintain a
     // stack of potential openers and match them as we scan forward so the pass
     // stays linear even for long Fountain blocks.
     let mut delimiter_stack: Vec<Delimiter> = Vec::new();
-    let mut pairs: Vec<MarkerPair> = Vec::new();
+    let mut events: Vec<MarkerEvent> = Vec::new();
 
-    while char_pos < char_indices.len() {
-        let (byte_index, ch) = char_indices[char_pos];
+    let mut iter = text.char_indices().peekable();
+    let mut prev_char: Option<char> = None;
+
+    while let Some((start_idx, ch)) = iter.next() {
         match ch {
             '\\' => {
-                if char_pos + 1 < char_indices.len() {
-                    char_pos += 2;
+                // Skip escaped characters so they never appear as potential markers.
+                if let Some((_, escaped)) = iter.next() {
+                    prev_char = Some(escaped);
                 } else {
-                    char_pos += 1;
+                    prev_char = Some('\\');
                 }
             }
             '*' | '_' => {
                 let marker = ch as u8;
-                let run_start = byte_index;
-                let mut run_len_chars = 1;
-                while char_pos + run_len_chars < char_indices.len()
-                    && char_indices[char_pos + run_len_chars].1 == ch
-                {
-                    run_len_chars += 1;
+                let mut run_len = 1;
+                while let Some(&(_, next_ch)) = iter.peek() {
+                    if next_ch == ch {
+                        iter.next();
+                        run_len += 1;
+                    } else {
+                        break;
+                    }
                 }
 
                 let primary_len = match marker {
-                    b'*' => min(3, run_len_chars),
+                    b'*' => min(3, run_len),
                     b'_' => 1,
                     _ => 1,
                 };
 
                 if let Some(kind) = style_kind(marker, primary_len) {
-                    let prev = if char_pos == 0 {
-                        None
-                    } else {
-                        Some(char_indices[char_pos - 1].1)
-                    };
-                    let next = if char_pos + run_len_chars < char_indices.len() {
-                        Some(char_indices[char_pos + run_len_chars].1)
-                    } else {
-                        None
-                    };
-
-                    let delim = Delimiter {
-                        start: run_start,
+                    let next_char = iter.peek().map(|(_, c)| *c);
+                    let delimiter = Delimiter {
+                        start: start_idx,
                         len: primary_len,
                         marker,
                         kind,
-                        can_open: can_open(next),
-                        can_close: can_close(prev),
+                        can_open: can_open(next_char),
+                        can_close: can_close(prev_char),
                     };
 
-                    if delim.can_close {
-                        let mut matched = false;
-                        let mut search_idx = delimiter_stack.len();
-                        while search_idx > 0 {
-                            search_idx -= 1;
-                            let candidate = delimiter_stack[search_idx];
-                            if candidate.marker == delim.marker
-                                && candidate.len == delim.len
+                    if delimiter.can_close {
+                        let mut matched_index: Option<usize> = None;
+                        for idx in (0..delimiter_stack.len()).rev() {
+                            let candidate = &delimiter_stack[idx];
+                            if candidate.marker == delimiter.marker
+                                && candidate.len == delimiter.len
                                 && candidate.can_open
                             {
                                 let open_end = candidate.start + candidate.len;
-                                let close_start = run_start;
-                                if is_valid_content_slice(&text[open_end..close_start]) {
-                                    pairs.push(MarkerPair {
-                                        open_start: candidate.start,
-                                        open_len: candidate.len,
-                                        close_start: run_start,
-                                        close_len: delim.len,
-                                        kind: delim.kind,
-                                    });
-                                    delimiter_stack.remove(search_idx);
-                                    matched = true;
+                                if is_valid_content_slice(&text[open_end..start_idx]) {
+                                    matched_index = Some(idx);
                                     break;
                                 }
                             }
                         }
-                        if !matched && delim.can_open {
-                            delimiter_stack.push(delim);
+
+                        if let Some(idx) = matched_index {
+                            let candidate = delimiter_stack.swap_remove(idx);
+                            events.push(MarkerEvent {
+                                position: candidate.start,
+                                len: candidate.len,
+                                sentinel: sentinel_for(candidate.kind),
+                            });
+                            events.push(MarkerEvent {
+                                position: start_idx,
+                                len: delimiter.len,
+                                sentinel: sentinel_for(delimiter.kind),
+                            });
+                        } else if delimiter.can_open {
+                            delimiter_stack.push(delimiter);
                         }
-                    } else if delim.can_open {
-                        delimiter_stack.push(delim);
+                    } else if delimiter.can_open {
+                        delimiter_stack.push(delimiter);
                     }
                 }
 
-                char_pos += run_len_chars;
+                prev_char = Some(ch);
             }
             _ => {
-                char_pos += 1;
+                prev_char = Some(ch);
             }
         }
     }
 
-    if pairs.is_empty() {
+    if events.is_empty() {
         return unescape_markup(text);
     }
 
-    let mut open_events: BTreeMap<usize, (usize, StyleKind)> = BTreeMap::new();
-    let mut close_events: BTreeMap<usize, (usize, StyleKind)> = BTreeMap::new();
-    for pair in pairs {
-        open_events.insert(pair.open_start, (pair.open_len, pair.kind));
-        close_events.insert(pair.close_start, (pair.close_len, pair.kind));
-    }
+    events.sort_unstable_by(|a, b| a.position.cmp(&b.position));
 
     let mut result = String::with_capacity(text.len());
     let mut cursor = 0;
+    let mut event_iter = events.into_iter().peekable();
+
     while cursor < text.len() {
-        if let Some(&(len, kind)) = open_events.get(&cursor) {
-            result.push(sentinel_for(kind));
-            cursor += len;
-            continue;
+        if let Some(event) = event_iter.peek() {
+            if event.position == cursor {
+                result.push(event.sentinel);
+                cursor += event.len;
+                event_iter.next();
+                continue;
+            }
         }
-        if let Some(&(len, kind)) = close_events.get(&cursor) {
-            result.push(sentinel_for(kind));
-            cursor += len;
-            continue;
-        }
+
         if text.as_bytes()[cursor] == b'\\'
             && cursor + 1 < text.len()
             && matches!(text.as_bytes()[cursor + 1], b'*' | b'_')
@@ -217,6 +206,7 @@ fn insert_markers(text: &str) -> String {
             cursor += 2;
             continue;
         }
+
         let ch = text[cursor..].chars().next().unwrap();
         result.push(ch);
         cursor += ch.len_utf8();
