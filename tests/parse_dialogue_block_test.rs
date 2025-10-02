@@ -1,18 +1,5 @@
-use jumpcut::{blank_attributes, p, parse, Element, ElementText::Styled, TextRun};
+use jumpcut::{blank_attributes, p, parse, tr, Element, ElementText::Styled};
 use pretty_assertions::assert_eq;
-use std::collections::HashSet;
-
-// Convenience function to make writing tests easier.
-fn tr(content: &str, styles: Vec<&str>) -> TextRun {
-    let mut style_strings: HashSet<String> = HashSet::new();
-    for style in styles {
-        style_strings.insert(style.to_string());
-    }
-    TextRun {
-        content: content.to_string(),
-        text_style: style_strings,
-    }
-}
 
 #[test]
 fn it_handles_basic_dialogue() {

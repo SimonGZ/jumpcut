@@ -1,7 +1,7 @@
 use serde::ser::{SerializeMap, Serializer};
 use serde::Serialize;
 use std::borrow::Cow;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::convert::TryInto;
 use std::default::Default;
 use std::str::Lines;
@@ -165,18 +165,80 @@ pub fn p(p: &str) -> ElementText {
     ElementText::Plain(p.to_string())
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Default)]
+pub struct StyleMask(u8);
+
+impl StyleMask {
+    pub const BOLD: StyleMask = StyleMask(1 << 0);
+    pub const ITALIC: StyleMask = StyleMask(1 << 1);
+    pub const UNDERLINE: StyleMask = StyleMask(1 << 2);
+
+    pub const fn empty() -> StyleMask {
+        StyleMask(0)
+    }
+
+    pub const fn union(self, other: StyleMask) -> StyleMask {
+        StyleMask(self.0 | other.0)
+    }
+
+    pub fn insert(&mut self, other: StyleMask) {
+        self.0 |= other.0;
+    }
+
+    pub fn remove(&mut self, other: StyleMask) {
+        self.0 &= !other.0;
+    }
+
+    pub const fn contains(self, other: StyleMask) -> bool {
+        (self.0 & other.0) == other.0
+    }
+
+    pub const fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+
+    pub fn iter(self) -> impl Iterator<Item = &'static str> {
+        const ORDERED_STYLES: &[(StyleMask, &str); 3] = &[
+            (StyleMask::BOLD, "Bold"),
+            (StyleMask::ITALIC, "Italic"),
+            (StyleMask::UNDERLINE, "Underline"),
+        ];
+
+        ORDERED_STYLES
+            .iter()
+            .filter(move |(mask, _)| self.contains(*mask))
+            .map(|(_, name)| *name)
+    }
+
+    pub fn from_style_name(name: &str) -> Option<StyleMask> {
+        match name {
+            "Bold" => Some(StyleMask::BOLD),
+            "Italic" => Some(StyleMask::ITALIC),
+            "Underline" => Some(StyleMask::UNDERLINE),
+            _ => None,
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct TextRun {
     pub content: String,
     #[serde(serialize_with = "text_style_serialize")]
-    pub text_style: HashSet<String>,
+    pub text_style: StyleMask,
 }
 
 // Convenience function
 pub fn tr(t: &str, s: Vec<&str>) -> TextRun {
-    let mut styles: HashSet<String> = HashSet::new();
-    for str in s {
-        styles.insert(str.to_string());
+    let mut styles = StyleMask::empty();
+    for name in s {
+        debug_assert!(
+            matches!(name, "Bold" | "Italic" | "Underline"),
+            "Unknown style name provided to tr(): {}",
+            name
+        );
+        if let Some(mask) = StyleMask::from_style_name(name) {
+            styles.insert(mask);
+        }
     }
     TextRun {
         content: t.to_string(),
@@ -184,13 +246,12 @@ pub fn tr(t: &str, s: Vec<&str>) -> TextRun {
     }
 }
 
-fn text_style_serialize<S>(x: &HashSet<String>, s: S) -> Result<S::Ok, S::Error>
+fn text_style_serialize<S>(mask: &StyleMask, serializer: S) -> Result<S::Ok, S::Error>
 where
     S: Serializer,
 {
-    let mut styles: Vec<String> = x.clone().into_iter().collect();
-    styles.sort();
-    styles.serialize(s)
+    let styles: Vec<&'static str> = mask.iter().collect();
+    styles.serialize(serializer)
 }
 
 impl Default for Attributes {

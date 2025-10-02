@@ -1,6 +1,6 @@
-use crate::{Element, Element::*, ElementText, ElementText::*, TextRun};
+use crate::{Element, Element::*, ElementText, ElementText::*, StyleMask, TextRun};
 use std::cmp::min;
-use std::collections::HashSet;
+use std::mem;
 
 const SENTINEL_BOLD_ITALIC: char = '⏋';
 const SENTINEL_BOLD: char = '⎿';
@@ -286,106 +286,60 @@ fn create_styled_from_string(txt: &mut String) -> ElementText {
 
     let mut styled_textruns: Vec<TextRun> = Vec::new();
     let mut current_text = String::new();
-    let mut current_styles: HashSet<String> = HashSet::new();
+    let mut current_styles = StyleMask::empty();
+
+    let flush_run = |runs: &mut Vec<TextRun>, text: &mut String, styles: StyleMask| {
+        if !text.is_empty() {
+            runs.push(TextRun {
+                content: mem::take(text),
+                text_style: styles,
+            });
+        }
+    };
 
     for ch in prepared_text.chars() {
         match ch {
             SENTINEL_BOLD_ITALIC => {
-                if current_styles.contains("Bold") && current_styles.contains("Italic") {
-                    if !current_text.is_empty() {
-                        styled_textruns.push(TextRun {
-                            content: current_text.clone(),
-                            text_style: current_styles.clone(),
-                        });
-                        current_text.clear();
-                    }
-                    current_styles.remove("Bold");
-                    current_styles.remove("Italic");
+                let mask = StyleMask::BOLD.union(StyleMask::ITALIC);
+                flush_run(&mut styled_textruns, &mut current_text, current_styles);
+                if current_styles.contains(mask) {
+                    current_styles.remove(mask);
                 } else {
-                    if !current_text.is_empty() {
-                        styled_textruns.push(TextRun {
-                            content: current_text.clone(),
-                            text_style: current_styles.clone(),
-                        });
-                    }
-                    current_text.clear();
-                    current_styles.insert("Bold".to_string());
-                    current_styles.insert("Italic".to_string());
+                    current_styles.insert(mask);
                 }
             }
             SENTINEL_ITALIC => {
-                if current_styles.contains("Italic") {
-                    if !current_text.is_empty() {
-                        styled_textruns.push(TextRun {
-                            content: current_text.clone(),
-                            text_style: current_styles.clone(),
-                        });
-                        current_text.clear();
-                    }
-                    current_styles.remove("Italic");
+                let mask = StyleMask::ITALIC;
+                flush_run(&mut styled_textruns, &mut current_text, current_styles);
+                if current_styles.contains(mask) {
+                    current_styles.remove(mask);
                 } else {
-                    if !current_text.is_empty() {
-                        styled_textruns.push(TextRun {
-                            content: current_text.clone(),
-                            text_style: current_styles.clone(),
-                        });
-                    }
-                    current_text.clear();
-                    current_styles.insert("Italic".to_string());
+                    current_styles.insert(mask);
                 }
             }
             SENTINEL_BOLD => {
-                if current_styles.contains("Bold") {
-                    if !current_text.is_empty() {
-                        styled_textruns.push(TextRun {
-                            content: current_text.clone(),
-                            text_style: current_styles.clone(),
-                        });
-                        current_text.clear();
-                    }
-                    current_styles.remove("Bold");
+                let mask = StyleMask::BOLD;
+                flush_run(&mut styled_textruns, &mut current_text, current_styles);
+                if current_styles.contains(mask) {
+                    current_styles.remove(mask);
                 } else {
-                    if !current_text.is_empty() {
-                        styled_textruns.push(TextRun {
-                            content: current_text.clone(),
-                            text_style: current_styles.clone(),
-                        });
-                    }
-                    current_text.clear();
-                    current_styles.insert("Bold".to_string());
+                    current_styles.insert(mask);
                 }
             }
             SENTINEL_UNDERLINE => {
-                if current_styles.contains("Underline") {
-                    if !current_text.is_empty() {
-                        styled_textruns.push(TextRun {
-                            content: current_text.clone(),
-                            text_style: current_styles.clone(),
-                        });
-                        current_text.clear();
-                    }
-                    current_styles.remove("Underline");
+                let mask = StyleMask::UNDERLINE;
+                flush_run(&mut styled_textruns, &mut current_text, current_styles);
+                if current_styles.contains(mask) {
+                    current_styles.remove(mask);
                 } else {
-                    if !current_text.is_empty() {
-                        styled_textruns.push(TextRun {
-                            content: current_text.clone(),
-                            text_style: current_styles.clone(),
-                        });
-                    }
-                    current_text.clear();
-                    current_styles.insert("Underline".to_string());
+                    current_styles.insert(mask);
                 }
             }
             _ => current_text.push(ch),
         }
     }
 
-    if !current_text.is_empty() {
-        styled_textruns.push(TextRun {
-            content: current_text,
-            text_style: current_styles,
-        });
-    }
+    flush_run(&mut styled_textruns, &mut current_text, current_styles);
 
     Styled(styled_textruns)
 }
@@ -395,20 +349,8 @@ fn create_styled_from_string(txt: &mut String) -> ElementText {
 mod tests {
     // Note this useful idiom: importing names from outer (for mod tests) scope.
     use super::*;
-    use crate::{blank_attributes, p};
+    use crate::{blank_attributes, p, tr};
     use pretty_assertions::assert_eq;
-
-    // Convenience function to make writing tests easier.
-    fn tr(content: &str, styles: Vec<&str>) -> TextRun {
-        let mut style_strings: HashSet<String> = HashSet::new();
-        for style in styles {
-            style_strings.insert(style.to_string());
-        }
-        TextRun {
-            content: content.to_string(),
-            text_style: style_strings,
-        }
-    }
 
     #[test]
     fn test_parse_with_element() {

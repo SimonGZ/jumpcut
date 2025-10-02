@@ -17,7 +17,7 @@
 ## Sentinels and Text Runs
 - Sentinels (`⏋`, `⎿`, `⏉`, `⏊`) map directly to style sets (bold+italic, bold, italic, underline).
 - `create_styled_from_string` walks the sentinel-rich text, toggling styles when it sees a sentinel and pushing `TextRun` entries whenever a run ends.
-- Style sets are stored as `HashSet<String>` today for compatibility with existing output formats; they’re derived from the sentinel that triggered the transition.
+- Style sets now live in a compact `StyleMask` bitfield; serialization expands the mask into sorted style names so HTML/FDX templates still receive `"Bold"`, `"Italic"`, etc.
 
 ## Comparison with the Legacy Regex-Based Parser
 - **Old approach:** four regular expressions (`***`/`**`/`*`/`_`) replaced matched regions with sentinels via global replacement. Ordering mattered to avoid overlaps, and the expressions relied on Unicode-aware regex features (adding to WASM size).
