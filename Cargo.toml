@@ -18,10 +18,10 @@ path = "src/bin/main.rs"
 required-features = ["cli"]
 
 [dependencies]
-serde = { version = "1.0.203", features = ["derive"] }
-handlebars = { version = "5.1.2", optional = true }
-serde_json = "1.0.117"
-clap = { version = "4.5.7", features = ["derive"], optional = true }
+serde = { version = "1.0.228", features = ["derive"] }
+handlebars = { version = "6.3.2", optional = true }
+serde_json = "1.0.145"
+clap = { version = "4.5.48", features = ["derive"], optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = { version = "0.2", features = ["serde-serialize"] }
@@ -36,7 +36,7 @@ wasm = ["lib-only"]
 no-regex-parser = []
 
 [dev-dependencies]
-criterion = "0.5.1"
+criterion = "0.7.0"
 pretty_assertions = "1.0.0"
 
 [[bench]]
