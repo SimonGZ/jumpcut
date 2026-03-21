@@ -3,7 +3,6 @@ use lazy_static::lazy_static;
 use regex::Regex;
 use std::collections::HashSet;
 use std::mem;
-use unicode_segmentation::UnicodeSegmentation;
 
 impl Element {
     pub fn parse_and_convert_markup(&mut self) {
@@ -96,9 +95,9 @@ fn create_styled_from_string(txt: &mut String) -> ElementText {
         let mut styled_textruns: Vec<TextRun> = Vec::with_capacity(4);
         let mut current_text = String::new();
         let mut current_styles: HashSet<String> = HashSet::new();
-        for char in prepared_text.graphemes(true) {
-            match char {
-                "⏋" => {
+        for ch in prepared_text.chars() {
+            match ch {
+                '⏋' => {
                     if current_styles.contains("Bold")
                         && current_styles.contains("Italic")
                     {
@@ -132,7 +131,7 @@ fn create_styled_from_string(txt: &mut String) -> ElementText {
                         current_styles.insert("Italic".to_string());
                     }
                 }
-                "⏉" => {
+                '⏉' => {
                     if current_styles.contains("Italic") {
                         // Time to end Italic style
                         if current_text.is_empty() {
@@ -162,7 +161,7 @@ fn create_styled_from_string(txt: &mut String) -> ElementText {
                         current_styles.insert("Italic".to_string());
                     }
                 }
-                "⎿" => {
+                '⎿' => {
                     if current_styles.contains("Bold") {
                         // Time to end Bold style
                         if current_text.is_empty() {
@@ -192,7 +191,7 @@ fn create_styled_from_string(txt: &mut String) -> ElementText {
                         current_styles.insert("Bold".to_string());
                     }
                 }
-                "⏊" => {
+                '⏊' => {
                     if current_styles.contains("Underline") {
                         // Time to end Underline style
                         if current_text.is_empty() {
@@ -222,7 +221,7 @@ fn create_styled_from_string(txt: &mut String) -> ElementText {
                         current_styles.insert("Underline".to_string());
                     }
                 }
-                _ => current_text.push_str(char),
+                _ => current_text.push(ch),
             }
         }
         // Check if any text wasn't handled in the loop
@@ -609,6 +608,60 @@ mod tests {
             element,
             Action(
                 p("As he rattles off the long list, Brick and Steel *share a look.\nThis is going to be BAD.*"),
+                blank_attributes()
+            )
+        );
+    }
+
+    #[test]
+    fn test_parse_emphasis_with_emoji_sequence() {
+        let mut element =
+            Action(p("Family *👨‍👩‍👧‍👦* dinner"), blank_attributes());
+        element.parse_and_convert_markup();
+        assert_eq!(
+            element,
+            Action(
+                Styled(vec![
+                    tr("Family ", vec![]),
+                    tr("👨‍👩‍👧‍👦", vec!["Italic"]),
+                    tr(" dinner", vec![]),
+                ]),
+                blank_attributes()
+            )
+        );
+    }
+
+    #[test]
+    fn test_parse_bold_with_combining_mark_text() {
+        let mut element =
+            Action(p("Mix **Cafe\u{301} noir** tonight"), blank_attributes());
+        element.parse_and_convert_markup();
+        assert_eq!(
+            element,
+            Action(
+                Styled(vec![
+                    tr("Mix ", vec![]),
+                    tr("Cafe\u{301} noir", vec!["Bold"]),
+                    tr(" tonight", vec![]),
+                ]),
+                blank_attributes()
+            )
+        );
+    }
+
+    #[test]
+    fn test_parse_underline_with_non_latin_text() {
+        let mut element =
+            Action(p("Cue _Привет мир_ แล้วต่อ"), blank_attributes());
+        element.parse_and_convert_markup();
+        assert_eq!(
+            element,
+            Action(
+                Styled(vec![
+                    tr("Cue ", vec![]),
+                    tr("Привет мир", vec!["Underline"]),
+                    tr(" แล้วต่อ", vec![]),
+                ]),
                 blank_attributes()
             )
         );

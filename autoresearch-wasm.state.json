@@ -1,0 +1,5 @@
+{
+  "mode": "wasm_size",
+  "branch": "feature/wasm-baseline",
+  "status": "baseline_pending"
+}

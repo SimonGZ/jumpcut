@@ -1,0 +1,22 @@
+[package]
+name = "jumpcut-wasm"
+version = "0.1.0"
+edition = "2021"
+publish = false
+license = "MIT"
+description = "wasm-bindgen wrapper crate for JumpCut"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = ["html", "fdx"]
+html = ["jumpcut/html"]
+fdx = ["jumpcut/fdx"]
+
+[dependencies]
+jumpcut = { path = "..", default-features = false }
+wasm-bindgen = { version = "0.2", features = ["serde-serialize"] }
+
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = ["-Os"]
