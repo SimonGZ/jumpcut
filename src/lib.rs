@@ -277,7 +277,7 @@ fn prepare_text(text: &str) -> String {
     RE.replace_all(text.trim_end(), "").to_string()
 }
 
-fn lines_to_hunks(lines: Lines) -> Vec<Vec<&str>> {
+fn lines_to_hunks<'a>(lines: Lines<'a>) -> Vec<Vec<&'a str>> {
     let mut hunks = lines.fold(vec![vec![]], |mut acc, line: &str| match line.trim() {
         // HANDLE BLANK LINES
         "" => {
