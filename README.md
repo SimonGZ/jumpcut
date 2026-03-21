@@ -16,6 +16,87 @@ To use JumpCut as a library, you can specify the following in your Cargo.toml so
 
 `jumpcut = { version = "0.7", default-features = false, features = ["lib-only"] }`
 
+## WASM Package
+
+JumpCut also ships an in-repo wasm wrapper crate at [jumpcut-wasm](jumpcut-wasm).
+
+That wrapper exposes three JS-facing functions:
+
+- `parse_to_json_string(text)`
+- `parse_to_html_string(text, include_head)`
+- `parse_to_fdx_string(text)`
+
+### Build The WASM Wrapper
+
+The low-level Rust build is:
+
+```sh
+cargo build -p jumpcut-wasm --target wasm32-unknown-unknown --release
+```
+
+To generate a Node-compatible JS package from the compiled `.wasm`, use:
+
+```sh
+./autoresearch-wasm.node.sh --smoke
+```
+
+That script will:
+
+- build `jumpcut-wasm`
+- ensure `wasm-bindgen-cli` is available
+- generate a Node-targeted package under `target/autoresearch-wasm/node-full`
+- run a small smoke benchmark
+
+If you want the generated package without the smoke shortcut, run:
+
+```sh
+./autoresearch-wasm.node.sh
+```
+
+### Use The Generated Package From Node
+
+After running `./autoresearch-wasm.node.sh`, the generated package lives under:
+
+```text
+target/autoresearch-wasm/node-full
+```
+
+Example:
+
+```js
+const jumpcut = require("./target/autoresearch-wasm/node-full/jumpcut_wasm.js");
+
+const input = `Title: Example
+
+INT. HOUSE - DAY
+
+Hello, world.`;
+
+const json = jumpcut.parse_to_json_string(input);
+const html = jumpcut.parse_to_html_string(input, true);
+const fdx = jumpcut.parse_to_fdx_string(input);
+
+console.log(json);
+console.log(html.slice(0, 80));
+console.log(fdx.slice(0, 80));
+```
+
+### WASM Checks And Benchmarks
+
+The repo includes helper scripts for the wasm workflow:
+
+- `./autoresearch-wasm.checks.sh`
+  - runs tests
+  - checks `jumpcut-wasm` for `wasm32-unknown-unknown`
+  - runs the Node-side smoke path
+- `./autoresearch-wasm.sh`
+  - emits full bundle size metrics
+  - emits `json_only` / `html_only` / `fdx_only` size metrics
+  - emits native parser guardrail metrics
+  - emits Node-side wasm runtime metrics
+
+Those scripts are what the repo currently uses to validate wasm changes.
+
 ## Usage
 
 Once installed, you can pass JumpCut a text file and it will parse it and output it as either an FDX, HTML, or JSON. The full options from the help text are listed below.
