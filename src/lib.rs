@@ -393,7 +393,8 @@ fn make_single_line_element(line: &str) -> Element {
         static ref NOTE_REGEX: Regex = Regex::new(r"\[\[([^\]]+)\]\]").unwrap();
     }
     let mut attributes = blank_attributes();
-    if has_note(line) {
+    let line_has_note = has_note(line);
+    if line_has_note {
         let notes = retrieve_notes(line);
         attributes = Attributes {
             notes,
@@ -422,12 +423,20 @@ fn make_single_line_element(line: &str) -> Element {
                             ..attributes
                         };
                         let text_without_scene_number = SCENE_NUMBER_REGEX.replace(stripped, "");
-                        let final_text = remove_notes(&text_without_scene_number);
+                        let final_text = if line_has_note {
+                            remove_notes(&text_without_scene_number)
+                        } else {
+                            text_without_scene_number.into_owned()
+                        };
                         make_element(Plain(final_text), attributes)
                     }
                 }
             } else {
-                let final_text = remove_notes(stripped);
+                let final_text = if line_has_note {
+                    remove_notes(stripped)
+                } else {
+                    stripped.to_string()
+                };
                 make_element(Plain(final_text), attributes)
             }
         }
@@ -447,21 +456,37 @@ fn make_single_line_element(line: &str) -> Element {
                             ..attributes
                         };
                         let text_without_scene_number = SCENE_NUMBER_REGEX.replace(line, "");
-                        let final_text = remove_notes(&text_without_scene_number);
+                        let final_text = if line_has_note {
+                            remove_notes(&text_without_scene_number)
+                        } else {
+                            text_without_scene_number.into_owned()
+                        };
                         Element::SceneHeading(Plain(final_text), attributes)
                     }
                 }
             } else {
-                let final_text = remove_notes(line);
+                let final_text = if line_has_note {
+                    remove_notes(line)
+                } else {
+                    line.to_string()
+                };
                 Element::SceneHeading(Plain(final_text), attributes)
             }
         }
         _ if is_transition(&line) => {
-            let final_text = remove_notes(line);
+            let final_text = if line_has_note {
+                remove_notes(line)
+            } else {
+                line.to_string()
+            };
             Element::Transition(Plain(final_text), attributes)
         }
         _ if is_centered(&line) => {
-            let final_text = remove_notes(trim_centered_marks(line));
+            let final_text = if line_has_note {
+                remove_notes(trim_centered_marks(line))
+            } else {
+                trim_centered_marks(line).to_string()
+            };
             if is_end_act(&final_text) {
                 // Check end_act first because new act regex also matches end act regex
                 Element::EndOfAct(
@@ -490,7 +515,11 @@ fn make_single_line_element(line: &str) -> Element {
             }
         }
         _ => {
-            let final_text = remove_notes(line);
+            let final_text = if line_has_note {
+                remove_notes(line)
+            } else {
+                line.to_string()
+            };
             Element::Action(Plain(final_text), attributes)
         }
     }
@@ -567,13 +596,18 @@ fn make_multi_line_element(hunk: Vec<&str>) -> Element {
 }
 
 fn is_scene(line: &str) -> bool {
-    let line = line.to_uppercase();
-    SCENE_LOCATORS.iter().any(|&s| line.starts_with(s))
+    SCENE_LOCATORS.iter().any(|&locator| {
+        line.get(..locator.len())
+            .is_some_and(|prefix| prefix.eq_ignore_ascii_case(locator))
+    })
 }
 
 fn is_transition(line: &str) -> bool {
-    let line = line.trim().to_uppercase();
-    line.ends_with(" TO:")
+    let line = line.trim();
+    line.len() >= 4
+        && line
+            .get(line.len() - 4..)
+            .is_some_and(|suffix| suffix.eq_ignore_ascii_case(" TO:"))
 }
 
 fn is_end_act(line: &str) -> bool {
@@ -615,7 +649,7 @@ fn trim_centered_marks(line: &str) -> &str {
 }
 
 fn is_character(line: &str) -> bool {
-    line == line.to_uppercase()
+    !line.chars().any(char::is_lowercase)
 }
 
 fn is_parenthetical(line: &str) -> bool {
