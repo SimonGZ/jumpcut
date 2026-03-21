@@ -9,23 +9,30 @@ repository = "https://github.com/SimonGZ/jumpcut"
 keywords = ["fountain", "screenwriting"]
 readme = "README.md"
 
+[workspace]
+members = ["jumpcut-wasm"]
+resolver = "2"
+
 [[bin]]
 name = "jumpcut"
 path = "src/bin/main.rs"
 
 [dependencies]
 lazy_static = "1.4.0"
-unicode-segmentation = "1.11.0"
 serde = { version = "1.0.203", features = ["derive"] }
-handlebars = { version = "5.1.2", optional = true }
 serde_json = "1.0.117"
-regex = { version = "1.10.5", default-features = false, features = ["std", "perf", "unicode-gencat", "unicode-perl"] }
 clap = { version = "4.5.7", features = ["derive"], optional = true }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+regex = { version = "1.10.5", default-features = false, features = ["std", "perf"] }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+regex = { version = "1.10.5", default-features = false, features = ["std", "perf-dfa"] }
 
 [features]
 default = ["html", "fdx", "cli"]
-html = ["handlebars"]
-fdx = ["handlebars"]
+html = []
+fdx = []
 cli = ["clap"]
 lib-only = ["html", "fdx"]
 
@@ -33,7 +40,13 @@ lib-only = ["html", "fdx"]
 criterion = "0.5.1"
 unicode_categories = "0.1.1"
 pretty_assertions = "1.0.0"
+handlebars = "5.1.2"
 
 [[bench]]
 name = "jumpcut_benchmarks"
 harness = false
+
+[profile.release]
+lto = true
+codegen-units = 1
+panic = "abort"

@@ -10,6 +10,7 @@ use std::str::Lines;
 use Element::PageBreak;
 
 mod converters;
+mod rendering;
 mod text_style_parser;
 
 use ElementText::*;
@@ -61,7 +62,7 @@ pub enum Element {
 }
 
 impl Element {
-    fn name(&self) -> &str {
+    pub(crate) fn name(&self) -> &str {
         use Element::*;
         match *self {
             Action(_, _) => "Action",
@@ -231,28 +232,15 @@ pub fn parse(text: &str) -> Screenplay {
 }
 
 fn has_key_value(txt: &str) -> bool {
-    lazy_static! {
-        static ref KEY: Regex =
-            Regex::new(r"(?P<key>^[^\s!\.@~>][^:\n\r]+):(?P<value>.*)").unwrap();
-    }
-    KEY.is_match(txt)
+    split_metadata_line(txt).is_some()
 }
 
 fn process_metadata(metadata: &mut Metadata, text: &str) {
-    lazy_static! {
-        static ref KEY: Regex =
-            Regex::new(r"(?P<key>^[^\s!\.@~>][^:\n\r]+):(?P<value>.*)").unwrap();
-    }
     let lines = text.lines();
     let mut current_key = "".to_string();
     for line in lines {
-        if KEY.is_match(line) {
-            // Means we have a new key
-            // NOTE: I can safely unwrap these values because of the above is_match
-            let caps = KEY.captures(line).unwrap();
-            let key = caps.name("key").unwrap().as_str();
+        if let Some((key, current_value)) = split_metadata_line(line) {
             current_key = key.to_lowercase().to_string();
-            let current_value = caps.name("value").unwrap().as_str();
             if current_value.is_empty() {
                 metadata.insert(current_key.to_string(), vec![]);
             } else {
@@ -270,57 +258,120 @@ fn process_metadata(metadata: &mut Metadata, text: &str) {
     }
 }
 
+fn split_metadata_line(line: &str) -> Option<(&str, &str)> {
+    let line = trim_classifier_start(line);
+    let colon_index = line.find(':')?;
+    let key = line.get(..colon_index)?;
+    let first = key.chars().next()?;
+    if key.chars().count() < 2
+        || first.is_whitespace()
+        || matches!(first, '!' | '.' | '@' | '~' | '>')
+        || key.contains(['\n', '\r'])
+    {
+        return None;
+    }
+
+    let value = line.get(colon_index + 1..)?;
+    Some((key, value))
+}
+
 /// Strips out problematic unicode and the boneyard element
 fn prepare_text(text: &str) -> String {
     lazy_static! {
-        static ref RE: Regex = Regex::new(r"/\*[^*]*\*/|\p{gc:Cf}").unwrap();
+        static ref RE: Regex = Regex::new(r"/\*[^*]*\*/").unwrap();
     }
     RE.replace_all(text.trim_end(), "").to_string()
 }
 
+fn is_classifier_invisible(ch: char) -> bool {
+    matches!(
+        ch,
+        '\u{061C}'
+            | '\u{200B}'..='\u{200F}'
+            | '\u{202A}'..='\u{202E}'
+            | '\u{2060}'..='\u{2064}'
+            | '\u{2066}'..='\u{206F}'
+            | '\u{FEFF}'
+    )
+}
+
+fn trim_classifier_start(line: &str) -> &str {
+    let start = line
+        .char_indices()
+        .find(|(_, ch)| !is_classifier_invisible(*ch))
+        .map(|(idx, _)| idx)
+        .unwrap_or(line.len());
+    &line[start..]
+}
+
+fn trim_classifier_end(line: &str) -> &str {
+    let end = line
+        .char_indices()
+        .rev()
+        .find(|(_, ch)| !is_classifier_invisible(*ch))
+        .map(|(idx, ch)| idx + ch.len_utf8())
+        .unwrap_or(0);
+    &line[..end]
+}
+
+fn trim_classifier_edges(line: &str) -> &str {
+    trim_classifier_end(trim_classifier_start(line))
+}
+
+fn classifier_trimmed(line: &str) -> &str {
+    trim_classifier_edges(line).trim()
+}
+
 fn lines_to_hunks<'a>(lines: Lines<'a>) -> Vec<Vec<&'a str>> {
-    let mut hunks = lines.fold(vec![vec![]], |mut acc, line: &str| match line.trim() {
-        // HANDLE BLANK LINES
-        "" => {
-            // If there are exactly two spaces in the line, it's intentional
-            if line.len() == 2 {
+    let mut hunks = lines.fold(vec![vec![]], |mut acc, line: &str| {
+        let classified = classifier_trimmed(line);
+        match classified {
+            // HANDLE BLANK LINES
+            "" => {
+                // If there are exactly two spaces in the line, it's intentional
+                if line.len() == 2 {
+                    acc.last_mut().unwrap().push(line);
+                // If the previous element was blank but it was the first element, do nothing
+                } else if acc.last().unwrap().is_empty() && acc.len() == 1 {
+                    // do nothing
+                } else if acc.last().unwrap().is_empty() {
+                    // If the previous element was also blank, create an empty string
+                    acc.last_mut().unwrap().push("");
+                } else {
+                    // Otherwise, start a new element by pushing a new empty vec
+                    acc.push(vec![]);
+                }
+                acc
+            }
+            /* HANDLE SECTIONS
+             * They don't follow the simple rules of blank line before or after.
+             * So we need this special case to handle them.
+             */
+            l if l.starts_with('#') => {
+                // If the previous hunk was empty, use it.
+                if acc.last().unwrap().is_empty() {
+                    acc.last_mut().unwrap().push(line);
+                // If previous hunk wasn't empty, create a new one.
+                } else {
+                    acc.push(vec![line]);
+                }
+                acc
+            }
+            // HANDLE NORMAL, NON-EMPTY LINES
+            _ => {
+                let last_classified = acc
+                    .last()
+                    .unwrap()
+                    .first()
+                    .map(|line| classifier_trimmed(line));
+                // If previous hunk was a section or blank, create a new hunk
+                match last_classified {
+                    Some(l) if l.starts_with('#') || l.is_empty() => acc.push(vec![]),
+                    _ => (),
+                }
                 acc.last_mut().unwrap().push(line);
-            // If the previous element was blank but it was the first element, do nothing
-            } else if acc.last().unwrap().is_empty() && acc.len() == 1 {
-                // do nothing
-            } else if acc.last().unwrap().is_empty() {
-                // If the previous element was also blank, create an empty string
-                acc.last_mut().unwrap().push("");
-            } else {
-                // Otherwise, start a new element by pushing a new empty vec
-                acc.push(vec![]);
+                acc
             }
-            acc
-        }
-        /* HANDLE SECTIONS
-         * They don't follow the simple rules of blank line before or after.
-         * So we need this special case to handle them.
-         */
-        l if l.starts_with('#') => {
-            // If the previous hunk was empty, use it.
-            if acc.last().unwrap().is_empty() {
-                acc.last_mut().unwrap().push(line);
-            // If previous hunk wasn't empty, create a new one.
-            } else {
-                acc.push(vec![line]);
-            }
-            acc
-        }
-        // HANDLE NORMAL, NON-EMPTY LINES
-        _ => {
-            let last_line = acc.last().unwrap().first();
-            // If previous hunk was a section or blank, create a new hunk
-            match last_line {
-                Some(l) if l.starts_with('#') || l.is_empty() => acc.push(vec![]),
-                _ => (),
-            }
-            acc.last_mut().unwrap().push(line);
-            acc
         }
     });
     // Handle special case of an empty string
@@ -389,7 +440,6 @@ fn hunks_to_elements(hunks: Vec<Vec<&str>>) -> Vec<Element> {
 
 fn make_single_line_element(line: &str) -> Element {
     lazy_static! {
-        static ref SCENE_NUMBER_REGEX: Regex = Regex::new(r"\s+#(.*)#").unwrap();
         static ref NOTE_REGEX: Regex = Regex::new(r"\[\[([^\]]+)\]\]").unwrap();
     }
     let mut attributes = blank_attributes();
@@ -403,30 +453,25 @@ fn make_single_line_element(line: &str) -> Element {
     }
     match make_forced(&line) {
         Some(make_element) => {
-            let stripped: &str = line
+            let stripped: &str = trim_classifier_start(line)
                 .trim_start_matches(&['!', '@', '~', '.', '>', '='][..])
                 .trim_start();
 
-            if line.get(..1) == Some(".") && SCENE_NUMBER_REGEX.is_match(stripped) {
+            if trim_classifier_edges(line).get(..1) == Some(".")
+                && extract_scene_number(stripped).is_some()
+            {
                 // Handle special case of scene numbers on scene headings
-                match SCENE_NUMBER_REGEX.find(stripped) {
+                match extract_scene_number(stripped) {
                     None => make_element(Plain(stripped.to_string()), attributes),
-                    Some(mat) => {
+                    Some((text_without_scene_number, scene_number)) => {
                         attributes = Attributes {
-                            scene_number: Some(
-                                stripped
-                                    .get(mat.start()..mat.end())
-                                    .unwrap()
-                                    .trim_matches(&[' ', '#'][..])
-                                    .to_string(),
-                            ),
+                            scene_number: Some(scene_number),
                             ..attributes
                         };
-                        let text_without_scene_number = SCENE_NUMBER_REGEX.replace(stripped, "");
                         let final_text = if line_has_note {
                             remove_notes(&text_without_scene_number)
                         } else {
-                            text_without_scene_number.into_owned()
+                            text_without_scene_number
                         };
                         make_element(Plain(final_text), attributes)
                     }
@@ -441,25 +486,20 @@ fn make_single_line_element(line: &str) -> Element {
             }
         }
         _ if is_scene(&line) => {
+            let line = trim_classifier_edges(line);
             // Handle special case of scene numbers on scene headings
-            if SCENE_NUMBER_REGEX.is_match(line) {
-                match SCENE_NUMBER_REGEX.find(line) {
+            if extract_scene_number(line).is_some() {
+                match extract_scene_number(line) {
                     None => Element::SceneHeading(Plain(line.to_string()), attributes),
-                    Some(mat) => {
+                    Some((text_without_scene_number, scene_number)) => {
                         attributes = Attributes {
-                            scene_number: Some(
-                                line.get(mat.start()..mat.end())
-                                    .unwrap()
-                                    .trim_matches(&[' ', '#'][..])
-                                    .to_string(),
-                            ),
+                            scene_number: Some(scene_number),
                             ..attributes
                         };
-                        let text_without_scene_number = SCENE_NUMBER_REGEX.replace(line, "");
                         let final_text = if line_has_note {
                             remove_notes(&text_without_scene_number)
                         } else {
-                            text_without_scene_number.into_owned()
+                            text_without_scene_number
                         };
                         Element::SceneHeading(Plain(final_text), attributes)
                     }
@@ -474,6 +514,7 @@ fn make_single_line_element(line: &str) -> Element {
             }
         }
         _ if is_transition(&line) => {
+            let line = trim_classifier_edges(line);
             let final_text = if line_has_note {
                 remove_notes(line)
             } else {
@@ -482,6 +523,7 @@ fn make_single_line_element(line: &str) -> Element {
             Element::Transition(Plain(final_text), attributes)
         }
         _ if is_centered(&line) => {
+            let line = trim_classifier_edges(line);
             let final_text = if line_has_note {
                 remove_notes(trim_centered_marks(line))
             } else {
@@ -525,10 +567,23 @@ fn make_single_line_element(line: &str) -> Element {
     }
 }
 
+fn extract_scene_number(line: &str) -> Option<(String, String)> {
+    let hash_start = line.rfind(" #")?;
+    let scene_number = line.get(hash_start + 1..)?;
+    if !scene_number.starts_with('#') || !scene_number.ends_with('#') || scene_number.len() < 2 {
+        return None;
+    }
+
+    let scene_number = scene_number.trim_matches('#').trim().to_string();
+    let text_without_scene_number = line.get(..hash_start)?.to_string();
+    Some((text_without_scene_number, scene_number))
+}
+
 fn make_multi_line_element(hunk: Vec<&str>) -> Element {
     let top_line = hunk[0];
+    let top_classified = classifier_trimmed(top_line);
     let forced_element = make_forced(top_line);
-    if top_line.trim().starts_with('@')
+    if top_classified.starts_with('@')
         || (forced_element.is_none()
             && is_character(top_line)
             && !hunk.iter().any(|&line| is_centered(line)))
@@ -551,17 +606,20 @@ fn make_multi_line_element(hunk: Vec<&str>) -> Element {
     match forced_element {
         Some(make_element) => {
             // Check if it's a forced character because that means dialogueblock
-            if top_line.trim().get(..1) == Some("@") {
+            if top_classified.get(..1) == Some("@") {
                 let stripped_hunk = hunk
                     .into_iter()
-                    .map(|l| l.trim_start_matches('@'))
+                    .map(|l| trim_classifier_start(l).trim_start_matches('@'))
                     .collect::<Vec<&str>>();
                 make_dialogue_block(stripped_hunk)
             } else {
                 // It's not forced character, so we can create a string with newlines
                 let stripped_string = hunk
                     .into_iter()
-                    .map(|l| l.trim_start_matches(&['!', '@', '~', '.', '>', '='][..]))
+                    .map(|l| {
+                        trim_classifier_start(l)
+                            .trim_start_matches(&['!', '@', '~', '.', '>', '='][..])
+                    })
                     .collect::<Vec<&str>>()
                     .join("\n");
                 let final_text = remove_notes(&stripped_string);
@@ -596,6 +654,7 @@ fn make_multi_line_element(hunk: Vec<&str>) -> Element {
 }
 
 fn is_scene(line: &str) -> bool {
+    let line = trim_classifier_start(line);
     SCENE_LOCATORS.iter().any(|&locator| {
         line.get(..locator.len())
             .is_some_and(|prefix| prefix.eq_ignore_ascii_case(locator))
@@ -603,7 +662,7 @@ fn is_scene(line: &str) -> bool {
 }
 
 fn is_transition(line: &str) -> bool {
-    let line = line.trim();
+    let line = classifier_trimmed(line);
     line.len() >= 4
         && line
             .get(line.len() - 4..)
@@ -611,25 +670,64 @@ fn is_transition(line: &str) -> bool {
 }
 
 fn is_end_act(line: &str) -> bool {
-    lazy_static! {
-        static ref END_ACT_REGEX: Regex = Regex::new(
-            r"(end (of )*(act ((\d)|one|two|three|four|five|six|seven|eight|nine|ten)|cold open|teaser))"
-        )
-        .unwrap();
+    let owned = line.to_lowercase();
+    let tokens = split_lowercase_tokens(&owned);
+    if tokens.first().copied() != Some("end") {
+        return false;
     }
-    let line = line.to_lowercase();
-    END_ACT_REGEX.is_match(&line)
+
+    let mut cursor = 1;
+    while tokens.get(cursor).copied() == Some("of") {
+        cursor += 1;
+    }
+    is_act_marker(&tokens[cursor..])
 }
 
 fn is_new_act(line: &str) -> bool {
-    lazy_static! {
-        static ref NEW_ACT_REGEX: Regex = Regex::new(
-            r"(act ((\d)|one|two|three|four|five|six|seven|eight|nine|ten)|cold open|teaser)"
-        )
-        .unwrap();
+    let owned = line.to_lowercase();
+    let tokens = split_lowercase_tokens(&owned);
+    is_act_marker(&tokens)
+}
+
+fn split_lowercase_tokens<'a>(line: &'a str) -> Vec<&'a str> {
+    line.split(|ch: char| !ch.is_ascii_alphanumeric())
+        .filter(|token| !token.is_empty())
+        .collect()
+}
+
+fn is_act_marker(tokens: &[&str]) -> bool {
+    match tokens {
+        ["teaser", ..] => true,
+        ["cold", "open", ..] => true,
+        ["act", label, ..] => is_supported_act_label(label),
+        _ => false,
     }
-    let line = line.to_lowercase();
-    NEW_ACT_REGEX.is_match(&line)
+}
+
+fn is_supported_act_label(label: &str) -> bool {
+    matches!(
+        label,
+        "0"
+            | "1"
+            | "2"
+            | "3"
+            | "4"
+            | "5"
+            | "6"
+            | "7"
+            | "8"
+            | "9"
+            | "one"
+            | "two"
+            | "three"
+            | "four"
+            | "five"
+            | "six"
+            | "seven"
+            | "eight"
+            | "nine"
+            | "ten"
+    )
 }
 
 fn remove_notes(line: &str) -> String {
@@ -640,12 +738,14 @@ fn remove_notes(line: &str) -> String {
 }
 
 fn is_centered(line: &str) -> bool {
-    let trimmed = line.trim();
+    let trimmed = classifier_trimmed(line);
     trimmed.starts_with('>') && trimmed.ends_with('<')
 }
 
 fn trim_centered_marks(line: &str) -> &str {
-    line.trim_matches(&['>', '<'][..]).trim()
+    trim_classifier_edges(line)
+        .trim_matches(&['>', '<'][..])
+        .trim()
 }
 
 fn is_character(line: &str) -> bool {
@@ -653,15 +753,16 @@ fn is_character(line: &str) -> bool {
 }
 
 fn is_parenthetical(line: &str) -> bool {
-    line.trim().starts_with('(') && line.trim().ends_with(')')
+    let trimmed = classifier_trimmed(line);
+    trimmed.starts_with('(') && trimmed.ends_with(')')
 }
 
 fn is_lyric(line: &str) -> bool {
-    line.trim().starts_with('~')
+    classifier_trimmed(line).starts_with('~')
 }
 
 fn is_dual_dialogue(line: &str) -> bool {
-    line.trim().ends_with('^')
+    classifier_trimmed(line).ends_with('^')
 }
 
 fn has_note(line: &str) -> bool {
@@ -669,6 +770,7 @@ fn has_note(line: &str) -> bool {
 }
 
 fn make_forced(line: &str) -> Option<fn(ElementText, Attributes) -> Element> {
+    let line = trim_classifier_edges(line);
     match line.get(..1) {
         Some("!") => Some(Element::Action),
         Some("@") => Some(Element::Character),
@@ -731,8 +833,7 @@ fn make_synopsis(line: ElementText, _: Attributes) -> Element {
 fn make_dialogue_block(hunk: Vec<&str>) -> Element {
     let mut elements = Vec::with_capacity(hunk.len());
     let raw_name: &str = hunk[0];
-    let clean_name: &str = raw_name
-        .trim()
+    let clean_name: &str = trim_classifier_edges(raw_name)
         .trim_start_matches('@')
         .trim_end_matches('^')
         .trim();
@@ -753,11 +854,13 @@ fn make_dialogue_block(hunk: Vec<&str>) -> Element {
         };
         if is_parenthetical(processed_line.as_ref()) {
             elements.push(Element::Parenthetical(
-                Plain(processed_line.into_owned()),
+                Plain(trim_classifier_edges(processed_line.as_ref()).to_string()),
                 attributes,
             ));
         } else if is_lyric(processed_line.as_ref()) {
-            let stripped_line = processed_line.trim().trim_start_matches('~').trim();
+            let stripped_line = classifier_trimmed(processed_line.as_ref())
+                .trim_start_matches('~')
+                .trim();
             if let Element::Lyric(Plain(s), _) = elements.last_mut().unwrap() {
                 // if previous element was lyric and so is this one, add this line to that previous lyric
                 s.push_str("\n");
@@ -908,14 +1011,55 @@ mod tests {
     }
 
     #[test]
-    fn test_remove_problematic_unicode() {
+    fn test_prepare_text_preserves_internal_invisible_chars() {
         let unicode_string = "Hello\u{200B}, \u{200D}\u{FEFF}World!";
-        assert_eq!(prepare_text(unicode_string), "Hello, World!");
+        assert_eq!(prepare_text(unicode_string), unicode_string);
+    }
+
+    #[test]
+    fn test_parse_handles_leading_bom_before_metadata() {
+        let fountain = "\u{FEFF}Title: Example Script\nAuthor: Test Writer\n";
+        let screenplay = parse(fountain);
+        assert_eq!(
+            screenplay.metadata.get("title"),
+            Some(&vec!["Example Script".to_string()])
+        );
+        assert_eq!(
+            screenplay.metadata.get("author"),
+            Some(&vec!["Test Writer".to_string()])
+        );
+    }
+
+    #[test]
+    fn test_parse_handles_leading_format_chars_before_scene_heading() {
+        let fountain = "\u{200B}\u{2060}INT. HOUSE - DAY";
+        assert_eq!(
+            parse(fountain).elements,
+            vec![Element::SceneHeading(p("INT. HOUSE - DAY"), blank_attributes())]
+        );
+    }
+
+    #[test]
+    fn test_prepare_text_trims_only_trailing_whitespace() {
+        let fountain = "Title: Example  \n\n\t";
+        assert_eq!(prepare_text(fountain), "Title: Example");
     }
 
     #[test]
     fn test_remove_boneyard() {
         let boneyard = "/* boneyard */Hello, World!\n\n/* More bones \n Lower bones*/Goodbye!";
         assert_eq!(prepare_text(boneyard), "Hello, World!\n\nGoodbye!");
+    }
+
+    #[test]
+    fn test_remove_boneyard_preserves_line_boundaries() {
+        let boneyard = "Title: Example\n/* note\nstill note */\nINT. ROOM - DAY";
+        assert_eq!(prepare_text(boneyard), "Title: Example\n\nINT. ROOM - DAY");
+    }
+
+    #[test]
+    fn test_prepare_text_preserves_zwj_emoji_sequence() {
+        let emoji = "Family: 👨‍👩‍👧‍👦";
+        assert_eq!(prepare_text(emoji), emoji);
     }
 }
