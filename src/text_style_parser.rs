@@ -2,6 +2,7 @@ use crate::{Element, Element::*, ElementText, ElementText::*, TextRun};
 use lazy_static::lazy_static;
 use regex::Regex;
 use std::collections::HashSet;
+use std::mem;
 use unicode_segmentation::UnicodeSegmentation;
 
 impl Element {
@@ -49,31 +50,57 @@ fn create_styled_from_string(txt: &mut String) -> ElementText {
         static ref RE_UNDERLINE: Regex = Regex::new(r"(^|[^\\])_{1}([^_\n]*[^ \\])_{1}").unwrap();
     }
 
-    if !RE_BOLD_ITALIC.is_match(txt)
-        && !RE_BOLD.is_match(txt)
-        && !RE_ITALIC.is_match(txt)
-        && !RE_UNDERLINE.is_match(txt)
+    let has_star = txt.contains('*');
+    let has_underscore = txt.contains('_');
+
+    if !has_star && !has_underscore {
+        if txt.contains('\\') {
+            *txt = txt.replace("\\*", "*").replace("\\_", "_");
+        }
+        return Plain(mem::take(txt));
+    }
+
+    let has_bold_italic = has_star && RE_BOLD_ITALIC.is_match(txt);
+    let has_bold = has_star && RE_BOLD.is_match(txt);
+    let has_italic = has_star && RE_ITALIC.is_match(txt);
+    let has_underline = has_underscore && RE_UNDERLINE.is_match(txt);
+
+    if !has_bold_italic && !has_bold && !has_italic && !has_underline
     {
         // If none of the regexes match, just return a Plain(txt)
-        *txt = txt.replace("\\*", "*").replace("\\_", "_");
-        Plain(txt.to_string())
+        if txt.contains('\\') {
+            *txt = txt.replace("\\*", "*").replace("\\_", "_");
+        }
+        Plain(mem::take(txt))
     } else {
-        let mut prepared_text = RE_BOLD_ITALIC.replace_all(&txt, "⏋$1⏋").into_owned();
-        prepared_text = RE_BOLD.replace_all(&prepared_text, "⎿$1⎿").into_owned();
-        prepared_text = RE_ITALIC.replace_all(&prepared_text, "$1⏉$2⏉").into_owned();
-        prepared_text = RE_UNDERLINE
-            .replace_all(&prepared_text, "$1⏊$2⏊")
-            .into_owned();
-        prepared_text = prepared_text.replace("\\*", "*").replace("\\_", "_");
+        let mut prepared_text = if has_bold_italic {
+            RE_BOLD_ITALIC.replace_all(&txt, "⏋$1⏋").into_owned()
+        } else {
+            txt.to_string()
+        };
+        if has_bold {
+            prepared_text = RE_BOLD.replace_all(&prepared_text, "⎿$1⎿").into_owned();
+        }
+        if has_italic {
+            prepared_text = RE_ITALIC.replace_all(&prepared_text, "$1⏉$2⏉").into_owned();
+        }
+        if has_underline {
+            prepared_text = RE_UNDERLINE
+                .replace_all(&prepared_text, "$1⏊$2⏊")
+                .into_owned();
+        }
+        if prepared_text.contains('\\') {
+            prepared_text = prepared_text.replace("\\*", "*").replace("\\_", "_");
+        }
 
-        let mut styled_textruns: Vec<TextRun> = vec![];
-        let mut current_text: String = "".to_string();
+        let mut styled_textruns: Vec<TextRun> = Vec::with_capacity(4);
+        let mut current_text = String::new();
         let mut current_styles: HashSet<String> = HashSet::new();
         for char in prepared_text.graphemes(true) {
             match char {
                 "⏋" => {
-                    if current_styles.contains(&"Bold".to_string())
-                        && current_styles.contains(&"Italic".to_string())
+                    if current_styles.contains("Bold")
+                        && current_styles.contains("Italic")
                     {
                         // Time to end Bold/Italic style
                         if current_text.is_empty() {
@@ -86,29 +113,27 @@ fn create_styled_from_string(txt: &mut String) -> ElementText {
                             // Current text is NOT empty, so it's time to end this
                             // textrun.
                             styled_textruns.push(TextRun {
-                                content: current_text.clone(),
+                                content: mem::take(&mut current_text),
                                 text_style: current_styles.clone(),
                             });
-                            current_text = "".to_string();
                         }
-                        current_styles.remove(&"Bold".to_string());
-                        current_styles.remove(&"Italic".to_string());
+                        current_styles.remove("Bold");
+                        current_styles.remove("Italic");
                     } else {
                         // Time to start this hunk
                         // See if there's another hunk we need to close off
                         if !current_text.is_empty() {
                             styled_textruns.push(TextRun {
-                                content: current_text.clone(),
+                                content: mem::take(&mut current_text),
                                 text_style: current_styles.clone(),
                             });
                         }
-                        current_text = "".to_string();
                         current_styles.insert("Bold".to_string());
                         current_styles.insert("Italic".to_string());
                     }
                 }
                 "⏉" => {
-                    if current_styles.contains(&"Italic".to_string()) {
+                    if current_styles.contains("Italic") {
                         // Time to end Italic style
                         if current_text.is_empty() {
                             // Current text is empty but this style hunk is ending.
@@ -120,27 +145,25 @@ fn create_styled_from_string(txt: &mut String) -> ElementText {
                             // Current text is NOT empty, so it's time to end this
                             // textrun.
                             styled_textruns.push(TextRun {
-                                content: current_text.clone(),
+                                content: mem::take(&mut current_text),
                                 text_style: current_styles.clone(),
                             });
-                            current_text = "".to_string();
                         }
-                        current_styles.remove(&"Italic".to_string());
+                        current_styles.remove("Italic");
                     } else {
                         // Time to start this hunk
                         // See if there's another hunk we need to close off
                         if !current_text.is_empty() {
                             styled_textruns.push(TextRun {
-                                content: current_text.clone(),
+                                content: mem::take(&mut current_text),
                                 text_style: current_styles.clone(),
                             });
                         }
-                        current_text = "".to_string();
                         current_styles.insert("Italic".to_string());
                     }
                 }
                 "⎿" => {
-                    if current_styles.contains(&"Bold".to_string()) {
+                    if current_styles.contains("Bold") {
                         // Time to end Bold style
                         if current_text.is_empty() {
                             // Current text is empty but this style hunk is ending.
@@ -152,27 +175,25 @@ fn create_styled_from_string(txt: &mut String) -> ElementText {
                             // Current text is NOT empty, so it's time to end this
                             // textrun.
                             styled_textruns.push(TextRun {
-                                content: current_text.clone(),
+                                content: mem::take(&mut current_text),
                                 text_style: current_styles.clone(),
                             });
-                            current_text = "".to_string();
                         }
-                        current_styles.remove(&"Bold".to_string());
+                        current_styles.remove("Bold");
                     } else {
                         // Time to start this hunk
                         // See if there's another hunk we need to close off
                         if !current_text.is_empty() {
                             styled_textruns.push(TextRun {
-                                content: current_text.clone(),
+                                content: mem::take(&mut current_text),
                                 text_style: current_styles.clone(),
                             });
                         }
-                        current_text = "".to_string();
                         current_styles.insert("Bold".to_string());
                     }
                 }
                 "⏊" => {
-                    if current_styles.contains(&"Underline".to_string()) {
+                    if current_styles.contains("Underline") {
                         // Time to end Underline style
                         if current_text.is_empty() {
                             // Current text is empty but this style hunk is ending.
@@ -184,22 +205,20 @@ fn create_styled_from_string(txt: &mut String) -> ElementText {
                             // Current text is NOT empty, so it's time to end this
                             // textrun.
                             styled_textruns.push(TextRun {
-                                content: current_text.clone(),
+                                content: mem::take(&mut current_text),
                                 text_style: current_styles.clone(),
                             });
-                            current_text = "".to_string();
                         }
-                        current_styles.remove(&"Underline".to_string());
+                        current_styles.remove("Underline");
                     } else {
                         // Time to start this hunk
                         // See if there's another hunk we need to close off
                         if !current_text.is_empty() {
                             styled_textruns.push(TextRun {
-                                content: current_text.clone(),
+                                content: mem::take(&mut current_text),
                                 text_style: current_styles.clone(),
                             });
                         }
-                        current_text = "".to_string();
                         current_styles.insert("Underline".to_string());
                     }
                 }
@@ -209,7 +228,7 @@ fn create_styled_from_string(txt: &mut String) -> ElementText {
         // Check if any text wasn't handled in the loop
         if !current_text.is_empty() {
             styled_textruns.push(TextRun {
-                content: current_text.clone(),
+                content: current_text,
                 text_style: current_styles.clone(),
             });
         }
