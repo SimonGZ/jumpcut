@@ -514,7 +514,7 @@ fn make_single_line_element(line: &str) -> Element {
             }
         }
         _ if is_transition(&line) => {
-            let line = trim_classifier_edges(line);
+            let line = classifier_trimmed(line);
             let final_text = if line_has_note {
                 remove_notes(line)
             } else {
@@ -854,7 +854,7 @@ fn make_dialogue_block(hunk: Vec<&str>) -> Element {
         };
         if is_parenthetical(processed_line.as_ref()) {
             elements.push(Element::Parenthetical(
-                Plain(trim_classifier_edges(processed_line.as_ref()).to_string()),
+                Plain(classifier_trimmed(processed_line.as_ref()).to_string()),
                 attributes,
             ));
         } else if is_lyric(processed_line.as_ref()) {
@@ -872,11 +872,17 @@ fn make_dialogue_block(hunk: Vec<&str>) -> Element {
         } else if let Element::Dialogue(Plain(s), _) = elements.last_mut().unwrap() {
             // if previous element was dialogue, add this line to that dialogue
             s.push_str("\n");
-            s.push_str(processed_line.as_ref());
+            let trimmed = processed_line.as_ref();
+            let trimmed = if trimmed.trim().is_empty() { trimmed } else { trimmed.trim_start() };
+            s.push_str(trimmed);
         } else {
             // otherwise this is a new dialogue
             elements.push(Element::Dialogue(
-                Plain(processed_line.into_owned()),
+                Plain(if processed_line.trim().is_empty() {
+                    processed_line.to_string()
+                } else {
+                    processed_line.trim_start().to_string()
+                }),
                 attributes,
             ));
         }
