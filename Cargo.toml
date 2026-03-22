@@ -7,6 +7,7 @@ description = "JumpCut is a library and CLI for converting Fountain-formatted te
 homepage = "https://github.com/SimonGZ/jumpcut"
 repository = "https://github.com/SimonGZ/jumpcut"
 keywords = ["fountain", "screenwriting"]
+default-run = "jumpcut"
 readme = "README.md"
 include = [
     "CHANGELOG.md",
