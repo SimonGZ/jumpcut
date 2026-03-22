@@ -369,7 +369,7 @@ dependencies = [
 
 [[package]]
 name = "jumpcut"
-version = "0.7.5"
+version = "0.8.0"
 dependencies = [
  "clap",
  "criterion",
@@ -384,7 +384,7 @@ dependencies = [
 
 [[package]]
 name = "jumpcut-wasm"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "jumpcut",
  "wasm-bindgen",
