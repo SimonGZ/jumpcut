@@ -8,6 +8,19 @@ homepage = "https://github.com/SimonGZ/jumpcut"
 repository = "https://github.com/SimonGZ/jumpcut"
 keywords = ["fountain", "screenwriting"]
 readme = "README.md"
+include = [
+    "CHANGELOG.md",
+    "Cargo.lock",
+    "Cargo.toml",
+    "LICENSE",
+    "README.md",
+    "src/bin/main.rs",
+    "src/converters.rs",
+    "src/lib.rs",
+    "src/rendering/*.rs",
+    "src/templates/html_style.css",
+    "src/text_style_parser.rs",
+]
 
 [workspace]
 members = ["jumpcut-wasm"]
