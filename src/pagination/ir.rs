@@ -2,6 +2,10 @@ use crate::pagination::fixtures::{
     Fragment, NormalizedElement, NormalizedScreenplay, PageBreakFixture,
     PageBreakFixtureSourceRefs, PaginationScope,
 };
+use crate::pagination::semantic::{
+    DialoguePartKind, DialogueUnit, DualDialogueUnit, FlowKind, SemanticScreenplay,
+    SemanticUnit,
+};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ContinuationMarker {
@@ -68,7 +72,91 @@ pub struct PaginatedScreenplay {
     pub pages: Vec<Page>,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PaginationConfig {
+    pub lines_per_page: u32,
+}
+
 impl PaginatedScreenplay {
+    pub fn paginate(
+        semantic: SemanticScreenplay,
+        config: PaginationConfig,
+        style_profile: impl Into<String>,
+        scope: PaginationScope,
+    ) -> Self {
+        let mut pages: Vec<Page> = Vec::new();
+        let mut next_page_number = semantic
+            .starting_page_number
+            .unwrap_or_else(|| first_page_number(&scope));
+        let mut current_items: Vec<PageItem> = Vec::new();
+        let mut current_lines = 0;
+        let units = semantic.units;
+        let style_profile = style_profile.into();
+        let mut index = 0;
+
+        while index < units.len() {
+            match &units[index] {
+                SemanticUnit::PageStart(_) => {
+                    if !current_items.is_empty() {
+                        pages.push(build_page(
+                            pages.len(),
+                            next_page_number,
+                            &scope,
+                            std::mem::take(&mut current_items),
+                        ));
+                        next_page_number += 1;
+                        current_lines = 0;
+                    }
+                    index += 1;
+                }
+                unit => {
+                    let unit_lines = measure_unit_lines(unit);
+                    let mut required_lines = unit_lines;
+                    if should_keep_with_next(unit) {
+                        if let Some(next_index) = next_placeable_unit_index(&units, index + 1) {
+                            required_lines += measure_unit_lines(&units[next_index]);
+                        }
+                    }
+
+                    let remaining_lines =
+                        config.lines_per_page.saturating_sub(current_lines);
+                    if !current_items.is_empty() && required_lines > remaining_lines {
+                        pages.push(build_page(
+                            pages.len(),
+                            next_page_number,
+                            &scope,
+                            std::mem::take(&mut current_items),
+                        ));
+                        next_page_number += 1;
+                        current_lines = 0;
+                    }
+
+                    let placed_items = page_items_from_semantic_unit(unit);
+                    current_lines = current_lines.saturating_add(unit_lines);
+                    current_items.extend(placed_items);
+                    index += 1;
+                }
+            }
+        }
+
+        if !current_items.is_empty() {
+            pages.push(build_page(
+                pages.len(),
+                next_page_number,
+                &scope,
+                current_items,
+            ));
+        }
+
+        Self {
+            screenplay: semantic.screenplay,
+            style_profile,
+            source: PageBreakFixtureSourceRefs::default(),
+            scope,
+            pages,
+        }
+    }
+
     pub fn from_normalized(
         normalized: NormalizedScreenplay,
         style_profile: impl Into<String>,
@@ -173,6 +261,112 @@ fn build_page(
     }
 }
 
+fn next_placeable_unit_index(units: &[SemanticUnit], start: usize) -> Option<usize> {
+    units.iter()
+        .enumerate()
+        .skip(start)
+        .find(|(_, unit)| !matches!(unit, SemanticUnit::PageStart(_)))
+        .map(|(index, _)| index)
+}
+
+fn should_keep_with_next(unit: &SemanticUnit) -> bool {
+    match unit {
+        SemanticUnit::Flow(unit) => unit.cohesion.keep_with_next,
+        SemanticUnit::Dialogue(unit) => unit.cohesion.keep_with_next,
+        SemanticUnit::Lyric(unit) => unit.cohesion.keep_with_next,
+        SemanticUnit::DualDialogue(unit) => unit.cohesion.keep_with_next,
+        SemanticUnit::PageStart(_) => false,
+    }
+}
+
+fn measure_unit_lines(unit: &SemanticUnit) -> u32 {
+    match unit {
+        SemanticUnit::PageStart(_) => 0,
+        SemanticUnit::Flow(unit) => text_line_count(&unit.text),
+        SemanticUnit::Lyric(unit) => text_line_count(&unit.text),
+        SemanticUnit::Dialogue(unit) => measure_dialogue_lines(unit),
+        SemanticUnit::DualDialogue(unit) => measure_dual_dialogue_lines(unit),
+    }
+}
+
+fn measure_dialogue_lines(unit: &DialogueUnit) -> u32 {
+    unit.parts
+        .iter()
+        .map(|part| text_line_count(&part.text))
+        .sum::<u32>()
+        .max(1)
+}
+
+fn measure_dual_dialogue_lines(unit: &DualDialogueUnit) -> u32 {
+    unit.sides
+        .iter()
+        .map(|side| measure_dialogue_lines(&side.dialogue))
+        .max()
+        .unwrap_or(1)
+}
+
+fn text_line_count(text: &str) -> u32 {
+    text.lines().count().max(1) as u32
+}
+
+fn page_items_from_semantic_unit(unit: &SemanticUnit) -> Vec<PageItem> {
+    match unit {
+        SemanticUnit::PageStart(_) => Vec::new(),
+        SemanticUnit::Flow(unit) => vec![PageItem {
+            element_id: unit.element_id.clone(),
+            kind: flow_kind_name(&unit.kind).to_string(),
+            fragment: Fragment::Whole,
+            line_range: None,
+            block_id: None,
+            dual_dialogue_group: None,
+            dual_dialogue_side: None,
+            continuation_markers: Vec::new(),
+        }],
+        SemanticUnit::Lyric(unit) => vec![PageItem {
+            element_id: unit.element_id.clone(),
+            kind: "Lyric".into(),
+            fragment: Fragment::Whole,
+            line_range: None,
+            block_id: None,
+            dual_dialogue_group: None,
+            dual_dialogue_side: None,
+            continuation_markers: Vec::new(),
+        }],
+        SemanticUnit::Dialogue(unit) => dialogue_items(unit, None, None),
+        SemanticUnit::DualDialogue(unit) => unit
+            .sides
+            .iter()
+            .flat_map(|side| {
+                dialogue_items(
+                    &side.dialogue,
+                    Some(unit.group_id.as_str()),
+                    Some(side.side),
+                )
+            })
+            .collect(),
+    }
+}
+
+fn dialogue_items(
+    unit: &DialogueUnit,
+    dual_group: Option<&str>,
+    dual_side: Option<u8>,
+) -> Vec<PageItem> {
+    unit.parts
+        .iter()
+        .map(|part| PageItem {
+            element_id: part.element_id.clone(),
+            kind: dialogue_part_kind_name(&part.kind).to_string(),
+            fragment: Fragment::Whole,
+            line_range: None,
+            block_id: Some(unit.block_id.clone()),
+            dual_dialogue_group: dual_group.map(str::to_string),
+            dual_dialogue_side: dual_side,
+            continuation_markers: Vec::new(),
+        })
+        .collect()
+}
+
 fn page_item_from_normalized(element: NormalizedElement) -> PageItem {
     let fragment = element.fragment.unwrap_or(Fragment::Whole);
 
@@ -255,6 +449,28 @@ fn placement_for_item(item: &PageItem) -> BlockPlacement {
             side,
         },
         _ => BlockPlacement::Flow,
+    }
+}
+
+fn flow_kind_name(kind: &FlowKind) -> &'static str {
+    match kind {
+        FlowKind::SceneHeading => "Scene Heading",
+        FlowKind::Transition => "Transition",
+        FlowKind::Section => "Section",
+        FlowKind::Synopsis => "Synopsis",
+        FlowKind::ColdOpening => "Cold Opening",
+        FlowKind::NewAct => "New Act",
+        FlowKind::EndOfAct => "End of Act",
+        FlowKind::Action => "Action",
+    }
+}
+
+fn dialogue_part_kind_name(kind: &DialoguePartKind) -> &'static str {
+    match kind {
+        DialoguePartKind::Character => "Character",
+        DialoguePartKind::Parenthetical => "Parenthetical",
+        DialoguePartKind::Dialogue => "Dialogue",
+        DialoguePartKind::Lyric => "Lyric",
     }
 }
 

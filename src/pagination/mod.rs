@@ -9,7 +9,7 @@ pub use fixtures::{
 };
 pub use ir::{
     BlockPlacement, ContinuationMarker, Page, PageBlock, PageItem, PageKind, PageMetadata,
-    PaginatedScreenplay,
+    PaginatedScreenplay, PaginationConfig,
 };
 pub use normalized::normalize_screenplay;
 pub use semantic::{

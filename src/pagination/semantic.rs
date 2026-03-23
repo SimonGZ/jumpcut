@@ -12,6 +12,7 @@ pub struct Cohesion {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SemanticScreenplay {
     pub screenplay: String,
+    pub starting_page_number: Option<u32>,
     pub units: Vec<SemanticUnit>,
 }
 
@@ -149,6 +150,7 @@ pub fn build_semantic_screenplay(normalized: NormalizedScreenplay) -> SemanticSc
 
     SemanticScreenplay {
         screenplay: normalized.screenplay,
+        starting_page_number: normalized.starting_page_number,
         units,
     }
 }
