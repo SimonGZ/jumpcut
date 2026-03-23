@@ -13,6 +13,7 @@ pub fn normalize_screenplay(
 
     NormalizedScreenplay {
         screenplay: screenplay_id.into(),
+        starting_page_number: None,
         elements: collector.elements,
     }
 }
@@ -102,7 +103,9 @@ impl NormalizedCollector {
                 attributes.scene_number.clone(),
             ),
             Element::Synopsis(text) => ("Synopsis".to_string(), flatten_text(text), false, None),
-            Element::DialogueBlock(_) | Element::DualDialogueBlock(_) | Element::PageBreak => return,
+            Element::DialogueBlock(_) | Element::DualDialogueBlock(_) | Element::PageBreak => {
+                return
+            }
         };
 
         self.next_element_id += 1;
@@ -110,6 +113,7 @@ impl NormalizedCollector {
             element_id: format!("el-{:05}", self.next_element_id),
             kind,
             text,
+            fragment: None,
             starts_new_page,
             scene_number,
             block_kind: block_kind.map(str::to_string),

@@ -30,6 +30,7 @@ pub struct NormalizedElement {
     pub element_id: String,
     pub kind: String,
     pub text: String,
+    pub fragment: Option<Fragment>,
     pub starts_new_page: bool,
     pub scene_number: Option<String>,
     pub block_kind: Option<String>,
@@ -41,6 +42,7 @@ pub struct NormalizedElement {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NormalizedScreenplay {
     pub screenplay: String,
+    pub starting_page_number: Option<u32>,
     pub elements: Vec<NormalizedElement>,
 }
 

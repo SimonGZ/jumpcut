@@ -129,9 +129,29 @@ fn paginated_ir_surfaces_split_continuation_markers() {
 }
 
 #[test]
+fn paginated_ir_from_normalized_matches_big_fish_split_fixture_slice() {
+    let fixture: PageBreakFixture =
+        read_fixture("tests/fixtures/pagination/big-fish.split-page-breaks.json");
+    let normalized = normalized_from_fixture_slice(&fixture);
+
+    let actual = PaginatedScreenplay::from_normalized(
+        normalized,
+        fixture.style_profile.clone(),
+        fixture.scope.clone(),
+    );
+    let expected = PaginatedScreenplay::from_fixture(fixture);
+
+    assert_eq!(actual.screenplay, expected.screenplay);
+    assert_eq!(actual.style_profile, expected.style_profile);
+    assert_eq!(actual.scope, expected.scope);
+    assert_eq!(actual.pages, expected.pages);
+}
+
+#[test]
 fn paginated_ir_from_normalized_honors_explicit_page_starts() {
     let normalized = NormalizedScreenplay {
         screenplay: "sample".into(),
+        starting_page_number: None,
         elements: vec![
             normalized_element("el-00001", "Scene Heading", false, None, None, None),
             normalized_element(
@@ -199,6 +219,7 @@ fn paginated_ir_from_normalized_honors_explicit_page_starts() {
 fn paginated_ir_from_normalized_preserves_dual_dialogue_placement() {
     let normalized = NormalizedScreenplay {
         screenplay: "sample".into(),
+        starting_page_number: None,
         elements: vec![
             normalized_element(
                 "el-00001",
@@ -282,6 +303,7 @@ fn normalized_element(
         element_id: element_id.into(),
         kind: kind.into(),
         text: String::new(),
+        fragment: None,
         starts_new_page,
         scene_number: None,
         block_kind: block_id.map(|_| "DialogueBlock".into()),
@@ -296,16 +318,11 @@ fn normalized_from_fixture_slice(fixture: &PageBreakFixture) -> NormalizedScreen
 
     for (page_index, page) in fixture.pages.iter().enumerate() {
         for (item_index, item) in page.items.iter().enumerate() {
-            assert_eq!(
-                item.fragment,
-                jumpcut::pagination::Fragment::Whole,
-                "fixture slice must be unsplit to round-trip through normalized input",
-            );
-
             elements.push(NormalizedElement {
                 element_id: item.element_id.clone(),
                 kind: item.kind.clone(),
                 text: String::new(),
+                fragment: Some(item.fragment.clone()),
                 starts_new_page: page_index > 0 && item_index == 0,
                 scene_number: None,
                 block_kind: item.block_id.as_ref().map(|_| "DialogueBlock".into()),
@@ -318,6 +335,7 @@ fn normalized_from_fixture_slice(fixture: &PageBreakFixture) -> NormalizedScreen
 
     NormalizedScreenplay {
         screenplay: fixture.screenplay.clone(),
+        starting_page_number: fixture.pages.first().map(|page| page.number),
         elements,
     }
 }

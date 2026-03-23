@@ -75,7 +75,9 @@ impl PaginatedScreenplay {
         scope: PaginationScope,
     ) -> Self {
         let mut pages: Vec<Page> = Vec::new();
-        let mut next_page_number = first_page_number(&scope);
+        let mut next_page_number = normalized
+            .starting_page_number
+            .unwrap_or_else(|| first_page_number(&scope));
         let mut current_items: Vec<PageItem> = Vec::new();
 
         for element in normalized.elements {
@@ -167,15 +169,17 @@ fn build_page(
 }
 
 fn page_item_from_normalized(element: NormalizedElement) -> PageItem {
+    let fragment = element.fragment.unwrap_or(Fragment::Whole);
+
     PageItem {
         element_id: element.element_id,
         kind: element.kind,
-        fragment: Fragment::Whole,
+        continuation_markers: continuation_markers_for_fragment(&fragment),
+        fragment,
         line_range: None,
         block_id: element.block_id,
         dual_dialogue_group: element.dual_dialogue_group,
         dual_dialogue_side: element.dual_dialogue_side,
-        continuation_markers: Vec::new(),
     }
 }
 
