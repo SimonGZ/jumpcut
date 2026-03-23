@@ -216,6 +216,70 @@ fn paginated_ir_from_normalized_honors_explicit_page_starts() {
 }
 
 #[test]
+fn paginated_ir_from_normalized_rolls_block_onto_next_page_start() {
+    let normalized = NormalizedScreenplay {
+        screenplay: "sample".into(),
+        starting_page_number: None,
+        elements: vec![
+            normalized_element("el-00001", "Action", false, None, None, None),
+            normalized_element(
+                "el-00002",
+                "Character",
+                false,
+                Some("block-00001"),
+                None,
+                None,
+            ),
+            normalized_element(
+                "el-00003",
+                "Dialogue",
+                true,
+                Some("block-00001"),
+                None,
+                None,
+            ),
+            normalized_element("el-00004", "Action", false, None, None, None),
+        ],
+    };
+
+    let actual = PaginatedScreenplay::from_normalized(
+        normalized,
+        "standard",
+        PaginationScope {
+            title_page_count: Some(1),
+            body_start_page: Some(2),
+        },
+    );
+
+    assert_eq!(actual.pages.len(), 2);
+    assert_eq!(actual.pages[0].metadata.number, 2);
+    assert_eq!(
+        actual.pages[0]
+            .items
+            .iter()
+            .map(|item| item.element_id.as_str())
+            .collect::<Vec<_>>(),
+        vec!["el-00001"]
+    );
+
+    assert_eq!(actual.pages[1].metadata.number, 3);
+    assert_eq!(
+        actual.pages[1]
+            .items
+            .iter()
+            .map(|item| item.element_id.as_str())
+            .collect::<Vec<_>>(),
+        vec!["el-00002", "el-00003", "el-00004"]
+    );
+    assert_eq!(actual.pages[1].blocks.len(), 2);
+    assert_eq!(actual.pages[1].blocks[0].id, "block-00001");
+    assert_eq!(
+        actual.pages[1].blocks[0].item_ids,
+        vec!["el-00002", "el-00003"]
+    );
+}
+
+#[test]
 fn paginated_ir_from_normalized_preserves_dual_dialogue_placement() {
     let normalized = NormalizedScreenplay {
         screenplay: "sample".into(),

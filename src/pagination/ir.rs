@@ -82,13 +82,18 @@ impl PaginatedScreenplay {
 
         for element in normalized.elements {
             if element.starts_new_page && !current_items.is_empty() {
-                pages.push(build_page(
-                    pages.len(),
-                    next_page_number,
-                    &scope,
-                    std::mem::take(&mut current_items),
-                ));
-                next_page_number += 1;
+                let rolled_block_items =
+                    take_trailing_block_items_for_page_start(&mut current_items, &element);
+                if !current_items.is_empty() {
+                    pages.push(build_page(
+                        pages.len(),
+                        next_page_number,
+                        &scope,
+                        std::mem::take(&mut current_items),
+                    ));
+                    next_page_number += 1;
+                }
+                current_items = rolled_block_items;
             }
 
             current_items.push(page_item_from_normalized(element));
@@ -181,6 +186,32 @@ fn page_item_from_normalized(element: NormalizedElement) -> PageItem {
         dual_dialogue_group: element.dual_dialogue_group,
         dual_dialogue_side: element.dual_dialogue_side,
     }
+}
+
+fn take_trailing_block_items_for_page_start(
+    current_items: &mut Vec<PageItem>,
+    element: &NormalizedElement,
+) -> Vec<PageItem> {
+    let Some(block_id) = element.block_id.as_ref() else {
+        return Vec::new();
+    };
+
+    let split_index = current_items
+        .iter()
+        .rposition(|item| item.block_id.as_ref() != Some(block_id))
+        .map(|index| index + 1)
+        .unwrap_or(0);
+
+    let trailing_items = &current_items[split_index..];
+    if trailing_items.is_empty()
+        || trailing_items
+            .iter()
+            .any(|item| item.block_id.as_ref() != Some(block_id))
+    {
+        return Vec::new();
+    }
+
+    current_items.split_off(split_index)
 }
 
 fn build_blocks(items: &[PageItem]) -> Vec<PageBlock> {
