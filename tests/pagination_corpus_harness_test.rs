@@ -46,9 +46,9 @@ fn selected_big_fish_window_probe_baselines_hold() {
     for (path, expected_lines, expected_score, expected_counts) in [
         (
             "tests/fixtures/pagination/big-fish.p38-40.page-breaks.json",
-            42,
-            (3, 2, 0),
-            (0, 1),
+            41,
+            (2, 0, 0),
+            (2, 0),
         ),
         (
             "tests/fixtures/pagination/big-fish.p42-44.page-breaks.json",
@@ -58,9 +58,9 @@ fn selected_big_fish_window_probe_baselines_hold() {
         ),
         (
             "tests/fixtures/pagination/big-fish.p55-57.page-breaks.json",
-            49,
-            (10, 0, 2),
-            (4, 4),
+            50,
+            (0, 0, 0),
+            (0, 0),
         ),
         (
             "tests/fixtures/pagination/big-fish.p77-79.page-breaks.json",
@@ -264,14 +264,16 @@ fn best_probe_run(
     semantic: &jumpcut::pagination::SemanticScreenplay,
 ) -> ProbeRun {
     let mut best = None;
+    let page_numbers: Vec<u32> = fixture.pages.iter().map(|page| page.number).collect();
     for lines_per_page in 1..=60 {
         let config = PaginationConfig::screenplay(lines_per_page);
-        let actual = PaginatedScreenplay::paginate(
+        let full_actual = PaginatedScreenplay::paginate(
             semantic.clone(),
             config.clone(),
             fixture.style_profile.clone(),
             fixture.scope.clone(),
         );
+        let actual = paginated_page_window(&full_actual, &page_numbers);
         let report = compare_paginated_to_fixture(&actual, fixture);
         let score = (
             report.total_issues(),
@@ -326,6 +328,24 @@ fn normalized_slice_from_fountain(
                 element.element_id.as_str() >= *first_id
                     && element.element_id.as_str() <= *last_id
             })
+            .collect(),
+    }
+}
+
+fn paginated_page_window(
+    actual: &PaginatedScreenplay,
+    page_numbers: &[u32],
+) -> PaginatedScreenplay {
+    PaginatedScreenplay {
+        screenplay: actual.screenplay.clone(),
+        style_profile: actual.style_profile.clone(),
+        source: actual.source.clone(),
+        scope: actual.scope.clone(),
+        pages: actual
+            .pages
+            .iter()
+            .filter(|page| page_numbers.contains(&page.metadata.number))
+            .cloned()
             .collect(),
     }
 }

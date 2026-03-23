@@ -125,6 +125,7 @@ impl PaginatedScreenplay {
                 }
                 unit => {
                     if let SemanticUnit::Flow(flow) = unit {
+                        let flow_lines = measure_flow_unit_lines(flow, &config.measurement);
                         let remaining_lines =
                             config.lines_per_page.saturating_sub(current_lines);
                         let available_lines = if current_items.is_empty() {
@@ -132,10 +133,18 @@ impl PaginatedScreenplay {
                         } else {
                             remaining_lines
                         };
+                        let prefer_soft_split = should_prefer_flow_split(
+                            flow,
+                            available_lines,
+                            config.lines_per_page,
+                            &config.measurement,
+                            &units,
+                            index,
+                            !current_items.is_empty(),
+                        );
 
                         if flow.cohesion.can_split
-                            && measure_flow_unit_lines(flow, &config.measurement)
-                                > available_lines
+                            && (flow_lines > available_lines || prefer_soft_split)
                         {
                             if let Some((current_segment, remainder)) =
                                 split_flow_unit(flow, available_lines, &config.measurement)
@@ -211,6 +220,8 @@ impl PaginatedScreenplay {
                     }
 
                     if let SemanticUnit::Dialogue(dialogue) = unit {
+                        let dialogue_lines =
+                            measure_dialogue_unit_lines(dialogue, &config.measurement);
                         let remaining_lines =
                             config.lines_per_page.saturating_sub(current_lines);
                         let available_lines = if current_items.is_empty() {
@@ -219,8 +230,17 @@ impl PaginatedScreenplay {
                             remaining_lines
                         };
 
-                        if measure_dialogue_unit_lines(dialogue, &config.measurement)
-                            > available_lines
+                        let prefer_soft_split = should_prefer_dialogue_split(
+                            dialogue,
+                            available_lines,
+                            config.lines_per_page,
+                            &config.measurement,
+                            &units,
+                            index,
+                            !current_items.is_empty(),
+                        );
+
+                        if dialogue_lines > available_lines || prefer_soft_split
                         {
                             if let Some((current_segment, remainder)) =
                                 split_dialogue_unit(
@@ -497,6 +517,95 @@ fn measure_unit_lines(unit: &SemanticUnit, measurement: &MeasurementConfig) -> u
         SemanticUnit::Dialogue(unit) => measure_dialogue_unit_lines(unit, measurement),
         SemanticUnit::DualDialogue(unit) => measure_dual_dialogue_unit_lines(unit, measurement),
     }
+}
+
+fn should_prefer_flow_split(
+    flow: &FlowUnit,
+    available_lines: u32,
+    page_lines: u32,
+    measurement: &MeasurementConfig,
+    units: &[SemanticUnit],
+    index: usize,
+    current_page_has_items: bool,
+) -> bool {
+    if !current_page_has_items {
+        return false;
+    }
+
+    let whole_lines = measure_flow_unit_lines(flow, measurement);
+    if whole_lines > available_lines {
+        return false;
+    }
+
+    let remaining_after_whole = available_lines.saturating_sub(whole_lines);
+    let lookahead_lines: u32 = units
+        .iter()
+        .skip(index + 1)
+        .filter(|unit| !matches!(unit, SemanticUnit::PageStart(_)))
+        .take(2)
+        .map(|unit| measure_unit_lines(unit, measurement))
+        .sum();
+    if lookahead_lines > 0 || remaining_after_whole > 1 {
+        return false;
+    }
+
+    let Some((prefix, suffix)) = split_flow_unit(flow, available_lines, measurement) else {
+        return false;
+    };
+    if !ends_at_sentence_boundary(&prefix.text) {
+        return false;
+    }
+
+    let suffix_lines = measure_flow_unit_lines(&suffix, measurement);
+    suffix_lines <= page_lines / 2
+}
+
+fn should_prefer_dialogue_split(
+    dialogue: &DialogueUnit,
+    available_lines: u32,
+    page_lines: u32,
+    measurement: &MeasurementConfig,
+    units: &[SemanticUnit],
+    index: usize,
+    current_page_has_items: bool,
+) -> bool {
+    if !current_page_has_items {
+        return false;
+    }
+
+    let whole_lines = measure_dialogue_unit_lines(dialogue, measurement);
+    if whole_lines > available_lines {
+        return false;
+    }
+
+    let lookahead_lines: u32 = units
+        .iter()
+        .skip(index + 1)
+        .filter(|unit| !matches!(unit, SemanticUnit::PageStart(_)))
+        .take(2)
+        .map(|unit| measure_unit_lines(unit, measurement))
+        .sum();
+    if lookahead_lines == 0 {
+        return false;
+    }
+    let remaining_after_whole = available_lines.saturating_sub(whole_lines);
+    if lookahead_lines <= remaining_after_whole {
+        return false;
+    }
+
+    let Some((prefix, suffix)) = split_dialogue_unit(dialogue, available_lines, measurement) else {
+        return false;
+    };
+    let Some(last_prefix_part) = prefix.parts.last() else {
+        return false;
+    };
+    if !ends_at_sentence_boundary(&last_prefix_part.text) {
+        return false;
+    }
+
+    let suffix_lines = measure_dialogue_unit_lines(&suffix, measurement);
+    suffix_lines <= page_lines / 2
+        && suffix_lines.saturating_add(lookahead_lines) <= page_lines
 }
 
 fn page_items_from_semantic_unit(unit: &SemanticUnit) -> Vec<PageItem> {
