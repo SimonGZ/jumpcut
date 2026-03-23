@@ -4,6 +4,7 @@ use jumpcut::pagination::{
     PaginationConfig,
 };
 use jumpcut::parse;
+use serde::Serialize;
 use serde::de::DeserializeOwned;
 use std::fs;
 use std::path::Path;
@@ -51,6 +52,11 @@ fn big_fish_public_slice_stays_at_or_better_than_width_measurement_baseline() {
         report.issue_count(ComparisonIssueKind::WrongFragment),
         report.issues
     );
+    assert!(
+        report.issues.iter().all(|issue| issue.text_preview.is_some()),
+        "expected all issues to carry text previews: {:?}",
+        report.issues
+    );
 }
 
 #[test]
@@ -66,16 +72,19 @@ fn probe_big_fish_public_slice_against_canonical_fixture() {
     let semantic = build_semantic_screenplay(normalized);
     let (score, lines_per_page, report) = best_probe_report(&fixture, &semantic);
     println!(
-        "best lines_per_page={lines_per_page} score={score:?} total={} wrong_page={} wrong_fragment={} missing={} unexpected={}",
-        report.total_issues(),
-        report.issue_count(ComparisonIssueKind::WrongPage),
-        report.issue_count(ComparisonIssueKind::WrongFragment),
-        report.issue_count(ComparisonIssueKind::MissingOccurrence),
-        report.issue_count(ComparisonIssueKind::UnexpectedOccurrence),
+        "{}",
+        serde_json::to_string_pretty(&ProbeDebugOutput {
+            lines_per_page,
+            score,
+            total_issues: report.total_issues(),
+            wrong_page: report.issue_count(ComparisonIssueKind::WrongPage),
+            wrong_fragment: report.issue_count(ComparisonIssueKind::WrongFragment),
+            missing: report.issue_count(ComparisonIssueKind::MissingOccurrence),
+            unexpected: report.issue_count(ComparisonIssueKind::UnexpectedOccurrence),
+            report,
+        })
+        .unwrap()
     );
-    for issue in &report.issues {
-        println!("{issue:?}");
-    }
 }
 
 fn best_probe_report(
@@ -139,4 +148,16 @@ fn normalized_slice_from_fountain(
 fn read_fixture<T: DeserializeOwned>(path: &str) -> T {
     let content = fs::read_to_string(Path::new(path)).unwrap();
     serde_json::from_str(&content).unwrap()
+}
+
+#[derive(Serialize)]
+struct ProbeDebugOutput {
+    lines_per_page: u32,
+    score: (usize, usize, usize),
+    total_issues: usize,
+    wrong_page: usize,
+    wrong_fragment: usize,
+    missing: usize,
+    unexpected: usize,
+    report: jumpcut::pagination::ComparisonReport,
 }

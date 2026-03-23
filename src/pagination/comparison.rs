@@ -1,8 +1,11 @@
 use std::collections::HashMap;
 
+use serde::Serialize;
+
 use super::{Fragment, PageBreakFixture, PaginatedScreenplay};
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum ComparisonIssueKind {
     MissingOccurrence,
     UnexpectedOccurrence,
@@ -10,18 +13,20 @@ pub enum ComparisonIssueKind {
     WrongFragment,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct ComparisonIssue {
     pub kind: ComparisonIssueKind,
     pub element_id: String,
     pub occurrence: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub text_preview: Option<String>,
     pub expected_page: Option<u32>,
     pub actual_page: Option<u32>,
     pub expected_fragment: Option<Fragment>,
     pub actual_fragment: Option<Fragment>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct ComparisonReport {
     pub expected_page_count: usize,
     pub actual_page_count: usize,
@@ -44,6 +49,7 @@ pub fn compare_paginated_to_fixture(
 ) -> ComparisonReport {
     let actual_occurrences = collect_actual_occurrences(actual);
     let expected_occurrences = collect_expected_occurrences(expected);
+    let expected_previews = collect_expected_previews(&expected_occurrences);
     let mut issues = Vec::new();
     let max_len = actual_occurrences.len().max(expected_occurrences.len());
 
@@ -58,6 +64,7 @@ pub fn compare_paginated_to_fixture(
                         kind: ComparisonIssueKind::WrongPage,
                         element_id: expected_item.element_id.clone(),
                         occurrence: expected_item.occurrence,
+                        text_preview: expected_item.text_preview.clone(),
                         expected_page: Some(expected_item.page),
                         actual_page: Some(actual_item.page),
                         expected_fragment: Some(expected_item.fragment.clone()),
@@ -70,6 +77,7 @@ pub fn compare_paginated_to_fixture(
                         kind: ComparisonIssueKind::WrongFragment,
                         element_id: expected_item.element_id.clone(),
                         occurrence: expected_item.occurrence,
+                        text_preview: expected_item.text_preview.clone(),
                         expected_page: Some(expected_item.page),
                         actual_page: Some(actual_item.page),
                         expected_fragment: Some(expected_item.fragment.clone()),
@@ -82,6 +90,7 @@ pub fn compare_paginated_to_fixture(
                     kind: ComparisonIssueKind::MissingOccurrence,
                     element_id: expected_item.element_id.clone(),
                     occurrence: expected_item.occurrence,
+                    text_preview: expected_item.text_preview.clone(),
                     expected_page: Some(expected_item.page),
                     actual_page: None,
                     expected_fragment: Some(expected_item.fragment.clone()),
@@ -91,6 +100,7 @@ pub fn compare_paginated_to_fixture(
                     kind: ComparisonIssueKind::UnexpectedOccurrence,
                     element_id: actual_item.element_id.clone(),
                     occurrence: actual_item.occurrence,
+                    text_preview: expected_preview_for(&expected_previews, actual_item),
                     expected_page: None,
                     actual_page: Some(actual_item.page),
                     expected_fragment: None,
@@ -101,6 +111,7 @@ pub fn compare_paginated_to_fixture(
                 kind: ComparisonIssueKind::MissingOccurrence,
                 element_id: expected_item.element_id.clone(),
                 occurrence: expected_item.occurrence,
+                text_preview: expected_item.text_preview.clone(),
                 expected_page: Some(expected_item.page),
                 actual_page: None,
                 expected_fragment: Some(expected_item.fragment.clone()),
@@ -110,6 +121,7 @@ pub fn compare_paginated_to_fixture(
                 kind: ComparisonIssueKind::UnexpectedOccurrence,
                 element_id: actual_item.element_id.clone(),
                 occurrence: actual_item.occurrence,
+                text_preview: expected_preview_for(&expected_previews, actual_item),
                 expected_page: None,
                 actual_page: Some(actual_item.page),
                 expected_fragment: None,
@@ -132,6 +144,7 @@ struct Occurrence {
     occurrence: usize,
     page: u32,
     fragment: Fragment,
+    text_preview: Option<String>,
 }
 
 fn collect_actual_occurrences(actual: &PaginatedScreenplay) -> Vec<Occurrence> {
@@ -149,6 +162,7 @@ fn collect_actual_occurrences(actual: &PaginatedScreenplay) -> Vec<Occurrence> {
                 occurrence: *occurrence,
                 page: page.metadata.number,
                 fragment: item.fragment.clone(),
+                text_preview: None,
             });
         }
     }
@@ -171,9 +185,32 @@ fn collect_expected_occurrences(expected: &PageBreakFixture) -> Vec<Occurrence> 
                 occurrence: *occurrence,
                 page: page.number,
                 fragment: item.fragment.clone(),
+                text_preview: item.text_preview.clone(),
             });
         }
     }
 
     out
+}
+
+fn collect_expected_previews(
+    expected_occurrences: &[Occurrence],
+) -> HashMap<(String, usize), String> {
+    expected_occurrences
+        .iter()
+        .filter_map(|item| {
+            item.text_preview.as_ref().map(|preview| {
+                ((item.element_id.clone(), item.occurrence), preview.clone())
+            })
+        })
+        .collect()
+}
+
+fn expected_preview_for(
+    expected_previews: &HashMap<(String, usize), String>,
+    actual_item: &Occurrence,
+) -> Option<String> {
+    expected_previews
+        .get(&(actual_item.element_id.clone(), actual_item.occurrence))
+        .cloned()
 }

@@ -50,6 +50,8 @@ pub struct NormalizedScreenplay {
 pub struct PageItem {
     pub element_id: String,
     pub kind: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub text_preview: Option<String>,
     pub fragment: Fragment,
     pub line_range: Option<LineRange>,
     pub block_id: Option<String>,
