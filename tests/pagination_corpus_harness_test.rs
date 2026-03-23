@@ -1,11 +1,12 @@
 use jumpcut::pagination::{
     build_semantic_screenplay, compare_paginated_to_fixture, normalize_screenplay,
-    ComparisonIssueKind, NormalizedScreenplay, PageBreakFixture, PaginatedScreenplay,
-    PaginationConfig,
+    ComparisonIssueKind, NormalizedScreenplay, PageBreakFixture, PageBreakFixtureSourceRefs,
+    PaginatedScreenplay, PaginationConfig,
 };
 use jumpcut::parse;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
+use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 
@@ -32,7 +33,8 @@ fn big_fish_public_slice_stays_at_or_better_than_width_measurement_baseline() {
     );
     let semantic = build_semantic_screenplay(normalized);
 
-    let (_, _, report) = best_probe_report(&fixture, &semantic);
+    let run = best_probe_run(&fixture, &semantic);
+    let report = &run.report;
 
     assert!(
         report.total_issues() <= 13,
@@ -70,27 +72,74 @@ fn probe_big_fish_public_slice_against_canonical_fixture() {
         &fixture,
     );
     let semantic = build_semantic_screenplay(normalized);
-    let (score, lines_per_page, report) = best_probe_report(&fixture, &semantic);
+    let run = best_probe_run(&fixture, &semantic);
     println!(
         "{}",
         serde_json::to_string_pretty(&ProbeDebugOutput {
-            lines_per_page,
-            score,
-            total_issues: report.total_issues(),
-            wrong_page: report.issue_count(ComparisonIssueKind::WrongPage),
-            wrong_fragment: report.issue_count(ComparisonIssueKind::WrongFragment),
-            missing: report.issue_count(ComparisonIssueKind::MissingOccurrence),
-            unexpected: report.issue_count(ComparisonIssueKind::UnexpectedOccurrence),
-            report,
+            lines_per_page: run.lines_per_page,
+            score: run.score,
+            total_issues: run.report.total_issues(),
+            wrong_page: run.report.issue_count(ComparisonIssueKind::WrongPage),
+            wrong_fragment: run.report.issue_count(ComparisonIssueKind::WrongFragment),
+            missing: run.report.issue_count(ComparisonIssueKind::MissingOccurrence),
+            unexpected: run.report.issue_count(ComparisonIssueKind::UnexpectedOccurrence),
+            report: run.report,
         })
         .unwrap()
     );
 }
 
-fn best_probe_report(
+#[test]
+#[ignore = "writes current paginated output json for manual comparison"]
+fn dump_big_fish_public_slice_paginated_output_json() {
+    let fixture: PageBreakFixture =
+        read_fixture("tests/fixtures/pagination/big-fish.split-page-breaks.json");
+    let normalized = normalized_slice_from_fountain(
+        "big-fish",
+        "benches/Big-Fish.fountain",
+        &fixture,
+    );
+    let semantic = build_semantic_screenplay(normalized.clone());
+    let run = best_probe_run(&fixture, &semantic);
+    let previews = preview_map(&normalized);
+
+    let debug_fixture =
+        paginated_to_debug_fixture(&run.actual, &fixture.source, &previews);
+    let debug_dir = Path::new("target/pagination-debug");
+    fs::create_dir_all(debug_dir).unwrap();
+
+    let actual_path = debug_dir.join("big-fish.actual.page-breaks.json");
+    fs::write(
+        &actual_path,
+        serde_json::to_string_pretty(&debug_fixture).unwrap(),
+    )
+    .unwrap();
+
+    let report_path = debug_dir.join("big-fish.comparison-report.json");
+    fs::write(
+        &report_path,
+        serde_json::to_string_pretty(&ProbeDebugOutput {
+            lines_per_page: run.lines_per_page,
+            score: run.score,
+            total_issues: run.report.total_issues(),
+            wrong_page: run.report.issue_count(ComparisonIssueKind::WrongPage),
+            wrong_fragment: run.report.issue_count(ComparisonIssueKind::WrongFragment),
+            missing: run.report.issue_count(ComparisonIssueKind::MissingOccurrence),
+            unexpected: run.report.issue_count(ComparisonIssueKind::UnexpectedOccurrence),
+            report: run.report,
+        })
+        .unwrap(),
+    )
+    .unwrap();
+
+    println!("wrote {}", actual_path.display());
+    println!("wrote {}", report_path.display());
+}
+
+fn best_probe_run(
     fixture: &PageBreakFixture,
     semantic: &jumpcut::pagination::SemanticScreenplay,
-) -> ((usize, usize, usize), u32, jumpcut::pagination::ComparisonReport) {
+) -> ProbeRun {
     let mut best = None;
     for lines_per_page in 1..=20 {
         let actual = PaginatedScreenplay::paginate(
@@ -108,11 +157,22 @@ fn best_probe_report(
 
         match &best {
             Some((best_score, _, _)) if best_score <= &score => {}
-            _ => best = Some((score, lines_per_page, report)),
+            _ => {
+                best = Some((
+                    score,
+                    lines_per_page,
+                    ProbeRun {
+                        lines_per_page,
+                        score,
+                        actual,
+                        report,
+                    },
+                ))
+            }
         }
     }
 
-    best.unwrap()
+    best.unwrap().2
 }
 
 fn normalized_slice_from_fountain(
@@ -150,6 +210,62 @@ fn read_fixture<T: DeserializeOwned>(path: &str) -> T {
     serde_json::from_str(&content).unwrap()
 }
 
+fn preview_map(normalized: &NormalizedScreenplay) -> HashMap<String, String> {
+    normalized
+        .elements
+        .iter()
+        .map(|element| {
+            (
+                element.element_id.clone(),
+                text_preview(&element.text),
+            )
+        })
+        .collect()
+}
+
+fn paginated_to_debug_fixture(
+    actual: &PaginatedScreenplay,
+    source: &PageBreakFixtureSourceRefs,
+    previews: &HashMap<String, String>,
+) -> DebugPageBreakFixture {
+    DebugPageBreakFixture {
+        screenplay: actual.screenplay.clone(),
+        style_profile: actual.style_profile.clone(),
+        source: source.clone(),
+        scope: actual.scope.clone(),
+        pages: actual
+            .pages
+            .iter()
+            .map(|page| DebugPageBreakFixturePage {
+                number: page.metadata.number,
+                items: page
+                    .items
+                    .iter()
+                    .map(|item| DebugPageBreakItem {
+                        element_id: item.element_id.clone(),
+                        kind: item.kind.clone(),
+                        text_preview: previews.get(&item.element_id).cloned(),
+                        fragment: item.fragment.clone(),
+                        line_range: item.line_range,
+                        block_id: item.block_id.clone(),
+                        dual_dialogue_group: item.dual_dialogue_group.clone(),
+                        dual_dialogue_side: item.dual_dialogue_side,
+                    })
+                    .collect(),
+            })
+            .collect(),
+    }
+}
+
+fn text_preview(text: &str) -> String {
+    text.split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .chars()
+        .take(80)
+        .collect()
+}
+
 #[derive(Serialize)]
 struct ProbeDebugOutput {
     lines_per_page: u32,
@@ -160,4 +276,39 @@ struct ProbeDebugOutput {
     missing: usize,
     unexpected: usize,
     report: jumpcut::pagination::ComparisonReport,
+}
+
+struct ProbeRun {
+    lines_per_page: u32,
+    score: (usize, usize, usize),
+    actual: PaginatedScreenplay,
+    report: jumpcut::pagination::ComparisonReport,
+}
+
+#[derive(Serialize)]
+struct DebugPageBreakFixture {
+    screenplay: String,
+    style_profile: String,
+    source: PageBreakFixtureSourceRefs,
+    scope: jumpcut::pagination::PaginationScope,
+    pages: Vec<DebugPageBreakFixturePage>,
+}
+
+#[derive(Serialize)]
+struct DebugPageBreakFixturePage {
+    number: u32,
+    items: Vec<DebugPageBreakItem>,
+}
+
+#[derive(Serialize)]
+struct DebugPageBreakItem {
+    element_id: String,
+    kind: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    text_preview: Option<String>,
+    fragment: jumpcut::pagination::Fragment,
+    line_range: Option<(u32, u32)>,
+    block_id: Option<String>,
+    dual_dialogue_group: Option<String>,
+    dual_dialogue_side: Option<u8>,
 }
