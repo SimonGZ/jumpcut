@@ -708,6 +708,7 @@ struct SplitCandidateScore {
     awkward_continuation_penalty: u32,
     tiny_tail_penalty: u32,
     tiny_head_penalty: u32,
+    sentence_boundary_penalty: u32,
     unused_space_penalty: u32,
     imbalance_penalty: u32,
 }
@@ -729,7 +730,9 @@ fn split_flow_unit(
     measurement: &MeasurementConfig,
 ) -> Option<(FlowUnit, FlowUnit)> {
     let lines: Vec<&str> = unit.text.lines().collect();
-    if lines.len() < 2 {
+    let explicit_boundary_count = lines.len().saturating_sub(1);
+    let sentence_boundaries = sentence_split_offsets(&unit.text);
+    if explicit_boundary_count == 0 && sentence_boundaries.is_empty() {
         return None;
     }
 
@@ -757,11 +760,59 @@ fn split_flow_unit(
             cohesion: unit.cohesion.clone(),
         };
         let suffix_lines = measure_flow_unit_lines(&suffix, measurement);
+        let ends_at_sentence = ends_at_sentence_boundary(&prefix.text);
 
         candidates.push(SplitCandidate {
             prefix,
             suffix,
-            score: score_flow_split_candidate(prefix_lines, suffix_lines, available_lines),
+            score: score_flow_split_candidate(
+                prefix_lines,
+                suffix_lines,
+                available_lines,
+                ends_at_sentence,
+            ),
+        });
+    }
+
+    for split_offset in sentence_boundaries {
+        let prefix_text = unit.text[..split_offset].trim_end().to_string();
+        let suffix_text = unit.text[split_offset..].trim_start().to_string();
+        if prefix_text.is_empty() || suffix_text.is_empty() {
+            continue;
+        }
+
+        let prefix = FlowUnit {
+            element_id: unit.element_id.clone(),
+            kind: unit.kind.clone(),
+            text: prefix_text,
+            line_range: None,
+            scene_number: unit.scene_number.clone(),
+            cohesion: unit.cohesion.clone(),
+        };
+        let prefix_lines = measure_flow_unit_lines(&prefix, measurement);
+        if prefix_lines > available_lines {
+            continue;
+        }
+
+        let suffix = FlowUnit {
+            element_id: unit.element_id.clone(),
+            kind: unit.kind.clone(),
+            text: suffix_text,
+            line_range: None,
+            scene_number: unit.scene_number.clone(),
+            cohesion: unit.cohesion.clone(),
+        };
+        let suffix_lines = measure_flow_unit_lines(&suffix, measurement);
+
+        candidates.push(SplitCandidate {
+            prefix,
+            suffix,
+            score: score_flow_split_candidate(
+                prefix_lines,
+                suffix_lines,
+                available_lines,
+                true,
+            ),
         });
     }
 
@@ -858,6 +909,7 @@ fn score_dialogue_split_candidate(
         )),
         tiny_tail_penalty: tiny_fragment_penalty(suffix_lines),
         tiny_head_penalty: tiny_fragment_penalty(prefix_lines),
+        sentence_boundary_penalty: 0,
         unused_space_penalty: available_lines.saturating_sub(prefix_lines),
         imbalance_penalty: prefix_lines.abs_diff(suffix_lines),
     }
@@ -867,18 +919,69 @@ fn score_flow_split_candidate(
     prefix_lines: u32,
     suffix_lines: u32,
     available_lines: u32,
+    ends_at_sentence_boundary: bool,
 ) -> SplitCandidateScore {
     SplitCandidateScore {
         awkward_continuation_penalty: 0,
         tiny_tail_penalty: tiny_fragment_penalty(suffix_lines),
         tiny_head_penalty: tiny_fragment_penalty(prefix_lines),
-        unused_space_penalty: available_lines.saturating_sub(prefix_lines),
+        sentence_boundary_penalty: u32::from(!ends_at_sentence_boundary),
         imbalance_penalty: prefix_lines.abs_diff(suffix_lines),
+        unused_space_penalty: available_lines.saturating_sub(prefix_lines),
     }
 }
 
 fn tiny_fragment_penalty(lines: u32) -> u32 {
     2_u32.saturating_sub(lines)
+}
+
+fn sentence_split_offsets(text: &str) -> Vec<usize> {
+    let mut offsets = Vec::new();
+    let chars: Vec<(usize, char)> = text.char_indices().collect();
+
+    for (index, (byte_index, ch)) in chars.iter().enumerate() {
+        if !matches!(ch, '.' | '!' | '?') {
+            continue;
+        }
+
+        let mut split_at = *byte_index + ch.len_utf8();
+        let mut cursor = index + 1;
+
+        while let Some((next_byte_index, next_char)) = chars.get(cursor) {
+            if matches!(next_char, '"' | '\'' | ')' | ']') {
+                split_at = *next_byte_index + next_char.len_utf8();
+                cursor += 1;
+                continue;
+            }
+            break;
+        }
+
+        let mut saw_whitespace = false;
+        while let Some((_, next_char)) = chars.get(cursor) {
+            if next_char.is_whitespace() {
+                saw_whitespace = true;
+                cursor += 1;
+                continue;
+            }
+            break;
+        }
+
+        if saw_whitespace || cursor == chars.len() {
+            offsets.push(split_at);
+        }
+    }
+
+    offsets
+}
+
+fn ends_at_sentence_boundary(text: &str) -> bool {
+    let trimmed = text.trim_end();
+    trimmed.ends_with('.')
+        || trimmed.ends_with('!')
+        || trimmed.ends_with('?')
+        || trimmed.ends_with(".)")
+        || trimmed.ends_with("!)")
+        || trimmed.ends_with("?)")
 }
 
 fn merge_fragment(current: &Fragment, next: &Fragment) -> Fragment {
@@ -936,5 +1039,58 @@ fn title_page_number(page_number: u32, scope: &PaginationScope) -> Option<u32> {
         Some(body_start) if page_number < body_start => Some(page_number),
         None if scope.title_page_count.unwrap_or(0) > 0 => Some(page_number),
         _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::split_flow_unit;
+    use crate::pagination::{Cohesion, FlowKind, FlowUnit, MeasurementConfig};
+
+    #[test]
+    fn flow_splitting_prefers_sentence_boundaries_inside_a_paragraph() {
+        let unit = flow_unit(
+            "Edward watches the room. He sees his future. He keeps walking anyway.",
+        );
+        let measurement = MeasurementConfig::screenplay_default();
+
+        let (prefix, suffix) = split_flow_unit(&unit, 2, &measurement).unwrap();
+
+        assert_eq!(prefix.text, "Edward watches the room.");
+        assert_eq!(suffix.text, "He sees his future. He keeps walking anyway.");
+    }
+
+    #[test]
+    fn flow_splitting_prefers_big_fish_sentence_break_after_witnesses_his_death() {
+        let unit = flow_unit(
+            "This time we don't cut. Instead, we HOLD ON Edward as he witnesses his death. He stares transfixed, perplexed and amused. Whatever he sees, it's not as dire as the other boys. His future has something strange in store.",
+        );
+        let measurement = MeasurementConfig::screenplay_default();
+
+        let (prefix, suffix) = split_flow_unit(&unit, 2, &measurement).unwrap();
+
+        assert_eq!(
+            prefix.text,
+            "This time we don't cut. Instead, we HOLD ON Edward as he witnesses his death."
+        );
+        assert_eq!(
+            suffix.text,
+            "He stares transfixed, perplexed and amused. Whatever he sees, it's not as dire as the other boys. His future has something strange in store."
+        );
+    }
+
+    fn flow_unit(text: &str) -> FlowUnit {
+        FlowUnit {
+            element_id: "el-00001".into(),
+            kind: FlowKind::Action,
+            text: text.into(),
+            line_range: None,
+            scene_number: None,
+            cohesion: Cohesion {
+                keep_together: false,
+                keep_with_next: false,
+                can_split: true,
+            },
+        }
     }
 }

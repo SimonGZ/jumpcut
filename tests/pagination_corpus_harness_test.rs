@@ -38,8 +38,8 @@ fn big_fish_public_slice_stays_at_or_better_than_width_measurement_baseline() {
     let report = &run.report;
 
     assert!(
-        report.total_issues() <= 6,
-        "expected total issues <= 6, got {}: {:?}",
+        report.total_issues() == 0,
+        "expected zero issues, got {}: {:?}",
         report.total_issues(),
         report.issues
     );
@@ -50,8 +50,8 @@ fn big_fish_public_slice_stays_at_or_better_than_width_measurement_baseline() {
         report.issues
     );
     assert!(
-        report.issue_count(ComparisonIssueKind::WrongFragment) <= 1,
-        "expected wrong-fragment issues <= 1, got {}: {:?}",
+        report.issue_count(ComparisonIssueKind::WrongFragment) == 0,
+        "expected zero wrong-fragment issues, got {}: {:?}",
         report.issue_count(ComparisonIssueKind::WrongFragment),
         report.issues
     );
