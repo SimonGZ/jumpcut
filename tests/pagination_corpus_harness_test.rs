@@ -24,6 +24,85 @@ fn comparison_reports_no_issues_for_fixture_round_trip() {
 }
 
 #[test]
+fn selected_big_fish_window_fixtures_round_trip() {
+    for path in [
+        "tests/fixtures/pagination/big-fish.p38-40.page-breaks.json",
+        "tests/fixtures/pagination/big-fish.p42-44.page-breaks.json",
+        "tests/fixtures/pagination/big-fish.p55-57.page-breaks.json",
+        "tests/fixtures/pagination/big-fish.p77-79.page-breaks.json",
+    ] {
+        let fixture: PageBreakFixture = read_fixture(path);
+        let actual = PaginatedScreenplay::from_fixture(fixture.clone());
+        let report = compare_paginated_to_fixture(&actual, &fixture);
+
+        assert_eq!(report.expected_page_count, fixture.pages.len(), "{path}");
+        assert_eq!(report.actual_page_count, fixture.pages.len(), "{path}");
+        assert!(report.issues.is_empty(), "{path}: {:?}", report.issues);
+    }
+}
+
+#[test]
+fn selected_big_fish_window_probe_baselines_hold() {
+    for (path, expected_lines, expected_score, expected_counts) in [
+        (
+            "tests/fixtures/pagination/big-fish.p38-40.page-breaks.json",
+            41,
+            (3, 2, 1),
+            (0, 0),
+        ),
+        (
+            "tests/fixtures/pagination/big-fish.p42-44.page-breaks.json",
+            39,
+            (0, 0, 0),
+            (0, 0),
+        ),
+        (
+            "tests/fixtures/pagination/big-fish.p55-57.page-breaks.json",
+            55,
+            (45, 0, 2),
+            (22, 21),
+        ),
+        (
+            "tests/fixtures/pagination/big-fish.p77-79.page-breaks.json",
+            46,
+            (61, 0, 1),
+            (30, 30),
+        ),
+    ] {
+        let fixture: PageBreakFixture = read_fixture(path);
+        let normalized = normalized_slice_from_fountain(
+            "big-fish",
+            "benches/Big-Fish.fountain",
+            &fixture,
+        );
+        let semantic = build_semantic_screenplay(normalized);
+        let run = best_probe_run(&fixture, &semantic);
+        let report = &run.report;
+
+        assert_eq!(run.lines_per_page, expected_lines, "{path}");
+        assert_eq!(run.score, expected_score, "{path}");
+        assert_eq!(
+            report.issue_count(ComparisonIssueKind::MissingOccurrence),
+            expected_counts.0,
+            "{path}"
+        );
+        assert_eq!(
+            report.issue_count(ComparisonIssueKind::UnexpectedOccurrence),
+            expected_counts.1,
+            "{path}"
+        );
+        assert!(
+            report
+                .issues
+                .iter()
+                .filter(|issue| issue.kind != ComparisonIssueKind::UnexpectedOccurrence)
+                .all(|issue| issue.text_preview.is_some()),
+            "{path}: expected previews on non-unexpected issues"
+        );
+    }
+}
+
+#[test]
 fn big_fish_public_slice_stays_at_or_better_than_width_measurement_baseline() {
     let fixture: PageBreakFixture =
         read_fixture("tests/fixtures/pagination/big-fish.split-page-breaks.json");
@@ -60,6 +139,43 @@ fn big_fish_public_slice_stays_at_or_better_than_width_measurement_baseline() {
         "expected all issues to carry text previews: {:?}",
         report.issues
     );
+}
+
+#[test]
+#[ignore = "diagnostic corpus probe"]
+fn probe_big_fish_selected_windows_against_canonical_fixtures() {
+    for path in [
+        "tests/fixtures/pagination/big-fish.p38-40.page-breaks.json",
+        "tests/fixtures/pagination/big-fish.p42-44.page-breaks.json",
+        "tests/fixtures/pagination/big-fish.p55-57.page-breaks.json",
+        "tests/fixtures/pagination/big-fish.p77-79.page-breaks.json",
+    ] {
+        let fixture: PageBreakFixture = read_fixture(path);
+        let normalized = normalized_slice_from_fountain(
+            "big-fish",
+            "benches/Big-Fish.fountain",
+            &fixture,
+        );
+        let semantic = build_semantic_screenplay(normalized);
+        let run = best_probe_run(&fixture, &semantic);
+
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&FixtureProbeDebugOutput {
+                fixture_path: path.to_string(),
+                page_numbers: fixture.pages.iter().map(|page| page.number).collect(),
+                lines_per_page: run.lines_per_page,
+                score: run.score,
+                total_issues: run.report.total_issues(),
+                wrong_page: run.report.issue_count(ComparisonIssueKind::WrongPage),
+                wrong_fragment: run.report.issue_count(ComparisonIssueKind::WrongFragment),
+                missing: run.report.issue_count(ComparisonIssueKind::MissingOccurrence),
+                unexpected: run.report.issue_count(ComparisonIssueKind::UnexpectedOccurrence),
+                report: run.report,
+            })
+            .unwrap()
+        );
+    }
 }
 
 #[test]
@@ -371,6 +487,20 @@ fn flow_width_for_kind(kind: &str, measurement: &MeasurementConfig) -> usize {
 
 #[derive(Serialize)]
 struct ProbeDebugOutput {
+    lines_per_page: u32,
+    score: (usize, usize, usize),
+    total_issues: usize,
+    wrong_page: usize,
+    wrong_fragment: usize,
+    missing: usize,
+    unexpected: usize,
+    report: jumpcut::pagination::ComparisonReport,
+}
+
+#[derive(Serialize)]
+struct FixtureProbeDebugOutput {
+    fixture_path: String,
+    page_numbers: Vec<u32>,
     lines_per_page: u32,
     score: (usize, usize, usize),
     total_issues: usize,

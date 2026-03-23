@@ -1,0 +1,690 @@
+{
+  "screenplay": "big-fish",
+  "style_profile": "standard",
+  "source": {
+    "fountain": "source/source.fountain",
+    "fdx": "source/source.fdx",
+    "pdf": "source/source.pdf"
+  },
+  "scope": {
+    "title_page_count": 1,
+    "body_start_page": 2
+  },
+  "pages": [
+    {
+      "number": 77,
+      "items": [
+        {
+          "element_id": "el-01635",
+          "kind": "Scene Heading",
+          "text_preview": "EXT. HIGH ABOVE THE STAGE - NIGHT",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01636",
+          "kind": "Action",
+          "text_preview": "We LOOK DOWN with Edward, who is drifting right for the stage. He can't steer. H",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01637",
+          "kind": "Action",
+          "text_preview": "But then, a BLAST of fireworks from the sides of the stage. The lights go out as",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01638",
+          "kind": "Action",
+          "text_preview": "He lands with a CLANG on the lighting catwalk above the stage. He barely grabs o",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01639",
+          "kind": "Scene Heading",
+          "text_preview": "EXT. ON STAGE",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01640",
+          "kind": "Action",
+          "text_preview": "The curtain rises to reveal PING (27) at a microphone. She's as gorgeous a woman",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01641",
+          "kind": "Action",
+          "text_preview": "She stands with her hips turned in profile. Her body is a knockout, dress cut to",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01642",
+          "kind": "Action",
+          "text_preview": "UP ON THE CATWALK, Edward is surprised by an ENEMY SOLDIER. The two men begin to",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01643",
+          "kind": "Action",
+          "text_preview": "MUSIC starts, a vampy torch song. Ping sings melody while an off-stage voice car",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01644",
+          "kind": "Character",
+          "text_preview": "PING",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00472",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01645",
+          "kind": "Dialogue",
+          "text_preview": "*Sometimes a girl can feel so alone Without a lover to call her own. Sometimes i",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00472",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01646",
+          "kind": "Action",
+          "text_preview": "A ROAR from the soldiers. She knows what they want.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01647",
+          "kind": "Action",
+          "text_preview": "Still fighting, Edward jumps for a pole on the far side of the catwalk, sliding ",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01648",
+          "kind": "Action",
+          "text_preview": "BACKSTAGE.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01649",
+          "kind": "Action",
+          "text_preview": "His determined opponent follows him down.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01650",
+          "kind": "Character",
+          "text_preview": "PING (CONT'D)",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00473",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01651",
+          "kind": "Dialogue",
+          "text_preview": "*But she won't. No, she can't. She needs a special special different unusual man",
+          "fragment": "continued-to-next",
+          "line_range": null,
+          "block_id": "block-00473",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        }
+      ]
+    },
+    {
+      "number": 78,
+      "items": [
+        {
+          "element_id": "el-01651",
+          "kind": "Dialogue",
+          "text_preview": "*But she won't. No, she can't. She needs a special special different unusual man",
+          "fragment": "continued-from-prev",
+          "line_range": null,
+          "block_id": "block-00473",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01652",
+          "kind": "Character",
+          "text_preview": "PING (CONT'D)",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00474",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01653",
+          "kind": "Parenthetical",
+          "text_preview": "(speaking)",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00474",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01654",
+          "kind": "Dialogue",
+          "text_preview": "Any of you got needs?",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00474",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01655",
+          "kind": "Action",
+          "text_preview": "The soldiers ROAR LOUDER, STOMPING on the bleachers.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01656",
+          "kind": "Action",
+          "text_preview": "Backstage, the two men are still fighting.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01657",
+          "kind": "Character",
+          "text_preview": "PING (CONT'D)",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00475",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01658",
+          "kind": "Parenthetical",
+          "text_preview": "(chorus)",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00475",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01659",
+          "kind": "Dialogue",
+          "text_preview": "*I've had twice the adventure, Cried double the tears. Two times the bad times i",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00475",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01660",
+          "kind": "Action",
+          "text_preview": "For the first time, Ping turns, and now we see why she was standing in profile. ",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01661",
+          "kind": "Action",
+          "text_preview": "SIAMESE TWINS.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01662",
+          "kind": "Action",
+          "text_preview": "Her identical twin is JING, who's been singing harmony all this time. They are t",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01663",
+          "kind": "Action",
+          "text_preview": "Edward sees the twins from behind, does a double-take. It costs him a punch to t",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01664",
+          "kind": "Character",
+          "text_preview": "PING (CONT'D)",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00476",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01665",
+          "kind": "Dialogue",
+          "text_preview": "Say hello, Jing.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00476",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01666",
+          "kind": "Character",
+          "text_preview": "JING",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00477",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01667",
+          "kind": "Dialogue",
+          "text_preview": "Hello Jing.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00477",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01668",
+          "kind": "Character",
+          "text_preview": "PING",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00478",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01669",
+          "kind": "Parenthetical",
+          "text_preview": "(to the crowd)",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00478",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01670",
+          "kind": "Dialogue",
+          "text_preview": "I'm Ping. She's Jing. She's the good one.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00478",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01671",
+          "kind": "Parenthetical",
+          "text_preview": "(closer)",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00478",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01672",
+          "kind": "Dialogue",
+          "text_preview": "I'm the bad one.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00478",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01673",
+          "kind": "Action",
+          "text_preview": "As the MUSIC builds towards the climax, Edward finishes the fight, knocking the ",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01674",
+          "kind": "Action",
+          "text_preview": "As Ping and Jing reach the last chorus, they strike a final pose in the shape of",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        }
+      ]
+    },
+    {
+      "number": 79,
+      "items": [
+        {
+          "element_id": "el-01675",
+          "kind": "Action",
+          "text_preview": "Edward slips behind curtains, trying to get away.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01676",
+          "kind": "Action",
+          "text_preview": "The soldiers are SHOUTING for an encore, lighters waving. The curtain slowly low",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01677",
+          "kind": "Action",
+          "text_preview": "EDWARD'S PARACHUTE.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01678",
+          "kind": "Action",
+          "text_preview": "The APPLAUSE dies, replaced by a concerned RUMBLE. The Emcee yells for the Guard",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01679",
+          "kind": "Action",
+          "text_preview": "ON STAGE",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01680",
+          "kind": "Action",
+          "text_preview": "Ping has no idea what's happening. Jing reaches into her cleavage to pull out he",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01681",
+          "kind": "Scene Heading",
+          "text_preview": "INT. DRESSING ROOM - NIGHT",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01682",
+          "kind": "Action",
+          "text_preview": "As ARMED GUARDS search the halls below the stage, Ping and Jing shut the door to",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01683",
+          "kind": "Action",
+          "text_preview": "In Chinese, subtitled...",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01684",
+          "kind": "Character",
+          "text_preview": "PING",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00479",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01685",
+          "kind": "Dialogue",
+          "text_preview": "How could you miss your cue? You make me look like a fool, out there alone.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00479",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01686",
+          "kind": "Character",
+          "text_preview": "JING",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00480",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01687",
+          "kind": "Dialogue",
+          "text_preview": "You weren't alone.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00480",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01688",
+          "kind": "Action",
+          "text_preview": "Ping HUFFS, turning her back on her sister.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01689",
+          "kind": "Action",
+          "text_preview": "Jing reaches deeper into the closet to find a new dress, exposing Edward's hidin",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01690",
+          "kind": "Character",
+          "text_preview": "PING",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00481",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01691",
+          "kind": "Dialogue",
+          "text_preview": "Who the hell are you?",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00481",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01692",
+          "kind": "Character",
+          "text_preview": "EDWARD",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00482",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01693",
+          "kind": "Parenthetical",
+          "text_preview": "(in Chinese)",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00482",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01694",
+          "kind": "Dialogue",
+          "text_preview": "I'm not going to hurt you.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00482",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01695",
+          "kind": "Character",
+          "text_preview": "PING",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00483",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01696",
+          "kind": "Dialogue",
+          "text_preview": "Damn right you're not.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00483",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01697",
+          "kind": "Parenthetical",
+          "text_preview": "(yelling)",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00483",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01698",
+          "kind": "Dialogue",
+          "text_preview": "GUARD!",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00483",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01699",
+          "kind": "Action",
+          "text_preview": "Jing grabs her, a hand over her mouth, but it's too late. A rifle-toting GUARD l",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        }
+      ]
+    }
+  ]
+}

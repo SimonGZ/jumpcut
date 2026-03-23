@@ -1,0 +1,660 @@
+{
+  "screenplay": "big-fish",
+  "style_profile": "standard",
+  "source": {
+    "fountain": "source/source.fountain",
+    "fdx": "source/source.fdx",
+    "pdf": "source/source.pdf"
+  },
+  "scope": {
+    "title_page_count": 1,
+    "body_start_page": 2
+  },
+  "pages": [
+    {
+      "number": 55,
+      "items": [
+        {
+          "element_id": "el-01170",
+          "kind": "Action",
+          "text_preview": "With that, he stops. She regains her composure.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01171",
+          "kind": "Character",
+          "text_preview": "EDWARD (CONT'D)",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00352",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01172",
+          "kind": "Dialogue",
+          "text_preview": "Spooning the sherbet.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00352",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01173",
+          "kind": "Character",
+          "text_preview": "JOSEPHINE",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00353",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01174",
+          "kind": "Parenthetical",
+          "text_preview": "(interrupting)",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00353",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01175",
+          "kind": "Dialogue",
+          "text_preview": "Can I take your picture?",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00353",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01176",
+          "kind": "Character",
+          "text_preview": "EDWARD",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00354",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01177",
+          "kind": "Dialogue",
+          "text_preview": "You don't need a picture. Just look up handsome in the dictionary.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00354",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01178",
+          "kind": "Character",
+          "text_preview": "JOSEPHINE",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00355",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01179",
+          "kind": "Dialogue",
+          "text_preview": "Please?",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00355",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01180",
+          "kind": "Action",
+          "text_preview": "He rolls his eyes, why not.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01181",
+          "kind": "Action",
+          "text_preview": "Josephine leaves, heading down the hall to get her camera. We STAY WITH Edward i",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01182",
+          "kind": "Character",
+          "text_preview": "JOSEPHINE (O.S.) (CONT'D)",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00356",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01183",
+          "kind": "Dialogue",
+          "text_preview": "I have photos from the wedding to show you. There's a great one of you and my fa",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00356",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01184",
+          "kind": "Action",
+          "text_preview": "Edward grimaces, a flash of pain. Around others, he's hiding how much it hurts, ",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01185",
+          "kind": "Action",
+          "text_preview": "He controls his breathing, trying to push through it.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01186",
+          "kind": "Character",
+          "text_preview": "JOSEPHINE (O.S.) (CONT'D)",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00357",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01187",
+          "kind": "Dialogue",
+          "text_preview": "I want to see pictures of your wedding. I've never seen any.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00357",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01188",
+          "kind": "Action",
+          "text_preview": "She returns with her camera. Edward smiles, doing a good job masking the pain.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01189",
+          "kind": "Character",
+          "text_preview": "EDWARD",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00358",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01190",
+          "kind": "Dialogue",
+          "text_preview": "That's because we didn't have a wedding. Your mother-in-law was never supposed t",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00358",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01191",
+          "kind": "Character",
+          "text_preview": "JOSEPHINE",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00359",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01192",
+          "kind": "Parenthetical",
+          "text_preview": "(loading film)",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00359",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01193",
+          "kind": "Dialogue",
+          "text_preview": "I never knew.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00359",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01194",
+          "kind": "Character",
+          "text_preview": "EDWARD",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00360",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01195",
+          "kind": "Dialogue",
+          "text_preview": "Will never told you that?",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00360",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01196",
+          "kind": "Parenthetical",
+          "text_preview": "(she shakes her head)",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00360",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01197",
+          "kind": "Dialogue",
+          "text_preview": "Probably just as well. He would have told it wrong anyway. All the facts and non",
+          "fragment": "continued-to-next",
+          "line_range": null,
+          "block_id": "block-00360",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        }
+      ]
+    },
+    {
+      "number": 56,
+      "items": [
+        {
+          "element_id": "el-01197",
+          "kind": "Dialogue",
+          "text_preview": "Probably just as well. He would have told it wrong anyway. All the facts and non",
+          "fragment": "continued-from-prev",
+          "line_range": null,
+          "block_id": "block-00360",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01198",
+          "kind": "Character",
+          "text_preview": "JOSEPHINE",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00361",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01199",
+          "kind": "Dialogue",
+          "text_preview": "Oh, so this is a tall tale?",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00361",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01200",
+          "kind": "Character",
+          "text_preview": "EDWARD",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00362",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01201",
+          "kind": "Dialogue",
+          "text_preview": "Well, it's not a short one.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00362",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01202",
+          "kind": "Action",
+          "text_preview": "A devilish smile. Pushing past Edward, we settle on the whirling fan.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01203",
+          "kind": "Transition",
+          "text_preview": "MATCH CUT TO:",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01204",
+          "kind": "Action",
+          "text_preview": "A SPINNING PINWHEEL",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01205",
+          "kind": "Action",
+          "text_preview": "held by a LITTLE BOY. He's slumped over his FATHER's shoulder, being carried tow",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01206",
+          "kind": "Scene Heading",
+          "text_preview": "EXT. OLYMPIA CIRCUS - NIGHT",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01207",
+          "kind": "Action",
+          "text_preview": "...where the second-rate carnival is parked for the moment in an Alabama field. ",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01208",
+          "kind": "Character",
+          "text_preview": "EDWARD (V.O.)",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00363",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01209",
+          "kind": "Dialogue",
+          "text_preview": "I had just left Ashton, and was on my way to discover my destiny. Not knowing wh",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00363",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01210",
+          "kind": "Action",
+          "text_preview": "Joining the crowd, he heads into the big-top.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01211",
+          "kind": "Scene Heading",
+          "text_preview": "INT. BIG TOP - NIGHT",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01212",
+          "kind": "Action",
+          "text_preview": "A troupe of STILT-WALKING FIREBREATHERS finishes their act to tremendous APPLAUS",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01213",
+          "kind": "Action",
+          "text_preview": "As the performers clear away, the circus' owner-and-ringmaster AMOS CALLOWAY (50",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01214",
+          "kind": "Character",
+          "text_preview": "AMOS",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00364",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01215",
+          "kind": "Dialogue",
+          "text_preview": "Ladies and Gentlemen, you may think you've seen the unusual. You may think you'v",
+          "fragment": "continued-to-next",
+          "line_range": null,
+          "block_id": "block-00364",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        }
+      ]
+    },
+    {
+      "number": 57,
+      "items": [
+        {
+          "element_id": "el-01215",
+          "kind": "Dialogue",
+          "text_preview": "Ladies and Gentlemen, you may think you've seen the unusual. You may think you'v",
+          "fragment": "continued-from-prev",
+          "line_range": null,
+          "block_id": "block-00364",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01216",
+          "kind": "Action",
+          "text_preview": "From behind Amos, CARNIES start rolling a massive ball towards the crowd.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01217",
+          "kind": "Character",
+          "text_preview": "AMOS (CONT'D)",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00365",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01218",
+          "kind": "Dialogue",
+          "text_preview": "When I found this man, he was picking oranges in Florida. His fellow workers cal",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00365",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01219",
+          "kind": "Action",
+          "text_preview": "Amos comes up to a MIDDLE-AGED WOMAN in the first row, a quieter moment.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01220",
+          "kind": "Character",
+          "text_preview": "AMOS (CONT'D)",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00366",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01221",
+          "kind": "Dialogue",
+          "text_preview": "Not to alarm you, Ma'am. But if this man wanted to, he could crush your head bet",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00366",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01222",
+          "kind": "Parenthetical",
+          "text_preview": "(she trembles)",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00366",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01223",
+          "kind": "Dialogue",
+          "text_preview": "But he won't.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00366",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01224",
+          "kind": "Parenthetical",
+          "text_preview": "(a long beat)",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00366",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01225",
+          "kind": "Dialogue",
+          "text_preview": "He's not going to hurt her, folks, because he's our own Gentle Giant. Ladies and",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00366",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01226",
+          "kind": "Action",
+          "text_preview": "The carnies back away from the ball as a deep DRUM ROLL begins. A moment, then t",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01227",
+          "kind": "Action",
+          "text_preview": "A foot suddenly bursts out from within. GASPS from the crowd. That foot is massi",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01228",
+          "kind": "Action",
+          "text_preview": "As the drum beat intensifies, a second foot breaks out. Followed by hands. Shoul",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01229",
+          "kind": "Action",
+          "text_preview": "From a very LOW ANGLE, we look up to see just how massive he is. He seems to fil",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-01230",
+          "kind": "Action",
+          "text_preview": "In the bandstands, a YOUNG BOY's jaw drops in awe. Colossus walks down the row, ",
+          "fragment": "continued-to-next",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        }
+      ]
+    }
+  ]
+}

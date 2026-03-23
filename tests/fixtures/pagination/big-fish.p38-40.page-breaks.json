@@ -1,0 +1,720 @@
+{
+  "screenplay": "big-fish",
+  "style_profile": "standard",
+  "source": {
+    "fountain": "source/source.fountain",
+    "fdx": "source/source.fdx",
+    "pdf": "source/source.pdf"
+  },
+  "scope": {
+    "title_page_count": 1,
+    "body_start_page": 2
+  },
+  "pages": [
+    {
+      "number": 38,
+      "items": [
+        {
+          "element_id": "el-00784",
+          "kind": "Action",
+          "text_preview": "Sure enough, up ahead he sees the path is overgrown with thick cobwebs, heavy fr",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00785",
+          "kind": "Character",
+          "text_preview": "EDWARD (V.O.)",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00228",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00786",
+          "kind": "Dialogue",
+          "text_preview": "There comes a point where a reasonable man will swallow his pride and admit he's",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00228",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00787",
+          "kind": "Action",
+          "text_preview": "Edward tosses the sign and forges ahead, into the spiderwebs.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00788",
+          "kind": "Character",
+          "text_preview": "EDWARD (CONT'D)",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00229",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00789",
+          "kind": "Dialogue",
+          "text_preview": "And what I recalled of Sunday School was that the more difficult something becam",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00229",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00790",
+          "kind": "Scene Heading",
+          "text_preview": "EXT. CLEARING / THE ROAD - DAY",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00791",
+          "kind": "Action",
+          "text_preview": "Edward emerges from the forest, brushing the last cobwebs off and shaking the sp",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00792",
+          "kind": "Action",
+          "text_preview": "At his feet, the gravel road has returned, smooth and dusty and comforting.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00793",
+          "kind": "Action",
+          "text_preview": "Ahead lies a tiny one-street town -- smaller even than Ashton -- with powerlines",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00794",
+          "kind": "Action",
+          "text_preview": "He passes a sign that reads \"Welcome To Spectre!\"",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00795",
+          "kind": "Scene Heading",
+          "text_preview": "EXT. THE TOWN OF SPECTRE - DAY",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00796",
+          "kind": "Action",
+          "text_preview": "It's a main street with stores on each side: Cole's Pharmacy, Talbot's Five and ",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00797",
+          "kind": "Action",
+          "text_preview": "What's more, all of these people are barefoot.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00798",
+          "kind": "Character",
+          "text_preview": "MAN'S VOICE",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00230",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00799",
+          "kind": "Dialogue",
+          "text_preview": "Friend!",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00230",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00800",
+          "kind": "Action",
+          "text_preview": "A forty-year old man named BEAMEN comes out of the seed store to greet Edward. F",
+          "fragment": "continued-to-next",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        }
+      ]
+    },
+    {
+      "number": 39,
+      "items": [
+        {
+          "element_id": "el-00800",
+          "kind": "Action",
+          "text_preview": "A forty-year old man named BEAMEN comes out of the seed store to greet Edward. F",
+          "fragment": "continued-from-prev",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00801",
+          "kind": "Character",
+          "text_preview": "BEAMEN",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00231",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00802",
+          "kind": "Dialogue",
+          "text_preview": "Welcome to ya. What's your name?",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00231",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00803",
+          "kind": "Character",
+          "text_preview": "EDWARD",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00232",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00804",
+          "kind": "Dialogue",
+          "text_preview": "Edward Bloom.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00232",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00805",
+          "kind": "Action",
+          "text_preview": "Beamen checks the clipboard. Not finding the name, he flips forward a few pages.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00806",
+          "kind": "Character",
+          "text_preview": "BEAMEN",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00233",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00807",
+          "kind": "Dialogue",
+          "text_preview": "Bloom like a flower?",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00233",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00808",
+          "kind": "Character",
+          "text_preview": "EDWARD",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00234",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00809",
+          "kind": "Dialogue",
+          "text_preview": "Yes.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00234",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00810",
+          "kind": "Character",
+          "text_preview": "BEAMEN",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00235",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00811",
+          "kind": "Dialogue",
+          "text_preview": "Oh. Here! Right here. Edward Bloom. We weren't expecting you yet.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00235",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00812",
+          "kind": "Action",
+          "text_preview": "Still confused...",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00813",
+          "kind": "Character",
+          "text_preview": "EDWARD",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00236",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00814",
+          "kind": "Dialogue",
+          "text_preview": "You were expecting me?",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00236",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00815",
+          "kind": "Character",
+          "text_preview": "BEAMEN",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00237",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00816",
+          "kind": "Dialogue",
+          "text_preview": "Not yet.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00237",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00817",
+          "kind": "Action",
+          "text_preview": "A helpful woman named MILDRED chimes in:",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00818",
+          "kind": "Character",
+          "text_preview": "MILDRED",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00238",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00819",
+          "kind": "Dialogue",
+          "text_preview": "You must have taken a shortcut.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00238",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00820",
+          "kind": "Character",
+          "text_preview": "EDWARD",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00239",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00821",
+          "kind": "Dialogue",
+          "text_preview": "I did. It nearly killed me.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00239",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00822",
+          "kind": "Character",
+          "text_preview": "BEAMEN",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00240",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00823",
+          "kind": "Dialogue",
+          "text_preview": "Mmm-hmm. Life'll do that to you. And truthfully, the long way is easier, but it'",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00240",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00824",
+          "kind": "Character",
+          "text_preview": "MILDRED",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00241",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00825",
+          "kind": "Dialogue",
+          "text_preview": "Much longer.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00241",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00826",
+          "kind": "Character",
+          "text_preview": "BEAMEN",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00242",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00827",
+          "kind": "Dialogue",
+          "text_preview": "And you're here now, and that's what matters.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00242",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00828",
+          "kind": "Action",
+          "text_preview": "Beamen's daughter JENNY (8) hides behind her father, peering around to look at t",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        }
+      ]
+    },
+    {
+      "number": 40,
+      "items": [
+        {
+          "element_id": "el-00829",
+          "kind": "Character",
+          "text_preview": "EDWARD",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00243",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00830",
+          "kind": "Dialogue",
+          "text_preview": "What is this place?",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00243",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00831",
+          "kind": "Character",
+          "text_preview": "BEAMEN",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00244",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00832",
+          "kind": "Dialogue",
+          "text_preview": "The town of Spectre. Best kept secret in Alabama. Says here you're from Ashton, ",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00244",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00833",
+          "kind": "Character",
+          "text_preview": "EDWARD",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00245",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00834",
+          "kind": "Dialogue",
+          "text_preview": "The poet? What ever happened to him?",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00245",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00835",
+          "kind": "Character",
+          "text_preview": "BEAMEN",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00246",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00836",
+          "kind": "Dialogue",
+          "text_preview": "He's still here. Let me buy you a drink. I'll tell you all about it. Hell, I'll ",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00246",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00837",
+          "kind": "Character",
+          "text_preview": "EDWARD",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00247",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00838",
+          "kind": "Dialogue",
+          "text_preview": "No. I've gotta meet somebody. I'm already running late.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00247",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00839",
+          "kind": "Action",
+          "text_preview": "He didn't mean it as a joke, but for some reason, everyone's laughing.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00840",
+          "kind": "Character",
+          "text_preview": "BEAMEN",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00248",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00841",
+          "kind": "Dialogue",
+          "text_preview": "Son, I already told you. You're early.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00248",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00842",
+          "kind": "Scene Heading",
+          "text_preview": "INT. BEAMEN'S HOUSE - DAY",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00843",
+          "kind": "Action",
+          "text_preview": "Sitting at the kitchen table, Edward takes a second slice of apple pie. He and B",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00844",
+          "kind": "Character",
+          "text_preview": "BEAMEN",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00249",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00845",
+          "kind": "Dialogue",
+          "text_preview": "Now tell me if that isn't the best pie you ever ate.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00249",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00846",
+          "kind": "Character",
+          "text_preview": "EDWARD",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00250",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00847",
+          "kind": "Dialogue",
+          "text_preview": "It truly is.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00250",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00848",
+          "kind": "Action",
+          "text_preview": "UNDER THE TABLE",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00849",
+          "kind": "Action",
+          "text_preview": "Young Jenny is stealthily untying the laces on Edward's shoes.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00850",
+          "kind": "Character",
+          "text_preview": "NORTHER WINSLOW",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00251",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00851",
+          "kind": "Dialogue",
+          "text_preview": "Everything here tastes better. Even the water is sweet. Never gets too hot, too ",
+          "fragment": "continued-to-next",
+          "line_range": null,
+          "block_id": "block-00251",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        }
+      ]
+    }
+  ]
+}
