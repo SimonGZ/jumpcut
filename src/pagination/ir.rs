@@ -703,15 +703,24 @@ fn dialogue_part_kind_name(kind: &DialoguePartKind) -> &'static str {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+struct SplitCandidateScore {
+    awkward_continuation_penalty: u32,
+    tiny_tail_penalty: u32,
+    tiny_head_penalty: u32,
+    unused_space_penalty: u32,
+    imbalance_penalty: u32,
+}
+
 #[derive(Clone, Debug)]
 struct SplitCandidate<T> {
     prefix: T,
     suffix: T,
-    used_lines: u32,
+    score: SplitCandidateScore,
 }
 
 fn choose_best_split_candidate<T>(candidates: Vec<SplitCandidate<T>>) -> Option<SplitCandidate<T>> {
-    candidates.into_iter().max_by_key(|candidate| candidate.used_lines)
+    candidates.into_iter().min_by_key(|candidate| candidate.score)
 }
 
 fn split_flow_unit(
@@ -739,17 +748,20 @@ fn split_flow_unit(
             continue;
         }
 
+        let suffix = FlowUnit {
+            element_id: unit.element_id.clone(),
+            kind: unit.kind.clone(),
+            text: lines[split_index..].join("\n"),
+            line_range: Some((split_index as u32 + 1, lines.len() as u32)),
+            scene_number: unit.scene_number.clone(),
+            cohesion: unit.cohesion.clone(),
+        };
+        let suffix_lines = measure_flow_unit_lines(&suffix, measurement);
+
         candidates.push(SplitCandidate {
             prefix,
-            suffix: FlowUnit {
-                element_id: unit.element_id.clone(),
-                kind: unit.kind.clone(),
-                text: lines[split_index..].join("\n"),
-                line_range: Some((split_index as u32 + 1, lines.len() as u32)),
-                scene_number: unit.scene_number.clone(),
-                cohesion: unit.cohesion.clone(),
-            },
-            used_lines: prefix_lines,
+            suffix,
+            score: score_flow_split_candidate(prefix_lines, suffix_lines, available_lines),
         });
     }
 
@@ -780,6 +792,7 @@ fn split_dialogue_unit(
         let prefix = &unit.parts[..=index];
         let suffix = &unit.parts[index + 1..];
         if is_valid_dialogue_fragment(prefix) && is_valid_dialogue_fragment(suffix) {
+            let suffix_lines = measure_dialogue_parts_lines(suffix, measurement);
             candidates.push(SplitCandidate {
                 prefix: DialogueUnit {
                     block_id: unit.block_id.clone(),
@@ -791,7 +804,12 @@ fn split_dialogue_unit(
                     parts: suffix.to_vec(),
                     cohesion: unit.cohesion.clone(),
                 },
-                used_lines: prefix_lines,
+                score: score_dialogue_split_candidate(
+                    prefix_lines,
+                    suffix_lines,
+                    available_lines,
+                    suffix.first().map(|part| &part.kind),
+                ),
             });
         }
     }
@@ -815,6 +833,52 @@ fn is_valid_dialogue_fragment(parts: &[crate::pagination::semantic::DialoguePart
         parts.last().map(|part| &part.kind),
         Some(DialoguePartKind::Character | DialoguePartKind::Parenthetical)
     )
+}
+
+fn measure_dialogue_parts_lines(
+    parts: &[crate::pagination::semantic::DialoguePart],
+    measurement: &MeasurementConfig,
+) -> u32 {
+    parts.iter()
+        .map(|part| measure_dialogue_part_lines(&part.kind, &part.text, measurement))
+        .sum::<u32>()
+        .max(1)
+}
+
+fn score_dialogue_split_candidate(
+    prefix_lines: u32,
+    suffix_lines: u32,
+    available_lines: u32,
+    suffix_first_kind: Option<&DialoguePartKind>,
+) -> SplitCandidateScore {
+    SplitCandidateScore {
+        awkward_continuation_penalty: u32::from(matches!(
+            suffix_first_kind,
+            Some(DialoguePartKind::Parenthetical)
+        )),
+        tiny_tail_penalty: tiny_fragment_penalty(suffix_lines),
+        tiny_head_penalty: tiny_fragment_penalty(prefix_lines),
+        unused_space_penalty: available_lines.saturating_sub(prefix_lines),
+        imbalance_penalty: prefix_lines.abs_diff(suffix_lines),
+    }
+}
+
+fn score_flow_split_candidate(
+    prefix_lines: u32,
+    suffix_lines: u32,
+    available_lines: u32,
+) -> SplitCandidateScore {
+    SplitCandidateScore {
+        awkward_continuation_penalty: 0,
+        tiny_tail_penalty: tiny_fragment_penalty(suffix_lines),
+        tiny_head_penalty: tiny_fragment_penalty(prefix_lines),
+        unused_space_penalty: available_lines.saturating_sub(prefix_lines),
+        imbalance_penalty: prefix_lines.abs_diff(suffix_lines),
+    }
+}
+
+fn tiny_fragment_penalty(lines: u32) -> u32 {
+    2_u32.saturating_sub(lines)
 }
 
 fn merge_fragment(current: &Fragment, next: &Fragment) -> Fragment {

@@ -21,6 +21,39 @@ fn comparison_reports_no_issues_for_fixture_round_trip() {
 }
 
 #[test]
+fn big_fish_public_slice_stays_at_or_better_than_width_measurement_baseline() {
+    let fixture: PageBreakFixture =
+        read_fixture("tests/fixtures/pagination/big-fish.split-page-breaks.json");
+    let normalized = normalized_slice_from_fountain(
+        "big-fish",
+        "benches/Big-Fish.fountain",
+        &fixture,
+    );
+    let semantic = build_semantic_screenplay(normalized);
+
+    let (_, _, report) = best_probe_report(&fixture, &semantic);
+
+    assert!(
+        report.total_issues() <= 13,
+        "expected total issues <= 13, got {}: {:?}",
+        report.total_issues(),
+        report.issues
+    );
+    assert!(
+        report.issue_count(ComparisonIssueKind::WrongPage) <= 7,
+        "expected wrong-page issues <= 7, got {}: {:?}",
+        report.issue_count(ComparisonIssueKind::WrongPage),
+        report.issues
+    );
+    assert!(
+        report.issue_count(ComparisonIssueKind::WrongFragment) <= 1,
+        "expected wrong-fragment issues <= 1, got {}: {:?}",
+        report.issue_count(ComparisonIssueKind::WrongFragment),
+        report.issues
+    );
+}
+
+#[test]
 #[ignore = "diagnostic corpus probe"]
 fn probe_big_fish_public_slice_against_canonical_fixture() {
     let fixture: PageBreakFixture =
@@ -31,7 +64,24 @@ fn probe_big_fish_public_slice_against_canonical_fixture() {
         &fixture,
     );
     let semantic = build_semantic_screenplay(normalized);
+    let (score, lines_per_page, report) = best_probe_report(&fixture, &semantic);
+    println!(
+        "best lines_per_page={lines_per_page} score={score:?} total={} wrong_page={} wrong_fragment={} missing={} unexpected={}",
+        report.total_issues(),
+        report.issue_count(ComparisonIssueKind::WrongPage),
+        report.issue_count(ComparisonIssueKind::WrongFragment),
+        report.issue_count(ComparisonIssueKind::MissingOccurrence),
+        report.issue_count(ComparisonIssueKind::UnexpectedOccurrence),
+    );
+    for issue in &report.issues {
+        println!("{issue:?}");
+    }
+}
 
+fn best_probe_report(
+    fixture: &PageBreakFixture,
+    semantic: &jumpcut::pagination::SemanticScreenplay,
+) -> ((usize, usize, usize), u32, jumpcut::pagination::ComparisonReport) {
     let mut best = None;
     for lines_per_page in 1..=20 {
         let actual = PaginatedScreenplay::paginate(
@@ -40,7 +90,7 @@ fn probe_big_fish_public_slice_against_canonical_fixture() {
             fixture.style_profile.clone(),
             fixture.scope.clone(),
         );
-        let report = compare_paginated_to_fixture(&actual, &fixture);
+        let report = compare_paginated_to_fixture(&actual, fixture);
         let score = (
             report.total_issues(),
             report.issue_count(ComparisonIssueKind::WrongPage),
@@ -53,18 +103,7 @@ fn probe_big_fish_public_slice_against_canonical_fixture() {
         }
     }
 
-    let (score, lines_per_page, report) = best.unwrap();
-    println!(
-        "best lines_per_page={lines_per_page} score={score:?} total={} wrong_page={} wrong_fragment={} missing={} unexpected={}",
-        report.total_issues(),
-        report.issue_count(ComparisonIssueKind::WrongPage),
-        report.issue_count(ComparisonIssueKind::WrongFragment),
-        report.issue_count(ComparisonIssueKind::MissingOccurrence),
-        report.issue_count(ComparisonIssueKind::UnexpectedOccurrence),
-    );
-    for issue in &report.issues {
-        println!("{issue:?}");
-    }
+    best.unwrap()
 }
 
 fn normalized_slice_from_fountain(

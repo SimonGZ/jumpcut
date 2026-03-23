@@ -290,6 +290,103 @@ fn it_splits_dialogue_units_at_part_boundaries_and_marks_continuations() {
 }
 
 #[test]
+fn it_prefers_dialogue_splits_without_tiny_tails_over_fuller_pages() {
+    let semantic = SemanticScreenplay {
+        screenplay: "sample".into(),
+        starting_page_number: None,
+        units: vec![
+            SemanticUnit::Flow(flow_unit("el-00001", FlowKind::Action, "One.")),
+            SemanticUnit::Dialogue(dialogue_unit(
+                "block-00001",
+                vec![
+                    dialogue_part("el-00002", DialoguePartKind::Character, "MARCUS"),
+                    dialogue_part("el-00003", DialoguePartKind::Dialogue, "First bit."),
+                    dialogue_part("el-00004", DialoguePartKind::Dialogue, "Second bit."),
+                    dialogue_part("el-00005", DialoguePartKind::Dialogue, "Third bit."),
+                ],
+            )),
+        ],
+    };
+
+    let actual = PaginatedScreenplay::paginate(
+        semantic,
+        pagination_config(4),
+        "standard",
+        PaginationScope {
+            title_page_count: Some(1),
+            body_start_page: Some(2),
+        },
+    );
+
+    assert_eq!(actual.pages.len(), 2);
+    assert_eq!(
+        actual.pages[0]
+            .items
+            .iter()
+            .map(|item| item.element_id.as_str())
+            .collect::<Vec<_>>(),
+        vec!["el-00001", "el-00002", "el-00003"]
+    );
+    assert_eq!(
+        actual.pages[1]
+            .items
+            .iter()
+            .map(|item| item.element_id.as_str())
+            .collect::<Vec<_>>(),
+        vec!["el-00004", "el-00005"]
+    );
+}
+
+#[test]
+fn it_avoids_parenthetical_led_dialogue_continuations_when_another_split_exists() {
+    let semantic = SemanticScreenplay {
+        screenplay: "sample".into(),
+        starting_page_number: None,
+        units: vec![
+            SemanticUnit::Flow(flow_unit("el-00001", FlowKind::Action, "One.")),
+            SemanticUnit::Dialogue(dialogue_unit(
+                "block-00001",
+                vec![
+                    dialogue_part("el-00002", DialoguePartKind::Character, "MARCUS"),
+                    dialogue_part("el-00003", DialoguePartKind::Dialogue, "First bit."),
+                    dialogue_part("el-00004", DialoguePartKind::Dialogue, "Second bit."),
+                    dialogue_part("el-00005", DialoguePartKind::Parenthetical, "(beat)"),
+                    dialogue_part("el-00006", DialoguePartKind::Dialogue, "Third bit."),
+                ],
+            )),
+        ],
+    };
+
+    let actual = PaginatedScreenplay::paginate(
+        semantic,
+        pagination_config(4),
+        "standard",
+        PaginationScope {
+            title_page_count: Some(1),
+            body_start_page: Some(2),
+        },
+    );
+
+    assert_eq!(actual.pages.len(), 2);
+    assert_eq!(
+        actual.pages[0]
+            .items
+            .iter()
+            .map(|item| item.element_id.as_str())
+            .collect::<Vec<_>>(),
+        vec!["el-00001", "el-00002", "el-00003"]
+    );
+    assert_eq!(
+        actual.pages[1]
+            .items
+            .iter()
+            .map(|item| item.element_id.as_str())
+            .collect::<Vec<_>>(),
+        vec!["el-00004", "el-00005", "el-00006"]
+    );
+}
+
+#[test]
 fn it_does_not_orphan_a_character_cue_when_dialogue_wont_fit() {
     let semantic = SemanticScreenplay {
         screenplay: "sample".into(),
@@ -380,6 +477,33 @@ fn it_keeps_parentheticals_with_some_dialogue_when_splitting() {
             .collect::<Vec<_>>(),
         vec!["el-00002", "el-00003", "el-00004"]
     );
+}
+
+#[test]
+fn it_prefers_balanced_flow_splits_over_one_line_tails() {
+    let semantic = SemanticScreenplay {
+        screenplay: "sample".into(),
+        starting_page_number: None,
+        units: vec![SemanticUnit::Flow(flow_unit(
+            "el-00001",
+            FlowKind::Action,
+            "One.\nTwo.\nThree.\nFour.",
+        ))],
+    };
+
+    let actual = PaginatedScreenplay::paginate(
+        semantic,
+        pagination_config(3),
+        "standard",
+        PaginationScope {
+            title_page_count: Some(1),
+            body_start_page: Some(2),
+        },
+    );
+
+    assert_eq!(actual.pages.len(), 2);
+    assert_eq!(actual.pages[0].items[0].line_range, Some((1, 2)));
+    assert_eq!(actual.pages[1].items[0].line_range, Some((3, 4)));
 }
 
 #[test]
