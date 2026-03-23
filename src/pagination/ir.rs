@@ -1,5 +1,6 @@
 use crate::pagination::fixtures::{
-    Fragment, PageBreakFixture, PageBreakFixtureSourceRefs, PaginationScope,
+    Fragment, NormalizedElement, NormalizedScreenplay, PageBreakFixture,
+    PageBreakFixtureSourceRefs, PaginationScope,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -68,13 +69,54 @@ pub struct PaginatedScreenplay {
 }
 
 impl PaginatedScreenplay {
+    pub fn from_normalized(
+        normalized: NormalizedScreenplay,
+        style_profile: impl Into<String>,
+        scope: PaginationScope,
+    ) -> Self {
+        let mut pages: Vec<Page> = Vec::new();
+        let mut next_page_number = first_page_number(&scope);
+        let mut current_items: Vec<PageItem> = Vec::new();
+
+        for element in normalized.elements {
+            if element.starts_new_page && !current_items.is_empty() {
+                pages.push(build_page(
+                    pages.len(),
+                    next_page_number,
+                    &scope,
+                    std::mem::take(&mut current_items),
+                ));
+                next_page_number += 1;
+            }
+
+            current_items.push(page_item_from_normalized(element));
+        }
+
+        if !current_items.is_empty() {
+            pages.push(build_page(
+                pages.len(),
+                next_page_number,
+                &scope,
+                current_items,
+            ));
+        }
+
+        Self {
+            screenplay: normalized.screenplay,
+            style_profile: style_profile.into(),
+            source: PageBreakFixtureSourceRefs::default(),
+            scope,
+            pages,
+        }
+    }
+
     pub fn from_fixture(fixture: PageBreakFixture) -> Self {
         let pages = fixture
             .pages
             .into_iter()
             .enumerate()
             .map(|(index, page)| {
-                let items: Vec<PageItem> = page
+                let items = page
                     .items
                     .into_iter()
                     .map(|item| PageItem {
@@ -88,19 +130,8 @@ impl PaginatedScreenplay {
                         dual_dialogue_side: item.dual_dialogue_side,
                     })
                     .collect();
-                let blocks = build_blocks(&items);
 
-                Page {
-                    metadata: PageMetadata {
-                        index,
-                        number: page.number,
-                        kind: page_kind(page.number, &fixture.scope),
-                        body_page_number: body_page_number(page.number, &fixture.scope),
-                        title_page_number: title_page_number(page.number, &fixture.scope),
-                    },
-                    items,
-                    blocks,
-                }
+                build_page(index, page.number, &fixture.scope, items)
             })
             .collect();
 
@@ -111,6 +142,40 @@ impl PaginatedScreenplay {
             scope: fixture.scope,
             pages,
         }
+    }
+}
+
+fn build_page(
+    index: usize,
+    page_number: u32,
+    scope: &PaginationScope,
+    items: Vec<PageItem>,
+) -> Page {
+    let blocks = build_blocks(&items);
+
+    Page {
+        metadata: PageMetadata {
+            index,
+            number: page_number,
+            kind: page_kind(page_number, scope),
+            body_page_number: body_page_number(page_number, scope),
+            title_page_number: title_page_number(page_number, scope),
+        },
+        items,
+        blocks,
+    }
+}
+
+fn page_item_from_normalized(element: NormalizedElement) -> PageItem {
+    PageItem {
+        element_id: element.element_id,
+        kind: element.kind,
+        fragment: Fragment::Whole,
+        line_range: None,
+        block_id: element.block_id,
+        dual_dialogue_group: element.dual_dialogue_group,
+        dual_dialogue_side: element.dual_dialogue_side,
+        continuation_markers: Vec::new(),
     }
 }
 
@@ -184,6 +249,12 @@ fn continuation_markers_for_fragment(fragment: &Fragment) -> Vec<ContinuationMar
         ContinuedToNext => vec![More],
         ContinuedFromPrevAndToNext => vec![Continued, More],
     }
+}
+
+fn first_page_number(scope: &PaginationScope) -> u32 {
+    scope
+        .body_start_page
+        .unwrap_or_else(|| scope.title_page_count.map(|count| count + 1).unwrap_or(1))
 }
 
 fn page_kind(page_number: u32, scope: &PaginationScope) -> PageKind {
