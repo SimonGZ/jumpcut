@@ -46,9 +46,9 @@ fn selected_big_fish_window_probe_baselines_hold() {
     for (path, expected_lines, expected_score, expected_counts) in [
         (
             "tests/fixtures/pagination/big-fish.p38-40.page-breaks.json",
-            41,
-            (3, 2, 1),
-            (0, 0),
+            42,
+            (3, 2, 0),
+            (0, 1),
         ),
         (
             "tests/fixtures/pagination/big-fish.p42-44.page-breaks.json",
@@ -58,15 +58,15 @@ fn selected_big_fish_window_probe_baselines_hold() {
         ),
         (
             "tests/fixtures/pagination/big-fish.p55-57.page-breaks.json",
-            55,
-            (45, 0, 2),
-            (22, 21),
+            49,
+            (10, 0, 2),
+            (4, 4),
         ),
         (
             "tests/fixtures/pagination/big-fish.p77-79.page-breaks.json",
-            46,
-            (61, 0, 1),
-            (30, 30),
+            42,
+            (0, 0, 0),
+            (0, 0),
         ),
     ] {
         let fixture: PageBreakFixture = read_fixture(path);

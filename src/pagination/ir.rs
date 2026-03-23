@@ -828,14 +828,73 @@ fn split_dialogue_unit(
         return None;
     }
 
-    let mut prefix_lines = 0;
+    let mut lines_before_part = 0;
     let mut candidates = Vec::new();
-    for index in 0..(unit.parts.len() - 1) {
-        prefix_lines += measure_dialogue_part_lines(
-            &unit.parts[index].kind,
-            &unit.parts[index].text,
-            measurement,
-        );
+    for (index, part) in unit.parts.iter().enumerate() {
+        if can_split_within_dialogue_part(&part.kind) {
+            for split_offset in sentence_split_offsets(&part.text) {
+                let prefix_text = part.text[..split_offset].trim_end().to_string();
+                let suffix_text = part.text[split_offset..].trim_start().to_string();
+                if prefix_text.is_empty() || suffix_text.is_empty() {
+                    continue;
+                }
+
+                let prefix_part_lines =
+                    measure_dialogue_part_lines(&part.kind, &prefix_text, measurement);
+                let prefix_lines = lines_before_part + prefix_part_lines;
+                if prefix_lines > available_lines {
+                    continue;
+                }
+
+                let mut prefix_parts = unit.parts[..index].to_vec();
+                prefix_parts.push(crate::pagination::semantic::DialoguePart {
+                    element_id: part.element_id.clone(),
+                    kind: part.kind.clone(),
+                    text: prefix_text,
+                });
+
+                let mut suffix_parts = Vec::with_capacity(unit.parts.len() - index);
+                suffix_parts.push(crate::pagination::semantic::DialoguePart {
+                    element_id: part.element_id.clone(),
+                    kind: part.kind.clone(),
+                    text: suffix_text,
+                });
+                suffix_parts.extend_from_slice(&unit.parts[index + 1..]);
+
+                if !is_valid_dialogue_fragment(&prefix_parts)
+                    || !is_valid_dialogue_fragment(&suffix_parts)
+                {
+                    continue;
+                }
+
+                let suffix_lines = measure_dialogue_parts_lines(&suffix_parts, measurement);
+                candidates.push(SplitCandidate {
+                    prefix: DialogueUnit {
+                        block_id: unit.block_id.clone(),
+                        parts: prefix_parts,
+                        cohesion: unit.cohesion.clone(),
+                    },
+                    suffix: DialogueUnit {
+                        block_id: unit.block_id.clone(),
+                        parts: suffix_parts,
+                        cohesion: unit.cohesion.clone(),
+                    },
+                    score: score_dialogue_split_candidate(
+                        prefix_lines,
+                        suffix_lines,
+                        available_lines,
+                        None,
+                        true,
+                    ),
+                });
+            }
+        }
+
+        let part_lines = measure_dialogue_part_lines(&part.kind, &part.text, measurement);
+        let prefix_lines = lines_before_part + part_lines;
+        if index == unit.parts.len() - 1 {
+            break;
+        }
         if prefix_lines > available_lines {
             break;
         }
@@ -860,12 +919,21 @@ fn split_dialogue_unit(
                     suffix_lines,
                     available_lines,
                     suffix.first().map(|part| &part.kind),
+                    ends_at_sentence_boundary(
+                        &prefix.last().map(|part| part.text.as_str()).unwrap_or(""),
+                    ),
                 ),
             });
         }
+
+        lines_before_part = prefix_lines;
     }
 
     choose_best_split_candidate(candidates).map(|candidate| (candidate.prefix, candidate.suffix))
+}
+
+fn can_split_within_dialogue_part(kind: &DialoguePartKind) -> bool {
+    matches!(kind, DialoguePartKind::Dialogue | DialoguePartKind::Lyric)
 }
 
 fn is_valid_dialogue_fragment(parts: &[crate::pagination::semantic::DialoguePart]) -> bool {
@@ -901,6 +969,7 @@ fn score_dialogue_split_candidate(
     suffix_lines: u32,
     available_lines: u32,
     suffix_first_kind: Option<&DialoguePartKind>,
+    ends_at_sentence_boundary: bool,
 ) -> SplitCandidateScore {
     SplitCandidateScore {
         awkward_continuation_penalty: u32::from(matches!(
@@ -909,7 +978,7 @@ fn score_dialogue_split_candidate(
         )),
         tiny_tail_penalty: tiny_fragment_penalty(suffix_lines),
         tiny_head_penalty: tiny_fragment_penalty(prefix_lines),
-        sentence_boundary_penalty: 0,
+        sentence_boundary_penalty: u32::from(!ends_at_sentence_boundary),
         unused_space_penalty: available_lines.saturating_sub(prefix_lines),
         imbalance_penalty: prefix_lines.abs_diff(suffix_lines),
     }
@@ -1044,8 +1113,11 @@ fn title_page_number(page_number: u32, scope: &PaginationScope) -> Option<u32> {
 
 #[cfg(test)]
 mod tests {
-    use super::split_flow_unit;
-    use crate::pagination::{Cohesion, FlowKind, FlowUnit, MeasurementConfig};
+    use super::{split_dialogue_unit, split_flow_unit};
+    use crate::pagination::{
+        Cohesion, DialoguePart, DialoguePartKind, DialogueUnit, FlowKind, FlowUnit,
+        MeasurementConfig,
+    };
 
     #[test]
     fn flow_splitting_prefers_sentence_boundaries_inside_a_paragraph() {
@@ -1079,6 +1151,45 @@ mod tests {
         );
     }
 
+    #[test]
+    fn dialogue_splitting_can_split_inside_a_single_spoken_part_at_sentence_boundaries() {
+        let unit = dialogue_unit(
+            "EDWARD (CONT'D)",
+            "Probably just as well. He would have told it wrong anyway. All the facts and none of the flavor.",
+        );
+        let measurement = MeasurementConfig::screenplay_default();
+
+        let (prefix, suffix) = split_dialogue_unit(&unit, 2, &measurement).unwrap();
+
+        assert_eq!(prefix.parts.len(), 2);
+        assert_eq!(prefix.parts[0].text, "EDWARD (CONT'D)");
+        assert_eq!(prefix.parts[1].text, "Probably just as well.");
+        assert_eq!(
+            suffix.parts[0].text,
+            "He would have told it wrong anyway. All the facts and none of the flavor."
+        );
+    }
+
+    #[test]
+    fn dialogue_splitting_prefers_big_fish_song_break_after_unusual_man() {
+        let unit = dialogue_unit(
+            "PING (CONT'D)",
+            "*But she won't. No, she can't. She needs a special special different unusual man. Because that girl, Who looks like me, She has wants, but she has needs.*",
+        );
+        let measurement = MeasurementConfig::screenplay_default();
+
+        let (prefix, suffix) = split_dialogue_unit(&unit, 6, &measurement).unwrap();
+
+        assert_eq!(
+            prefix.parts[1].text,
+            "*But she won't. No, she can't. She needs a special special different unusual man."
+        );
+        assert_eq!(
+            suffix.parts[0].text,
+            "Because that girl, Who looks like me, She has wants, but she has needs.*"
+        );
+    }
+
     fn flow_unit(text: &str) -> FlowUnit {
         FlowUnit {
             element_id: "el-00001".into(),
@@ -1086,6 +1197,29 @@ mod tests {
             text: text.into(),
             line_range: None,
             scene_number: None,
+            cohesion: Cohesion {
+                keep_together: false,
+                keep_with_next: false,
+                can_split: true,
+            },
+        }
+    }
+
+    fn dialogue_unit(character: &str, dialogue: &str) -> DialogueUnit {
+        DialogueUnit {
+            block_id: "block-00001".into(),
+            parts: vec![
+                DialoguePart {
+                    element_id: "el-00001".into(),
+                    kind: DialoguePartKind::Character,
+                    text: character.into(),
+                },
+                DialoguePart {
+                    element_id: "el-00002".into(),
+                    kind: DialoguePartKind::Dialogue,
+                    text: dialogue.into(),
+                },
+            ],
             cohesion: Cohesion {
                 keep_together: false,
                 keep_with_next: false,
