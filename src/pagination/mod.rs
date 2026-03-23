@@ -1,8 +1,12 @@
+mod comparison;
 mod fixtures;
 mod ir;
 mod normalized;
 mod semantic;
 
+pub use comparison::{
+    compare_paginated_to_fixture, ComparisonIssue, ComparisonIssueKind, ComparisonReport,
+};
 pub use fixtures::{
     Fragment, LineRange, NormalizedElement, NormalizedScreenplay, PageBreakFixture,
     PageBreakFixturePage, PageBreakFixtureSourceRefs, PaginationScope,
