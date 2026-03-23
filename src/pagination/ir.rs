@@ -110,6 +110,104 @@ impl PaginatedScreenplay {
                     index += 1;
                 }
                 unit => {
+                    if let SemanticUnit::Dialogue(dialogue) = unit {
+                        let remaining_lines =
+                            config.lines_per_page.saturating_sub(current_lines);
+                        let available_lines = if current_items.is_empty() {
+                            config.lines_per_page
+                        } else {
+                            remaining_lines
+                        };
+
+                        if measure_dialogue_lines(dialogue) > available_lines {
+                            if let Some((current_segment, remainder)) =
+                                split_dialogue_unit(dialogue, available_lines)
+                            {
+                                let placed_items = dialogue_items_with_fragment_markers(
+                                    &current_segment,
+                                    None,
+                                    None,
+                                    false,
+                                    true,
+                                );
+                                current_items.extend(placed_items);
+
+                                pages.push(build_page(
+                                    pages.len(),
+                                    next_page_number,
+                                    &scope,
+                                    std::mem::take(&mut current_items),
+                                ));
+                                next_page_number += 1;
+                                current_lines = 0;
+
+                                let mut carry = remainder;
+                                loop {
+                                    let carry_lines = measure_dialogue_lines(&carry);
+                                    if carry_lines <= config.lines_per_page {
+                                        let placed_items = dialogue_items_with_fragment_markers(
+                                            &carry,
+                                            None,
+                                            None,
+                                            true,
+                                            false,
+                                        );
+                                        current_lines = current_lines.saturating_add(carry_lines);
+                                        current_items.extend(placed_items);
+                                        break;
+                                    }
+
+                                    if let Some((head, tail)) =
+                                        split_dialogue_unit(&carry, config.lines_per_page)
+                                    {
+                                        let placed_items = dialogue_items_with_fragment_markers(
+                                            &head,
+                                            None,
+                                            None,
+                                            true,
+                                            true,
+                                        );
+                                        current_items.extend(placed_items);
+                                        pages.push(build_page(
+                                            pages.len(),
+                                            next_page_number,
+                                            &scope,
+                                            std::mem::take(&mut current_items),
+                                        ));
+                                        next_page_number += 1;
+                                        current_lines = 0;
+                                        carry = tail;
+                                    } else {
+                                        let placed_items = dialogue_items_with_fragment_markers(
+                                            &carry,
+                                            None,
+                                            None,
+                                            true,
+                                            false,
+                                        );
+                                        current_lines =
+                                            current_lines.saturating_add(carry_lines);
+                                        current_items.extend(placed_items);
+                                        break;
+                                    }
+                                }
+
+                                index += 1;
+                                continue;
+                            } else if !current_items.is_empty() {
+                                pages.push(build_page(
+                                    pages.len(),
+                                    next_page_number,
+                                    &scope,
+                                    std::mem::take(&mut current_items),
+                                ));
+                                next_page_number += 1;
+                                current_lines = 0;
+                                continue;
+                            }
+                        }
+                    }
+
                     let unit_lines = measure_unit_lines(unit);
                     let mut required_lines = unit_lines;
                     if should_keep_with_next(unit) {
@@ -332,27 +430,34 @@ fn page_items_from_semantic_unit(unit: &SemanticUnit) -> Vec<PageItem> {
             dual_dialogue_side: None,
             continuation_markers: Vec::new(),
         }],
-        SemanticUnit::Dialogue(unit) => dialogue_items(unit, None, None),
+        SemanticUnit::Dialogue(unit) => {
+            dialogue_items_with_fragment_markers(unit, None, None, false, false)
+        }
         SemanticUnit::DualDialogue(unit) => unit
             .sides
             .iter()
             .flat_map(|side| {
-                dialogue_items(
+                dialogue_items_with_fragment_markers(
                     &side.dialogue,
                     Some(unit.group_id.as_str()),
                     Some(side.side),
+                    false,
+                    false,
                 )
             })
             .collect(),
     }
 }
 
-fn dialogue_items(
+fn dialogue_items_with_fragment_markers(
     unit: &DialogueUnit,
     dual_group: Option<&str>,
     dual_side: Option<u8>,
+    continued_from_prev: bool,
+    continued_to_next: bool,
 ) -> Vec<PageItem> {
-    unit.parts
+    let mut items: Vec<PageItem> = unit
+        .parts
         .iter()
         .map(|part| PageItem {
             element_id: part.element_id.clone(),
@@ -364,7 +469,23 @@ fn dialogue_items(
             dual_dialogue_side: dual_side,
             continuation_markers: Vec::new(),
         })
-        .collect()
+        .collect();
+
+    if let Some(first) = items.first_mut() {
+        if continued_from_prev {
+            first.fragment = merge_fragment(&first.fragment, &Fragment::ContinuedFromPrev);
+            first.continuation_markers = continuation_markers_for_fragment(&first.fragment);
+        }
+    }
+
+    if let Some(last) = items.last_mut() {
+        if continued_to_next {
+            last.fragment = merge_fragment(&last.fragment, &Fragment::ContinuedToNext);
+            last.continuation_markers = continuation_markers_for_fragment(&last.fragment);
+        }
+    }
+
+    items
 }
 
 fn page_item_from_normalized(element: NormalizedElement) -> PageItem {
@@ -472,6 +593,63 @@ fn dialogue_part_kind_name(kind: &DialoguePartKind) -> &'static str {
         DialoguePartKind::Dialogue => "Dialogue",
         DialoguePartKind::Lyric => "Lyric",
     }
+}
+
+fn split_dialogue_unit(
+    unit: &DialogueUnit,
+    available_lines: u32,
+) -> Option<(DialogueUnit, DialogueUnit)> {
+    if unit.parts.len() < 2 {
+        return None;
+    }
+
+    let mut prefix_lines = 0;
+    let mut best_index = None;
+    for index in 0..(unit.parts.len() - 1) {
+        prefix_lines += text_line_count(&unit.parts[index].text);
+        if prefix_lines > available_lines {
+            break;
+        }
+
+        let prefix = &unit.parts[..=index];
+        let suffix = &unit.parts[index + 1..];
+        if is_valid_dialogue_fragment(prefix) && is_valid_dialogue_fragment(suffix) {
+            best_index = Some(index + 1);
+        }
+    }
+
+    best_index.map(|split_index| {
+        (
+            DialogueUnit {
+                block_id: unit.block_id.clone(),
+                parts: unit.parts[..split_index].to_vec(),
+                cohesion: unit.cohesion.clone(),
+            },
+            DialogueUnit {
+                block_id: unit.block_id.clone(),
+                parts: unit.parts[split_index..].to_vec(),
+                cohesion: unit.cohesion.clone(),
+            },
+        )
+    })
+}
+
+fn is_valid_dialogue_fragment(parts: &[crate::pagination::semantic::DialoguePart]) -> bool {
+    let has_spoken_content = parts.iter().any(|part| {
+        matches!(
+            part.kind,
+            DialoguePartKind::Dialogue | DialoguePartKind::Lyric
+        )
+    });
+
+    if !has_spoken_content {
+        return false;
+    }
+
+    !matches!(
+        parts.last().map(|part| &part.kind),
+        Some(DialoguePartKind::Character | DialoguePartKind::Parenthetical)
+    )
 }
 
 fn merge_fragment(current: &Fragment, next: &Fragment) -> Fragment {

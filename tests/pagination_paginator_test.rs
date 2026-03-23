@@ -1,7 +1,8 @@
 use jumpcut::pagination::{
-    BlockPlacement, Cohesion, DialoguePart, DialoguePartKind, DialogueUnit, DualDialogueSide,
-    DualDialogueUnit, FlowKind, FlowUnit, LyricUnit, PageKind, PageStartUnit,
-    PaginatedScreenplay, PaginationConfig, PaginationScope, SemanticScreenplay, SemanticUnit,
+    BlockPlacement, Cohesion, ContinuationMarker, DialoguePart, DialoguePartKind, DialogueUnit,
+    DualDialogueSide, DualDialogueUnit, FlowKind, FlowUnit, Fragment, LyricUnit, PageKind,
+    PageStartUnit, PaginatedScreenplay, PaginationConfig, PaginationScope, SemanticScreenplay,
+    SemanticUnit,
 };
 use pretty_assertions::assert_eq;
 
@@ -202,6 +203,183 @@ fn it_places_dual_dialogue_units_whole_and_preserves_dual_blocks() {
         .filter(|block| matches!(block.placement, BlockPlacement::DualDialogue { .. }))
         .collect();
     assert_eq!(dual_blocks.len(), 2);
+}
+
+#[test]
+fn it_splits_dialogue_units_at_part_boundaries_and_marks_continuations() {
+    let semantic = SemanticScreenplay {
+        screenplay: "sample".into(),
+        starting_page_number: None,
+        units: vec![
+            SemanticUnit::Flow(flow_unit("el-00001", FlowKind::Action, "One.\nTwo.")),
+            SemanticUnit::Dialogue(dialogue_unit(
+                "block-00001",
+                vec![
+                    dialogue_part("el-00002", DialoguePartKind::Character, "MARCUS"),
+                    dialogue_part("el-00003", DialoguePartKind::Dialogue, "First bit."),
+                    dialogue_part("el-00004", DialoguePartKind::Parenthetical, "(leaning in)"),
+                    dialogue_part("el-00005", DialoguePartKind::Dialogue, "Second bit."),
+                ],
+            )),
+        ],
+    };
+
+    let actual = PaginatedScreenplay::paginate(
+        semantic,
+        PaginationConfig { lines_per_page: 4 },
+        "standard",
+        PaginationScope {
+            title_page_count: Some(1),
+            body_start_page: Some(2),
+        },
+    );
+
+    assert_eq!(actual.pages.len(), 2);
+    assert_eq!(
+        actual.pages[0]
+            .items
+            .iter()
+            .map(|item| item.element_id.as_str())
+            .collect::<Vec<_>>(),
+        vec!["el-00001", "el-00002", "el-00003"]
+    );
+    assert_eq!(
+        actual.pages[1]
+            .items
+            .iter()
+            .map(|item| item.element_id.as_str())
+            .collect::<Vec<_>>(),
+        vec!["el-00004", "el-00005"]
+    );
+
+    let page_one_dialogue = actual.pages[0]
+        .items
+        .iter()
+        .find(|item| item.element_id == "el-00003")
+        .unwrap();
+    assert_eq!(page_one_dialogue.fragment, Fragment::ContinuedToNext);
+    assert_eq!(
+        page_one_dialogue.continuation_markers,
+        vec![ContinuationMarker::More]
+    );
+
+    let page_two_parenthetical = actual.pages[1]
+        .items
+        .iter()
+        .find(|item| item.element_id == "el-00004")
+        .unwrap();
+    assert_eq!(page_two_parenthetical.fragment, Fragment::ContinuedFromPrev);
+    assert_eq!(
+        page_two_parenthetical.continuation_markers,
+        vec![ContinuationMarker::Continued]
+    );
+
+    let page_one_block = actual.pages[0]
+        .blocks
+        .iter()
+        .find(|block| block.id == "block-00001")
+        .unwrap();
+    assert_eq!(page_one_block.fragment, Fragment::ContinuedToNext);
+
+    let page_two_block = actual.pages[1]
+        .blocks
+        .iter()
+        .find(|block| block.id == "block-00001")
+        .unwrap();
+    assert_eq!(page_two_block.fragment, Fragment::ContinuedFromPrev);
+}
+
+#[test]
+fn it_does_not_orphan_a_character_cue_when_dialogue_wont_fit() {
+    let semantic = SemanticScreenplay {
+        screenplay: "sample".into(),
+        starting_page_number: None,
+        units: vec![
+            SemanticUnit::Flow(flow_unit("el-00001", FlowKind::Action, "One.\nTwo.\nThree.")),
+            SemanticUnit::Dialogue(dialogue_unit(
+                "block-00001",
+                vec![
+                    dialogue_part("el-00002", DialoguePartKind::Character, "MARCUS"),
+                    dialogue_part("el-00003", DialoguePartKind::Dialogue, "First bit."),
+                ],
+            )),
+        ],
+    };
+
+    let actual = PaginatedScreenplay::paginate(
+        semantic,
+        PaginationConfig { lines_per_page: 4 },
+        "standard",
+        PaginationScope {
+            title_page_count: Some(1),
+            body_start_page: Some(2),
+        },
+    );
+
+    assert_eq!(actual.pages.len(), 2);
+    assert_eq!(
+        actual.pages[0]
+            .items
+            .iter()
+            .map(|item| item.element_id.as_str())
+            .collect::<Vec<_>>(),
+        vec!["el-00001"]
+    );
+    assert_eq!(
+        actual.pages[1]
+            .items
+            .iter()
+            .map(|item| item.element_id.as_str())
+            .collect::<Vec<_>>(),
+        vec!["el-00002", "el-00003"]
+    );
+}
+
+#[test]
+fn it_keeps_parentheticals_with_some_dialogue_when_splitting() {
+    let semantic = SemanticScreenplay {
+        screenplay: "sample".into(),
+        starting_page_number: None,
+        units: vec![
+            SemanticUnit::Flow(flow_unit("el-00001", FlowKind::Action, "One.\nTwo.\nThree.")),
+            SemanticUnit::Dialogue(dialogue_unit(
+                "block-00001",
+                vec![
+                    dialogue_part("el-00002", DialoguePartKind::Character, "MARCUS"),
+                    dialogue_part("el-00003", DialoguePartKind::Parenthetical, "(quietly)"),
+                    dialogue_part("el-00004", DialoguePartKind::Dialogue, "First bit."),
+                ],
+            )),
+        ],
+    };
+
+    let actual = PaginatedScreenplay::paginate(
+        semantic,
+        PaginationConfig { lines_per_page: 5 },
+        "standard",
+        PaginationScope {
+            title_page_count: Some(1),
+            body_start_page: Some(2),
+        },
+    );
+
+    assert_eq!(actual.pages.len(), 2);
+    assert_eq!(
+        actual.pages[0]
+            .items
+            .iter()
+            .map(|item| item.element_id.as_str())
+            .collect::<Vec<_>>(),
+        vec!["el-00001"]
+    );
+    assert_eq!(
+        actual.pages[1]
+            .items
+            .iter()
+            .map(|item| item.element_id.as_str())
+            .collect::<Vec<_>>(),
+        vec!["el-00002", "el-00003", "el-00004"]
+    );
 }
 
 fn flow_unit(element_id: &str, kind: FlowKind, text: &str) -> FlowUnit {
