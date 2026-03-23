@@ -1,6 +1,7 @@
 mod fixtures;
 mod ir;
 mod normalized;
+mod semantic;
 
 pub use fixtures::{
     Fragment, LineRange, NormalizedElement, NormalizedScreenplay, PageBreakFixture,
@@ -11,3 +12,8 @@ pub use ir::{
     PaginatedScreenplay,
 };
 pub use normalized::normalize_screenplay;
+pub use semantic::{
+    build_semantic_screenplay, Cohesion, DialoguePart, DialoguePartKind, DialogueUnit,
+    DualDialogueSide, DualDialogueUnit, FlowKind, FlowUnit, LyricUnit, PageStartUnit,
+    SemanticScreenplay, SemanticUnit,
+};
