@@ -3,8 +3,8 @@ use crate::pagination::fixtures::{
     PageBreakFixtureSourceRefs, PaginationScope,
 };
 use crate::pagination::semantic::{
-    DialoguePartKind, DialogueUnit, DualDialogueUnit, FlowKind, SemanticScreenplay,
-    SemanticUnit,
+    DialoguePartKind, DialogueUnit, DualDialogueUnit, FlowKind, FlowUnit,
+    SemanticScreenplay, SemanticUnit,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -110,6 +110,85 @@ impl PaginatedScreenplay {
                     index += 1;
                 }
                 unit => {
+                    if let SemanticUnit::Flow(flow) = unit {
+                        let remaining_lines =
+                            config.lines_per_page.saturating_sub(current_lines);
+                        let available_lines = if current_items.is_empty() {
+                            config.lines_per_page
+                        } else {
+                            remaining_lines
+                        };
+
+                        if flow.cohesion.can_split && text_line_count(&flow.text) > available_lines
+                        {
+                            if let Some((current_segment, remainder)) =
+                                split_flow_unit(flow, available_lines)
+                            {
+                                current_items.push(flow_page_item(
+                                    &current_segment,
+                                    false,
+                                    true,
+                                ));
+
+                                pages.push(build_page(
+                                    pages.len(),
+                                    next_page_number,
+                                    &scope,
+                                    std::mem::take(&mut current_items),
+                                ));
+                                next_page_number += 1;
+                                current_lines = 0;
+
+                                let mut carry = remainder;
+                                loop {
+                                    let carry_lines = text_line_count(&carry.text);
+                                    if carry_lines <= config.lines_per_page {
+                                        current_items.push(flow_page_item(
+                                            &carry,
+                                            true,
+                                            false,
+                                        ));
+                                        current_lines = current_lines.saturating_add(carry_lines);
+                                        break;
+                                    }
+
+                                    if let Some((head, tail)) =
+                                        split_flow_unit(&carry, config.lines_per_page)
+                                    {
+                                        current_items.push(flow_page_item(&head, true, true));
+                                        pages.push(build_page(
+                                            pages.len(),
+                                            next_page_number,
+                                            &scope,
+                                            std::mem::take(&mut current_items),
+                                        ));
+                                        next_page_number += 1;
+                                        current_lines = 0;
+                                        carry = tail;
+                                    } else {
+                                        current_items.push(flow_page_item(&carry, true, false));
+                                        current_lines =
+                                            current_lines.saturating_add(carry_lines);
+                                        break;
+                                    }
+                                }
+
+                                index += 1;
+                                continue;
+                            } else if !current_items.is_empty() {
+                                pages.push(build_page(
+                                    pages.len(),
+                                    next_page_number,
+                                    &scope,
+                                    std::mem::take(&mut current_items),
+                                ));
+                                next_page_number += 1;
+                                current_lines = 0;
+                                continue;
+                            }
+                        }
+                    }
+
                     if let SemanticUnit::Dialogue(dialogue) = unit {
                         let remaining_lines =
                             config.lines_per_page.saturating_sub(current_lines);
@@ -410,16 +489,7 @@ fn text_line_count(text: &str) -> u32 {
 fn page_items_from_semantic_unit(unit: &SemanticUnit) -> Vec<PageItem> {
     match unit {
         SemanticUnit::PageStart(_) => Vec::new(),
-        SemanticUnit::Flow(unit) => vec![PageItem {
-            element_id: unit.element_id.clone(),
-            kind: flow_kind_name(&unit.kind).to_string(),
-            fragment: Fragment::Whole,
-            line_range: None,
-            block_id: None,
-            dual_dialogue_group: None,
-            dual_dialogue_side: None,
-            continuation_markers: Vec::new(),
-        }],
+        SemanticUnit::Flow(unit) => vec![flow_page_item(unit, false, false)],
         SemanticUnit::Lyric(unit) => vec![PageItem {
             element_id: unit.element_id.clone(),
             kind: "Lyric".into(),
@@ -446,6 +516,31 @@ fn page_items_from_semantic_unit(unit: &SemanticUnit) -> Vec<PageItem> {
                 )
             })
             .collect(),
+    }
+}
+
+fn flow_page_item(
+    unit: &FlowUnit,
+    continued_from_prev: bool,
+    continued_to_next: bool,
+) -> PageItem {
+    let mut fragment = Fragment::Whole;
+    if continued_from_prev {
+        fragment = merge_fragment(&fragment, &Fragment::ContinuedFromPrev);
+    }
+    if continued_to_next {
+        fragment = merge_fragment(&fragment, &Fragment::ContinuedToNext);
+    }
+
+    PageItem {
+        element_id: unit.element_id.clone(),
+        kind: flow_kind_name(&unit.kind).to_string(),
+        fragment: fragment.clone(),
+        line_range: unit.line_range,
+        block_id: None,
+        dual_dialogue_group: None,
+        dual_dialogue_side: None,
+        continuation_markers: continuation_markers_for_fragment(&fragment),
     }
 }
 
@@ -595,6 +690,54 @@ fn dialogue_part_kind_name(kind: &DialoguePartKind) -> &'static str {
     }
 }
 
+#[derive(Clone, Debug)]
+struct SplitCandidate<T> {
+    prefix: T,
+    suffix: T,
+    used_lines: u32,
+}
+
+fn choose_best_split_candidate<T>(candidates: Vec<SplitCandidate<T>>) -> Option<SplitCandidate<T>> {
+    candidates.into_iter().max_by_key(|candidate| candidate.used_lines)
+}
+
+fn split_flow_unit(unit: &FlowUnit, available_lines: u32) -> Option<(FlowUnit, FlowUnit)> {
+    let lines: Vec<&str> = unit.text.lines().collect();
+    if lines.len() < 2 {
+        return None;
+    }
+
+    let mut candidates = Vec::new();
+    for split_index in 1..lines.len() {
+        let prefix_lines = split_index as u32;
+        if prefix_lines > available_lines {
+            break;
+        }
+
+        candidates.push(SplitCandidate {
+            prefix: FlowUnit {
+                element_id: unit.element_id.clone(),
+                kind: unit.kind.clone(),
+                text: lines[..split_index].join("\n"),
+                line_range: Some((1, split_index as u32)),
+                scene_number: unit.scene_number.clone(),
+                cohesion: unit.cohesion.clone(),
+            },
+            suffix: FlowUnit {
+                element_id: unit.element_id.clone(),
+                kind: unit.kind.clone(),
+                text: lines[split_index..].join("\n"),
+                line_range: Some((split_index as u32 + 1, lines.len() as u32)),
+                scene_number: unit.scene_number.clone(),
+                cohesion: unit.cohesion.clone(),
+            },
+            used_lines: prefix_lines,
+        });
+    }
+
+    choose_best_split_candidate(candidates).map(|candidate| (candidate.prefix, candidate.suffix))
+}
+
 fn split_dialogue_unit(
     unit: &DialogueUnit,
     available_lines: u32,
@@ -604,7 +747,7 @@ fn split_dialogue_unit(
     }
 
     let mut prefix_lines = 0;
-    let mut best_index = None;
+    let mut candidates = Vec::new();
     for index in 0..(unit.parts.len() - 1) {
         prefix_lines += text_line_count(&unit.parts[index].text);
         if prefix_lines > available_lines {
@@ -614,24 +757,23 @@ fn split_dialogue_unit(
         let prefix = &unit.parts[..=index];
         let suffix = &unit.parts[index + 1..];
         if is_valid_dialogue_fragment(prefix) && is_valid_dialogue_fragment(suffix) {
-            best_index = Some(index + 1);
+            candidates.push(SplitCandidate {
+                prefix: DialogueUnit {
+                    block_id: unit.block_id.clone(),
+                    parts: prefix.to_vec(),
+                    cohesion: unit.cohesion.clone(),
+                },
+                suffix: DialogueUnit {
+                    block_id: unit.block_id.clone(),
+                    parts: suffix.to_vec(),
+                    cohesion: unit.cohesion.clone(),
+                },
+                used_lines: prefix_lines,
+            });
         }
     }
 
-    best_index.map(|split_index| {
-        (
-            DialogueUnit {
-                block_id: unit.block_id.clone(),
-                parts: unit.parts[..split_index].to_vec(),
-                cohesion: unit.cohesion.clone(),
-            },
-            DialogueUnit {
-                block_id: unit.block_id.clone(),
-                parts: unit.parts[split_index..].to_vec(),
-                cohesion: unit.cohesion.clone(),
-            },
-        )
-    })
+    choose_best_split_candidate(candidates).map(|candidate| (candidate.prefix, candidate.suffix))
 }
 
 fn is_valid_dialogue_fragment(parts: &[crate::pagination::semantic::DialoguePart]) -> bool {

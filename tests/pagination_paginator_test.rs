@@ -382,6 +382,46 @@ fn it_keeps_parentheticals_with_some_dialogue_when_splitting() {
     );
 }
 
+#[test]
+fn it_splits_flow_units_at_explicit_line_boundaries() {
+    let semantic = SemanticScreenplay {
+        screenplay: "sample".into(),
+        starting_page_number: None,
+        units: vec![SemanticUnit::Flow(flow_unit(
+            "el-00001",
+            FlowKind::Action,
+            "One.\nTwo.\nThree.\nFour.",
+        ))],
+    };
+
+    let actual = PaginatedScreenplay::paginate(
+        semantic,
+        PaginationConfig { lines_per_page: 2 },
+        "standard",
+        PaginationScope {
+            title_page_count: Some(1),
+            body_start_page: Some(2),
+        },
+    );
+
+    assert_eq!(actual.pages.len(), 2);
+
+    let first = &actual.pages[0].items[0];
+    assert_eq!(first.element_id, "el-00001");
+    assert_eq!(first.fragment, Fragment::ContinuedToNext);
+    assert_eq!(first.line_range, Some((1, 2)));
+    assert_eq!(first.continuation_markers, vec![ContinuationMarker::More]);
+
+    let second = &actual.pages[1].items[0];
+    assert_eq!(second.element_id, "el-00001");
+    assert_eq!(second.fragment, Fragment::ContinuedFromPrev);
+    assert_eq!(second.line_range, Some((3, 4)));
+    assert_eq!(
+        second.continuation_markers,
+        vec![ContinuationMarker::Continued]
+    );
+}
+
 fn flow_unit(element_id: &str, kind: FlowKind, text: &str) -> FlowUnit {
     let cohesion = match &kind {
         FlowKind::SceneHeading => Cohesion {
@@ -400,6 +440,7 @@ fn flow_unit(element_id: &str, kind: FlowKind, text: &str) -> FlowUnit {
         element_id: element_id.into(),
         kind,
         text: text.into(),
+        line_range: None,
         scene_number: None,
         cohesion,
     }

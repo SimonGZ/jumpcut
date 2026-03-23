@@ -47,6 +47,7 @@ pub struct FlowUnit {
     pub element_id: String,
     pub kind: FlowKind,
     pub text: String,
+    pub line_range: Option<(u32, u32)>,
     pub scene_number: Option<String>,
     pub cohesion: Cohesion,
 }
@@ -217,6 +218,7 @@ fn build_flow_unit(element: &NormalizedElement) -> FlowUnit {
         element_id: element.element_id.clone(),
         kind: flow_kind(&element.kind),
         text: element.text.clone(),
+        line_range: None,
         scene_number: element.scene_number.clone(),
         cohesion: match element.kind.as_str() {
             "Scene Heading" => Cohesion {
