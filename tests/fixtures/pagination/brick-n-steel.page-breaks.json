@@ -1,0 +1,227 @@
+{
+  "screenplay": "brick-n-steel",
+  "style_profile": "standard",
+  "source": {
+    "fountain": "source/source.fountain",
+    "fdx": "source/source.fdx",
+    "pdf": "source/source.pdf"
+  },
+  "scope": {
+    "title_page_count": 1,
+    "body_start_page": 2
+  },
+  "pages": [
+    {
+      "number": 2,
+      "items": [
+        {
+          "element_id": "el-00001",
+          "kind": "Scene Heading",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00002",
+          "kind": "Action",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00003",
+          "kind": "Action",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00004",
+          "kind": "Action",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00005",
+          "kind": "Character",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00001",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00006",
+          "kind": "Dialogue",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00001",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00007",
+          "kind": "Character",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00002",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00008",
+          "kind": "Dialogue",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00002",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00009",
+          "kind": "Character",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00003",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00010",
+          "kind": "Dialogue",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00003",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00011",
+          "kind": "Action",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00012",
+          "kind": "Character",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00004",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00013",
+          "kind": "Parenthetical",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00004",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00014",
+          "kind": "Dialogue",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00004",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00015",
+          "kind": "Character",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00005",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00016",
+          "kind": "Dialogue",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00005",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00017",
+          "kind": "Action",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00018",
+          "kind": "Action",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00019",
+          "kind": "Action",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00020",
+          "kind": "Character",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00006",
+          "dual_dialogue_group": "dual-00001",
+          "dual_dialogue_side": 1
+        },
+        {
+          "element_id": "el-00021",
+          "kind": "Dialogue",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00006",
+          "dual_dialogue_group": "dual-00001",
+          "dual_dialogue_side": 1
+        },
+        {
+          "element_id": "el-00022",
+          "kind": "Character",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00007",
+          "dual_dialogue_group": "dual-00001",
+          "dual_dialogue_side": 2
+        },
+        {
+          "element_id": "el-00023",
+          "kind": "Dialogue",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00007",
+          "dual_dialogue_group": "dual-00001",
+          "dual_dialogue_side": 2
+        }
+      ]
+    }
+  ]
+}

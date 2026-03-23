@@ -10,6 +10,7 @@ use std::str::Lines;
 use Element::PageBreak;
 
 mod converters;
+pub mod pagination;
 mod rendering;
 mod text_style_parser;
 
