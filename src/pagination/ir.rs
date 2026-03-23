@@ -2,9 +2,13 @@ use crate::pagination::fixtures::{
     Fragment, NormalizedElement, NormalizedScreenplay, PageBreakFixture,
     PageBreakFixtureSourceRefs, PaginationScope,
 };
+use crate::pagination::measurement::{
+    measure_dialogue_part_lines, measure_dialogue_unit_lines, measure_dual_dialogue_unit_lines,
+    measure_flow_unit_lines, measure_lyric_unit_lines, MeasurementConfig,
+};
 use crate::pagination::semantic::{
-    DialoguePartKind, DialogueUnit, DualDialogueUnit, FlowKind, FlowUnit,
-    SemanticScreenplay, SemanticUnit,
+    DialoguePartKind, DialogueUnit, FlowKind, FlowUnit, SemanticScreenplay,
+    SemanticUnit,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -72,9 +76,19 @@ pub struct PaginatedScreenplay {
     pub pages: Vec<Page>,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct PaginationConfig {
     pub lines_per_page: u32,
+    pub measurement: MeasurementConfig,
+}
+
+impl PaginationConfig {
+    pub fn screenplay(lines_per_page: u32) -> Self {
+        Self {
+            lines_per_page,
+            measurement: MeasurementConfig::screenplay_default(),
+        }
+    }
 }
 
 impl PaginatedScreenplay {
@@ -119,10 +133,12 @@ impl PaginatedScreenplay {
                             remaining_lines
                         };
 
-                        if flow.cohesion.can_split && text_line_count(&flow.text) > available_lines
+                        if flow.cohesion.can_split
+                            && measure_flow_unit_lines(flow, &config.measurement)
+                                > available_lines
                         {
                             if let Some((current_segment, remainder)) =
-                                split_flow_unit(flow, available_lines)
+                                split_flow_unit(flow, available_lines, &config.measurement)
                             {
                                 current_items.push(flow_page_item(
                                     &current_segment,
@@ -141,7 +157,8 @@ impl PaginatedScreenplay {
 
                                 let mut carry = remainder;
                                 loop {
-                                    let carry_lines = text_line_count(&carry.text);
+                                    let carry_lines =
+                                        measure_flow_unit_lines(&carry, &config.measurement);
                                     if carry_lines <= config.lines_per_page {
                                         current_items.push(flow_page_item(
                                             &carry,
@@ -153,7 +170,11 @@ impl PaginatedScreenplay {
                                     }
 
                                     if let Some((head, tail)) =
-                                        split_flow_unit(&carry, config.lines_per_page)
+                                        split_flow_unit(
+                                            &carry,
+                                            config.lines_per_page,
+                                            &config.measurement,
+                                        )
                                     {
                                         current_items.push(flow_page_item(&head, true, true));
                                         pages.push(build_page(
@@ -198,9 +219,15 @@ impl PaginatedScreenplay {
                             remaining_lines
                         };
 
-                        if measure_dialogue_lines(dialogue) > available_lines {
+                        if measure_dialogue_unit_lines(dialogue, &config.measurement)
+                            > available_lines
+                        {
                             if let Some((current_segment, remainder)) =
-                                split_dialogue_unit(dialogue, available_lines)
+                                split_dialogue_unit(
+                                    dialogue,
+                                    available_lines,
+                                    &config.measurement,
+                                )
                             {
                                 let placed_items = dialogue_items_with_fragment_markers(
                                     &current_segment,
@@ -222,7 +249,8 @@ impl PaginatedScreenplay {
 
                                 let mut carry = remainder;
                                 loop {
-                                    let carry_lines = measure_dialogue_lines(&carry);
+                                    let carry_lines =
+                                        measure_dialogue_unit_lines(&carry, &config.measurement);
                                     if carry_lines <= config.lines_per_page {
                                         let placed_items = dialogue_items_with_fragment_markers(
                                             &carry,
@@ -237,7 +265,11 @@ impl PaginatedScreenplay {
                                     }
 
                                     if let Some((head, tail)) =
-                                        split_dialogue_unit(&carry, config.lines_per_page)
+                                        split_dialogue_unit(
+                                            &carry,
+                                            config.lines_per_page,
+                                            &config.measurement,
+                                        )
                                     {
                                         let placed_items = dialogue_items_with_fragment_markers(
                                             &head,
@@ -287,11 +319,12 @@ impl PaginatedScreenplay {
                         }
                     }
 
-                    let unit_lines = measure_unit_lines(unit);
+                    let unit_lines = measure_unit_lines(unit, &config.measurement);
                     let mut required_lines = unit_lines;
                     if should_keep_with_next(unit) {
                         if let Some(next_index) = next_placeable_unit_index(&units, index + 1) {
-                            required_lines += measure_unit_lines(&units[next_index]);
+                            required_lines +=
+                                measure_unit_lines(&units[next_index], &config.measurement);
                         }
                     }
 
@@ -456,34 +489,14 @@ fn should_keep_with_next(unit: &SemanticUnit) -> bool {
     }
 }
 
-fn measure_unit_lines(unit: &SemanticUnit) -> u32 {
+fn measure_unit_lines(unit: &SemanticUnit, measurement: &MeasurementConfig) -> u32 {
     match unit {
         SemanticUnit::PageStart(_) => 0,
-        SemanticUnit::Flow(unit) => text_line_count(&unit.text),
-        SemanticUnit::Lyric(unit) => text_line_count(&unit.text),
-        SemanticUnit::Dialogue(unit) => measure_dialogue_lines(unit),
-        SemanticUnit::DualDialogue(unit) => measure_dual_dialogue_lines(unit),
+        SemanticUnit::Flow(unit) => measure_flow_unit_lines(unit, measurement),
+        SemanticUnit::Lyric(unit) => measure_lyric_unit_lines(unit, measurement),
+        SemanticUnit::Dialogue(unit) => measure_dialogue_unit_lines(unit, measurement),
+        SemanticUnit::DualDialogue(unit) => measure_dual_dialogue_unit_lines(unit, measurement),
     }
-}
-
-fn measure_dialogue_lines(unit: &DialogueUnit) -> u32 {
-    unit.parts
-        .iter()
-        .map(|part| text_line_count(&part.text))
-        .sum::<u32>()
-        .max(1)
-}
-
-fn measure_dual_dialogue_lines(unit: &DualDialogueUnit) -> u32 {
-    unit.sides
-        .iter()
-        .map(|side| measure_dialogue_lines(&side.dialogue))
-        .max()
-        .unwrap_or(1)
-}
-
-fn text_line_count(text: &str) -> u32 {
-    text.lines().count().max(1) as u32
 }
 
 fn page_items_from_semantic_unit(unit: &SemanticUnit) -> Vec<PageItem> {
@@ -701,7 +714,11 @@ fn choose_best_split_candidate<T>(candidates: Vec<SplitCandidate<T>>) -> Option<
     candidates.into_iter().max_by_key(|candidate| candidate.used_lines)
 }
 
-fn split_flow_unit(unit: &FlowUnit, available_lines: u32) -> Option<(FlowUnit, FlowUnit)> {
+fn split_flow_unit(
+    unit: &FlowUnit,
+    available_lines: u32,
+    measurement: &MeasurementConfig,
+) -> Option<(FlowUnit, FlowUnit)> {
     let lines: Vec<&str> = unit.text.lines().collect();
     if lines.len() < 2 {
         return None;
@@ -709,20 +726,21 @@ fn split_flow_unit(unit: &FlowUnit, available_lines: u32) -> Option<(FlowUnit, F
 
     let mut candidates = Vec::new();
     for split_index in 1..lines.len() {
-        let prefix_lines = split_index as u32;
+        let prefix = FlowUnit {
+            element_id: unit.element_id.clone(),
+            kind: unit.kind.clone(),
+            text: lines[..split_index].join("\n"),
+            line_range: Some((1, split_index as u32)),
+            scene_number: unit.scene_number.clone(),
+            cohesion: unit.cohesion.clone(),
+        };
+        let prefix_lines = measure_flow_unit_lines(&prefix, measurement);
         if prefix_lines > available_lines {
-            break;
+            continue;
         }
 
         candidates.push(SplitCandidate {
-            prefix: FlowUnit {
-                element_id: unit.element_id.clone(),
-                kind: unit.kind.clone(),
-                text: lines[..split_index].join("\n"),
-                line_range: Some((1, split_index as u32)),
-                scene_number: unit.scene_number.clone(),
-                cohesion: unit.cohesion.clone(),
-            },
+            prefix,
             suffix: FlowUnit {
                 element_id: unit.element_id.clone(),
                 kind: unit.kind.clone(),
@@ -741,6 +759,7 @@ fn split_flow_unit(unit: &FlowUnit, available_lines: u32) -> Option<(FlowUnit, F
 fn split_dialogue_unit(
     unit: &DialogueUnit,
     available_lines: u32,
+    measurement: &MeasurementConfig,
 ) -> Option<(DialogueUnit, DialogueUnit)> {
     if unit.parts.len() < 2 {
         return None;
@@ -749,7 +768,11 @@ fn split_dialogue_unit(
     let mut prefix_lines = 0;
     let mut candidates = Vec::new();
     for index in 0..(unit.parts.len() - 1) {
-        prefix_lines += text_line_count(&unit.parts[index].text);
+        prefix_lines += measure_dialogue_part_lines(
+            &unit.parts[index].kind,
+            &unit.parts[index].text,
+            measurement,
+        );
         if prefix_lines > available_lines {
             break;
         }

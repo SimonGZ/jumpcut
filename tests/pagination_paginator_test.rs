@@ -26,7 +26,7 @@ fn it_places_whole_flow_lyric_and_dialogue_units_onto_pages() {
 
     let actual = PaginatedScreenplay::paginate(
         semantic,
-        PaginationConfig { lines_per_page: 3 },
+        pagination_config(3),
         "standard",
         PaginationScope {
             title_page_count: Some(1),
@@ -72,7 +72,7 @@ fn it_honors_explicit_page_start_units() {
 
     let actual = PaginatedScreenplay::paginate(
         semantic,
-        PaginationConfig { lines_per_page: 10 },
+        pagination_config(10),
         "standard",
         PaginationScope {
             title_page_count: Some(1),
@@ -115,7 +115,7 @@ fn it_keeps_scene_headings_with_the_following_unit_when_possible() {
 
     let actual = PaginatedScreenplay::paginate(
         semantic,
-        PaginationConfig { lines_per_page: 4 },
+        pagination_config(4),
         "standard",
         PaginationScope {
             title_page_count: Some(1),
@@ -180,7 +180,7 @@ fn it_places_dual_dialogue_units_whole_and_preserves_dual_blocks() {
 
     let actual = PaginatedScreenplay::paginate(
         semantic,
-        PaginationConfig { lines_per_page: 3 },
+        pagination_config(3),
         "standard",
         PaginationScope {
             title_page_count: Some(1),
@@ -226,7 +226,7 @@ fn it_splits_dialogue_units_at_part_boundaries_and_marks_continuations() {
 
     let actual = PaginatedScreenplay::paginate(
         semantic,
-        PaginationConfig { lines_per_page: 4 },
+        pagination_config(4),
         "standard",
         PaginationScope {
             title_page_count: Some(1),
@@ -308,7 +308,7 @@ fn it_does_not_orphan_a_character_cue_when_dialogue_wont_fit() {
 
     let actual = PaginatedScreenplay::paginate(
         semantic,
-        PaginationConfig { lines_per_page: 4 },
+        pagination_config(4),
         "standard",
         PaginationScope {
             title_page_count: Some(1),
@@ -355,7 +355,7 @@ fn it_keeps_parentheticals_with_some_dialogue_when_splitting() {
 
     let actual = PaginatedScreenplay::paginate(
         semantic,
-        PaginationConfig { lines_per_page: 5 },
+        pagination_config(5),
         "standard",
         PaginationScope {
             title_page_count: Some(1),
@@ -396,7 +396,7 @@ fn it_splits_flow_units_at_explicit_line_boundaries() {
 
     let actual = PaginatedScreenplay::paginate(
         semantic,
-        PaginationConfig { lines_per_page: 2 },
+        pagination_config(2),
         "standard",
         PaginationScope {
             title_page_count: Some(1),
@@ -480,4 +480,8 @@ fn splittable_cohesion() -> Cohesion {
         keep_with_next: false,
         can_split: true,
     }
+}
+
+fn pagination_config(lines_per_page: u32) -> PaginationConfig {
+    PaginationConfig::screenplay(lines_per_page)
 }

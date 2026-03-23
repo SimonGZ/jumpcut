@@ -33,10 +33,10 @@ fn probe_big_fish_public_slice_against_canonical_fixture() {
     let semantic = build_semantic_screenplay(normalized);
 
     let mut best = None;
-    for lines_per_page in 1..=12 {
+    for lines_per_page in 1..=20 {
         let actual = PaginatedScreenplay::paginate(
             semantic.clone(),
-            PaginationConfig { lines_per_page },
+            PaginationConfig::screenplay(lines_per_page),
             fixture.style_profile.clone(),
             fixture.scope.clone(),
         );
