@@ -59,6 +59,25 @@ fn paginated_ir_preserves_dual_dialogue_placement() {
 }
 
 #[test]
+fn paginated_ir_from_normalized_matches_brick_n_steel_fixture_slice() {
+    let fixture: PageBreakFixture =
+        read_fixture("tests/fixtures/pagination/brick-n-steel.page-breaks.json");
+    let normalized = normalized_from_fixture_slice(&fixture);
+
+    let actual = PaginatedScreenplay::from_normalized(
+        normalized,
+        fixture.style_profile.clone(),
+        fixture.scope.clone(),
+    );
+    let expected = PaginatedScreenplay::from_fixture(fixture);
+
+    assert_eq!(actual.screenplay, expected.screenplay);
+    assert_eq!(actual.style_profile, expected.style_profile);
+    assert_eq!(actual.scope, expected.scope);
+    assert_eq!(actual.pages, expected.pages);
+}
+
+#[test]
 fn paginated_ir_surfaces_split_continuation_markers() {
     let fixture: PageBreakFixture =
         read_fixture("tests/fixtures/pagination/big-fish.split-page-breaks.json");
@@ -269,5 +288,36 @@ fn normalized_element(
         block_id: block_id.map(str::to_string),
         dual_dialogue_group: dual_dialogue_group.map(str::to_string),
         dual_dialogue_side,
+    }
+}
+
+fn normalized_from_fixture_slice(fixture: &PageBreakFixture) -> NormalizedScreenplay {
+    let mut elements = Vec::new();
+
+    for (page_index, page) in fixture.pages.iter().enumerate() {
+        for (item_index, item) in page.items.iter().enumerate() {
+            assert_eq!(
+                item.fragment,
+                jumpcut::pagination::Fragment::Whole,
+                "fixture slice must be unsplit to round-trip through normalized input",
+            );
+
+            elements.push(NormalizedElement {
+                element_id: item.element_id.clone(),
+                kind: item.kind.clone(),
+                text: String::new(),
+                starts_new_page: page_index > 0 && item_index == 0,
+                scene_number: None,
+                block_kind: item.block_id.as_ref().map(|_| "DialogueBlock".into()),
+                block_id: item.block_id.clone(),
+                dual_dialogue_group: item.dual_dialogue_group.clone(),
+                dual_dialogue_side: item.dual_dialogue_side,
+            });
+        }
+    }
+
+    NormalizedScreenplay {
+        screenplay: fixture.screenplay.clone(),
+        elements,
     }
 }
