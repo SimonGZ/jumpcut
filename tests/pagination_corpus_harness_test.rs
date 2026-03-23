@@ -1,7 +1,8 @@
 use jumpcut::pagination::{
     build_semantic_screenplay, compare_paginated_to_fixture, normalize_screenplay,
-    ComparisonIssueKind, NormalizedScreenplay, PageBreakFixture, PageBreakFixtureSourceRefs,
-    PaginatedScreenplay, PaginationConfig,
+    measure_dialogue_part_lines, measure_text_lines, ComparisonIssueKind, DialoguePartKind,
+    FlowKind, MeasurementConfig, NormalizedElement, NormalizedScreenplay, PageBreakFixture,
+    PageBreakFixtureSourceRefs, PaginatedScreenplay, PaginationConfig,
 };
 use jumpcut::parse;
 use serde::Serialize;
@@ -37,14 +38,14 @@ fn big_fish_public_slice_stays_at_or_better_than_width_measurement_baseline() {
     let report = &run.report;
 
     assert!(
-        report.total_issues() <= 13,
-        "expected total issues <= 13, got {}: {:?}",
+        report.total_issues() <= 6,
+        "expected total issues <= 6, got {}: {:?}",
         report.total_issues(),
         report.issues
     );
     assert!(
-        report.issue_count(ComparisonIssueKind::WrongPage) <= 7,
-        "expected wrong-page issues <= 7, got {}: {:?}",
+        report.issue_count(ComparisonIssueKind::WrongPage) == 0,
+        "expected zero wrong-page issues, got {}: {:?}",
         report.issue_count(ComparisonIssueKind::WrongPage),
         report.issues
     );
@@ -103,8 +104,14 @@ fn dump_big_fish_public_slice_paginated_output_json() {
     let run = best_probe_run(&fixture, &semantic);
     let previews = preview_map(&normalized);
 
-    let debug_fixture =
-        paginated_to_debug_fixture(&run.actual, &fixture.source, &previews);
+    let debug_fixture = paginated_to_debug_fixture(
+        &run.actual,
+        &fixture.source,
+        &normalized,
+        run.lines_per_page,
+        &run.measurement,
+        &previews,
+    );
     let debug_dir = Path::new("target/pagination-debug");
     fs::create_dir_all(debug_dir).unwrap();
 
@@ -141,10 +148,11 @@ fn best_probe_run(
     semantic: &jumpcut::pagination::SemanticScreenplay,
 ) -> ProbeRun {
     let mut best = None;
-    for lines_per_page in 1..=20 {
+    for lines_per_page in 1..=60 {
+        let config = PaginationConfig::screenplay(lines_per_page);
         let actual = PaginatedScreenplay::paginate(
             semantic.clone(),
-            PaginationConfig::screenplay(lines_per_page),
+            config.clone(),
             fixture.style_profile.clone(),
             fixture.scope.clone(),
         );
@@ -165,6 +173,7 @@ fn best_probe_run(
                         lines_per_page,
                         score,
                         actual,
+                        measurement: config.measurement,
                         report,
                     },
                 ))
@@ -226,18 +235,35 @@ fn preview_map(normalized: &NormalizedScreenplay) -> HashMap<String, String> {
 fn paginated_to_debug_fixture(
     actual: &PaginatedScreenplay,
     source: &PageBreakFixtureSourceRefs,
+    normalized: &NormalizedScreenplay,
+    lines_per_page: u32,
+    measurement: &MeasurementConfig,
     previews: &HashMap<String, String>,
 ) -> DebugPageBreakFixture {
+    let elements = normalized_element_map(normalized);
+
     DebugPageBreakFixture {
         screenplay: actual.screenplay.clone(),
         style_profile: actual.style_profile.clone(),
         source: source.clone(),
         scope: actual.scope.clone(),
+        lines_per_page,
+        measurement: DebugMeasurement {
+            action_width_chars: measurement.width_chars_for_flow_kind(&FlowKind::Action),
+            dialogue_width_chars: measurement.width_chars_for_dialogue_part(&DialoguePartKind::Dialogue),
+            character_width_chars: measurement.width_chars_for_dialogue_part(&DialoguePartKind::Character),
+            parenthetical_width_chars: measurement.width_chars_for_dialogue_part(&DialoguePartKind::Parenthetical),
+        },
         pages: actual
             .pages
             .iter()
             .map(|page| DebugPageBreakFixturePage {
                 number: page.metadata.number,
+                measured_total_lines: page
+                    .items
+                    .iter()
+                    .map(|item| measured_lines_for_item(item, &elements, measurement))
+                    .sum(),
                 items: page
                     .items
                     .iter()
@@ -245,6 +271,7 @@ fn paginated_to_debug_fixture(
                         element_id: item.element_id.clone(),
                         kind: item.kind.clone(),
                         text_preview: previews.get(&item.element_id).cloned(),
+                        measured_lines: measured_lines_for_item(item, &elements, measurement),
                         fragment: item.fragment.clone(),
                         line_range: item.line_range,
                         block_id: item.block_id.clone(),
@@ -266,6 +293,82 @@ fn text_preview(text: &str) -> String {
         .collect()
 }
 
+fn normalized_element_map(
+    normalized: &NormalizedScreenplay,
+) -> HashMap<String, NormalizedElement> {
+    normalized
+        .elements
+        .iter()
+        .cloned()
+        .map(|element| (element.element_id.clone(), element))
+        .collect()
+}
+
+fn measured_lines_for_item(
+    item: &jumpcut::pagination::PageItem,
+    elements: &HashMap<String, NormalizedElement>,
+    measurement: &MeasurementConfig,
+) -> u32 {
+    let Some(element) = elements.get(&item.element_id) else {
+        return 0;
+    };
+
+    match item.kind.as_str() {
+        "Character" => measure_dialogue_part_lines(
+            &DialoguePartKind::Character,
+            &element.text,
+            measurement,
+        ),
+        "Parenthetical" => measure_dialogue_part_lines(
+            &DialoguePartKind::Parenthetical,
+            &element.text,
+            measurement,
+        ),
+        "Dialogue" => measure_dialogue_part_lines(
+            &DialoguePartKind::Dialogue,
+            &element.text,
+            measurement,
+        ),
+        "Lyric" => measure_dialogue_part_lines(
+            &DialoguePartKind::Lyric,
+            &element.text,
+            measurement,
+        ),
+        other => {
+            let text = match item.line_range {
+                Some((start, end)) => slice_explicit_lines(&element.text, start, end),
+                None => element.text.clone(),
+            };
+            measure_text_lines(&text, flow_width_for_kind(other, measurement))
+        }
+    }
+}
+
+fn slice_explicit_lines(text: &str, start: u32, end: u32) -> String {
+    text.lines()
+        .enumerate()
+        .filter_map(|(index, line)| {
+            let line_no = index as u32 + 1;
+            (line_no >= start && line_no <= end).then_some(line)
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+fn flow_width_for_kind(kind: &str, measurement: &MeasurementConfig) -> usize {
+    let flow_kind = match kind {
+        "Scene Heading" => FlowKind::SceneHeading,
+        "Transition" => FlowKind::Transition,
+        "Section" => FlowKind::Section,
+        "Synopsis" => FlowKind::Synopsis,
+        "Cold Opening" => FlowKind::ColdOpening,
+        "New Act" => FlowKind::NewAct,
+        "End of Act" => FlowKind::EndOfAct,
+        _ => FlowKind::Action,
+    };
+    measurement.width_chars_for_flow_kind(&flow_kind)
+}
+
 #[derive(Serialize)]
 struct ProbeDebugOutput {
     lines_per_page: u32,
@@ -282,6 +385,7 @@ struct ProbeRun {
     lines_per_page: u32,
     score: (usize, usize, usize),
     actual: PaginatedScreenplay,
+    measurement: MeasurementConfig,
     report: jumpcut::pagination::ComparisonReport,
 }
 
@@ -291,12 +395,15 @@ struct DebugPageBreakFixture {
     style_profile: String,
     source: PageBreakFixtureSourceRefs,
     scope: jumpcut::pagination::PaginationScope,
+    lines_per_page: u32,
+    measurement: DebugMeasurement,
     pages: Vec<DebugPageBreakFixturePage>,
 }
 
 #[derive(Serialize)]
 struct DebugPageBreakFixturePage {
     number: u32,
+    measured_total_lines: u32,
     items: Vec<DebugPageBreakItem>,
 }
 
@@ -306,9 +413,18 @@ struct DebugPageBreakItem {
     kind: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     text_preview: Option<String>,
+    measured_lines: u32,
     fragment: jumpcut::pagination::Fragment,
     line_range: Option<(u32, u32)>,
     block_id: Option<String>,
     dual_dialogue_group: Option<String>,
     dual_dialogue_side: Option<u8>,
+}
+
+#[derive(Serialize)]
+struct DebugMeasurement {
+    action_width_chars: usize,
+    dialogue_width_chars: usize,
+    character_width_chars: usize,
+    parenthetical_width_chars: usize,
 }

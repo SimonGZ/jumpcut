@@ -79,6 +79,64 @@ fn it_counts_explicit_line_breaks_even_when_each_line_fits() {
 }
 
 #[test]
+fn screenplay_default_measures_big_fish_edward_contd_example_as_seven_lines() {
+    let measurement = MeasurementConfig::screenplay_default();
+    let unit = DialogueUnit {
+        block_id: "block-00001".into(),
+        parts: vec![
+            DialoguePart {
+                element_id: "el-00001".into(),
+                kind: DialoguePartKind::Character,
+                text: "EDWARD (CONT'D)".into(),
+            },
+            DialoguePart {
+                element_id: "el-00002".into(),
+                kind: DialoguePartKind::Dialogue,
+                text: "I mean, on one hand, if dying was all you thought about, it could kind of screw you up. But it could kind of help you, couldn't it?".into(),
+            },
+        ],
+        cohesion: splittable_cohesion(),
+    };
+
+    assert_eq!(
+        measure_dialogue_part_lines(
+            &DialoguePartKind::Character,
+            "EDWARD (CONT'D)",
+            &measurement,
+        ),
+        1
+    );
+    assert_eq!(
+        measure_dialogue_part_lines(
+            &DialoguePartKind::Dialogue,
+            "I mean, on one hand, if dying was all you thought about, it could kind of screw you up. But it could kind of help you, couldn't it?",
+            &measurement,
+        ),
+        6
+    );
+    assert_eq!(measure_dialogue_unit_lines(&unit, &measurement), 7);
+}
+
+#[test]
+fn screenplay_default_exposes_narrower_dialogue_columns_than_action() {
+    let measurement = MeasurementConfig::screenplay_default();
+
+    assert_eq!(measurement.width_chars_for_flow_kind(&FlowKind::Action), 60);
+    assert_eq!(
+        measurement.width_chars_for_dialogue_part(&DialoguePartKind::Character),
+        20
+    );
+    assert_eq!(
+        measurement.width_chars_for_dialogue_part(&DialoguePartKind::Dialogue),
+        28
+    );
+    assert_eq!(
+        measurement.width_chars_for_dialogue_part(&DialoguePartKind::Parenthetical),
+        20
+    );
+}
+
+#[test]
 fn paginator_uses_width_aware_measurement_for_page_placement() {
     let semantic = SemanticScreenplay {
         screenplay: "sample".into(),
