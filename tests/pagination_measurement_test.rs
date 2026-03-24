@@ -1,8 +1,9 @@
 use jumpcut::pagination::{
-    measure_dialogue_part_lines, measure_dialogue_unit_lines, measure_flow_unit_lines,
-    measure_text_lines, Cohesion, DialoguePart, DialoguePartKind, DialogueUnit, FlowKind,
-    FlowUnit, MeasurementConfig, PageKind, PaginatedScreenplay, PaginationConfig,
-    PaginationScope, SemanticScreenplay, SemanticUnit,
+    boundary_spacing_lines, measure_dialogue_part_lines, measure_dialogue_unit,
+    measure_dialogue_unit_lines, measure_flow_unit, measure_flow_unit_lines, measure_text_lines,
+    Cohesion, DialoguePart, DialoguePartKind, DialogueUnit, FlowKind, FlowUnit,
+    MeasurementConfig, PageKind, PaginatedScreenplay, PaginationConfig, PaginationScope,
+    SemanticScreenplay, SemanticUnit, UnitMeasurement,
 };
 use pretty_assertions::assert_eq;
 
@@ -18,7 +19,11 @@ fn it_wraps_flow_units_to_the_configured_action_width() {
         cohesion: splittable_cohesion(),
     };
 
+    let measured = measure_flow_unit(&unit, &measurement);
+
     assert_eq!(measure_flow_unit_lines(&unit, &measurement), 2);
+    assert_eq!(measured.top_spacing_lines, 1);
+    assert_eq!(measured.bottom_spacing_lines, 1);
 }
 
 #[test]
@@ -134,10 +139,57 @@ fn screenplay_default_exposes_narrower_dialogue_columns_than_action() {
         measurement.width_chars_for_dialogue_part(&DialoguePartKind::Parenthetical),
         20
     );
+    assert_eq!(measurement.action_top_spacing_lines, 0);
+    assert_eq!(measurement.scene_heading_bottom_spacing_lines, 0);
+    assert_eq!(measurement.dialogue_top_spacing_lines, 0);
 }
 
 #[test]
-fn paginator_uses_width_aware_measurement_for_page_placement() {
+fn it_uses_shared_boundary_spacing_instead_of_double_counting_blank_lines() {
+    let previous = UnitMeasurement {
+        content_lines: 2,
+        top_spacing_lines: 0,
+        bottom_spacing_lines: 1,
+    };
+    let current = UnitMeasurement {
+        content_lines: 3,
+        top_spacing_lines: 1,
+        bottom_spacing_lines: 0,
+    };
+
+    assert_eq!(boundary_spacing_lines(Some(&previous), Some(&current)), 1);
+    assert_eq!(current.placement_lines_with_prev(Some(&previous)), 4);
+}
+
+#[test]
+fn screenplay_default_adds_vertical_spacing_to_dialogue_units() {
+    let measurement = MeasurementConfig::screenplay_default();
+    let unit = DialogueUnit {
+        block_id: "block-00001".into(),
+        parts: vec![
+            DialoguePart {
+                element_id: "el-00001".into(),
+                kind: DialoguePartKind::Character,
+                text: "EDWARD (CONT'D)".into(),
+            },
+            DialoguePart {
+                element_id: "el-00002".into(),
+                kind: DialoguePartKind::Dialogue,
+                text: "I mean, on one hand, if dying was all you thought about, it could kind of screw you up. But it could kind of help you, couldn't it?".into(),
+            },
+        ],
+        cohesion: splittable_cohesion(),
+    };
+
+    let measured = measure_dialogue_unit(&unit, &measurement);
+
+    assert_eq!(measured.content_lines, 7);
+    assert_eq!(measured.top_spacing_lines, 0);
+    assert_eq!(measured.bottom_spacing_lines, 0);
+}
+
+#[test]
+fn paginator_uses_width_aware_measurement_and_shared_spacing_for_page_placement() {
     let semantic = SemanticScreenplay {
         screenplay: "sample".into(),
         starting_page_number: None,
@@ -164,7 +216,7 @@ fn paginator_uses_width_aware_measurement_for_page_placement() {
     let actual = PaginatedScreenplay::paginate(
         semantic,
         PaginationConfig {
-            lines_per_page: 2,
+            lines_per_page: 4,
             measurement: narrow_measurement(),
         },
         "standard",
@@ -174,7 +226,7 @@ fn paginator_uses_width_aware_measurement_for_page_placement() {
         },
     );
 
-    assert_eq!(actual.pages.len(), 2);
+    assert_eq!(actual.pages.len(), 1);
     assert_eq!(actual.pages[0].metadata.kind, PageKind::Body);
     assert_eq!(
         actual.pages[0]
@@ -182,15 +234,7 @@ fn paginator_uses_width_aware_measurement_for_page_placement() {
             .iter()
             .map(|item| item.element_id.as_str())
             .collect::<Vec<_>>(),
-        vec!["el-00001"]
-    );
-    assert_eq!(
-        actual.pages[1]
-            .items
-            .iter()
-            .map(|item| item.element_id.as_str())
-            .collect::<Vec<_>>(),
-        vec!["el-00002"]
+        vec!["el-00001", "el-00002"]
     );
 }
 
@@ -210,6 +254,16 @@ fn narrow_measurement() -> MeasurementConfig {
         lyric_right_indent_in: 10.0,
         transition_left_indent_in: 0.0,
         transition_right_indent_in: 7.0,
+        action_top_spacing_lines: 1,
+        action_bottom_spacing_lines: 1,
+        scene_heading_top_spacing_lines: 1,
+        scene_heading_bottom_spacing_lines: 1,
+        transition_top_spacing_lines: 1,
+        transition_bottom_spacing_lines: 1,
+        dialogue_top_spacing_lines: 1,
+        dialogue_bottom_spacing_lines: 0,
+        lyric_top_spacing_lines: 1,
+        lyric_bottom_spacing_lines: 0,
     }
 }
 

@@ -1,8 +1,9 @@
 use jumpcut::pagination::{
-    build_semantic_screenplay, compare_paginated_to_fixture, normalize_screenplay,
-    measure_dialogue_part_lines, measure_text_lines, ComparisonIssueKind, DialoguePartKind,
-    FlowKind, MeasurementConfig, NormalizedElement, NormalizedScreenplay, PageBreakFixture,
-    PageBreakFixtureSourceRefs, PaginatedScreenplay, PaginationConfig,
+    boundary_spacing_lines, build_semantic_screenplay, compare_paginated_to_fixture,
+    measure_dialogue_part_lines, measure_dialogue_unit, measure_flow_unit, measure_lyric_unit,
+    measure_text_lines, normalize_screenplay, ComparisonIssueKind, DialoguePartKind, FlowKind,
+    MeasurementConfig, NormalizedElement, NormalizedScreenplay, PageBreakFixture,
+    PageBreakFixtureSourceRefs, PaginatedScreenplay, PaginationConfig, UnitMeasurement,
 };
 use jumpcut::parse;
 use serde::Serialize;
@@ -507,34 +508,81 @@ fn paginated_to_debug_fixture(
             dialogue_width_chars: measurement.width_chars_for_dialogue_part(&DialoguePartKind::Dialogue),
             character_width_chars: measurement.width_chars_for_dialogue_part(&DialoguePartKind::Character),
             parenthetical_width_chars: measurement.width_chars_for_dialogue_part(&DialoguePartKind::Parenthetical),
+            action_top_spacing_lines: measurement.action_top_spacing_lines,
+            action_bottom_spacing_lines: measurement.action_bottom_spacing_lines,
+            scene_heading_top_spacing_lines: measurement.scene_heading_top_spacing_lines,
+            scene_heading_bottom_spacing_lines: measurement.scene_heading_bottom_spacing_lines,
+            transition_top_spacing_lines: measurement.transition_top_spacing_lines,
+            transition_bottom_spacing_lines: measurement.transition_bottom_spacing_lines,
+            dialogue_top_spacing_lines: measurement.dialogue_top_spacing_lines,
+            dialogue_bottom_spacing_lines: measurement.dialogue_bottom_spacing_lines,
+            lyric_top_spacing_lines: measurement.lyric_top_spacing_lines,
+            lyric_bottom_spacing_lines: measurement.lyric_bottom_spacing_lines,
         },
         pages: actual
             .pages
             .iter()
-            .map(|page| DebugPageBreakFixturePage {
-                number: page.metadata.number,
-                measured_total_lines: page
-                    .items
-                    .iter()
-                    .map(|item| measured_lines_for_item(item, &elements, measurement))
-                    .sum(),
-                items: page
-                    .items
-                    .iter()
-                    .map(|item| DebugPageBreakItem {
-                        element_id: item.element_id.clone(),
-                        kind: item.kind.clone(),
-                        text_preview: previews.get(&item.element_id).cloned(),
-                        measured_lines: measured_lines_for_item(item, &elements, measurement),
-                        fragment: item.fragment.clone(),
-                        line_range: item.line_range,
-                        block_id: item.block_id.clone(),
-                        dual_dialogue_group: item.dual_dialogue_group.clone(),
-                        dual_dialogue_side: item.dual_dialogue_side,
-                    })
-                    .collect(),
-            })
+            .map(|page| debug_page(page, &elements, measurement, previews))
             .collect(),
+    }
+}
+
+fn debug_page(
+    page: &jumpcut::pagination::Page,
+    elements: &HashMap<String, NormalizedElement>,
+    measurement: &MeasurementConfig,
+    previews: &HashMap<String, String>,
+) -> DebugPageBreakFixturePage {
+    let mut measured_total_lines = 0;
+    let mut previous_unit_measurement: Option<UnitMeasurement> = None;
+    let mut previous_unit_key: Option<String> = None;
+    let mut items = Vec::with_capacity(page.items.len());
+
+    for item in &page.items {
+        let unit_key = debug_unit_key(item);
+        let unit_measurement = measured_unit_for_item(item, elements, measurement);
+        let is_first_in_unit = previous_unit_key.as_ref() != Some(&unit_key);
+        let spacing_before_lines = if is_first_in_unit {
+            boundary_spacing_lines(previous_unit_measurement.as_ref(), Some(&unit_measurement))
+        } else {
+            0
+        };
+        let (intrinsic_top_spacing_lines, intrinsic_bottom_spacing_lines) = if is_first_in_unit {
+            (
+                unit_measurement.top_spacing_lines,
+                unit_measurement.bottom_spacing_lines,
+            )
+        } else {
+            (0, 0)
+        };
+        let measured_lines = measured_lines_for_item(item, elements, measurement);
+        measured_total_lines += measured_lines + spacing_before_lines;
+
+        items.push(DebugPageBreakItem {
+            element_id: item.element_id.clone(),
+            kind: item.kind.clone(),
+            text_preview: previews.get(&item.element_id).cloned(),
+            measured_lines,
+            spacing_before_lines,
+            intrinsic_top_spacing_lines,
+            intrinsic_bottom_spacing_lines,
+            fragment: item.fragment.clone(),
+            line_range: item.line_range,
+            block_id: item.block_id.clone(),
+            dual_dialogue_group: item.dual_dialogue_group.clone(),
+            dual_dialogue_side: item.dual_dialogue_side,
+        });
+
+        if is_first_in_unit {
+            previous_unit_measurement = Some(unit_measurement);
+            previous_unit_key = Some(unit_key);
+        }
+    }
+
+    DebugPageBreakFixturePage {
+        number: page.metadata.number,
+        measured_total_lines,
+        items,
     }
 }
 
@@ -598,6 +646,99 @@ fn measured_lines_for_item(
     }
 }
 
+fn measured_unit_for_item(
+    item: &jumpcut::pagination::PageItem,
+    elements: &HashMap<String, NormalizedElement>,
+    measurement: &MeasurementConfig,
+) -> UnitMeasurement {
+    let Some(element) = elements.get(&item.element_id) else {
+        return UnitMeasurement {
+            content_lines: 0,
+            top_spacing_lines: 0,
+            bottom_spacing_lines: 0,
+        };
+    };
+
+    match item.kind.as_str() {
+        "Character" | "Parenthetical" | "Dialogue" => measure_dialogue_unit(
+            &jumpcut::pagination::DialogueUnit {
+                block_id: item.block_id.clone().unwrap_or_else(|| item.element_id.clone()),
+                parts: vec![jumpcut::pagination::DialoguePart {
+                    element_id: item.element_id.clone(),
+                    kind: match item.kind.as_str() {
+                        "Character" => DialoguePartKind::Character,
+                        "Parenthetical" => DialoguePartKind::Parenthetical,
+                        _ => DialoguePartKind::Dialogue,
+                    },
+                    text: element.text.clone(),
+                }],
+                cohesion: jumpcut::pagination::Cohesion {
+                    keep_together: false,
+                    keep_with_next: false,
+                    can_split: true,
+                },
+            },
+            measurement,
+        ),
+        "Lyric" if item.block_id.is_some() => measure_dialogue_unit(
+            &jumpcut::pagination::DialogueUnit {
+                block_id: item.block_id.clone().unwrap_or_else(|| item.element_id.clone()),
+                parts: vec![jumpcut::pagination::DialoguePart {
+                    element_id: item.element_id.clone(),
+                    kind: DialoguePartKind::Lyric,
+                    text: element.text.clone(),
+                }],
+                cohesion: jumpcut::pagination::Cohesion {
+                    keep_together: false,
+                    keep_with_next: false,
+                    can_split: true,
+                },
+            },
+            measurement,
+        ),
+        "Lyric" => measure_lyric_unit(
+            &jumpcut::pagination::LyricUnit {
+                element_id: item.element_id.clone(),
+                text: element.text.clone(),
+                cohesion: jumpcut::pagination::Cohesion {
+                    keep_together: false,
+                    keep_with_next: false,
+                    can_split: true,
+                },
+            },
+            measurement,
+        ),
+        other => measure_flow_unit(
+            &jumpcut::pagination::FlowUnit {
+                element_id: item.element_id.clone(),
+                kind: flow_width_kind(other),
+                text: match item.line_range {
+                    Some((start, end)) => slice_explicit_lines(&element.text, start, end),
+                    None => element.text.clone(),
+                },
+                line_range: item.line_range,
+                scene_number: element.scene_number.clone(),
+                cohesion: jumpcut::pagination::Cohesion {
+                    keep_together: false,
+                    keep_with_next: false,
+                    can_split: true,
+                },
+            },
+            measurement,
+        ),
+    }
+}
+
+fn debug_unit_key(item: &jumpcut::pagination::PageItem) -> String {
+    match (&item.block_id, &item.dual_dialogue_group, item.dual_dialogue_side) {
+        (Some(block_id), Some(group_id), Some(side)) => {
+            format!("dual:{group_id}:{side}:{block_id}")
+        }
+        (Some(block_id), _, _) => format!("block:{block_id}"),
+        _ => format!("element:{}", item.element_id),
+    }
+}
+
 fn slice_explicit_lines(text: &str, start: u32, end: u32) -> String {
     text.lines()
         .enumerate()
@@ -610,7 +751,12 @@ fn slice_explicit_lines(text: &str, start: u32, end: u32) -> String {
 }
 
 fn flow_width_for_kind(kind: &str, measurement: &MeasurementConfig) -> usize {
-    let flow_kind = match kind {
+    let flow_kind = flow_width_kind(kind);
+    measurement.width_chars_for_flow_kind(&flow_kind)
+}
+
+fn flow_width_kind(kind: &str) -> FlowKind {
+    match kind {
         "Scene Heading" => FlowKind::SceneHeading,
         "Transition" => FlowKind::Transition,
         "Section" => FlowKind::Section,
@@ -619,8 +765,7 @@ fn flow_width_for_kind(kind: &str, measurement: &MeasurementConfig) -> usize {
         "New Act" => FlowKind::NewAct,
         "End of Act" => FlowKind::EndOfAct,
         _ => FlowKind::Action,
-    };
-    measurement.width_chars_for_flow_kind(&flow_kind)
+    }
 }
 
 #[derive(Serialize)]
@@ -682,6 +827,9 @@ struct DebugPageBreakItem {
     #[serde(skip_serializing_if = "Option::is_none")]
     text_preview: Option<String>,
     measured_lines: u32,
+    spacing_before_lines: u32,
+    intrinsic_top_spacing_lines: u32,
+    intrinsic_bottom_spacing_lines: u32,
     fragment: jumpcut::pagination::Fragment,
     line_range: Option<(u32, u32)>,
     block_id: Option<String>,
@@ -695,4 +843,14 @@ struct DebugMeasurement {
     dialogue_width_chars: usize,
     character_width_chars: usize,
     parenthetical_width_chars: usize,
+    action_top_spacing_lines: u32,
+    action_bottom_spacing_lines: u32,
+    scene_heading_top_spacing_lines: u32,
+    scene_heading_bottom_spacing_lines: u32,
+    transition_top_spacing_lines: u32,
+    transition_bottom_spacing_lines: u32,
+    dialogue_top_spacing_lines: u32,
+    dialogue_bottom_spacing_lines: u32,
+    lyric_top_spacing_lines: u32,
+    lyric_bottom_spacing_lines: u32,
 }

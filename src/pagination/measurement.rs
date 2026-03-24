@@ -1,6 +1,22 @@
 use crate::pagination::semantic::{
-    DialoguePartKind, DialogueUnit, DualDialogueUnit, FlowKind, FlowUnit, LyricUnit,
+    DialoguePartKind, DialogueUnit, DualDialogueUnit, FlowKind, FlowUnit, LyricUnit, SemanticUnit,
 };
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct UnitMeasurement {
+    pub content_lines: u32,
+    pub top_spacing_lines: u32,
+    pub bottom_spacing_lines: u32,
+}
+
+impl UnitMeasurement {
+    pub fn placement_lines_with_prev(
+        &self,
+        previous: Option<&UnitMeasurement>,
+    ) -> u32 {
+        self.content_lines + boundary_spacing_lines(previous, Some(self))
+    }
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct MeasurementConfig {
@@ -18,6 +34,16 @@ pub struct MeasurementConfig {
     pub lyric_right_indent_in: f32,
     pub transition_left_indent_in: f32,
     pub transition_right_indent_in: f32,
+    pub action_top_spacing_lines: u32,
+    pub action_bottom_spacing_lines: u32,
+    pub scene_heading_top_spacing_lines: u32,
+    pub scene_heading_bottom_spacing_lines: u32,
+    pub transition_top_spacing_lines: u32,
+    pub transition_bottom_spacing_lines: u32,
+    pub dialogue_top_spacing_lines: u32,
+    pub dialogue_bottom_spacing_lines: u32,
+    pub lyric_top_spacing_lines: u32,
+    pub lyric_bottom_spacing_lines: u32,
 }
 
 impl MeasurementConfig {
@@ -37,6 +63,16 @@ impl MeasurementConfig {
             lyric_right_indent_in: 7.38,
             transition_left_indent_in: 5.50,
             transition_right_indent_in: 7.10,
+            action_top_spacing_lines: 0,
+            action_bottom_spacing_lines: 0,
+            scene_heading_top_spacing_lines: 0,
+            scene_heading_bottom_spacing_lines: 0,
+            transition_top_spacing_lines: 0,
+            transition_bottom_spacing_lines: 0,
+            dialogue_top_spacing_lines: 0,
+            dialogue_bottom_spacing_lines: 0,
+            lyric_top_spacing_lines: 0,
+            lyric_bottom_spacing_lines: 0,
         }
     }
 
@@ -69,24 +105,71 @@ impl MeasurementConfig {
         };
         width_chars(self.chars_per_inch, left, right)
     }
+
+    pub fn spacing_for_flow_kind(&self, kind: &FlowKind) -> (u32, u32) {
+        match kind {
+            FlowKind::SceneHeading => (
+                self.scene_heading_top_spacing_lines,
+                self.scene_heading_bottom_spacing_lines,
+            ),
+            FlowKind::Transition => (
+                self.transition_top_spacing_lines,
+                self.transition_bottom_spacing_lines,
+            ),
+            _ => (
+                self.action_top_spacing_lines,
+                self.action_bottom_spacing_lines,
+            ),
+        }
+    }
+
+    pub fn spacing_for_dialogue_unit(&self) -> (u32, u32) {
+        (
+            self.dialogue_top_spacing_lines,
+            self.dialogue_bottom_spacing_lines,
+        )
+    }
+
+    pub fn spacing_for_lyric_unit(&self) -> (u32, u32) {
+        (self.lyric_top_spacing_lines, self.lyric_bottom_spacing_lines)
+    }
+}
+
+pub fn measure_flow_unit(unit: &FlowUnit, measurement: &MeasurementConfig) -> UnitMeasurement {
+    let (top_spacing_lines, bottom_spacing_lines) =
+        measurement.spacing_for_flow_kind(&unit.kind);
+    UnitMeasurement {
+        content_lines: measure_text_lines(
+            &unit.text,
+            measurement.width_chars_for_flow_kind(&unit.kind),
+        ),
+        top_spacing_lines,
+        bottom_spacing_lines,
+    }
 }
 
 pub fn measure_flow_unit_lines(unit: &FlowUnit, measurement: &MeasurementConfig) -> u32 {
-    measure_text_lines(
-        &unit.text,
-        measurement.width_chars_for_flow_kind(&unit.kind),
-    )
+    measure_flow_unit(unit, measurement).content_lines
+}
+
+pub fn measure_lyric_unit(unit: &LyricUnit, measurement: &MeasurementConfig) -> UnitMeasurement {
+    let (top_spacing_lines, bottom_spacing_lines) = measurement.spacing_for_lyric_unit();
+    UnitMeasurement {
+        content_lines: measure_text_lines(
+            &unit.text,
+            width_chars(
+                measurement.chars_per_inch,
+                measurement.lyric_left_indent_in,
+                measurement.lyric_right_indent_in,
+            ),
+        ),
+        top_spacing_lines,
+        bottom_spacing_lines,
+    }
 }
 
 pub fn measure_lyric_unit_lines(unit: &LyricUnit, measurement: &MeasurementConfig) -> u32 {
-    measure_text_lines(
-        &unit.text,
-        width_chars(
-            measurement.chars_per_inch,
-            measurement.lyric_left_indent_in,
-            measurement.lyric_right_indent_in,
-        ),
-    )
+    measure_lyric_unit(unit, measurement).content_lines
 }
 
 pub fn measure_dialogue_part_lines(
@@ -97,23 +180,74 @@ pub fn measure_dialogue_part_lines(
     measure_text_lines(text, measurement.width_chars_for_dialogue_part(kind))
 }
 
+pub fn measure_dialogue_unit(
+    unit: &DialogueUnit,
+    measurement: &MeasurementConfig,
+) -> UnitMeasurement {
+    let (top_spacing_lines, bottom_spacing_lines) = measurement.spacing_for_dialogue_unit();
+    UnitMeasurement {
+        content_lines: unit
+            .parts
+            .iter()
+            .map(|part| measure_dialogue_part_lines(&part.kind, &part.text, measurement))
+            .sum::<u32>()
+            .max(1),
+        top_spacing_lines,
+        bottom_spacing_lines,
+    }
+}
+
 pub fn measure_dialogue_unit_lines(unit: &DialogueUnit, measurement: &MeasurementConfig) -> u32 {
-    unit.parts
-        .iter()
-        .map(|part| measure_dialogue_part_lines(&part.kind, &part.text, measurement))
-        .sum::<u32>()
-        .max(1)
+    measure_dialogue_unit(unit, measurement).content_lines
+}
+
+pub fn measure_dual_dialogue_unit(
+    unit: &DualDialogueUnit,
+    measurement: &MeasurementConfig,
+) -> UnitMeasurement {
+    let (top_spacing_lines, bottom_spacing_lines) = measurement.spacing_for_dialogue_unit();
+    UnitMeasurement {
+        content_lines: unit
+            .sides
+            .iter()
+            .map(|side| measure_dialogue_unit_lines(&side.dialogue, measurement))
+            .max()
+            .unwrap_or(1),
+        top_spacing_lines,
+        bottom_spacing_lines,
+    }
 }
 
 pub fn measure_dual_dialogue_unit_lines(
     unit: &DualDialogueUnit,
     measurement: &MeasurementConfig,
 ) -> u32 {
-    unit.sides
-        .iter()
-        .map(|side| measure_dialogue_unit_lines(&side.dialogue, measurement))
-        .max()
-        .unwrap_or(1)
+    measure_dual_dialogue_unit(unit, measurement).content_lines
+}
+
+pub fn measure_semantic_unit(
+    unit: &SemanticUnit,
+    measurement: &MeasurementConfig,
+) -> Option<UnitMeasurement> {
+    match unit {
+        SemanticUnit::PageStart(_) => None,
+        SemanticUnit::Flow(unit) => Some(measure_flow_unit(unit, measurement)),
+        SemanticUnit::Lyric(unit) => Some(measure_lyric_unit(unit, measurement)),
+        SemanticUnit::Dialogue(unit) => Some(measure_dialogue_unit(unit, measurement)),
+        SemanticUnit::DualDialogue(unit) => Some(measure_dual_dialogue_unit(unit, measurement)),
+    }
+}
+
+pub fn boundary_spacing_lines(
+    previous: Option<&UnitMeasurement>,
+    current: Option<&UnitMeasurement>,
+) -> u32 {
+    match (previous, current) {
+        (Some(previous), Some(current)) => previous
+            .bottom_spacing_lines
+            .max(current.top_spacing_lines),
+        _ => 0,
+    }
 }
 
 pub fn measure_text_lines(text: &str, width_chars: usize) -> u32 {

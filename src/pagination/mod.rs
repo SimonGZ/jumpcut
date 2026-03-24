@@ -17,8 +17,10 @@ pub use ir::{
     PaginatedScreenplay, PaginationConfig,
 };
 pub use measurement::{
-    measure_dialogue_part_lines, measure_dialogue_unit_lines, measure_dual_dialogue_unit_lines,
-    measure_flow_unit_lines, measure_lyric_unit_lines, measure_text_lines, MeasurementConfig,
+    boundary_spacing_lines, measure_dialogue_part_lines, measure_dialogue_unit,
+    measure_dialogue_unit_lines, measure_dual_dialogue_unit, measure_dual_dialogue_unit_lines,
+    measure_flow_unit, measure_flow_unit_lines, measure_lyric_unit, measure_lyric_unit_lines,
+    measure_semantic_unit, measure_text_lines, MeasurementConfig, UnitMeasurement,
 };
 pub use normalized::normalize_screenplay;
 pub use semantic::{

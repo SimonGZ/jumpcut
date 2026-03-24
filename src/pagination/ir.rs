@@ -3,8 +3,9 @@ use crate::pagination::fixtures::{
     PageBreakFixtureSourceRefs, PaginationScope,
 };
 use crate::pagination::measurement::{
-    measure_dialogue_part_lines, measure_dialogue_unit_lines, measure_dual_dialogue_unit_lines,
-    measure_flow_unit_lines, measure_lyric_unit_lines, MeasurementConfig,
+    boundary_spacing_lines, measure_dialogue_part_lines, measure_dialogue_unit,
+    measure_dialogue_unit_lines, measure_flow_unit, measure_flow_unit_lines,
+    measure_semantic_unit, MeasurementConfig, UnitMeasurement,
 };
 use crate::pagination::semantic::{
     DialoguePartKind, DialogueUnit, FlowKind, FlowUnit, SemanticScreenplay,
@@ -104,6 +105,7 @@ impl PaginatedScreenplay {
             .unwrap_or_else(|| first_page_number(&scope));
         let mut current_items: Vec<PageItem> = Vec::new();
         let mut current_lines = 0;
+        let mut last_measurement: Option<UnitMeasurement> = None;
         let units = semantic.units;
         let style_profile = style_profile.into();
         let mut index = 0;
@@ -120,19 +122,17 @@ impl PaginatedScreenplay {
                         ));
                         next_page_number += 1;
                         current_lines = 0;
+                        last_measurement = None;
                     }
                     index += 1;
                 }
                 unit => {
                     if let SemanticUnit::Flow(flow) = unit {
-                        let flow_lines = measure_flow_unit_lines(flow, &config.measurement);
-                        let remaining_lines =
-                            config.lines_per_page.saturating_sub(current_lines);
-                        let available_lines = if current_items.is_empty() {
-                            config.lines_per_page
-                        } else {
-                            remaining_lines
-                        };
+                        let flow_measurement = measure_flow_unit(flow, &config.measurement);
+                        let remaining_lines = config.lines_per_page.saturating_sub(current_lines);
+                        let spacing_before =
+                            boundary_spacing_lines(last_measurement.as_ref(), Some(&flow_measurement));
+                        let available_lines = remaining_lines.saturating_sub(spacing_before);
                         let prefer_soft_split = should_prefer_flow_split(
                             flow,
                             available_lines,
@@ -144,7 +144,8 @@ impl PaginatedScreenplay {
                         );
 
                         if flow.cohesion.can_split
-                            && (flow_lines > available_lines || prefer_soft_split)
+                            && (flow_measurement.content_lines > available_lines
+                                || prefer_soft_split)
                         {
                             if let Some((current_segment, remainder)) =
                                 split_flow_unit(flow, available_lines, &config.measurement)
@@ -163,18 +164,24 @@ impl PaginatedScreenplay {
                                 ));
                                 next_page_number += 1;
                                 current_lines = 0;
+                                last_measurement = None;
 
                                 let mut carry = remainder;
                                 loop {
-                                    let carry_lines =
-                                        measure_flow_unit_lines(&carry, &config.measurement);
-                                    if carry_lines <= config.lines_per_page {
+                                    let carry_measurement =
+                                        measure_flow_unit(&carry, &config.measurement);
+                                    if carry_measurement.content_lines <= config.lines_per_page {
                                         current_items.push(flow_page_item(
                                             &carry,
                                             true,
                                             false,
                                         ));
-                                        current_lines = current_lines.saturating_add(carry_lines);
+                                        current_lines = current_lines.saturating_add(
+                                            carry_measurement.placement_lines_with_prev(
+                                                last_measurement.as_ref(),
+                                            ),
+                                        );
+                                        last_measurement = Some(carry_measurement);
                                         break;
                                     }
 
@@ -194,11 +201,16 @@ impl PaginatedScreenplay {
                                         ));
                                         next_page_number += 1;
                                         current_lines = 0;
+                                        last_measurement = None;
                                         carry = tail;
                                     } else {
                                         current_items.push(flow_page_item(&carry, true, false));
-                                        current_lines =
-                                            current_lines.saturating_add(carry_lines);
+                                        current_lines = current_lines.saturating_add(
+                                            carry_measurement.placement_lines_with_prev(
+                                                last_measurement.as_ref(),
+                                            ),
+                                        );
+                                        last_measurement = Some(carry_measurement);
                                         break;
                                     }
                                 }
@@ -214,21 +226,21 @@ impl PaginatedScreenplay {
                                 ));
                                 next_page_number += 1;
                                 current_lines = 0;
+                                last_measurement = None;
                                 continue;
                             }
                         }
                     }
 
                     if let SemanticUnit::Dialogue(dialogue) = unit {
-                        let dialogue_lines =
-                            measure_dialogue_unit_lines(dialogue, &config.measurement);
-                        let remaining_lines =
-                            config.lines_per_page.saturating_sub(current_lines);
-                        let available_lines = if current_items.is_empty() {
-                            config.lines_per_page
-                        } else {
-                            remaining_lines
-                        };
+                        let dialogue_measurement =
+                            measure_dialogue_unit(dialogue, &config.measurement);
+                        let remaining_lines = config.lines_per_page.saturating_sub(current_lines);
+                        let spacing_before = boundary_spacing_lines(
+                            last_measurement.as_ref(),
+                            Some(&dialogue_measurement),
+                        );
+                        let available_lines = remaining_lines.saturating_sub(spacing_before);
 
                         let prefer_soft_split = should_prefer_dialogue_split(
                             dialogue,
@@ -240,8 +252,7 @@ impl PaginatedScreenplay {
                             !current_items.is_empty(),
                         );
 
-                        if dialogue_lines > available_lines || prefer_soft_split
-                        {
+                        if dialogue_measurement.content_lines > available_lines || prefer_soft_split {
                             let split_candidate = split_dialogue_unit(
                                 dialogue,
                                 available_lines,
@@ -279,12 +290,13 @@ impl PaginatedScreenplay {
                                 ));
                                 next_page_number += 1;
                                 current_lines = 0;
+                                last_measurement = None;
 
                                 let mut carry = remainder;
                                 loop {
-                                    let carry_lines =
-                                        measure_dialogue_unit_lines(&carry, &config.measurement);
-                                    if carry_lines <= config.lines_per_page {
+                                    let carry_measurement =
+                                        measure_dialogue_unit(&carry, &config.measurement);
+                                    if carry_measurement.content_lines <= config.lines_per_page {
                                         let placed_items = dialogue_items_with_fragment_markers(
                                             &carry,
                                             None,
@@ -292,8 +304,13 @@ impl PaginatedScreenplay {
                                             true,
                                             false,
                                         );
-                                        current_lines = current_lines.saturating_add(carry_lines);
+                                        current_lines = current_lines.saturating_add(
+                                            carry_measurement.placement_lines_with_prev(
+                                                last_measurement.as_ref(),
+                                            ),
+                                        );
                                         current_items.extend(placed_items);
+                                        last_measurement = Some(carry_measurement);
                                         break;
                                     }
 
@@ -320,6 +337,7 @@ impl PaginatedScreenplay {
                                         ));
                                         next_page_number += 1;
                                         current_lines = 0;
+                                        last_measurement = None;
                                         carry = tail;
                                     } else {
                                         let placed_items = dialogue_items_with_fragment_markers(
@@ -329,9 +347,13 @@ impl PaginatedScreenplay {
                                             true,
                                             false,
                                         );
-                                        current_lines =
-                                            current_lines.saturating_add(carry_lines);
+                                        current_lines = current_lines.saturating_add(
+                                            carry_measurement.placement_lines_with_prev(
+                                                last_measurement.as_ref(),
+                                            ),
+                                        );
                                         current_items.extend(placed_items);
+                                        last_measurement = Some(carry_measurement);
                                         break;
                                     }
                                 }
@@ -347,22 +369,26 @@ impl PaginatedScreenplay {
                                 ));
                                 next_page_number += 1;
                                 current_lines = 0;
+                                last_measurement = None;
                                 continue;
                             }
                         }
                     }
 
-                    let unit_lines = measure_unit_lines(unit, &config.measurement);
+                    let unit_measurement = measure_unit(unit, &config.measurement);
+                    let mut unit_lines =
+                        unit_measurement.placement_lines_with_prev(last_measurement.as_ref());
                     let mut required_lines = unit_lines;
                     if should_keep_with_next(unit) {
                         if let Some(next_index) = next_placeable_unit_index(&units, index + 1) {
-                            required_lines +=
-                                measure_unit_lines(&units[next_index], &config.measurement);
+                            let next_measurement =
+                                measure_unit(&units[next_index], &config.measurement);
+                            required_lines += next_measurement
+                                .placement_lines_with_prev(Some(&unit_measurement));
                         }
                     }
 
-                    let remaining_lines =
-                        config.lines_per_page.saturating_sub(current_lines);
+                    let remaining_lines = config.lines_per_page.saturating_sub(current_lines);
                     if !current_items.is_empty() && required_lines > remaining_lines {
                         pages.push(build_page(
                             pages.len(),
@@ -372,11 +398,13 @@ impl PaginatedScreenplay {
                         ));
                         next_page_number += 1;
                         current_lines = 0;
+                        unit_lines = unit_measurement.placement_lines_with_prev(None);
                     }
 
                     let placed_items = page_items_from_semantic_unit(unit);
                     current_lines = current_lines.saturating_add(unit_lines);
                     current_items.extend(placed_items);
+                    last_measurement = Some(unit_measurement);
                     index += 1;
                 }
             }
@@ -522,14 +550,12 @@ fn should_keep_with_next(unit: &SemanticUnit) -> bool {
     }
 }
 
-fn measure_unit_lines(unit: &SemanticUnit, measurement: &MeasurementConfig) -> u32 {
-    match unit {
-        SemanticUnit::PageStart(_) => 0,
-        SemanticUnit::Flow(unit) => measure_flow_unit_lines(unit, measurement),
-        SemanticUnit::Lyric(unit) => measure_lyric_unit_lines(unit, measurement),
-        SemanticUnit::Dialogue(unit) => measure_dialogue_unit_lines(unit, measurement),
-        SemanticUnit::DualDialogue(unit) => measure_dual_dialogue_unit_lines(unit, measurement),
-    }
+fn measure_unit(unit: &SemanticUnit, measurement: &MeasurementConfig) -> UnitMeasurement {
+    measure_semantic_unit(unit, measurement).unwrap_or(UnitMeasurement {
+        content_lines: 0,
+        top_spacing_lines: 0,
+        bottom_spacing_lines: 0,
+    })
 }
 
 fn should_prefer_flow_split(
@@ -556,7 +582,12 @@ fn should_prefer_flow_split(
         .skip(index + 1)
         .filter(|unit| !matches!(unit, SemanticUnit::PageStart(_)))
         .take(2)
-        .map(|unit| measure_unit_lines(unit, measurement))
+        .scan(Some(measure_flow_unit(flow, measurement)), |previous, unit| {
+            let current = measure_unit(unit, measurement);
+            let lines = current.placement_lines_with_prev(previous.as_ref());
+            *previous = Some(current);
+            Some(lines)
+        })
         .sum();
     if lookahead_lines > 0 || remaining_after_whole > 1 {
         return false;
@@ -596,7 +627,12 @@ fn should_prefer_dialogue_split(
         .skip(index + 1)
         .filter(|unit| !matches!(unit, SemanticUnit::PageStart(_)))
         .take(2)
-        .map(|unit| measure_unit_lines(unit, measurement))
+        .scan(Some(measure_dialogue_unit(dialogue, measurement)), |previous, unit| {
+            let current = measure_unit(unit, measurement);
+            let lines = current.placement_lines_with_prev(previous.as_ref());
+            *previous = Some(current);
+            Some(lines)
+        })
         .sum();
     if lookahead_lines == 0 {
         return false;
