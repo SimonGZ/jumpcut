@@ -94,30 +94,51 @@ fn selected_public_windows_have_useful_exact_unique_pdf_line_matches() {
 }
 
 #[test]
+fn pdf_line_count_diagnostic_confirms_big_fish_el_00787_is_one_line() {
+    let fixture: PageBreakFixture =
+        read_fixture("tests/fixtures/pagination/big-fish.p38-40.page-breaks.json");
+    let normalized = normalized_slice_from_fountain(
+        "big-fish",
+        "benches/Big-Fish.fountain",
+        &fixture,
+    );
+    let debug = canonical_pdf_line_count_debug("big-fish", &fixture, &normalized);
+    let item = debug
+        .items
+        .iter()
+        .find(|item| item.element_id == "el-00787")
+        .unwrap();
+
+    assert_eq!(item.match_kind, "exact_unique");
+    assert_eq!(item.pdf_line_count, Some(1));
+    assert_eq!(item.line_span, Some((10, 10)));
+}
+
+#[test]
 fn selected_big_fish_window_probe_baselines_hold() {
     for (path, expected_lines, expected_score, expected_counts) in [
         (
             "tests/fixtures/pagination/big-fish.p38-40.page-breaks.json",
-            52,
-            (41, 15, 2),
-            (12, 12),
+            54,
+            (0, 0, 0),
+            (0, 0),
         ),
         (
             "tests/fixtures/pagination/big-fish.p42-44.page-breaks.json",
-            37,
-            (3, 2, 1),
+            54,
+            (0, 0, 0),
             (0, 0),
         ),
         (
             "tests/fixtures/pagination/big-fish.p55-57.page-breaks.json",
-            42,
+            55,
             (0, 0, 0),
             (0, 0),
         ),
         (
             "tests/fixtures/pagination/big-fish.p77-79.page-breaks.json",
-            40,
-            (0, 0, 0),
+            54,
+            (1, 0, 1),
             (0, 0),
         ),
     ] {
@@ -161,15 +182,15 @@ fn selected_public_window_probe_baselines_hold() {
             "tests/fixtures/pagination/brick-n-steel.p2-4.page-breaks.json",
             "brick-n-steel",
             "../jumpcut-layout-corpus/corpus/public/brick-n-steel/source/source.fountain",
-            37,
-            (3, 3, 0),
+            55,
+            (0, 0, 0),
             (0, 0),
         ),
         (
             "tests/fixtures/pagination/little-women.p4-6.page-breaks.json",
             "little-women",
             "../jumpcut-layout-corpus/corpus/public/little-women/source/source.fountain",
-            46,
+            60,
             (6, 3, 0),
             (1, 2),
         ),
@@ -177,7 +198,7 @@ fn selected_public_window_probe_baselines_hold() {
             "tests/fixtures/pagination/little-women.p13-14.page-breaks.json",
             "little-women",
             "../jumpcut-layout-corpus/corpus/public/little-women/source/source.fountain",
-            39,
+            55,
             (0, 0, 0),
             (0, 0),
         ),
@@ -785,6 +806,12 @@ fn paginated_to_debug_fixture(
             action_bottom_spacing_lines: measurement.action_bottom_spacing_lines,
             scene_heading_top_spacing_lines: measurement.scene_heading_top_spacing_lines,
             scene_heading_bottom_spacing_lines: measurement.scene_heading_bottom_spacing_lines,
+            cold_opening_top_spacing_lines: measurement.cold_opening_top_spacing_lines,
+            cold_opening_bottom_spacing_lines: measurement.cold_opening_bottom_spacing_lines,
+            new_act_top_spacing_lines: measurement.new_act_top_spacing_lines,
+            new_act_bottom_spacing_lines: measurement.new_act_bottom_spacing_lines,
+            end_of_act_top_spacing_lines: measurement.end_of_act_top_spacing_lines,
+            end_of_act_bottom_spacing_lines: measurement.end_of_act_bottom_spacing_lines,
             transition_top_spacing_lines: measurement.transition_top_spacing_lines,
             transition_bottom_spacing_lines: measurement.transition_bottom_spacing_lines,
             dialogue_top_spacing_lines: measurement.dialogue_top_spacing_lines,
@@ -1116,6 +1143,20 @@ fn public_pdf_pages(screenplay_id: &str) -> HashMap<u32, Vec<String>> {
 }
 
 fn render_big_fish_review_packet(summaries: &[BigFishReviewSummary]) -> String {
+    let focus_windows: Vec<&BigFishReviewSummary> = summaries
+        .iter()
+        .filter(|summary| summary.total_issues > 0)
+        .collect();
+    let ordered_windows: Vec<&BigFishReviewSummary> = focus_windows
+        .iter()
+        .copied()
+        .chain(
+            summaries
+                .iter()
+                .filter(|summary| summary.total_issues == 0),
+        )
+        .collect();
+
     let mut review = String::from(
         "# Big Fish Pagination Review Packet\n\n\
 Run this command to regenerate everything in this folder:\n\n\
@@ -1123,17 +1164,26 @@ Run this command to regenerate everything in this folder:\n\n\
 cargo test --test pagination_corpus_harness_test build_big_fish_review_packet -- --ignored --nocapture\n\
 ```\n\n\
 Read files in this order:\n\n\
-1. `target/pagination-debug/big-fish-review/REVIEW.md`\n\
-2. `target/pagination-debug/big-fish-review/p38-40.comparison-report.json`\n\
-3. `tests/fixtures/pagination/big-fish.p38-40.page-breaks.json`\n\
-4. `target/pagination-debug/big-fish-review/p38-40.actual.page-breaks.json`\n\
-5. `target/pagination-debug/big-fish-review/p42-44.comparison-report.json`\n\
-6. `tests/fixtures/pagination/big-fish.p42-44.page-breaks.json`\n\
-7. `target/pagination-debug/big-fish-review/p42-44.actual.page-breaks.json`\n\n\
-Primary review questions:\n\n\
-- `p38-40`: does Final Draft's split/placement around `el-00800` through `el-00811` and the later `el-00851` split look like missing rhythm/spacing in our model, or is there an obvious wrap-count mistake?\n\
-- `p42-44`: should `el-00916` / `el-00917` really stay on page 43, and should `el-00944` stay whole on page 44?\n\
-- `p55-57` and `p77-79` are controls. They currently match; only inspect them if you want a clean reference.\n\n\
+1. `target/pagination-debug/big-fish-review/REVIEW.md`\n",
+    );
+
+    for (index, summary) in ordered_windows.iter().enumerate() {
+        let step = index * 3 + 2;
+        review.push_str(&format!(
+            "{step}. `target/pagination-debug/big-fish-review/{stem}.comparison-report.json`\n\
+{step_plus_one}. `{fixture}`\n\
+{step_plus_two}. `target/pagination-debug/big-fish-review/{stem}.actual.page-breaks.json`\n",
+            step = step,
+            step_plus_one = step + 1,
+            step_plus_two = step + 2,
+            stem = summary.stem,
+            fixture = summary.fixture_path,
+        ));
+    }
+
+    review.push_str(
+        "\nPrimary review question:\n\n\
+- For the first nonzero window above, does the canonical break look like missing spacing/rhythm in our model, an obvious line-wrap-count problem, or a split-choice problem?\n\n\
 Useful extra files:\n\n\
 - `target/pagination-debug/big-fish-review/<window>.pdf-line-counts.json` gives exact-unique PDF line counts where text alignment is recoverable.\n\
 - `benches/Big-Fish.fountain` is the local source text.\n\n\
@@ -1156,9 +1206,14 @@ Current window summary:\n\n",
         ));
     }
 
-    review.push_str(
-        "\nIf you only look at one thing, start with `p38-40.comparison-report.json` and answer whether the canonical page 38->39 break feels structurally right or whether our earlier fill on page 38 looks reasonable.\n",
-    );
+    if let Some(summary) = focus_windows.first() {
+        review.push_str(&format!(
+            "\nIf you only look at one thing, start with `{stem}.comparison-report.json`.\n",
+            stem = summary.stem,
+        ));
+    } else {
+        review.push_str("\nAll selected Big Fish windows currently match.\n");
+    }
 
     review
 }
@@ -1414,6 +1469,12 @@ struct DebugMeasurement {
     action_bottom_spacing_lines: u32,
     scene_heading_top_spacing_lines: u32,
     scene_heading_bottom_spacing_lines: u32,
+    cold_opening_top_spacing_lines: u32,
+    cold_opening_bottom_spacing_lines: u32,
+    new_act_top_spacing_lines: u32,
+    new_act_bottom_spacing_lines: u32,
+    end_of_act_top_spacing_lines: u32,
+    end_of_act_bottom_spacing_lines: u32,
     transition_top_spacing_lines: u32,
     transition_bottom_spacing_lines: u32,
     dialogue_top_spacing_lines: u32,

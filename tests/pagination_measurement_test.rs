@@ -257,6 +257,37 @@ fn fdx_derived_geometry_matches_concrete_public_dialogue_examples_better() {
 }
 
 #[test]
+fn fdx_derived_spacing_uses_space_before_as_top_spacing_without_double_bottoms() {
+    let measurement = public_corpus_measurement("big-fish");
+
+    assert_eq!(measurement.action_top_spacing_lines, 1);
+    assert_eq!(measurement.action_bottom_spacing_lines, 0);
+    assert_eq!(measurement.scene_heading_top_spacing_lines, 2);
+    assert_eq!(measurement.scene_heading_bottom_spacing_lines, 0);
+    assert_eq!(measurement.cold_opening_top_spacing_lines, 1);
+    assert_eq!(measurement.new_act_top_spacing_lines, 0);
+    assert_eq!(measurement.end_of_act_top_spacing_lines, 2);
+    assert_eq!(measurement.transition_top_spacing_lines, 1);
+    assert_eq!(measurement.dialogue_top_spacing_lines, 1);
+    assert_eq!(measurement.dialogue_bottom_spacing_lines, 0);
+}
+
+#[test]
+fn fdx_derived_action_width_still_overestimates_big_fish_el_00787() {
+    let measurement = public_corpus_measurement("big-fish");
+    let unit = FlowUnit {
+        element_id: "el-00787".into(),
+        kind: FlowKind::Action,
+        text: "Edward tosses the sign and forges ahead, into the spiderwebs.".into(),
+        line_range: None,
+        scene_number: None,
+        cohesion: splittable_cohesion(),
+    };
+
+    assert_eq!(measure_flow_unit_lines(&unit, &measurement), 2);
+}
+
+#[test]
 fn it_uses_shared_boundary_spacing_instead_of_double_counting_blank_lines() {
     let previous = UnitMeasurement {
         content_lines: 2,
@@ -378,6 +409,12 @@ fn narrow_measurement() -> MeasurementConfig {
         action_bottom_spacing_lines: 1,
         scene_heading_top_spacing_lines: 1,
         scene_heading_bottom_spacing_lines: 1,
+        cold_opening_top_spacing_lines: 1,
+        cold_opening_bottom_spacing_lines: 1,
+        new_act_top_spacing_lines: 1,
+        new_act_bottom_spacing_lines: 1,
+        end_of_act_top_spacing_lines: 1,
+        end_of_act_bottom_spacing_lines: 1,
         transition_top_spacing_lines: 1,
         transition_bottom_spacing_lines: 1,
         dialogue_top_spacing_lines: 1,

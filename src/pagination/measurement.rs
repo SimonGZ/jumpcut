@@ -62,6 +62,12 @@ pub struct MeasurementConfig {
     pub action_bottom_spacing_lines: u32,
     pub scene_heading_top_spacing_lines: u32,
     pub scene_heading_bottom_spacing_lines: u32,
+    pub cold_opening_top_spacing_lines: u32,
+    pub cold_opening_bottom_spacing_lines: u32,
+    pub new_act_top_spacing_lines: u32,
+    pub new_act_bottom_spacing_lines: u32,
+    pub end_of_act_top_spacing_lines: u32,
+    pub end_of_act_bottom_spacing_lines: u32,
     pub transition_top_spacing_lines: u32,
     pub transition_bottom_spacing_lines: u32,
     pub dialogue_top_spacing_lines: u32,
@@ -99,6 +105,12 @@ impl MeasurementConfig {
             action_bottom_spacing_lines: 0,
             scene_heading_top_spacing_lines: 0,
             scene_heading_bottom_spacing_lines: 0,
+            cold_opening_top_spacing_lines: 0,
+            cold_opening_bottom_spacing_lines: 0,
+            new_act_top_spacing_lines: 0,
+            new_act_bottom_spacing_lines: 0,
+            end_of_act_top_spacing_lines: 0,
+            end_of_act_bottom_spacing_lines: 0,
             transition_top_spacing_lines: 0,
             transition_bottom_spacing_lines: 0,
             dialogue_top_spacing_lines: 0,
@@ -160,6 +172,18 @@ impl MeasurementConfig {
                 self.scene_heading_top_spacing_lines,
                 self.scene_heading_bottom_spacing_lines,
             ),
+            FlowKind::ColdOpening => (
+                self.cold_opening_top_spacing_lines,
+                self.cold_opening_bottom_spacing_lines,
+            ),
+            FlowKind::NewAct => (
+                self.new_act_top_spacing_lines,
+                self.new_act_bottom_spacing_lines,
+            ),
+            FlowKind::EndOfAct => (
+                self.end_of_act_top_spacing_lines,
+                self.end_of_act_bottom_spacing_lines,
+            ),
             FlowKind::Transition => (
                 self.transition_top_spacing_lines,
                 self.transition_bottom_spacing_lines,
@@ -188,22 +212,37 @@ impl MeasurementConfig {
         if let Some(style) = settings.paragraph_styles.get("Action") {
             measurement.action_left_indent_in = style.left_indent;
             measurement.action_right_indent_in = style.right_indent;
+            measurement.action_top_spacing_lines =
+                spacing_lines_from_points(style.space_before, measurement.lines_per_inch);
+            measurement.action_bottom_spacing_lines = 0;
         }
         if let Some(style) = settings.paragraph_styles.get("Scene Heading") {
             measurement.scene_heading_left_indent_in = style.left_indent;
             measurement.scene_heading_right_indent_in = style.right_indent;
+            measurement.scene_heading_top_spacing_lines =
+                spacing_lines_from_points(style.space_before, measurement.lines_per_inch);
+            measurement.scene_heading_bottom_spacing_lines = 0;
         }
         if let Some(style) = settings.paragraph_styles.get("Cold Opening") {
             measurement.cold_opening_left_indent_in = style.left_indent;
             measurement.cold_opening_right_indent_in = style.right_indent;
+            measurement.cold_opening_top_spacing_lines =
+                spacing_lines_from_points(style.space_before, measurement.lines_per_inch);
+            measurement.cold_opening_bottom_spacing_lines = 0;
         }
         if let Some(style) = settings.paragraph_styles.get("New Act") {
             measurement.new_act_left_indent_in = style.left_indent;
             measurement.new_act_right_indent_in = style.right_indent;
+            measurement.new_act_top_spacing_lines =
+                spacing_lines_from_points(style.space_before, measurement.lines_per_inch);
+            measurement.new_act_bottom_spacing_lines = 0;
         }
         if let Some(style) = settings.paragraph_styles.get("End of Act") {
             measurement.end_of_act_left_indent_in = style.left_indent;
             measurement.end_of_act_right_indent_in = style.right_indent;
+            measurement.end_of_act_top_spacing_lines =
+                spacing_lines_from_points(style.space_before, measurement.lines_per_inch);
+            measurement.end_of_act_bottom_spacing_lines = 0;
         }
         if let Some(style) = settings.paragraph_styles.get("Dialogue") {
             measurement.dialogue_left_indent_in = style.left_indent;
@@ -212,6 +251,9 @@ impl MeasurementConfig {
         if let Some(style) = settings.paragraph_styles.get("Character") {
             measurement.character_left_indent_in = style.left_indent;
             measurement.character_right_indent_in = style.right_indent;
+            measurement.dialogue_top_spacing_lines =
+                spacing_lines_from_points(style.space_before, measurement.lines_per_inch);
+            measurement.dialogue_bottom_spacing_lines = 0;
         }
         if let Some(style) = settings.paragraph_styles.get("Parenthetical") {
             measurement.parenthetical_left_indent_in = style.left_indent;
@@ -220,14 +262,25 @@ impl MeasurementConfig {
         if let Some(style) = settings.paragraph_styles.get("Lyric") {
             measurement.lyric_left_indent_in = style.left_indent;
             measurement.lyric_right_indent_in = style.right_indent;
+            measurement.lyric_top_spacing_lines =
+                spacing_lines_from_points(style.space_before, measurement.lines_per_inch);
+            measurement.lyric_bottom_spacing_lines = 0;
         }
         if let Some(style) = settings.paragraph_styles.get("Transition") {
             measurement.transition_left_indent_in = style.left_indent;
             measurement.transition_right_indent_in = style.right_indent;
+            measurement.transition_top_spacing_lines =
+                spacing_lines_from_points(style.space_before, measurement.lines_per_inch);
+            measurement.transition_bottom_spacing_lines = 0;
         }
 
         measurement
     }
+}
+
+fn spacing_lines_from_points(space_before_points: f32, lines_per_inch: f32) -> u32 {
+    let points_per_line = 72.0 / lines_per_inch;
+    (space_before_points / points_per_line).round() as u32
 }
 
 pub fn measure_flow_unit(unit: &FlowUnit, measurement: &MeasurementConfig) -> UnitMeasurement {
