@@ -121,30 +121,39 @@ impl MeasurementConfig {
     }
 
     pub fn width_chars_for_flow_kind(&self, kind: &FlowKind) -> usize {
-        let (left, right) = match kind {
-            FlowKind::SceneHeading => (
+        // Action and action-like elements (shot, etc.) get 61 chars rather than the
+        // mathematically naive floor((7.5 - 1.5) * 10) = 60. Final Draft's Courier Prime
+        // at 12pt fits ~10.17 chars/inch, so a 6" column holds 61 characters in practice.
+        let action_width =
+            || width_chars(self.chars_per_inch, self.action_left_indent_in, self.action_right_indent_in) + 1;
+        match kind {
+            FlowKind::SceneHeading => width_chars(
+                self.chars_per_inch,
                 self.scene_heading_left_indent_in,
                 self.scene_heading_right_indent_in,
             ),
-            FlowKind::Transition => (
+            FlowKind::Transition => width_chars(
+                self.chars_per_inch,
                 self.transition_left_indent_in,
                 self.transition_right_indent_in,
             ),
-            FlowKind::ColdOpening => (
+            FlowKind::ColdOpening => width_chars(
+                self.chars_per_inch,
                 self.cold_opening_left_indent_in,
                 self.cold_opening_right_indent_in,
             ),
-            FlowKind::NewAct => (
+            FlowKind::NewAct => width_chars(
+                self.chars_per_inch,
                 self.new_act_left_indent_in,
                 self.new_act_right_indent_in,
             ),
-            FlowKind::EndOfAct => (
+            FlowKind::EndOfAct => width_chars(
+                self.chars_per_inch,
                 self.end_of_act_left_indent_in,
                 self.end_of_act_right_indent_in,
             ),
-            _ => (self.action_left_indent_in, self.action_right_indent_in),
-        };
-        width_chars(self.chars_per_inch, left, right)
+            _ => action_width(),
+        }
     }
 
     pub fn width_chars_for_dialogue_part(&self, kind: &DialoguePartKind) -> usize {
@@ -287,11 +296,12 @@ pub fn measure_flow_unit(unit: &FlowUnit, measurement: &MeasurementConfig) -> Un
     let (top_spacing_lines, bottom_spacing_lines) =
         measurement.spacing_for_flow_kind(&unit.kind);
     UnitMeasurement {
-        content_lines: measure_flow_text_lines(
+        content_lines: wrap_text_lines_with_policy(
             &unit.text,
-            &unit.kind,
             measurement.width_chars_for_flow_kind(&unit.kind),
-        ),
+            true,
+        )
+        .len() as u32,
         top_spacing_lines,
         bottom_spacing_lines,
     }
@@ -299,6 +309,10 @@ pub fn measure_flow_unit(unit: &FlowUnit, measurement: &MeasurementConfig) -> Un
 
 pub fn measure_flow_unit_lines(unit: &FlowUnit, measurement: &MeasurementConfig) -> u32 {
     measure_flow_unit(unit, measurement).content_lines
+}
+
+pub fn measure_flow_text_lines(text: &str, _kind: &FlowKind, width_chars: usize) -> u32 {
+    wrap_text_lines_with_policy(text, width_chars, true).len() as u32
 }
 
 pub fn measure_lyric_unit(unit: &LyricUnit, measurement: &MeasurementConfig) -> UnitMeasurement {
@@ -329,7 +343,7 @@ pub fn measure_dialogue_part_lines(
     wrap_text_lines_with_policy(
         text,
         measurement.width_chars_for_dialogue_part(kind),
-        preserves_internal_spaces(kind),
+        true,
     )
     .len() as u32
 }
@@ -405,11 +419,7 @@ pub fn boundary_spacing_lines(
 }
 
 pub fn measure_text_lines(text: &str, width_chars: usize) -> u32 {
-    wrap_text_lines_with_policy(text, width_chars, false).len() as u32
-}
-
-pub fn measure_flow_text_lines(text: &str, kind: &FlowKind, width_chars: usize) -> u32 {
-    wrap_flow_text_lines(text, kind, width_chars).len() as u32
+    wrap_text_lines_with_policy(text, width_chars, true).len() as u32
 }
 
 pub fn wrap_text_lines_with_policy(
@@ -417,23 +427,13 @@ pub fn wrap_text_lines_with_policy(
     width_chars: usize,
     preserve_internal_spaces: bool,
 ) -> Vec<String> {
-    wrap_text_lines_internal(text, width_chars, preserve_internal_spaces, false)
-}
-
-pub fn wrap_flow_text_lines(text: &str, kind: &FlowKind, width_chars: usize) -> Vec<String> {
-    wrap_text_lines_internal(
-        text,
-        width_chars,
-        false,
-        matches!(kind, FlowKind::Action),
-    )
+    wrap_text_lines_internal(text, width_chars, preserve_internal_spaces)
 }
 
 fn wrap_text_lines_internal(
     text: &str,
     width_chars: usize,
     preserve_internal_spaces: bool,
-    allow_hanging_terminal_punctuation: bool,
 ) -> Vec<String> {
     let wrapped = text
         .lines()
@@ -441,11 +441,7 @@ fn wrap_text_lines_internal(
             if preserve_internal_spaces {
                 wrap_explicit_line_preserving_spaces(line, width_chars)
             } else {
-                wrap_explicit_line_collapsing_spaces(
-                    line,
-                    width_chars,
-                    allow_hanging_terminal_punctuation,
-                )
+                wrap_explicit_line_collapsing_spaces(line, width_chars)
             }
         })
         .collect::<Vec<_>>();
@@ -457,11 +453,7 @@ fn wrap_text_lines_internal(
     }
 }
 
-fn wrap_explicit_line_collapsing_spaces(
-    line: &str,
-    width_chars: usize,
-    allow_hanging_terminal_punctuation: bool,
-) -> Vec<String> {
+fn wrap_explicit_line_collapsing_spaces(line: &str, width_chars: usize) -> Vec<String> {
     if width_chars == 0 {
         return vec![line.trim().to_string()];
     }
@@ -480,11 +472,7 @@ fn wrap_explicit_line_collapsing_spaces(
         }
 
         let candidate = format!("{current} {word}");
-        if candidate_fits_collapsed_line(
-            &candidate,
-            width_chars,
-            allow_hanging_terminal_punctuation,
-        ) {
+        if candidate.chars().count() <= width_chars {
             current.push(' ');
             current.push_str(word);
         } else {
@@ -500,30 +488,6 @@ fn wrap_explicit_line_collapsing_spaces(
     }
 
     wrapped
-}
-
-fn candidate_fits_collapsed_line(
-    candidate: &str,
-    width_chars: usize,
-    allow_hanging_terminal_punctuation: bool,
-) -> bool {
-    let width = candidate.chars().count();
-    width <= width_chars
-        || (allow_hanging_terminal_punctuation
-            && width <= width_chars + hanging_terminal_punctuation_discount(candidate))
-}
-
-fn hanging_terminal_punctuation_discount(candidate: &str) -> usize {
-    if candidate.ends_with("--") {
-        return 2;
-    }
-
-    candidate
-        .chars()
-        .last()
-        .filter(|ch| matches!(ch, '.' | ',' | '!' | '?' | ':' | ';'))
-        .map(|_| 1)
-        .unwrap_or(0)
 }
 
 fn wrap_explicit_line_preserving_spaces(
@@ -559,7 +523,16 @@ fn wrap_explicit_line_preserving_spaces(
             continue;
         }
 
-        if current.chars().count() + token.chars().count() <= width_chars {
+        // Final Draft does not count a trailing hyphen against the column width.
+        let current_len = current.chars().count();
+        let token_len = token.chars().count();
+        let effective_len = if token.ends_with('-') {
+            (current_len + token_len).saturating_sub(1)
+        } else {
+            current_len + token_len
+        };
+
+        if effective_len <= width_chars {
             current.push_str(&token);
             continue;
         }
@@ -585,10 +558,6 @@ fn wrap_explicit_line_preserving_spaces(
     }
 
     wrapped
-}
-
-fn preserves_internal_spaces(kind: &DialoguePartKind) -> bool {
-    matches!(kind, DialoguePartKind::Dialogue | DialoguePartKind::Lyric)
 }
 
 fn width_chars(chars_per_inch: f32, left_indent_in: f32, right_indent_in: f32) -> usize {

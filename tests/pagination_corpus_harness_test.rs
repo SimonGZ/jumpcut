@@ -1,7 +1,7 @@
 use jumpcut::pagination::{
     boundary_spacing_lines, build_semantic_screenplay, compare_paginated_to_fixture,
     measure_dialogue_part_lines, measure_dialogue_unit, measure_flow_unit, measure_lyric_unit,
-    measure_text_lines, normalize_screenplay, wrap_flow_text_lines, wrap_text_lines_with_policy,
+    measure_text_lines, normalize_screenplay, wrap_text_lines_with_policy,
     ComparisonIssueKind, DialoguePartKind, FdxExtractedSettings, FlowKind, Fragment,
     LineRange, MeasurementConfig, NormalizedElement, NormalizedScreenplay, PageBreakFixture,
     PageBreakFixtureSourceRefs, PaginatedScreenplay, PaginationConfig, UnitMeasurement,
@@ -417,6 +417,8 @@ fn big_fish_line_break_parity_reports_el_00787_as_an_exact_match() {
 
     assert_eq!(item.match_kind, "exact_unique");
     assert_eq!(item.pdf_line_count, Some(1));
+    // el-00787: "...into the spiderwebs." is 61 chars. With action width = 61 it fits
+    // on one line, matching the PDF without any punctuation-overhang special casing.
     assert_eq!(item.expected_wrapped_lines.len(), 1);
     assert_eq!(item.lines_agree, Some(true));
 }
@@ -1525,20 +1527,8 @@ fn width_chars_for_parity_kind(
     }
 }
 
-fn preserves_internal_spaces_for_parity_kind(kind: &str) -> bool {
-    matches!(kind, "Dialogue" | "Lyric")
-}
-
-fn wrap_lines_for_parity_kind(kind: &str, text: &str, width_chars: usize) -> Vec<String> {
-    if kind == "Action" {
-        wrap_flow_text_lines(text, &FlowKind::Action, width_chars)
-    } else {
-        wrap_text_lines_with_policy(
-            text,
-            width_chars,
-            preserves_internal_spaces_for_parity_kind(kind),
-        )
-    }
+fn wrap_lines_for_parity_kind(_kind: &str, text: &str, width_chars: usize) -> Vec<String> {
+    wrap_text_lines_with_policy(text, width_chars, true)
 }
 
 fn render_line_break_parity_review(report: &LineBreakParityReport) -> String {

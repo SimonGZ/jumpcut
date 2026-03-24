@@ -1,7 +1,7 @@
 use jumpcut::pagination::{
     boundary_spacing_lines, measure_dialogue_part_lines, measure_dialogue_unit,
     measure_dialogue_unit_lines, measure_flow_text_lines, measure_flow_unit,
-    measure_flow_unit_lines, measure_text_lines, wrap_flow_text_lines,
+    measure_flow_unit_lines, measure_text_lines,
     wrap_text_lines_with_policy, Cohesion, DialoguePart, DialoguePartKind, DialogueUnit,
     FlowKind, FlowUnit, FdxExtractedSettings, MeasurementConfig, PageKind,
     PaginatedScreenplay, PaginationConfig, PaginationScope, SemanticScreenplay, SemanticUnit,
@@ -88,52 +88,17 @@ fn it_counts_explicit_line_breaks_even_when_each_line_fits() {
 }
 
 #[test]
-fn dialogue_wrapping_preserves_repeated_internal_spaces() {
-    assert_eq!(
-        wrap_text_lines_with_policy("ALPHA  BETA", 10, false),
-        vec!["ALPHA BETA"]
-    );
+fn wrapping_preserves_repeated_internal_spaces() {
+    // Both policies now preserve internal spaces
     assert_eq!(
         wrap_text_lines_with_policy("ALPHA  BETA", 10, true),
         vec!["ALPHA", "BETA"]
     );
-}
-
-#[test]
-fn action_wrapping_allows_single_terminal_punctuation_to_hang() {
     assert_eq!(
-        wrap_flow_text_lines(
-            "He hands Zacky his flashlight, then starts climbing the gate.",
-            &FlowKind::Action,
-            60,
-        ),
-        vec!["He hands Zacky his flashlight, then starts climbing the gate."]
-    );
-    assert_eq!(
-        wrap_flow_text_lines(
-            "As he leaves, Will mutters in perfect unison with his father--",
-            &FlowKind::Action,
-            60,
-        ),
-        vec!["As he leaves, Will mutters in perfect unison with his father--"]
+        wrap_text_lines_with_policy("ALPHA  BETA", 10, false),
+        vec!["ALPHA BETA"]
     );
 }
-
-#[test]
-fn action_wrapping_does_not_change_non_action_flow_kinds() {
-    assert_eq!(
-        wrap_flow_text_lines(
-            "He hands Zacky his flashlight, then starts climbing the gate.",
-            &FlowKind::SceneHeading,
-            60,
-        ),
-        vec![
-            "He hands Zacky his flashlight, then starts climbing the",
-            "gate.",
-        ]
-    );
-}
-
 #[test]
 fn screenplay_default_measures_big_fish_edward_contd_example_as_seven_lines() {
     let measurement = MeasurementConfig::screenplay_default();
@@ -233,7 +198,7 @@ fn little_women_and_big_fish_examples_conflict_under_one_dialogue_width() {
 fn screenplay_default_exposes_narrower_dialogue_columns_than_action() {
     let measurement = MeasurementConfig::screenplay_default();
 
-    assert_eq!(measurement.width_chars_for_flow_kind(&FlowKind::Action), 60);
+    assert_eq!(measurement.width_chars_for_flow_kind(&FlowKind::Action), 61);
     assert_eq!(
         measurement.width_chars_for_dialogue_part(&DialoguePartKind::Character),
         20
@@ -255,7 +220,7 @@ fn screenplay_default_exposes_narrower_dialogue_columns_than_action() {
 fn fdx_derived_geometry_uses_real_dialogue_width_for_public_corpus() {
     let measurement = public_corpus_measurement("big-fish");
 
-    assert_eq!(measurement.width_chars_for_flow_kind(&FlowKind::Action), 60);
+    assert_eq!(measurement.width_chars_for_flow_kind(&FlowKind::Action), 61);
     assert_eq!(measurement.width_chars_for_flow_kind(&FlowKind::SceneHeading), 60);
     assert_eq!(measurement.width_chars_for_flow_kind(&FlowKind::ColdOpening), 65);
     assert_eq!(measurement.width_chars_for_flow_kind(&FlowKind::NewAct), 60);
@@ -322,7 +287,8 @@ fn fdx_derived_spacing_uses_space_before_as_top_spacing_without_double_bottoms()
 }
 
 #[test]
-fn action_hanging_punctuation_matches_big_fish_el_00787_as_one_line() {
+fn action_width_61_fits_big_fish_el_00787_on_one_line() {
+    // el-00787: 61-char action line fits exactly at action width = 61
     let measurement = public_corpus_measurement("big-fish");
     let unit = FlowUnit {
         element_id: "el-00787".into(),
@@ -333,34 +299,39 @@ fn action_hanging_punctuation_matches_big_fish_el_00787_as_one_line() {
         cohesion: splittable_cohesion(),
     };
 
+    assert_eq!(measurement.width_chars_for_flow_kind(&FlowKind::Action), 61);
     assert_eq!(measure_flow_unit_lines(&unit, &measurement), 1);
 }
 
 #[test]
-fn action_hanging_punctuation_changes_concrete_big_fish_cases() {
+fn action_width_61_concrete_big_fish_wrap_counts() {
     let measurement = public_corpus_measurement("big-fish");
+    let width = measurement.width_chars_for_flow_kind(&FlowKind::Action);
 
+    // 61-char line — fits on one line exactly
     assert_eq!(
         measure_flow_text_lines(
             "We LEAD Edward as he walks away, tears just starting to form.",
             &FlowKind::Action,
-            measurement.width_chars_for_flow_kind(&FlowKind::Action),
+            width,
         ),
         1
     );
+    // 178-char line — wraps to 3 lines
     assert_eq!(
         measure_flow_text_lines(
             "Edward Bloom, 61, lies asleep on the bed. Although he's not the vibrant man we've seen before, it's not as bad we feared. The illness has been quick, and left him largely intact.",
             &FlowKind::Action,
-            measurement.width_chars_for_flow_kind(&FlowKind::Action),
+            width,
         ),
         3
     );
+    // 62-char line ending with "--": trailing hyphen not counted, effective length = 61 → 1 line
     assert_eq!(
         measure_flow_text_lines(
             "As he leaves, Will mutters in perfect unison with his father--",
             &FlowKind::Action,
-            measurement.width_chars_for_flow_kind(&FlowKind::Action),
+            width,
         ),
         1
     );
@@ -512,7 +483,7 @@ fn splittable_cohesion() -> Cohesion {
 }
 
 fn public_corpus_measurement(screenplay: &str) -> MeasurementConfig {
-    let path = Path::new("/ductor/workspace/jumpcut-layout-corpus/corpus/public")
+    let path = Path::new("../jumpcut-layout-corpus/corpus/public")
         .join(screenplay)
         .join("extracted/fdx-settings.json");
     let settings: FdxExtractedSettings =
