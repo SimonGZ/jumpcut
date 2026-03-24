@@ -123,6 +123,44 @@ fn screenplay_default_measures_big_fish_edward_contd_example_as_seven_lines() {
 }
 
 #[test]
+fn screenplay_default_measures_exact_little_women_dialogue_examples() {
+    let measurement = MeasurementConfig::screenplay_default();
+
+    assert_eq!(
+        measure_dialogue_part_lines(
+            &DialoguePartKind::Dialogue,
+            "The country just went through a  war. People want to be amused, not  preached at. Morals don’t sell  nowadays.  ",
+            &measurement,
+        ),
+        5
+    );
+    assert_eq!(
+        measure_dialogue_part_lines(
+            &DialoguePartKind::Dialogue,
+            "You can have it. Make the edits.  ",
+            &measurement,
+        ),
+        2
+    );
+}
+
+#[test]
+fn little_women_examples_and_big_fish_benchmark_conflict_under_one_dialogue_width() {
+    let little_women_long =
+        "The country just went through a  war. People want to be amused, not  preached at. Morals don’t sell  nowadays.  ";
+    let little_women_short = "You can have it. Make the edits.  ";
+    let big_fish =
+        "I mean, on one hand, if dying was all you thought about, it could kind of screw you up. But it could kind of help you, couldn't it?";
+
+    assert_eq!(measure_text_lines(little_women_long, 28), 5);
+    assert_eq!(measure_text_lines(little_women_long, 29), 4);
+    assert_eq!(measure_text_lines(little_women_short, 31), 2);
+    assert_eq!(measure_text_lines(little_women_short, 32), 1);
+    assert_eq!(measure_text_lines(big_fish, 28), 6);
+    assert_eq!(measure_text_lines(big_fish, 32), 5);
+}
+
+#[test]
 fn screenplay_default_exposes_narrower_dialogue_columns_than_action() {
     let measurement = MeasurementConfig::screenplay_default();
 
