@@ -47,8 +47,8 @@ fn selected_big_fish_window_probe_baselines_hold() {
         (
             "tests/fixtures/pagination/big-fish.p38-40.page-breaks.json",
             41,
-            (2, 0, 0),
-            (2, 0),
+            (0, 0, 0),
+            (0, 0),
         ),
         (
             "tests/fixtures/pagination/big-fish.p42-44.page-breaks.json",

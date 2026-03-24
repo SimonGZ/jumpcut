@@ -242,12 +242,25 @@ impl PaginatedScreenplay {
 
                         if dialogue_lines > available_lines || prefer_soft_split
                         {
-                            if let Some((current_segment, remainder)) =
-                                split_dialogue_unit(
-                                    dialogue,
-                                    available_lines,
-                                    &config.measurement,
-                                )
+                            let split_candidate = split_dialogue_unit(
+                                dialogue,
+                                available_lines,
+                                &config.measurement,
+                            )
+                            .or_else(|| {
+                                (!current_items.is_empty()
+                                    && available_lines < config.lines_per_page)
+                                    .then(|| {
+                                        split_dialogue_unit(
+                                            dialogue,
+                                            available_lines.saturating_add(1),
+                                            &config.measurement,
+                                        )
+                                    })
+                                    .flatten()
+                            });
+
+                            if let Some((current_segment, remainder)) = split_candidate
                             {
                                 let placed_items = dialogue_items_with_fragment_markers(
                                     &current_segment,
