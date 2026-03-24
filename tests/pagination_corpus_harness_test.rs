@@ -1,10 +1,10 @@
 use jumpcut::pagination::{
     boundary_spacing_lines, build_semantic_screenplay, compare_paginated_to_fixture,
     measure_dialogue_part_lines, measure_dialogue_unit, measure_flow_unit, measure_lyric_unit,
-    measure_text_lines, normalize_screenplay, ComparisonIssueKind, DialoguePartKind,
-    FdxExtractedSettings, FlowKind, Fragment, LineRange, MeasurementConfig,
-    NormalizedElement, NormalizedScreenplay, PageBreakFixture, PageBreakFixtureSourceRefs,
-    PaginatedScreenplay, PaginationConfig, UnitMeasurement,
+    measure_text_lines, normalize_screenplay, wrap_text_lines_with_policy,
+    ComparisonIssueKind, DialoguePartKind, FdxExtractedSettings, FlowKind, Fragment,
+    LineRange, MeasurementConfig, NormalizedElement, NormalizedScreenplay, PageBreakFixture,
+    PageBreakFixtureSourceRefs, PaginatedScreenplay, PaginationConfig, UnitMeasurement,
 };
 use jumpcut::parse;
 use serde::Serialize;
@@ -419,6 +419,24 @@ fn big_fish_line_break_parity_reports_el_00787_as_a_disagreement() {
     assert_eq!(item.pdf_line_count, Some(1));
     assert_eq!(item.expected_wrapped_lines.len(), 2);
     assert_eq!(item.lines_agree, Some(false));
+}
+
+#[test]
+fn big_fish_line_break_parity_has_no_dialogue_disagreements() {
+    let report = build_line_break_parity_report(
+        "big-fish",
+        "../jumpcut-layout-corpus/corpus/public/big-fish/working/parsed-elements.json",
+        "../jumpcut-layout-corpus/corpus/public/big-fish/canonical/page-breaks.json",
+    );
+
+    assert_eq!(
+        report
+            .items
+            .iter()
+            .filter(|item| item.kind == "Dialogue" && item.lines_agree == Some(false))
+            .count(),
+        0
+    );
 }
 
 #[test]
@@ -1423,7 +1441,14 @@ fn build_line_break_parity_item(
     };
 
     let width_chars = width_chars_for_parity_kind(kind, block_id.is_some(), measurement);
-    let expected_wrapped_lines = wrap_text_lines(&candidate_text, width_chars);
+    let expected_wrapped_lines = wrap_text_lines_with_policy(
+        &candidate_text,
+        width_chars,
+        preserves_internal_spaces_for_parity_kind(kind),
+    )
+    .into_iter()
+    .map(|line| normalize_pdf_match_text(&line))
+    .collect::<Vec<_>>();
     let normalized_text = normalize_pdf_match_text(&candidate_text);
     let matches = exact_pdf_line_matches(page_lines, &normalized_text);
 
@@ -1500,42 +1525,8 @@ fn width_chars_for_parity_kind(
     }
 }
 
-fn wrap_text_lines(text: &str, width_chars: usize) -> Vec<String> {
-    text.lines()
-        .flat_map(|line| wrap_explicit_line(line, width_chars))
-        .collect()
-}
-
-fn wrap_explicit_line(line: &str, width_chars: usize) -> Vec<String> {
-    if width_chars == 0 || line.trim().is_empty() {
-        return vec![String::new()];
-    }
-
-    let mut wrapped = Vec::new();
-    let mut current = String::new();
-
-    for word in line.split_whitespace() {
-        if current.is_empty() {
-            current.push_str(word);
-            continue;
-        }
-
-        if current.chars().count() + 1 + word.chars().count() <= width_chars {
-            current.push(' ');
-            current.push_str(word);
-        } else {
-            wrapped.push(current);
-            current = word.to_string();
-        }
-    }
-
-    if current.is_empty() {
-        wrapped.push(String::new());
-    } else {
-        wrapped.push(current);
-    }
-
-    wrapped
+fn preserves_internal_spaces_for_parity_kind(kind: &str) -> bool {
+    matches!(kind, "Dialogue" | "Lyric")
 }
 
 fn render_line_break_parity_review(report: &LineBreakParityReport) -> String {

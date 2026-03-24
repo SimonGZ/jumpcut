@@ -325,7 +325,12 @@ pub fn measure_dialogue_part_lines(
     text: &str,
     measurement: &MeasurementConfig,
 ) -> u32 {
-    measure_text_lines(text, measurement.width_chars_for_dialogue_part(kind))
+    wrap_text_lines_with_policy(
+        text,
+        measurement.width_chars_for_dialogue_part(kind),
+        preserves_internal_spaces(kind),
+    )
+    .len() as u32
 }
 
 pub fn measure_dialogue_unit(
@@ -399,41 +404,134 @@ pub fn boundary_spacing_lines(
 }
 
 pub fn measure_text_lines(text: &str, width_chars: usize) -> u32 {
-    text.lines()
-        .map(|line| measure_explicit_line(line, width_chars))
-        .sum::<u32>()
-        .max(1)
+    wrap_text_lines_with_policy(text, width_chars, false).len() as u32
 }
 
-fn measure_explicit_line(line: &str, width_chars: usize) -> u32 {
+pub fn wrap_text_lines_with_policy(
+    text: &str,
+    width_chars: usize,
+    preserve_internal_spaces: bool,
+) -> Vec<String> {
+    let wrapped = text
+        .lines()
+        .flat_map(|line| {
+            if preserve_internal_spaces {
+                wrap_explicit_line_preserving_spaces(line, width_chars)
+            } else {
+                wrap_explicit_line_collapsing_spaces(line, width_chars)
+            }
+        })
+        .collect::<Vec<_>>();
+
+    if wrapped.is_empty() {
+        vec![String::new()]
+    } else {
+        wrapped
+    }
+}
+
+fn wrap_explicit_line_collapsing_spaces(
+    line: &str,
+    width_chars: usize,
+) -> Vec<String> {
     if width_chars == 0 {
-        return 1;
+        return vec![line.trim().to_string()];
     }
 
     if line.trim().is_empty() {
-        return 1;
+        return vec![String::new()];
     }
 
-    let mut count = 0;
-    let mut current_len = 0;
+    let mut wrapped = Vec::new();
+    let mut current = String::new();
 
     for word in line.split_whitespace() {
-        let word_len = word.chars().count();
-        if current_len == 0 {
-            current_len = word_len;
-            count += 1;
+        if current.is_empty() {
+            current.push_str(word);
             continue;
         }
 
-        if current_len + 1 + word_len <= width_chars {
-            current_len += 1 + word_len;
+        if current.chars().count() + 1 + word.chars().count() <= width_chars {
+            current.push(' ');
+            current.push_str(word);
         } else {
-            count += 1;
-            current_len = word_len;
+            wrapped.push(current);
+            current = word.to_string();
         }
     }
 
-    count.max(1)
+    if current.is_empty() {
+        wrapped.push(String::new());
+    } else {
+        wrapped.push(current);
+    }
+
+    wrapped
+}
+
+fn wrap_explicit_line_preserving_spaces(
+    line: &str,
+    width_chars: usize,
+) -> Vec<String> {
+    if width_chars == 0 {
+        return vec![line.trim_end().to_string()];
+    }
+
+    let line = line.trim_end();
+    if line.is_empty() {
+        return vec![String::new()];
+    }
+
+    let mut wrapped = Vec::new();
+    let mut current = String::new();
+    let mut chars = line.chars().peekable();
+
+    while let Some(ch) = chars.next() {
+        let mut token = String::from(ch);
+        let is_whitespace = ch.is_whitespace();
+
+        while let Some(next) = chars.peek() {
+            if next.is_whitespace() == is_whitespace {
+                token.push(chars.next().unwrap());
+            } else {
+                break;
+            }
+        }
+
+        if current.is_empty() && is_whitespace {
+            continue;
+        }
+
+        if current.chars().count() + token.chars().count() <= width_chars {
+            current.push_str(&token);
+            continue;
+        }
+
+        if is_whitespace {
+            if !current.is_empty() {
+                wrapped.push(current.trim_end().to_string());
+                current.clear();
+            }
+            continue;
+        }
+
+        if !current.is_empty() {
+            wrapped.push(current.trim_end().to_string());
+        }
+        current = token;
+    }
+
+    if current.is_empty() {
+        wrapped.push(String::new());
+    } else {
+        wrapped.push(current.trim_end().to_string());
+    }
+
+    wrapped
+}
+
+fn preserves_internal_spaces(kind: &DialoguePartKind) -> bool {
+    matches!(kind, DialoguePartKind::Dialogue | DialoguePartKind::Lyric)
 }
 
 fn width_chars(chars_per_inch: f32, left_indent_in: f32, right_indent_in: f32) -> usize {

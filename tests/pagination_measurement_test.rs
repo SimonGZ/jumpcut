@@ -1,9 +1,10 @@
 use jumpcut::pagination::{
     boundary_spacing_lines, measure_dialogue_part_lines, measure_dialogue_unit,
     measure_dialogue_unit_lines, measure_flow_unit, measure_flow_unit_lines, measure_text_lines,
-    Cohesion, DialoguePart, DialoguePartKind, DialogueUnit, FlowKind, FlowUnit,
-    FdxExtractedSettings, MeasurementConfig, PageKind, PaginatedScreenplay, PaginationConfig,
-    PaginationScope, SemanticScreenplay, SemanticUnit, UnitMeasurement,
+    wrap_text_lines_with_policy, Cohesion, DialoguePart, DialoguePartKind, DialogueUnit,
+    FlowKind, FlowUnit, FdxExtractedSettings, MeasurementConfig, PageKind,
+    PaginatedScreenplay, PaginationConfig, PaginationScope, SemanticScreenplay, SemanticUnit,
+    UnitMeasurement,
 };
 use pretty_assertions::assert_eq;
 use std::fs;
@@ -83,6 +84,18 @@ fn it_uses_distinct_widths_for_dialogue_parts() {
 #[test]
 fn it_counts_explicit_line_breaks_even_when_each_line_fits() {
     assert_eq!(measure_text_lines("ALPHA BETA\nGAMMA DELTA", 40), 2);
+}
+
+#[test]
+fn dialogue_wrapping_preserves_repeated_internal_spaces() {
+    assert_eq!(
+        wrap_text_lines_with_policy("ALPHA  BETA", 10, false),
+        vec!["ALPHA BETA"]
+    );
+    assert_eq!(
+        wrap_text_lines_with_policy("ALPHA  BETA", 10, true),
+        vec!["ALPHA", "BETA"]
+    );
 }
 
 #[test]
