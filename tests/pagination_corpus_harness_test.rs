@@ -2,9 +2,9 @@ use jumpcut::pagination::{
     boundary_spacing_lines, build_semantic_screenplay, compare_paginated_to_fixture,
     measure_dialogue_part_lines, measure_dialogue_unit, measure_flow_unit, measure_lyric_unit,
     measure_text_lines, normalize_screenplay, ComparisonIssueKind, DialoguePartKind,
-    FdxExtractedSettings, FlowKind, MeasurementConfig, NormalizedElement,
-    NormalizedScreenplay, PageBreakFixture, PageBreakFixtureSourceRefs, PaginatedScreenplay,
-    PaginationConfig, UnitMeasurement,
+    FdxExtractedSettings, FlowKind, Fragment, LineRange, MeasurementConfig,
+    NormalizedElement, NormalizedScreenplay, PageBreakFixture, PageBreakFixtureSourceRefs,
+    PaginatedScreenplay, PaginationConfig, UnitMeasurement,
 };
 use jumpcut::parse;
 use serde::Serialize;
@@ -57,6 +57,39 @@ fn selected_public_window_fixtures_round_trip() {
         assert_eq!(report.expected_page_count, fixture.pages.len(), "{path}");
         assert_eq!(report.actual_page_count, fixture.pages.len(), "{path}");
         assert!(report.issues.is_empty(), "{path}: {:?}", report.issues);
+    }
+}
+
+#[test]
+fn selected_public_windows_have_useful_exact_unique_pdf_line_matches() {
+    for (path, screenplay_id, fountain_path, min_exact_unique) in [
+        (
+            "tests/fixtures/pagination/brick-n-steel.p2-4.page-breaks.json",
+            "brick-n-steel",
+            "../jumpcut-layout-corpus/corpus/public/brick-n-steel/source/source.fountain",
+            50,
+        ),
+        (
+            "tests/fixtures/pagination/little-women.p4-6.page-breaks.json",
+            "little-women",
+            "../jumpcut-layout-corpus/corpus/public/little-women/source/source.fountain",
+            45,
+        ),
+    ] {
+        let fixture: PageBreakFixture = read_fixture(path);
+        let normalized = normalized_slice_from_fountain(screenplay_id, fountain_path, &fixture);
+        let debug = canonical_pdf_line_count_debug(screenplay_id, &fixture, &normalized);
+
+        assert_eq!(
+            debug.supported_items + debug.unsupported_items,
+            debug.items.len(),
+            "{path}"
+        );
+        assert!(
+            debug.exact_unique_items >= min_exact_unique,
+            "{path}: only {} exact-unique PDF matches",
+            debug.exact_unique_items
+        );
     }
 }
 
@@ -442,8 +475,21 @@ fn dump_selected_public_windows_paginated_output_json() {
         )
         .unwrap();
 
+        let pdf_line_counts = canonical_pdf_line_count_debug(
+            screenplay_id,
+            &fixture,
+            &normalized,
+        );
+        let pdf_line_count_path = debug_dir.join(format!("{stem}.pdf-line-counts.json"));
+        fs::write(
+            &pdf_line_count_path,
+            serde_json::to_string_pretty(&pdf_line_counts).unwrap(),
+        )
+        .unwrap();
+
         println!("wrote {}", actual_path.display());
         println!("wrote {}", report_path.display());
+        println!("wrote {}", pdf_line_count_path.display());
     }
 }
 
@@ -586,10 +632,62 @@ fn paginated_to_debug_fixture(
         scope: actual.scope.clone(),
         lines_per_page,
         measurement: DebugMeasurement {
-            action_width_chars: measurement.width_chars_for_flow_kind(&FlowKind::Action),
-            dialogue_width_chars: measurement.width_chars_for_dialogue_part(&DialoguePartKind::Dialogue),
-            character_width_chars: measurement.width_chars_for_dialogue_part(&DialoguePartKind::Character),
-            parenthetical_width_chars: measurement.width_chars_for_dialogue_part(&DialoguePartKind::Parenthetical),
+            flow_geometries: vec![
+                debug_flow_geometry("Action", "Action", FlowKind::Action, measurement),
+                debug_flow_geometry(
+                    "Scene Heading",
+                    "Scene Heading",
+                    FlowKind::SceneHeading,
+                    measurement,
+                ),
+                debug_flow_geometry(
+                    "Transition",
+                    "Transition",
+                    FlowKind::Transition,
+                    measurement,
+                ),
+                debug_flow_geometry(
+                    "Cold Opening",
+                    "Cold Opening",
+                    FlowKind::ColdOpening,
+                    measurement,
+                ),
+                debug_flow_geometry("New Act", "New Act", FlowKind::NewAct, measurement),
+                debug_flow_geometry(
+                    "End of Act",
+                    "End of Act",
+                    FlowKind::EndOfAct,
+                    measurement,
+                ),
+                debug_flow_geometry("Section", "Action (fallback)", FlowKind::Section, measurement),
+                debug_flow_geometry(
+                    "Synopsis",
+                    "Action (fallback)",
+                    FlowKind::Synopsis,
+                    measurement,
+                ),
+            ],
+            dialogue_geometries: vec![
+                debug_dialogue_geometry(
+                    "Dialogue",
+                    "Dialogue",
+                    DialoguePartKind::Dialogue,
+                    measurement,
+                ),
+                debug_dialogue_geometry(
+                    "Character",
+                    "Character",
+                    DialoguePartKind::Character,
+                    measurement,
+                ),
+                debug_dialogue_geometry(
+                    "Parenthetical",
+                    "Parenthetical",
+                    DialoguePartKind::Parenthetical,
+                    measurement,
+                ),
+                debug_dialogue_geometry("Lyric", "Lyric", DialoguePartKind::Lyric, measurement),
+            ],
             action_top_spacing_lines: measurement.action_top_spacing_lines,
             action_bottom_spacing_lines: measurement.action_bottom_spacing_lines,
             scene_heading_top_spacing_lines: measurement.scene_heading_top_spacing_lines,
@@ -606,6 +704,79 @@ fn paginated_to_debug_fixture(
             .iter()
             .map(|page| debug_page(page, &elements, measurement, previews))
             .collect(),
+    }
+}
+
+fn debug_flow_geometry(
+    kind: &str,
+    source_style: &str,
+    flow_kind: FlowKind,
+    measurement: &MeasurementConfig,
+) -> DebugGeometry {
+    let (left_indent_in, right_indent_in) = match flow_kind {
+        FlowKind::SceneHeading => (
+            measurement.scene_heading_left_indent_in,
+            measurement.scene_heading_right_indent_in,
+        ),
+        FlowKind::Transition => (
+            measurement.transition_left_indent_in,
+            measurement.transition_right_indent_in,
+        ),
+        FlowKind::ColdOpening => (
+            measurement.cold_opening_left_indent_in,
+            measurement.cold_opening_right_indent_in,
+        ),
+        FlowKind::NewAct => (
+            measurement.new_act_left_indent_in,
+            measurement.new_act_right_indent_in,
+        ),
+        FlowKind::EndOfAct => (
+            measurement.end_of_act_left_indent_in,
+            measurement.end_of_act_right_indent_in,
+        ),
+        _ => (measurement.action_left_indent_in, measurement.action_right_indent_in),
+    };
+
+    DebugGeometry {
+        kind: kind.into(),
+        source_style: source_style.into(),
+        left_indent_in,
+        right_indent_in,
+        width_chars: measurement.width_chars_for_flow_kind(&flow_kind),
+    }
+}
+
+fn debug_dialogue_geometry(
+    kind: &str,
+    source_style: &str,
+    part_kind: DialoguePartKind,
+    measurement: &MeasurementConfig,
+) -> DebugGeometry {
+    let (left_indent_in, right_indent_in) = match part_kind {
+        DialoguePartKind::Character => (
+            measurement.character_left_indent_in,
+            measurement.character_right_indent_in,
+        ),
+        DialoguePartKind::Parenthetical => (
+            measurement.parenthetical_left_indent_in,
+            measurement.parenthetical_right_indent_in,
+        ),
+        DialoguePartKind::Lyric => (
+            measurement.lyric_left_indent_in,
+            measurement.lyric_right_indent_in,
+        ),
+        DialoguePartKind::Dialogue => (
+            measurement.dialogue_left_indent_in,
+            measurement.dialogue_right_indent_in,
+        ),
+    };
+
+    DebugGeometry {
+        kind: kind.into(),
+        source_style: source_style.into(),
+        left_indent_in,
+        right_indent_in,
+        width_chars: measurement.width_chars_for_dialogue_part(&part_kind),
     }
 }
 
@@ -685,6 +856,169 @@ fn normalized_element_map(
         .iter()
         .cloned()
         .map(|element| (element.element_id.clone(), element))
+        .collect()
+}
+
+fn canonical_pdf_line_count_debug(
+    screenplay_id: &str,
+    fixture: &PageBreakFixture,
+    normalized: &NormalizedScreenplay,
+) -> CanonicalPdfLineCountDebug {
+    let elements = normalized_element_map(normalized);
+    let pdf_pages = public_pdf_pages(screenplay_id);
+    let mut supported_items = 0;
+    let mut exact_unique_items = 0;
+    let mut exact_ambiguous_items = 0;
+    let mut unsupported_items = 0;
+    let mut items = Vec::new();
+
+    for page in &fixture.pages {
+        let page_lines = pdf_pages.get(&page.number).map(Vec::as_slice).unwrap_or(&[]);
+        for item in &page.items {
+            let result = canonical_pdf_match_for_item(
+                page.number,
+                &item.element_id,
+                &item.kind,
+                &item.fragment,
+                item.line_range,
+                &elements,
+                page_lines,
+            );
+            match result.match_kind.as_str() {
+                "exact_unique" => {
+                    supported_items += 1;
+                    exact_unique_items += 1;
+                }
+                "exact_ambiguous" => {
+                    supported_items += 1;
+                    exact_ambiguous_items += 1;
+                }
+                _ => unsupported_items += 1,
+            }
+            items.push(result);
+        }
+    }
+
+    CanonicalPdfLineCountDebug {
+        screenplay: normalized.screenplay.clone(),
+        supported_items,
+        exact_unique_items,
+        exact_ambiguous_items,
+        unsupported_items,
+        items,
+    }
+}
+
+fn canonical_pdf_match_for_item(
+    page_number: u32,
+    element_id: &str,
+    kind: &str,
+    fragment: &Fragment,
+    line_range: Option<LineRange>,
+    elements: &HashMap<String, NormalizedElement>,
+    page_lines: &[String],
+) -> CanonicalPdfLineCountItem {
+    let Some(element) = elements.get(element_id) else {
+        return CanonicalPdfLineCountItem {
+            page_number,
+            element_id: element_id.into(),
+            kind: kind.into(),
+            text_preview: None,
+            match_kind: "missing-element".into(),
+            pdf_line_count: None,
+            line_span: None,
+        };
+    };
+
+    let Some(candidate_text) =
+        canonical_pdf_text_for_item(fragment, line_range, element)
+    else {
+        return CanonicalPdfLineCountItem {
+            page_number,
+            element_id: element_id.into(),
+            kind: kind.into(),
+            text_preview: Some(text_preview(&element.text)),
+            match_kind: "unsupported-fragment".into(),
+            pdf_line_count: None,
+            line_span: None,
+        };
+    };
+    let normalized_text = normalize_pdf_match_text(&candidate_text);
+    let matches = exact_pdf_line_matches(page_lines, &normalized_text);
+
+    let (match_kind, pdf_line_count, line_span) = match matches.as_slice() {
+        [(start, end)] => (
+            "exact_unique".into(),
+            Some(end - start + 1),
+            Some((*start, *end)),
+        ),
+        [] => ("unmatched".into(), None, None),
+        _ => ("exact_ambiguous".into(), None, None),
+    };
+
+    CanonicalPdfLineCountItem {
+        page_number,
+        element_id: element_id.into(),
+        kind: kind.into(),
+        text_preview: Some(text_preview(&candidate_text)),
+        match_kind,
+        pdf_line_count,
+        line_span,
+    }
+}
+
+fn canonical_pdf_text_for_item(
+    fragment: &Fragment,
+    line_range: Option<LineRange>,
+    element: &NormalizedElement,
+) -> Option<String> {
+    match (fragment, line_range) {
+        (Fragment::Whole, None) => Some(element.text.clone()),
+        (_, Some(LineRange(start, end))) => {
+            Some(slice_explicit_lines(&element.text, start, end))
+        }
+        _ => None,
+    }
+}
+
+fn exact_pdf_line_matches(
+    page_lines: &[String],
+    candidate_text: &str,
+) -> Vec<(u32, u32)> {
+    let mut matches = Vec::new();
+    for start in 0..page_lines.len() {
+        let mut accumulated = String::new();
+        for end in start..page_lines.len() {
+            if !accumulated.is_empty() {
+                accumulated.push(' ');
+            }
+            accumulated.push_str(&page_lines[end]);
+            let normalized = normalize_pdf_match_text(&accumulated);
+            if normalized == candidate_text {
+                matches.push((start as u32 + 1, end as u32 + 1));
+            }
+            if normalized.len() > candidate_text.len() + 40 {
+                break;
+            }
+        }
+    }
+    matches
+}
+
+fn normalize_pdf_match_text(text: &str) -> String {
+    text.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+fn public_pdf_pages(screenplay_id: &str) -> HashMap<u32, Vec<String>> {
+    let path = Path::new("../jumpcut-layout-corpus/corpus/public")
+        .join(screenplay_id)
+        .join("extracted/pdf-pages.json");
+    let pdf_pages: PublicPdfPages =
+        serde_json::from_str(&fs::read_to_string(path).unwrap()).unwrap();
+    pdf_pages
+        .pages
+        .into_iter()
+        .map(|page| (page.number, page.text.lines().map(str::to_string).collect()))
         .collect()
 }
 
@@ -921,10 +1255,8 @@ struct DebugPageBreakItem {
 
 #[derive(Serialize)]
 struct DebugMeasurement {
-    action_width_chars: usize,
-    dialogue_width_chars: usize,
-    character_width_chars: usize,
-    parenthetical_width_chars: usize,
+    flow_geometries: Vec<DebugGeometry>,
+    dialogue_geometries: Vec<DebugGeometry>,
     action_top_spacing_lines: u32,
     action_bottom_spacing_lines: u32,
     scene_heading_top_spacing_lines: u32,
@@ -935,4 +1267,48 @@ struct DebugMeasurement {
     dialogue_bottom_spacing_lines: u32,
     lyric_top_spacing_lines: u32,
     lyric_bottom_spacing_lines: u32,
+}
+
+#[derive(Serialize)]
+struct DebugGeometry {
+    kind: String,
+    source_style: String,
+    left_indent_in: f32,
+    right_indent_in: f32,
+    width_chars: usize,
+}
+
+#[derive(Serialize)]
+struct CanonicalPdfLineCountDebug {
+    screenplay: String,
+    supported_items: usize,
+    exact_unique_items: usize,
+    exact_ambiguous_items: usize,
+    unsupported_items: usize,
+    items: Vec<CanonicalPdfLineCountItem>,
+}
+
+#[derive(Serialize)]
+struct CanonicalPdfLineCountItem {
+    page_number: u32,
+    element_id: String,
+    kind: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    text_preview: Option<String>,
+    match_kind: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pdf_line_count: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    line_span: Option<(u32, u32)>,
+}
+
+#[derive(serde::Deserialize)]
+struct PublicPdfPages {
+    pages: Vec<PublicPdfPage>,
+}
+
+#[derive(serde::Deserialize)]
+struct PublicPdfPage {
+    number: u32,
+    text: String,
 }

@@ -40,6 +40,14 @@ pub struct MeasurementConfig {
     pub lines_per_inch: f32,
     pub action_left_indent_in: f32,
     pub action_right_indent_in: f32,
+    pub scene_heading_left_indent_in: f32,
+    pub scene_heading_right_indent_in: f32,
+    pub cold_opening_left_indent_in: f32,
+    pub cold_opening_right_indent_in: f32,
+    pub new_act_left_indent_in: f32,
+    pub new_act_right_indent_in: f32,
+    pub end_of_act_left_indent_in: f32,
+    pub end_of_act_right_indent_in: f32,
     pub dialogue_left_indent_in: f32,
     pub dialogue_right_indent_in: f32,
     pub character_left_indent_in: f32,
@@ -69,6 +77,14 @@ impl MeasurementConfig {
             lines_per_inch: 6.0,
             action_left_indent_in: 1.50,
             action_right_indent_in: 7.50,
+            scene_heading_left_indent_in: 1.50,
+            scene_heading_right_indent_in: 7.50,
+            cold_opening_left_indent_in: 1.50,
+            cold_opening_right_indent_in: 7.50,
+            new_act_left_indent_in: 1.50,
+            new_act_right_indent_in: 7.50,
+            end_of_act_left_indent_in: 1.50,
+            end_of_act_right_indent_in: 7.50,
             dialogue_left_indent_in: 2.50,
             dialogue_right_indent_in: 5.30,
             character_left_indent_in: 3.50,
@@ -94,9 +110,25 @@ impl MeasurementConfig {
 
     pub fn width_chars_for_flow_kind(&self, kind: &FlowKind) -> usize {
         let (left, right) = match kind {
+            FlowKind::SceneHeading => (
+                self.scene_heading_left_indent_in,
+                self.scene_heading_right_indent_in,
+            ),
             FlowKind::Transition => (
                 self.transition_left_indent_in,
                 self.transition_right_indent_in,
+            ),
+            FlowKind::ColdOpening => (
+                self.cold_opening_left_indent_in,
+                self.cold_opening_right_indent_in,
+            ),
+            FlowKind::NewAct => (
+                self.new_act_left_indent_in,
+                self.new_act_right_indent_in,
+            ),
+            FlowKind::EndOfAct => (
+                self.end_of_act_left_indent_in,
+                self.end_of_act_right_indent_in,
             ),
             _ => (self.action_left_indent_in, self.action_right_indent_in),
         };
@@ -156,6 +188,22 @@ impl MeasurementConfig {
         if let Some(style) = settings.paragraph_styles.get("Action") {
             measurement.action_left_indent_in = style.left_indent;
             measurement.action_right_indent_in = style.right_indent;
+        }
+        if let Some(style) = settings.paragraph_styles.get("Scene Heading") {
+            measurement.scene_heading_left_indent_in = style.left_indent;
+            measurement.scene_heading_right_indent_in = style.right_indent;
+        }
+        if let Some(style) = settings.paragraph_styles.get("Cold Opening") {
+            measurement.cold_opening_left_indent_in = style.left_indent;
+            measurement.cold_opening_right_indent_in = style.right_indent;
+        }
+        if let Some(style) = settings.paragraph_styles.get("New Act") {
+            measurement.new_act_left_indent_in = style.left_indent;
+            measurement.new_act_right_indent_in = style.right_indent;
+        }
+        if let Some(style) = settings.paragraph_styles.get("End of Act") {
+            measurement.end_of_act_left_indent_in = style.left_indent;
+            measurement.end_of_act_right_indent_in = style.right_indent;
         }
         if let Some(style) = settings.paragraph_styles.get("Dialogue") {
             measurement.dialogue_left_indent_in = style.left_indent;

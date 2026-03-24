@@ -207,6 +207,11 @@ fn fdx_derived_geometry_uses_real_dialogue_width_for_public_corpus() {
     let measurement = public_corpus_measurement("big-fish");
 
     assert_eq!(measurement.width_chars_for_flow_kind(&FlowKind::Action), 60);
+    assert_eq!(measurement.width_chars_for_flow_kind(&FlowKind::SceneHeading), 60);
+    assert_eq!(measurement.width_chars_for_flow_kind(&FlowKind::ColdOpening), 65);
+    assert_eq!(measurement.width_chars_for_flow_kind(&FlowKind::NewAct), 60);
+    assert_eq!(measurement.width_chars_for_flow_kind(&FlowKind::EndOfAct), 60);
+    assert_eq!(measurement.width_chars_for_flow_kind(&FlowKind::Transition), 15);
     assert_eq!(
         measurement.width_chars_for_dialogue_part(&DialoguePartKind::Character),
         37
@@ -351,6 +356,14 @@ fn narrow_measurement() -> MeasurementConfig {
         lines_per_inch: 6.0,
         action_left_indent_in: 0.0,
         action_right_indent_in: 10.0,
+        scene_heading_left_indent_in: 0.0,
+        scene_heading_right_indent_in: 10.0,
+        cold_opening_left_indent_in: 0.0,
+        cold_opening_right_indent_in: 10.0,
+        new_act_left_indent_in: 0.0,
+        new_act_right_indent_in: 10.0,
+        end_of_act_left_indent_in: 0.0,
+        end_of_act_right_indent_in: 10.0,
         dialogue_left_indent_in: 0.0,
         dialogue_right_indent_in: 10.0,
         character_left_indent_in: 0.0,
