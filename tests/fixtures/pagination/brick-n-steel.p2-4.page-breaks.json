@@ -1,0 +1,850 @@
+{
+  "screenplay": "brick-n-steel",
+  "style_profile": "standard",
+  "source": {
+    "fountain": "source/source.fountain",
+    "fdx": "source/source.fdx",
+    "pdf": "source/source.pdf"
+  },
+  "scope": {
+    "title_page_count": 1,
+    "body_start_page": 2
+  },
+  "pages": [
+    {
+      "number": 2,
+      "items": [
+        {
+          "element_id": "el-00001",
+          "kind": "Scene Heading",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "EXT. BRICK'S PATIO - DAY"
+        },
+        {
+          "element_id": "el-00002",
+          "kind": "Action",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "A gorgeous day. The sun is shining. But BRICK BRADDOCK, retired police detective"
+        },
+        {
+          "element_id": "el-00003",
+          "kind": "Action",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "The SCREEN DOOR slides open and DICK STEEL, his former partner and fellow retire"
+        },
+        {
+          "element_id": "el-00004",
+          "kind": "Action",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "The horse dances."
+        },
+        {
+          "element_id": "el-00005",
+          "kind": "Character",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00001",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "STEEL"
+        },
+        {
+          "element_id": "el-00006",
+          "kind": "Dialogue",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00001",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "Beer's ready!"
+        },
+        {
+          "element_id": "el-00007",
+          "kind": "Character",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00002",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "BRICK"
+        },
+        {
+          "element_id": "el-00008",
+          "kind": "Dialogue",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00002",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "Are they cold?"
+        },
+        {
+          "element_id": "el-00009",
+          "kind": "Character",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00003",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "STEEL"
+        },
+        {
+          "element_id": "el-00010",
+          "kind": "Dialogue",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00003",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "Does a bear crap in the woods?"
+        },
+        {
+          "element_id": "el-00011",
+          "kind": "Action",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "Steel sits. They laugh at the dumb joke."
+        },
+        {
+          "element_id": "el-00012",
+          "kind": "Character",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00004",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "STEEL"
+        },
+        {
+          "element_id": "el-00013",
+          "kind": "Parenthetical",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00004",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "(beer raised)"
+        },
+        {
+          "element_id": "el-00014",
+          "kind": "Dialogue",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00004",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "To retirement."
+        },
+        {
+          "element_id": "el-00015",
+          "kind": "Character",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00005",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "BRICK"
+        },
+        {
+          "element_id": "el-00016",
+          "kind": "Dialogue",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00005",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "To retirement."
+        },
+        {
+          "element_id": "el-00017",
+          "kind": "Action",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "They drink long and well from the beers."
+        },
+        {
+          "element_id": "el-00018",
+          "kind": "Action",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "And then there's a long beat. Longer than is funny. Long enough to be depressing"
+        },
+        {
+          "element_id": "el-00019",
+          "kind": "Action",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "The men look at each other."
+        },
+        {
+          "element_id": "el-00020",
+          "kind": "Character",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00006",
+          "dual_dialogue_group": "dual-00001",
+          "dual_dialogue_side": 1,
+          "text_preview": "STEEL"
+        },
+        {
+          "element_id": "el-00021",
+          "kind": "Dialogue",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00006",
+          "dual_dialogue_group": "dual-00001",
+          "dual_dialogue_side": 1,
+          "text_preview": "Screw retirement."
+        },
+        {
+          "element_id": "el-00022",
+          "kind": "Character",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00007",
+          "dual_dialogue_group": "dual-00001",
+          "dual_dialogue_side": 2,
+          "text_preview": "BRICK"
+        },
+        {
+          "element_id": "el-00023",
+          "kind": "Dialogue",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00007",
+          "dual_dialogue_group": "dual-00001",
+          "dual_dialogue_side": 2,
+          "text_preview": "Screw retirement."
+        },
+        {
+          "element_id": "el-00024",
+          "kind": "Transition",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "SMASH CUT TO:"
+        },
+        {
+          "element_id": "el-00025",
+          "kind": "Scene Heading",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "INT. TRAILER HOME - DAY"
+        },
+        {
+          "element_id": "el-00026",
+          "kind": "Action",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "This is the home of THE BOY BAND, AKA DAN and JACK. They too are drinking beer, "
+        },
+        {
+          "element_id": "el-00027",
+          "kind": "Character",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00008",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "JACK"
+        },
+        {
+          "element_id": "el-00028",
+          "kind": "Parenthetical",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00008",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "(in Vietnamese, subtitled)"
+        },
+        {
+          "element_id": "el-00029",
+          "kind": "Dialogue",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00008",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "Did you know Brick and Steel are retired?"
+        }
+      ]
+    },
+    {
+      "number": 3,
+      "items": [
+        {
+          "element_id": "el-00030",
+          "kind": "Character",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00009",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "DAN"
+        },
+        {
+          "element_id": "el-00031",
+          "kind": "Dialogue",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00009",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "Then let's retire them. Permanently."
+        },
+        {
+          "element_id": "el-00032",
+          "kind": "Action",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "Jack begins to argue vociferously in Vietnamese (?), But mercifully we..."
+        },
+        {
+          "element_id": "el-00033",
+          "kind": "Transition",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "CUT TO:"
+        },
+        {
+          "element_id": "el-00034",
+          "kind": "Scene Heading",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "EXT. BRICK'S POOL - DAY"
+        },
+        {
+          "element_id": "el-00035",
+          "kind": "Action",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "Steel, in the middle of a heated phone call:"
+        },
+        {
+          "element_id": "el-00036",
+          "kind": "Character",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00010",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "STEEL"
+        },
+        {
+          "element_id": "el-00037",
+          "kind": "Dialogue",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00010",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "They're coming out of the woodwork!"
+        },
+        {
+          "element_id": "el-00038",
+          "kind": "Parenthetical",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00010",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "(pause)"
+        },
+        {
+          "element_id": "el-00039",
+          "kind": "Dialogue",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00010",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "No, everybody we've put away!"
+        },
+        {
+          "element_id": "el-00040",
+          "kind": "Parenthetical",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00010",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "(pause)"
+        },
+        {
+          "element_id": "el-00041",
+          "kind": "Dialogue",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00010",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "Point Blank Sniper?"
+        },
+        {
+          "element_id": "el-00042",
+          "kind": "Scene Heading",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "SNIPER SCOPE POV"
+        },
+        {
+          "element_id": "el-00043",
+          "kind": "Action",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "From what seems like only INCHES AWAY. Steel's face FILLS the Leupold Mark 4 sco"
+        },
+        {
+          "element_id": "el-00044",
+          "kind": "Character",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00011",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "STEEL"
+        },
+        {
+          "element_id": "el-00045",
+          "kind": "Dialogue",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00011",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "The man's a myth!"
+        },
+        {
+          "element_id": "el-00046",
+          "kind": "Action",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "Steel turns and looks straight into the cross-hairs."
+        },
+        {
+          "element_id": "el-00047",
+          "kind": "Character",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00012",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "STEEL"
+        },
+        {
+          "element_id": "el-00048",
+          "kind": "Parenthetical",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00012",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "(oh crap)"
+        },
+        {
+          "element_id": "el-00049",
+          "kind": "Dialogue",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00012",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "Hello..."
+        },
+        {
+          "element_id": "el-00050",
+          "kind": "Transition",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "CUT TO:"
+        },
+        {
+          "element_id": "el-00051",
+          "kind": "Scene Heading",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "OPENING TITLES"
+        },
+        {
+          "element_id": "el-00052",
+          "kind": "Action",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "BRICK BRADDOCK & DICK STEEL IN"
+        },
+        {
+          "element_id": "el-00053",
+          "kind": "Action",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "BRICK & STEEL FULL RETIRED"
+        },
+        {
+          "element_id": "el-00054",
+          "kind": "Transition",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "SMASH CUT TO:"
+        },
+        {
+          "element_id": "el-00055",
+          "kind": "Scene Heading",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "EXT. WOODEN SHACK - DAY"
+        },
+        {
+          "element_id": "el-00056",
+          "kind": "Action",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "COGNITO, the criminal mastermind, is SLAMMED against the wall."
+        }
+      ]
+    },
+    {
+      "number": 4,
+      "items": [
+        {
+          "element_id": "el-00057",
+          "kind": "Character",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00013",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "COGNITO"
+        },
+        {
+          "element_id": "el-00058",
+          "kind": "Dialogue",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00013",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "Woah woah woah, Brick and Steel!"
+        },
+        {
+          "element_id": "el-00059",
+          "kind": "Action",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "Sure enough, it's Brick and Steel, roughing up their favorite usual suspect."
+        },
+        {
+          "element_id": "el-00060",
+          "kind": "Character",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00014",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "COGNITO"
+        },
+        {
+          "element_id": "el-00061",
+          "kind": "Dialogue",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00014",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "What is it you want with me, DICK?"
+        },
+        {
+          "element_id": "el-00062",
+          "kind": "Action",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "Steel SMACKS him."
+        },
+        {
+          "element_id": "el-00063",
+          "kind": "Character",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00015",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "STEEL"
+        },
+        {
+          "element_id": "el-00064",
+          "kind": "Dialogue",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00015",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "Who's coming after us?"
+        },
+        {
+          "element_id": "el-00065",
+          "kind": "Character",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00016",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "COGNITO"
+        },
+        {
+          "element_id": "el-00066",
+          "kind": "Dialogue",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00016",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "Everyone's coming after you mate! Scorpio, The Boy Band, Sparrow, Point Blank Sn"
+        },
+        {
+          "element_id": "el-00067",
+          "kind": "Action",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "As he rattles off the long list, Brick and Steel share a look. This is going to "
+        },
+        {
+          "element_id": "el-00068",
+          "kind": "Transition",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "CUT TO:"
+        },
+        {
+          "element_id": "el-00069",
+          "kind": "Scene Heading",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "INT. GARAGE - DAY"
+        },
+        {
+          "element_id": "el-00070",
+          "kind": "Action",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "BRICK and STEEL get into Mom's PORSCHE, Steel at the wheel. They pause for a bea"
+        },
+        {
+          "element_id": "el-00071",
+          "kind": "Character",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00017",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "BRICK"
+        },
+        {
+          "element_id": "el-00072",
+          "kind": "Dialogue",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00017",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "This is everybody we've ever put away."
+        },
+        {
+          "element_id": "el-00073",
+          "kind": "Character",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00018",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "STEEL"
+        },
+        {
+          "element_id": "el-00074",
+          "kind": "Parenthetical",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00018",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "(starting the engine)"
+        },
+        {
+          "element_id": "el-00075",
+          "kind": "Dialogue",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00018",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "So much for retirement!"
+        },
+        {
+          "element_id": "el-00076",
+          "kind": "Action",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "They speed off. To destiny!"
+        },
+        {
+          "element_id": "el-00077",
+          "kind": "Transition",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "CUT TO:"
+        },
+        {
+          "element_id": "el-00078",
+          "kind": "Scene Heading",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "EXT. PALATIAL MANSION - DAY"
+        },
+        {
+          "element_id": "el-00079",
+          "kind": "Action",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "An EXTREMELY HANDSOME MAN drinks a beer. Shirtless, unfortunately."
+        },
+        {
+          "element_id": "el-00080",
+          "kind": "Action",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "His minion approaches offscreen:"
+        },
+        {
+          "element_id": "el-00081",
+          "kind": "Character",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00019",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "MINION"
+        },
+        {
+          "element_id": "el-00082",
+          "kind": "Dialogue",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00019",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "We found Brick and Steel!"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,790 @@
+{
+  "screenplay": "little-women",
+  "style_profile": "standard",
+  "source": {
+    "fountain": "source/source.fountain",
+    "fdx": "source/source.fdx",
+    "pdf": "source/source.pdf"
+  },
+  "scope": {
+    "title_page_count": 1,
+    "body_start_page": 2
+  },
+  "pages": [
+    {
+      "number": 4,
+      "items": [
+        {
+          "element_id": "el-00008",
+          "kind": "Scene Heading",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "INT. NEW YORK. PUBLISHING OFFICE. 1868."
+        },
+        {
+          "element_id": "el-00009",
+          "kind": "Action",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "JO MARCH, our heroine, hesitates."
+        },
+        {
+          "element_id": "el-00010",
+          "kind": "Action",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "In the half-light of a dim hallway, she exhales and prepares, her head bowed lik"
+        },
+        {
+          "element_id": "el-00011",
+          "kind": "Action",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "It is full of men. Some sit with their feet up on the desks, higher than their h"
+        },
+        {
+          "element_id": "el-00012",
+          "kind": "Action",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "Jo walks through the desks, looking for one in particular."
+        },
+        {
+          "element_id": "el-00013",
+          "kind": "Character",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00001",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "JO"
+        },
+        {
+          "element_id": "el-00014",
+          "kind": "Parenthetical",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00001",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "(clearing her throat)"
+        },
+        {
+          "element_id": "el-00015",
+          "kind": "Dialogue",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00001",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "Excuse me."
+        },
+        {
+          "element_id": "el-00016",
+          "kind": "Action",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "MR. DASHWOOD (the oldest, smokiest gentleman) looks at her."
+        },
+        {
+          "element_id": "el-00017",
+          "kind": "Character",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00002",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "JO"
+        },
+        {
+          "element_id": "el-00018",
+          "kind": "Dialogue",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00002",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "I was looking for the Weekly Volcano office... I wished to see Mr. Dashwood?"
+        },
+        {
+          "element_id": "el-00019",
+          "kind": "Action",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "Mr. Dashwood stares silently."
+        },
+        {
+          "element_id": "el-00020",
+          "kind": "Character",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00003",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "JO"
+        },
+        {
+          "element_id": "el-00021",
+          "kind": "Parenthetical",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00003",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "(nervous, presenting pages)"
+        },
+        {
+          "element_id": "el-00022",
+          "kind": "Dialogue",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00003",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "A friend of mine desired me to offer a story, by her, she wrote it - she\u2019d be gl"
+        },
+        {
+          "element_id": "el-00023",
+          "kind": "Action",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "He stands and extends his rough, large hand. She gives him the manuscript."
+        },
+        {
+          "element_id": "el-00024",
+          "kind": "Character",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00004",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "MR. DASHWOOD"
+        },
+        {
+          "element_id": "el-00025",
+          "kind": "Parenthetical",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00004",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "(turning the pages over)"
+        },
+        {
+          "element_id": "el-00026",
+          "kind": "Dialogue",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00004",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "Not a first attempt, I take it?"
+        },
+        {
+          "element_id": "el-00027",
+          "kind": "Character",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00005",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "JO"
+        },
+        {
+          "element_id": "el-00028",
+          "kind": "Dialogue",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00005",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "No, sir; she has sold to \u201cOlympic\u201d and \u201cScandal\u201d and got a prize for a tale in t"
+        },
+        {
+          "element_id": "el-00029",
+          "kind": "Character",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00006",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "MR. DASHWOOD"
+        },
+        {
+          "element_id": "el-00030",
+          "kind": "Dialogue",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00006",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "A prize?"
+        },
+        {
+          "element_id": "el-00031",
+          "kind": "Character",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00007",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "JO"
+        },
+        {
+          "element_id": "el-00032",
+          "kind": "Parenthetical",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00007",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "(weakly)"
+        },
+        {
+          "element_id": "el-00033",
+          "kind": "Dialogue",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00007",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "Yes."
+        }
+      ]
+    },
+    {
+      "number": 5,
+      "items": [
+        {
+          "element_id": "el-00034",
+          "kind": "Action",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "He now takes in Jo\u2019s appearance and her mended clothes."
+        },
+        {
+          "element_id": "el-00035",
+          "kind": "Character",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00008",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "MR. DASHWOOD"
+        },
+        {
+          "element_id": "el-00036",
+          "kind": "Dialogue",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00008",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "Sit."
+        },
+        {
+          "element_id": "el-00037",
+          "kind": "Action",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "Jo sits, hands folded, trying to cover the ink stains. Mr. Dashwood reads her st"
+        },
+        {
+          "element_id": "el-00038",
+          "kind": "Character",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00009",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "MR. DASHWOOD"
+        },
+        {
+          "element_id": "el-00039",
+          "kind": "Dialogue",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00009",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "We\u2019ll take this."
+        },
+        {
+          "element_id": "el-00040",
+          "kind": "Character",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00010",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "JO"
+        },
+        {
+          "element_id": "el-00041",
+          "kind": "Parenthetical",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00010",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "(looking up)"
+        },
+        {
+          "element_id": "el-00042",
+          "kind": "Dialogue",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00010",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "You will?"
+        },
+        {
+          "element_id": "el-00043",
+          "kind": "Character",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00011",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "MR. DASHWOOD"
+        },
+        {
+          "element_id": "el-00044",
+          "kind": "Dialogue",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00011",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "With alterations. It\u2019s too long."
+        },
+        {
+          "element_id": "el-00045",
+          "kind": "Action",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "She nods and he hands it back to her, page after page with her work crossed out."
+        },
+        {
+          "element_id": "el-00046",
+          "kind": "Character",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00012",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "JO"
+        },
+        {
+          "element_id": "el-00047",
+          "kind": "Dialogue",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00012",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "You\u2019ve cut - I took care to have a few of my sinners repent."
+        },
+        {
+          "element_id": "el-00048",
+          "kind": "Character",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00013",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "MR. DASHWOOD"
+        },
+        {
+          "element_id": "el-00049",
+          "kind": "Dialogue",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00013",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "The country just went through a war. People want to be amused, not preached at. "
+        },
+        {
+          "element_id": "el-00050",
+          "kind": "Parenthetical",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00013",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "(pointedly)"
+        },
+        {
+          "element_id": "el-00051",
+          "kind": "Dialogue",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00013",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "Perhaps mention that to your \u201cfriend.\u201d"
+        },
+        {
+          "element_id": "el-00052",
+          "kind": "Action",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "Jo looks again at her completely altered story."
+        },
+        {
+          "element_id": "el-00053",
+          "kind": "Character",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00014",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "JO"
+        },
+        {
+          "element_id": "el-00054",
+          "kind": "Dialogue",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00014",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "What do you - that is, what compensation -"
+        },
+        {
+          "element_id": "el-00055",
+          "kind": "Character",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00015",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "MR. DASHWOOD"
+        },
+        {
+          "element_id": "el-00056",
+          "kind": "Dialogue",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00015",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "We pay twenty-five to thirty for things of this sort. We\u2019ll pay twenty for that."
+        },
+        {
+          "element_id": "el-00057",
+          "kind": "Character",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00016",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "JO"
+        },
+        {
+          "element_id": "el-00058",
+          "kind": "Parenthetical",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00016",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "(money over art)"
+        },
+        {
+          "element_id": "el-00059",
+          "kind": "Dialogue",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00016",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "You can have it. Make the edits."
+        },
+        {
+          "element_id": "el-00060",
+          "kind": "Action",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "Jo hands over the story, Mr. Dashwood hands over the money, business done."
+        }
+      ]
+    },
+    {
+      "number": 6,
+      "items": [
+        {
+          "element_id": "el-00061",
+          "kind": "Character",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00017",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "JO"
+        },
+        {
+          "element_id": "el-00062",
+          "kind": "Parenthetical",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00017",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "(then)"
+        },
+        {
+          "element_id": "el-00063",
+          "kind": "Dialogue",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00017",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "Should I tell my, my friend that you\u2019ll take another if she had one better than "
+        },
+        {
+          "element_id": "el-00064",
+          "kind": "Character",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00018",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "MR. DASHWOOD"
+        },
+        {
+          "element_id": "el-00065",
+          "kind": "Dialogue",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00018",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "We\u2019ll look at it. Tell her to make it short and spicy. And if the main character"
+        },
+        {
+          "element_id": "el-00066",
+          "kind": "Parenthetical",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00018",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "(casually)"
+        },
+        {
+          "element_id": "el-00067",
+          "kind": "Dialogue",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00018",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "Or dead, either way."
+        },
+        {
+          "element_id": "el-00068",
+          "kind": "Character",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00019",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "JO"
+        },
+        {
+          "element_id": "el-00069",
+          "kind": "Dialogue",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00019",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "Excuse me?"
+        },
+        {
+          "element_id": "el-00070",
+          "kind": "Action",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "But he\u2019s on to the next bit of business."
+        },
+        {
+          "element_id": "el-00071",
+          "kind": "Character",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00020",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "MR. DASHWOOD"
+        },
+        {
+          "element_id": "el-00072",
+          "kind": "Dialogue",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00020",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "What name would she like put to the story?"
+        },
+        {
+          "element_id": "el-00073",
+          "kind": "Character",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00021",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "JO"
+        },
+        {
+          "element_id": "el-00074",
+          "kind": "Dialogue",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00021",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "Oh, yes - none at all if you please."
+        },
+        {
+          "element_id": "el-00075",
+          "kind": "Action",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "He considers her."
+        },
+        {
+          "element_id": "el-00076",
+          "kind": "Character",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00022",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "MR. DASHWOOD"
+        },
+        {
+          "element_id": "el-00077",
+          "kind": "Dialogue",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00022",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "Just as she likes, of course."
+        },
+        {
+          "element_id": "el-00078",
+          "kind": "Character",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00023",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "JO"
+        },
+        {
+          "element_id": "el-00079",
+          "kind": "Dialogue",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00023",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "Good morning, sir. Good day."
+        },
+        {
+          "element_id": "el-00080",
+          "kind": "Scene Heading",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "EXT. NEW YORK CITY. DAY. CONTINUOUS. 1868."
+        },
+        {
+          "element_id": "el-00081",
+          "kind": "Action",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "The streets of New York. After the Civil War and at the brink of The Industrial "
+        },
+        {
+          "element_id": "el-00082",
+          "kind": "Action",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "We find Jo (also becoming) sprinting down the street with utter joy. She has pul"
+        },
+        {
+          "element_id": "el-00084",
+          "kind": "Action",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null,
+          "text_preview": "LITTLE WOMEN"
+        }
+      ]
+    }
+  ]
+}

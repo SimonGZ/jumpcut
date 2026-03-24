@@ -42,6 +42,23 @@ fn selected_big_fish_window_fixtures_round_trip() {
 }
 
 #[test]
+fn selected_public_window_fixtures_round_trip() {
+    for path in [
+        "tests/fixtures/pagination/brick-n-steel.p2-4.page-breaks.json",
+        "tests/fixtures/pagination/little-women.p4-6.page-breaks.json",
+        "tests/fixtures/pagination/little-women.p13-14.page-breaks.json",
+    ] {
+        let fixture: PageBreakFixture = read_fixture(path);
+        let actual = PaginatedScreenplay::from_fixture(fixture.clone());
+        let report = compare_paginated_to_fixture(&actual, &fixture);
+
+        assert_eq!(report.expected_page_count, fixture.pages.len(), "{path}");
+        assert_eq!(report.actual_page_count, fixture.pages.len(), "{path}");
+        assert!(report.issues.is_empty(), "{path}: {:?}", report.issues);
+    }
+}
+
+#[test]
 fn selected_big_fish_window_probe_baselines_hold() {
     for (path, expected_lines, expected_score, expected_counts) in [
         (
@@ -75,6 +92,63 @@ fn selected_big_fish_window_probe_baselines_hold() {
             "benches/Big-Fish.fountain",
             &fixture,
         );
+        let semantic = build_semantic_screenplay(normalized);
+        let run = best_probe_run(&fixture, &semantic);
+        let report = &run.report;
+
+        assert_eq!(run.lines_per_page, expected_lines, "{path}");
+        assert_eq!(run.score, expected_score, "{path}");
+        assert_eq!(
+            report.issue_count(ComparisonIssueKind::MissingOccurrence),
+            expected_counts.0,
+            "{path}"
+        );
+        assert_eq!(
+            report.issue_count(ComparisonIssueKind::UnexpectedOccurrence),
+            expected_counts.1,
+            "{path}"
+        );
+        assert!(
+            report
+                .issues
+                .iter()
+                .filter(|issue| issue.kind != ComparisonIssueKind::UnexpectedOccurrence)
+                .all(|issue| issue.text_preview.is_some()),
+            "{path}: expected previews on non-unexpected issues"
+        );
+    }
+}
+
+#[test]
+fn selected_public_window_probe_baselines_hold() {
+    for (path, screenplay_id, fountain_path, expected_lines, expected_score, expected_counts) in [
+        (
+            "tests/fixtures/pagination/brick-n-steel.p2-4.page-breaks.json",
+            "brick-n-steel",
+            "../jumpcut-layout-corpus/corpus/public/brick-n-steel/source/source.fountain",
+            38,
+            (2, 2, 0),
+            (0, 0),
+        ),
+        (
+            "tests/fixtures/pagination/little-women.p4-6.page-breaks.json",
+            "little-women",
+            "../jumpcut-layout-corpus/corpus/public/little-women/source/source.fountain",
+            51,
+            (6, 3, 0),
+            (1, 2),
+        ),
+        (
+            "tests/fixtures/pagination/little-women.p13-14.page-breaks.json",
+            "little-women",
+            "../jumpcut-layout-corpus/corpus/public/little-women/source/source.fountain",
+            40,
+            (0, 0, 0),
+            (0, 0),
+        ),
+    ] {
+        let fixture: PageBreakFixture = read_fixture(path);
+        let normalized = normalized_slice_from_fountain(screenplay_id, fountain_path, &fixture);
         let semantic = build_semantic_screenplay(normalized);
         let run = best_probe_run(&fixture, &semantic);
         let report = &run.report;
@@ -156,6 +230,50 @@ fn probe_big_fish_selected_windows_against_canonical_fixtures() {
             "benches/Big-Fish.fountain",
             &fixture,
         );
+        let semantic = build_semantic_screenplay(normalized);
+        let run = best_probe_run(&fixture, &semantic);
+
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&FixtureProbeDebugOutput {
+                fixture_path: path.to_string(),
+                page_numbers: fixture.pages.iter().map(|page| page.number).collect(),
+                lines_per_page: run.lines_per_page,
+                score: run.score,
+                total_issues: run.report.total_issues(),
+                wrong_page: run.report.issue_count(ComparisonIssueKind::WrongPage),
+                wrong_fragment: run.report.issue_count(ComparisonIssueKind::WrongFragment),
+                missing: run.report.issue_count(ComparisonIssueKind::MissingOccurrence),
+                unexpected: run.report.issue_count(ComparisonIssueKind::UnexpectedOccurrence),
+                report: run.report,
+            })
+            .unwrap()
+        );
+    }
+}
+
+#[test]
+#[ignore = "diagnostic corpus probe"]
+fn probe_selected_public_windows_against_canonical_fixtures() {
+    for (path, screenplay_id, fountain_path) in [
+        (
+            "tests/fixtures/pagination/brick-n-steel.p2-4.page-breaks.json",
+            "brick-n-steel",
+            "../jumpcut-layout-corpus/corpus/public/brick-n-steel/source/source.fountain",
+        ),
+        (
+            "tests/fixtures/pagination/little-women.p4-6.page-breaks.json",
+            "little-women",
+            "../jumpcut-layout-corpus/corpus/public/little-women/source/source.fountain",
+        ),
+        (
+            "tests/fixtures/pagination/little-women.p13-14.page-breaks.json",
+            "little-women",
+            "../jumpcut-layout-corpus/corpus/public/little-women/source/source.fountain",
+        ),
+    ] {
+        let fixture: PageBreakFixture = read_fixture(path);
+        let normalized = normalized_slice_from_fountain(screenplay_id, fountain_path, &fixture);
         let semantic = build_semantic_screenplay(normalized);
         let run = best_probe_run(&fixture, &semantic);
 
