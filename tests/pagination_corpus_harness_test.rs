@@ -378,6 +378,71 @@ fn dump_big_fish_public_slice_paginated_output_json() {
     println!("wrote {}", report_path.display());
 }
 
+#[test]
+#[ignore = "writes current paginated output json for selected public windows"]
+fn dump_selected_public_windows_paginated_output_json() {
+    for (path, screenplay_id, fountain_path, stem) in [
+        (
+            "tests/fixtures/pagination/brick-n-steel.p2-4.page-breaks.json",
+            "brick-n-steel",
+            "../jumpcut-layout-corpus/corpus/public/brick-n-steel/source/source.fountain",
+            "brick-n-steel.p2-4",
+        ),
+        (
+            "tests/fixtures/pagination/little-women.p4-6.page-breaks.json",
+            "little-women",
+            "../jumpcut-layout-corpus/corpus/public/little-women/source/source.fountain",
+            "little-women.p4-6",
+        ),
+    ] {
+        let fixture: PageBreakFixture = read_fixture(path);
+        let normalized = normalized_slice_from_fountain(screenplay_id, fountain_path, &fixture);
+        let semantic = build_semantic_screenplay(normalized.clone());
+        let run = best_probe_run(&fixture, &semantic);
+        let previews = preview_map(&normalized);
+        let debug_fixture = paginated_to_debug_fixture(
+            &run.actual,
+            &fixture.source,
+            &normalized,
+            run.lines_per_page,
+            &run.measurement,
+            &previews,
+        );
+
+        let debug_dir = Path::new("target/pagination-debug");
+        fs::create_dir_all(debug_dir).unwrap();
+
+        let actual_path = debug_dir.join(format!("{stem}.actual.page-breaks.json"));
+        fs::write(
+            &actual_path,
+            serde_json::to_string_pretty(&debug_fixture).unwrap(),
+        )
+        .unwrap();
+
+        let report_path = debug_dir.join(format!("{stem}.comparison-report.json"));
+        fs::write(
+            &report_path,
+            serde_json::to_string_pretty(&FixtureProbeDebugOutput {
+                fixture_path: path.to_string(),
+                page_numbers: fixture.pages.iter().map(|page| page.number).collect(),
+                lines_per_page: run.lines_per_page,
+                score: run.score,
+                total_issues: run.report.total_issues(),
+                wrong_page: run.report.issue_count(ComparisonIssueKind::WrongPage),
+                wrong_fragment: run.report.issue_count(ComparisonIssueKind::WrongFragment),
+                missing: run.report.issue_count(ComparisonIssueKind::MissingOccurrence),
+                unexpected: run.report.issue_count(ComparisonIssueKind::UnexpectedOccurrence),
+                report: run.report,
+            })
+            .unwrap(),
+        )
+        .unwrap();
+
+        println!("wrote {}", actual_path.display());
+        println!("wrote {}", report_path.display());
+    }
+}
+
 fn best_probe_run(
     fixture: &PageBreakFixture,
     semantic: &jumpcut::pagination::SemanticScreenplay,
