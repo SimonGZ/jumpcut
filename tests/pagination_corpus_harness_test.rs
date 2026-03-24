@@ -403,6 +403,46 @@ fn build_big_fish_review_packet() {
 }
 
 #[test]
+fn big_fish_line_break_parity_reports_el_00787_as_a_disagreement() {
+    let report = build_line_break_parity_report(
+        "big-fish",
+        "../jumpcut-layout-corpus/corpus/public/big-fish/working/parsed-elements.json",
+        "../jumpcut-layout-corpus/corpus/public/big-fish/canonical/page-breaks.json",
+    );
+    let item = report
+        .items
+        .iter()
+        .find(|item| item.element_id == "el-00787")
+        .unwrap();
+
+    assert_eq!(item.match_kind, "exact_unique");
+    assert_eq!(item.pdf_line_count, Some(1));
+    assert_eq!(item.expected_wrapped_lines.len(), 2);
+    assert_eq!(item.lines_agree, Some(false));
+}
+
+#[test]
+#[ignore = "writes a script-wide Big Fish line-break parity packet"]
+fn build_big_fish_line_break_parity_packet() {
+    let report = build_line_break_parity_report(
+        "big-fish",
+        "../jumpcut-layout-corpus/corpus/public/big-fish/working/parsed-elements.json",
+        "../jumpcut-layout-corpus/corpus/public/big-fish/canonical/page-breaks.json",
+    );
+    let debug_dir = Path::new("target/pagination-debug/big-fish-linebreak-parity");
+    fs::create_dir_all(debug_dir).unwrap();
+
+    let json_path = debug_dir.join("parity.json");
+    fs::write(&json_path, serde_json::to_string_pretty(&report).unwrap()).unwrap();
+
+    let review_path = debug_dir.join("REVIEW.md");
+    fs::write(&review_path, render_line_break_parity_review(&report)).unwrap();
+
+    println!("wrote {}", review_path.display());
+    println!("wrote {}", json_path.display());
+}
+
+#[test]
 #[ignore = "diagnostic corpus probe"]
 fn probe_selected_public_windows_against_canonical_fixtures() {
     for (path, screenplay_id, fountain_path) in [
@@ -1218,6 +1258,339 @@ Current window summary:\n\n",
     review
 }
 
+fn build_line_break_parity_report(
+    screenplay_id: &str,
+    parsed_elements_path: &str,
+    canonical_page_breaks_path: &str,
+) -> LineBreakParityReport {
+    let measurement = measurement_for_screenplay(screenplay_id);
+    let parsed: ParsedElementsFile = read_fixture(parsed_elements_path);
+    let canonical: PageBreakFixture = read_fixture(canonical_page_breaks_path);
+    let pdf_pages = public_pdf_pages(screenplay_id);
+    let elements: HashMap<String, NormalizedElement> = parsed
+        .elements
+        .into_iter()
+        .map(|element| (element.element_id.clone(), element))
+        .collect();
+
+    let mut items = Vec::new();
+    let mut exact_unique_count = 0;
+    let mut exact_ambiguous_count = 0;
+    let mut unsupported_count = 0;
+    let mut disagreement_count = 0;
+
+    for page in &canonical.pages {
+        let page_lines = pdf_pages.get(&page.number).map(Vec::as_slice).unwrap_or(&[]);
+        for item in &page.items {
+            let result = build_line_break_parity_item(
+                page.number,
+                &item.element_id,
+                &item.kind,
+                &item.fragment,
+                item.line_range,
+                &item.block_id,
+                elements.get(&item.element_id),
+                page_lines,
+                &measurement,
+            );
+
+            match result.match_kind.as_str() {
+                "exact_unique" => {
+                    exact_unique_count += 1;
+                    if result.lines_agree == Some(false) {
+                        disagreement_count += 1;
+                    }
+                }
+                "exact_ambiguous" => exact_ambiguous_count += 1,
+                _ => unsupported_count += 1,
+            }
+
+            items.push(result);
+        }
+    }
+
+    LineBreakParityReport {
+        screenplay: screenplay_id.into(),
+        exact_unique_count,
+        exact_ambiguous_count,
+        unsupported_count,
+        disagreement_count,
+        measurement: LineBreakParityMeasurement {
+            flow_geometries: vec![
+                debug_flow_geometry("Action", "Action", FlowKind::Action, &measurement),
+                debug_flow_geometry(
+                    "Scene Heading",
+                    "Scene Heading",
+                    FlowKind::SceneHeading,
+                    &measurement,
+                ),
+                debug_flow_geometry(
+                    "Transition",
+                    "Transition",
+                    FlowKind::Transition,
+                    &measurement,
+                ),
+                debug_flow_geometry(
+                    "Cold Opening",
+                    "Cold Opening",
+                    FlowKind::ColdOpening,
+                    &measurement,
+                ),
+                debug_flow_geometry("New Act", "New Act", FlowKind::NewAct, &measurement),
+                debug_flow_geometry(
+                    "End of Act",
+                    "End of Act",
+                    FlowKind::EndOfAct,
+                    &measurement,
+                ),
+                debug_flow_geometry("Section", "Action (fallback)", FlowKind::Section, &measurement),
+                debug_flow_geometry(
+                    "Synopsis",
+                    "Action (fallback)",
+                    FlowKind::Synopsis,
+                    &measurement,
+                ),
+            ],
+            dialogue_geometries: vec![
+                debug_dialogue_geometry(
+                    "Dialogue",
+                    "Dialogue",
+                    DialoguePartKind::Dialogue,
+                    &measurement,
+                ),
+                debug_dialogue_geometry(
+                    "Character",
+                    "Character",
+                    DialoguePartKind::Character,
+                    &measurement,
+                ),
+                debug_dialogue_geometry(
+                    "Parenthetical",
+                    "Parenthetical",
+                    DialoguePartKind::Parenthetical,
+                    &measurement,
+                ),
+                debug_dialogue_geometry("Lyric", "Lyric", DialoguePartKind::Lyric, &measurement),
+            ],
+        },
+        items,
+    }
+}
+
+fn build_line_break_parity_item(
+    page_number: u32,
+    element_id: &str,
+    kind: &str,
+    fragment: &Fragment,
+    line_range: Option<LineRange>,
+    block_id: &Option<String>,
+    element: Option<&NormalizedElement>,
+    page_lines: &[String],
+    measurement: &MeasurementConfig,
+) -> LineBreakParityItem {
+    let Some(element) = element else {
+        return LineBreakParityItem {
+            page_number,
+            element_id: element_id.into(),
+            kind: kind.into(),
+            text_preview: None,
+            width_chars: None,
+            expected_wrapped_lines: Vec::new(),
+            match_kind: "missing-element".into(),
+            pdf_line_count: None,
+            pdf_line_span: None,
+            pdf_lines: Vec::new(),
+            candidate_spans: Vec::new(),
+            lines_agree: None,
+        };
+    };
+
+    let Some(candidate_text) = canonical_pdf_text_for_item(fragment, line_range, element) else {
+        return LineBreakParityItem {
+            page_number,
+            element_id: element_id.into(),
+            kind: kind.into(),
+            text_preview: Some(text_preview(&element.text)),
+            width_chars: None,
+            expected_wrapped_lines: Vec::new(),
+            match_kind: "unsupported-fragment".into(),
+            pdf_line_count: None,
+            pdf_line_span: None,
+            pdf_lines: Vec::new(),
+            candidate_spans: Vec::new(),
+            lines_agree: None,
+        };
+    };
+
+    let width_chars = width_chars_for_parity_kind(kind, block_id.is_some(), measurement);
+    let expected_wrapped_lines = wrap_text_lines(&candidate_text, width_chars);
+    let normalized_text = normalize_pdf_match_text(&candidate_text);
+    let matches = exact_pdf_line_matches(page_lines, &normalized_text);
+
+    match matches.as_slice() {
+        [(start, end)] => {
+            let pdf_lines = page_lines[*start as usize - 1..*end as usize]
+                .iter()
+                .map(|line| normalize_pdf_match_text(line))
+                .collect::<Vec<_>>();
+            let lines_agree = expected_wrapped_lines == pdf_lines;
+
+            LineBreakParityItem {
+                page_number,
+                element_id: element_id.into(),
+                kind: kind.into(),
+                text_preview: Some(text_preview(&candidate_text)),
+                width_chars: Some(width_chars),
+                expected_wrapped_lines,
+                match_kind: "exact_unique".into(),
+                pdf_line_count: Some(end - start + 1),
+                pdf_line_span: Some((*start, *end)),
+                pdf_lines,
+                candidate_spans: vec![(*start, *end)],
+                lines_agree: Some(lines_agree),
+            }
+        }
+        [] => LineBreakParityItem {
+            page_number,
+            element_id: element_id.into(),
+            kind: kind.into(),
+            text_preview: Some(text_preview(&candidate_text)),
+            width_chars: Some(width_chars),
+            expected_wrapped_lines,
+            match_kind: "unmatched".into(),
+            pdf_line_count: None,
+            pdf_line_span: None,
+            pdf_lines: Vec::new(),
+            candidate_spans: Vec::new(),
+            lines_agree: None,
+        },
+        _ => LineBreakParityItem {
+            page_number,
+            element_id: element_id.into(),
+            kind: kind.into(),
+            text_preview: Some(text_preview(&candidate_text)),
+            width_chars: Some(width_chars),
+            expected_wrapped_lines,
+            match_kind: "exact_ambiguous".into(),
+            pdf_line_count: None,
+            pdf_line_span: None,
+            pdf_lines: Vec::new(),
+            candidate_spans: matches,
+            lines_agree: None,
+        },
+    }
+}
+
+fn width_chars_for_parity_kind(
+    kind: &str,
+    in_dialogue_block: bool,
+    measurement: &MeasurementConfig,
+) -> usize {
+    match kind {
+        "Character" => measurement.width_chars_for_dialogue_part(&DialoguePartKind::Character),
+        "Parenthetical" => {
+            measurement.width_chars_for_dialogue_part(&DialoguePartKind::Parenthetical)
+        }
+        "Dialogue" => measurement.width_chars_for_dialogue_part(&DialoguePartKind::Dialogue),
+        "Lyric" if in_dialogue_block => {
+            measurement.width_chars_for_dialogue_part(&DialoguePartKind::Lyric)
+        }
+        "Lyric" => measurement.width_chars_for_dialogue_part(&DialoguePartKind::Lyric),
+        _ => flow_width_for_kind(kind, measurement),
+    }
+}
+
+fn wrap_text_lines(text: &str, width_chars: usize) -> Vec<String> {
+    text.lines()
+        .flat_map(|line| wrap_explicit_line(line, width_chars))
+        .collect()
+}
+
+fn wrap_explicit_line(line: &str, width_chars: usize) -> Vec<String> {
+    if width_chars == 0 || line.trim().is_empty() {
+        return vec![String::new()];
+    }
+
+    let mut wrapped = Vec::new();
+    let mut current = String::new();
+
+    for word in line.split_whitespace() {
+        if current.is_empty() {
+            current.push_str(word);
+            continue;
+        }
+
+        if current.chars().count() + 1 + word.chars().count() <= width_chars {
+            current.push(' ');
+            current.push_str(word);
+        } else {
+            wrapped.push(current);
+            current = word.to_string();
+        }
+    }
+
+    if current.is_empty() {
+        wrapped.push(String::new());
+    } else {
+        wrapped.push(current);
+    }
+
+    wrapped
+}
+
+fn render_line_break_parity_review(report: &LineBreakParityReport) -> String {
+    let disagreements: Vec<&LineBreakParityItem> = report
+        .items
+        .iter()
+        .filter(|item| item.lines_agree == Some(false))
+        .collect();
+
+    let mut review = format!(
+        "# Big Fish Line-Break Parity Review\n\n\
+Run this command to regenerate this packet:\n\n\
+```bash\n\
+cargo test --test pagination_corpus_harness_test build_big_fish_line_break_parity_packet -- --ignored --nocapture\n\
+```\n\n\
+Files in this packet:\n\n\
+- `target/pagination-debug/big-fish-linebreak-parity/REVIEW.md`\n\
+- `target/pagination-debug/big-fish-linebreak-parity/parity.json`\n\n\
+Coverage summary:\n\n\
+- exact unique items: {exact_unique}\n\
+- exact ambiguous items: {exact_ambiguous}\n\
+- unsupported/unmatched items: {unsupported}\n\
+- exact-unique line disagreements: {disagreements}\n\n\
+How to read `parity.json`:\n\n\
+- `expected_wrapped_lines` are our current wrapped lines for the recoverable text fragment\n\
+- `pdf_lines` are the exact PDF-extracted lines when the page match is unique\n\
+- `lines_agree = false` means the text match was trustworthy but our wrapping disagreed with the PDF\n\
+- `match_kind = exact_ambiguous` means the same text appears multiple times on that page; do not trust it as ground truth\n\
+- `match_kind = unsupported-fragment` usually means a split dialogue fragment whose exact per-page text cannot be reconstructed from the canonical fixture alone\n\n\
+Read these first:\n\n",
+        exact_unique = report.exact_unique_count,
+        exact_ambiguous = report.exact_ambiguous_count,
+        unsupported = report.unsupported_count,
+        disagreements = report.disagreement_count,
+    );
+
+    for item in disagreements.iter().take(10) {
+        review.push_str(&format!(
+            "- `{element_id}` page {page} `{kind}` width={width:?}\n  expected: {expected:?}\n  pdf: {pdf:?}\n",
+            element_id = item.element_id,
+            page = item.page_number,
+            kind = item.kind,
+            width = item.width_chars,
+            expected = item.expected_wrapped_lines,
+            pdf = item.pdf_lines,
+        ));
+    }
+
+    review.push_str(
+        "\nIf you only inspect one example, search for `el-00787` in `parity.json`.\n",
+    );
+
+    review
+}
+
 fn measured_lines_for_item(
     item: &jumpcut::pagination::PageItem,
     elements: &HashMap<String, NormalizedElement>,
@@ -1418,6 +1791,44 @@ struct BigFishReviewSummary {
     unexpected: usize,
 }
 
+#[derive(Serialize)]
+struct LineBreakParityReport {
+    screenplay: String,
+    exact_unique_count: usize,
+    exact_ambiguous_count: usize,
+    unsupported_count: usize,
+    disagreement_count: usize,
+    measurement: LineBreakParityMeasurement,
+    items: Vec<LineBreakParityItem>,
+}
+
+#[derive(Serialize)]
+struct LineBreakParityMeasurement {
+    flow_geometries: Vec<DebugGeometry>,
+    dialogue_geometries: Vec<DebugGeometry>,
+}
+
+#[derive(Serialize)]
+struct LineBreakParityItem {
+    page_number: u32,
+    element_id: String,
+    kind: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    text_preview: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    width_chars: Option<usize>,
+    expected_wrapped_lines: Vec<String>,
+    match_kind: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pdf_line_count: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pdf_line_span: Option<(u32, u32)>,
+    pdf_lines: Vec<String>,
+    candidate_spans: Vec<(u32, u32)>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    lines_agree: Option<bool>,
+}
+
 struct ProbeRun {
     lines_per_page: u32,
     score: (usize, usize, usize),
@@ -1525,4 +1936,9 @@ struct PublicPdfPages {
 struct PublicPdfPage {
     number: u32,
     text: String,
+}
+
+#[derive(serde::Deserialize)]
+struct ParsedElementsFile {
+    elements: Vec<NormalizedElement>,
 }
