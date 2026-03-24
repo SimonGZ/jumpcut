@@ -1,7 +1,7 @@
 use jumpcut::pagination::{
     boundary_spacing_lines, build_semantic_screenplay, compare_paginated_to_fixture,
     measure_dialogue_part_lines, measure_dialogue_unit, measure_flow_unit, measure_lyric_unit,
-    measure_text_lines, normalize_screenplay, wrap_text_lines_with_policy,
+    measure_text_lines, normalize_screenplay, wrap_flow_text_lines, wrap_text_lines_with_policy,
     ComparisonIssueKind, DialoguePartKind, FdxExtractedSettings, FlowKind, Fragment,
     LineRange, MeasurementConfig, NormalizedElement, NormalizedScreenplay, PageBreakFixture,
     PageBreakFixtureSourceRefs, PaginatedScreenplay, PaginationConfig, UnitMeasurement,
@@ -119,7 +119,7 @@ fn selected_big_fish_window_probe_baselines_hold() {
     for (path, expected_lines, expected_score, expected_counts) in [
         (
             "tests/fixtures/pagination/big-fish.p38-40.page-breaks.json",
-            54,
+            53,
             (0, 0, 0),
             (0, 0),
         ),
@@ -198,7 +198,7 @@ fn selected_public_window_probe_baselines_hold() {
             "tests/fixtures/pagination/little-women.p13-14.page-breaks.json",
             "little-women",
             "../jumpcut-layout-corpus/corpus/public/little-women/source/source.fountain",
-            55,
+            53,
             (0, 0, 0),
             (0, 0),
         ),
@@ -403,7 +403,7 @@ fn build_big_fish_review_packet() {
 }
 
 #[test]
-fn big_fish_line_break_parity_reports_el_00787_as_a_disagreement() {
+fn big_fish_line_break_parity_reports_el_00787_as_an_exact_match() {
     let report = build_line_break_parity_report(
         "big-fish",
         "../jumpcut-layout-corpus/corpus/public/big-fish/working/parsed-elements.json",
@@ -417,8 +417,8 @@ fn big_fish_line_break_parity_reports_el_00787_as_a_disagreement() {
 
     assert_eq!(item.match_kind, "exact_unique");
     assert_eq!(item.pdf_line_count, Some(1));
-    assert_eq!(item.expected_wrapped_lines.len(), 2);
-    assert_eq!(item.lines_agree, Some(false));
+    assert_eq!(item.expected_wrapped_lines.len(), 1);
+    assert_eq!(item.lines_agree, Some(true));
 }
 
 #[test]
@@ -1441,10 +1441,10 @@ fn build_line_break_parity_item(
     };
 
     let width_chars = width_chars_for_parity_kind(kind, block_id.is_some(), measurement);
-    let expected_wrapped_lines = wrap_text_lines_with_policy(
+    let expected_wrapped_lines = wrap_lines_for_parity_kind(
+        kind,
         &candidate_text,
         width_chars,
-        preserves_internal_spaces_for_parity_kind(kind),
     )
     .into_iter()
     .map(|line| normalize_pdf_match_text(&line))
@@ -1527,6 +1527,18 @@ fn width_chars_for_parity_kind(
 
 fn preserves_internal_spaces_for_parity_kind(kind: &str) -> bool {
     matches!(kind, "Dialogue" | "Lyric")
+}
+
+fn wrap_lines_for_parity_kind(kind: &str, text: &str, width_chars: usize) -> Vec<String> {
+    if kind == "Action" {
+        wrap_flow_text_lines(text, &FlowKind::Action, width_chars)
+    } else {
+        wrap_text_lines_with_policy(
+            text,
+            width_chars,
+            preserves_internal_spaces_for_parity_kind(kind),
+        )
+    }
 }
 
 fn render_line_break_parity_review(report: &LineBreakParityReport) -> String {

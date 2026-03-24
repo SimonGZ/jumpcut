@@ -1,6 +1,7 @@
 use jumpcut::pagination::{
     boundary_spacing_lines, measure_dialogue_part_lines, measure_dialogue_unit,
-    measure_dialogue_unit_lines, measure_flow_unit, measure_flow_unit_lines, measure_text_lines,
+    measure_dialogue_unit_lines, measure_flow_text_lines, measure_flow_unit,
+    measure_flow_unit_lines, measure_text_lines, wrap_flow_text_lines,
     wrap_text_lines_with_policy, Cohesion, DialoguePart, DialoguePartKind, DialogueUnit,
     FlowKind, FlowUnit, FdxExtractedSettings, MeasurementConfig, PageKind,
     PaginatedScreenplay, PaginationConfig, PaginationScope, SemanticScreenplay, SemanticUnit,
@@ -95,6 +96,41 @@ fn dialogue_wrapping_preserves_repeated_internal_spaces() {
     assert_eq!(
         wrap_text_lines_with_policy("ALPHA  BETA", 10, true),
         vec!["ALPHA", "BETA"]
+    );
+}
+
+#[test]
+fn action_wrapping_allows_single_terminal_punctuation_to_hang() {
+    assert_eq!(
+        wrap_flow_text_lines(
+            "He hands Zacky his flashlight, then starts climbing the gate.",
+            &FlowKind::Action,
+            60,
+        ),
+        vec!["He hands Zacky his flashlight, then starts climbing the gate."]
+    );
+    assert_eq!(
+        wrap_flow_text_lines(
+            "As he leaves, Will mutters in perfect unison with his father--",
+            &FlowKind::Action,
+            60,
+        ),
+        vec!["As he leaves, Will mutters in perfect unison with his father--"]
+    );
+}
+
+#[test]
+fn action_wrapping_does_not_change_non_action_flow_kinds() {
+    assert_eq!(
+        wrap_flow_text_lines(
+            "He hands Zacky his flashlight, then starts climbing the gate.",
+            &FlowKind::SceneHeading,
+            60,
+        ),
+        vec![
+            "He hands Zacky his flashlight, then starts climbing the",
+            "gate.",
+        ]
     );
 }
 
@@ -286,7 +322,7 @@ fn fdx_derived_spacing_uses_space_before_as_top_spacing_without_double_bottoms()
 }
 
 #[test]
-fn fdx_derived_action_width_still_overestimates_big_fish_el_00787() {
+fn action_hanging_punctuation_matches_big_fish_el_00787_as_one_line() {
     let measurement = public_corpus_measurement("big-fish");
     let unit = FlowUnit {
         element_id: "el-00787".into(),
@@ -297,7 +333,37 @@ fn fdx_derived_action_width_still_overestimates_big_fish_el_00787() {
         cohesion: splittable_cohesion(),
     };
 
-    assert_eq!(measure_flow_unit_lines(&unit, &measurement), 2);
+    assert_eq!(measure_flow_unit_lines(&unit, &measurement), 1);
+}
+
+#[test]
+fn action_hanging_punctuation_changes_concrete_big_fish_cases() {
+    let measurement = public_corpus_measurement("big-fish");
+
+    assert_eq!(
+        measure_flow_text_lines(
+            "We LEAD Edward as he walks away, tears just starting to form.",
+            &FlowKind::Action,
+            measurement.width_chars_for_flow_kind(&FlowKind::Action),
+        ),
+        1
+    );
+    assert_eq!(
+        measure_flow_text_lines(
+            "Edward Bloom, 61, lies asleep on the bed. Although he's not the vibrant man we've seen before, it's not as bad we feared. The illness has been quick, and left him largely intact.",
+            &FlowKind::Action,
+            measurement.width_chars_for_flow_kind(&FlowKind::Action),
+        ),
+        3
+    );
+    assert_eq!(
+        measure_flow_text_lines(
+            "As he leaves, Will mutters in perfect unison with his father--",
+            &FlowKind::Action,
+            measurement.width_chars_for_flow_kind(&FlowKind::Action),
+        ),
+        1
+    );
 }
 
 #[test]

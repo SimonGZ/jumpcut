@@ -287,8 +287,9 @@ pub fn measure_flow_unit(unit: &FlowUnit, measurement: &MeasurementConfig) -> Un
     let (top_spacing_lines, bottom_spacing_lines) =
         measurement.spacing_for_flow_kind(&unit.kind);
     UnitMeasurement {
-        content_lines: measure_text_lines(
+        content_lines: measure_flow_text_lines(
             &unit.text,
+            &unit.kind,
             measurement.width_chars_for_flow_kind(&unit.kind),
         ),
         top_spacing_lines,
@@ -407,10 +408,32 @@ pub fn measure_text_lines(text: &str, width_chars: usize) -> u32 {
     wrap_text_lines_with_policy(text, width_chars, false).len() as u32
 }
 
+pub fn measure_flow_text_lines(text: &str, kind: &FlowKind, width_chars: usize) -> u32 {
+    wrap_flow_text_lines(text, kind, width_chars).len() as u32
+}
+
 pub fn wrap_text_lines_with_policy(
     text: &str,
     width_chars: usize,
     preserve_internal_spaces: bool,
+) -> Vec<String> {
+    wrap_text_lines_internal(text, width_chars, preserve_internal_spaces, false)
+}
+
+pub fn wrap_flow_text_lines(text: &str, kind: &FlowKind, width_chars: usize) -> Vec<String> {
+    wrap_text_lines_internal(
+        text,
+        width_chars,
+        false,
+        matches!(kind, FlowKind::Action),
+    )
+}
+
+fn wrap_text_lines_internal(
+    text: &str,
+    width_chars: usize,
+    preserve_internal_spaces: bool,
+    allow_hanging_terminal_punctuation: bool,
 ) -> Vec<String> {
     let wrapped = text
         .lines()
@@ -418,7 +441,11 @@ pub fn wrap_text_lines_with_policy(
             if preserve_internal_spaces {
                 wrap_explicit_line_preserving_spaces(line, width_chars)
             } else {
-                wrap_explicit_line_collapsing_spaces(line, width_chars)
+                wrap_explicit_line_collapsing_spaces(
+                    line,
+                    width_chars,
+                    allow_hanging_terminal_punctuation,
+                )
             }
         })
         .collect::<Vec<_>>();
@@ -433,6 +460,7 @@ pub fn wrap_text_lines_with_policy(
 fn wrap_explicit_line_collapsing_spaces(
     line: &str,
     width_chars: usize,
+    allow_hanging_terminal_punctuation: bool,
 ) -> Vec<String> {
     if width_chars == 0 {
         return vec![line.trim().to_string()];
@@ -451,7 +479,12 @@ fn wrap_explicit_line_collapsing_spaces(
             continue;
         }
 
-        if current.chars().count() + 1 + word.chars().count() <= width_chars {
+        let candidate = format!("{current} {word}");
+        if candidate_fits_collapsed_line(
+            &candidate,
+            width_chars,
+            allow_hanging_terminal_punctuation,
+        ) {
             current.push(' ');
             current.push_str(word);
         } else {
@@ -467,6 +500,30 @@ fn wrap_explicit_line_collapsing_spaces(
     }
 
     wrapped
+}
+
+fn candidate_fits_collapsed_line(
+    candidate: &str,
+    width_chars: usize,
+    allow_hanging_terminal_punctuation: bool,
+) -> bool {
+    let width = candidate.chars().count();
+    width <= width_chars
+        || (allow_hanging_terminal_punctuation
+            && width <= width_chars + hanging_terminal_punctuation_discount(candidate))
+}
+
+fn hanging_terminal_punctuation_discount(candidate: &str) -> usize {
+    if candidate.ends_with("--") {
+        return 2;
+    }
+
+    candidate
+        .chars()
+        .last()
+        .filter(|ch| matches!(ch, '.' | ',' | '!' | '?' | ':' | ';'))
+        .map(|_| 1)
+        .unwrap_or(0)
 }
 
 fn wrap_explicit_line_preserving_spaces(
