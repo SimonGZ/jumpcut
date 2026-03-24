@@ -289,6 +289,99 @@ fn probe_big_fish_selected_windows_against_canonical_fixtures() {
 }
 
 #[test]
+#[ignore = "writes a single Big Fish review packet for human inspection"]
+fn build_big_fish_review_packet() {
+    let debug_dir = Path::new("target/pagination-debug/big-fish-review");
+    fs::create_dir_all(debug_dir).unwrap();
+
+    let mut summaries = Vec::new();
+
+    for (path, stem) in [
+        (
+            "tests/fixtures/pagination/big-fish.p38-40.page-breaks.json",
+            "p38-40",
+        ),
+        (
+            "tests/fixtures/pagination/big-fish.p42-44.page-breaks.json",
+            "p42-44",
+        ),
+        (
+            "tests/fixtures/pagination/big-fish.p55-57.page-breaks.json",
+            "p55-57",
+        ),
+        (
+            "tests/fixtures/pagination/big-fish.p77-79.page-breaks.json",
+            "p77-79",
+        ),
+    ] {
+        let fixture: PageBreakFixture = read_fixture(path);
+        let normalized = normalized_slice_from_fountain(
+            "big-fish",
+            "benches/Big-Fish.fountain",
+            &fixture,
+        );
+        let semantic = build_semantic_screenplay(normalized.clone());
+        let run = best_probe_run(&fixture, &semantic, measurement_for_screenplay("big-fish"));
+        let previews = preview_map(&normalized);
+        let debug_fixture = paginated_to_debug_fixture(
+            &run.actual,
+            &fixture.source,
+            &normalized,
+            run.lines_per_page,
+            &run.measurement,
+            &previews,
+        );
+        let pdf_line_counts =
+            canonical_pdf_line_count_debug("big-fish", &fixture, &normalized);
+
+        let actual_path = debug_dir.join(format!("{stem}.actual.page-breaks.json"));
+        let comparison_path = debug_dir.join(format!("{stem}.comparison-report.json"));
+        let pdf_path = debug_dir.join(format!("{stem}.pdf-line-counts.json"));
+        fs::write(&actual_path, serde_json::to_string_pretty(&debug_fixture).unwrap()).unwrap();
+        fs::write(
+            &comparison_path,
+            serde_json::to_string_pretty(&FixtureProbeDebugOutput {
+                fixture_path: path.to_string(),
+                page_numbers: fixture.pages.iter().map(|page| page.number).collect(),
+                lines_per_page: run.lines_per_page,
+                score: run.score,
+                total_issues: run.report.total_issues(),
+                wrong_page: run.report.issue_count(ComparisonIssueKind::WrongPage),
+                wrong_fragment: run.report.issue_count(ComparisonIssueKind::WrongFragment),
+                missing: run.report.issue_count(ComparisonIssueKind::MissingOccurrence),
+                unexpected: run.report.issue_count(ComparisonIssueKind::UnexpectedOccurrence),
+                report: run.report.clone(),
+            })
+            .unwrap(),
+        )
+        .unwrap();
+        fs::write(&pdf_path, serde_json::to_string_pretty(&pdf_line_counts).unwrap()).unwrap();
+
+        summaries.push(BigFishReviewSummary {
+            stem: stem.into(),
+            fixture_path: path.into(),
+            page_range: fixture
+                .pages
+                .iter()
+                .map(|page| page.number)
+                .collect::<Vec<_>>(),
+            lines_per_page: run.lines_per_page,
+            total_issues: run.report.total_issues(),
+            wrong_page: run.report.issue_count(ComparisonIssueKind::WrongPage),
+            wrong_fragment: run.report.issue_count(ComparisonIssueKind::WrongFragment),
+            missing: run.report.issue_count(ComparisonIssueKind::MissingOccurrence),
+            unexpected: run.report.issue_count(ComparisonIssueKind::UnexpectedOccurrence),
+        });
+    }
+
+    let review = render_big_fish_review_packet(&summaries);
+    let review_path = debug_dir.join("REVIEW.md");
+    fs::write(&review_path, review).unwrap();
+
+    println!("wrote {}", review_path.display());
+}
+
+#[test]
 #[ignore = "diagnostic corpus probe"]
 fn probe_selected_public_windows_against_canonical_fixtures() {
     for (path, screenplay_id, fountain_path) in [
@@ -1022,6 +1115,54 @@ fn public_pdf_pages(screenplay_id: &str) -> HashMap<u32, Vec<String>> {
         .collect()
 }
 
+fn render_big_fish_review_packet(summaries: &[BigFishReviewSummary]) -> String {
+    let mut review = String::from(
+        "# Big Fish Pagination Review Packet\n\n\
+Run this command to regenerate everything in this folder:\n\n\
+```bash\n\
+cargo test --test pagination_corpus_harness_test build_big_fish_review_packet -- --ignored --nocapture\n\
+```\n\n\
+Read files in this order:\n\n\
+1. `target/pagination-debug/big-fish-review/REVIEW.md`\n\
+2. `target/pagination-debug/big-fish-review/p38-40.comparison-report.json`\n\
+3. `tests/fixtures/pagination/big-fish.p38-40.page-breaks.json`\n\
+4. `target/pagination-debug/big-fish-review/p38-40.actual.page-breaks.json`\n\
+5. `target/pagination-debug/big-fish-review/p42-44.comparison-report.json`\n\
+6. `tests/fixtures/pagination/big-fish.p42-44.page-breaks.json`\n\
+7. `target/pagination-debug/big-fish-review/p42-44.actual.page-breaks.json`\n\n\
+Primary review questions:\n\n\
+- `p38-40`: does Final Draft's split/placement around `el-00800` through `el-00811` and the later `el-00851` split look like missing rhythm/spacing in our model, or is there an obvious wrap-count mistake?\n\
+- `p42-44`: should `el-00916` / `el-00917` really stay on page 43, and should `el-00944` stay whole on page 44?\n\
+- `p55-57` and `p77-79` are controls. They currently match; only inspect them if you want a clean reference.\n\n\
+Useful extra files:\n\n\
+- `target/pagination-debug/big-fish-review/<window>.pdf-line-counts.json` gives exact-unique PDF line counts where text alignment is recoverable.\n\
+- `benches/Big-Fish.fountain` is the local source text.\n\n\
+Current window summary:\n\n",
+    );
+
+    for summary in summaries {
+        review.push_str(&format!(
+            "- `{stem}` pages {start}-{end}: lines_per_page={lines}, total={total}, wrong_page={wrong_page}, wrong_fragment={wrong_fragment}, missing={missing}, unexpected={unexpected}\n  canonical: `{fixture}`\n  actual: `target/pagination-debug/big-fish-review/{stem}.actual.page-breaks.json`\n  report: `target/pagination-debug/big-fish-review/{stem}.comparison-report.json`\n  pdf: `target/pagination-debug/big-fish-review/{stem}.pdf-line-counts.json`\n",
+            stem = summary.stem,
+            start = summary.page_range.first().copied().unwrap_or_default(),
+            end = summary.page_range.last().copied().unwrap_or_default(),
+            lines = summary.lines_per_page,
+            total = summary.total_issues,
+            wrong_page = summary.wrong_page,
+            wrong_fragment = summary.wrong_fragment,
+            missing = summary.missing,
+            unexpected = summary.unexpected,
+            fixture = summary.fixture_path,
+        ));
+    }
+
+    review.push_str(
+        "\nIf you only look at one thing, start with `p38-40.comparison-report.json` and answer whether the canonical page 38->39 break feels structurally right or whether our earlier fill on page 38 looks reasonable.\n",
+    );
+
+    review
+}
+
 fn measured_lines_for_item(
     item: &jumpcut::pagination::PageItem,
     elements: &HashMap<String, NormalizedElement>,
@@ -1208,6 +1349,18 @@ struct FixtureProbeDebugOutput {
     missing: usize,
     unexpected: usize,
     report: jumpcut::pagination::ComparisonReport,
+}
+
+struct BigFishReviewSummary {
+    stem: String,
+    fixture_path: String,
+    page_range: Vec<u32>,
+    lines_per_page: u32,
+    total_issues: usize,
+    wrong_page: usize,
+    wrong_fragment: usize,
+    missing: usize,
+    unexpected: usize,
 }
 
 struct ProbeRun {
