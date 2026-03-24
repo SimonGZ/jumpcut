@@ -20,7 +20,8 @@ pub use measurement::{
     boundary_spacing_lines, measure_dialogue_part_lines, measure_dialogue_unit,
     measure_dialogue_unit_lines, measure_dual_dialogue_unit, measure_dual_dialogue_unit_lines,
     measure_flow_unit, measure_flow_unit_lines, measure_lyric_unit, measure_lyric_unit_lines,
-    measure_semantic_unit, measure_text_lines, MeasurementConfig, UnitMeasurement,
+    measure_semantic_unit, measure_text_lines, FdxExtractedSettings, FdxParagraphStyle,
+    MeasurementConfig, UnitMeasurement,
 };
 pub use normalized::normalize_screenplay;
 pub use semantic::{

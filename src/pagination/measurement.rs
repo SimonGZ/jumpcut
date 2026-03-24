@@ -1,6 +1,22 @@
+use std::collections::BTreeMap;
+
 use crate::pagination::semantic::{
     DialoguePartKind, DialogueUnit, DualDialogueUnit, FlowKind, FlowUnit, LyricUnit, SemanticUnit,
 };
+use serde::Deserialize;
+
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+pub struct FdxExtractedSettings {
+    pub paragraph_styles: BTreeMap<String, FdxParagraphStyle>,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+pub struct FdxParagraphStyle {
+    pub left_indent: f32,
+    pub right_indent: f32,
+    pub space_before: f32,
+    pub spacing: f32,
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct UnitMeasurement {
@@ -132,6 +148,37 @@ impl MeasurementConfig {
 
     pub fn spacing_for_lyric_unit(&self) -> (u32, u32) {
         (self.lyric_top_spacing_lines, self.lyric_bottom_spacing_lines)
+    }
+
+    pub fn from_fdx_settings(settings: &FdxExtractedSettings) -> Self {
+        let mut measurement = Self::screenplay_default();
+
+        if let Some(style) = settings.paragraph_styles.get("Action") {
+            measurement.action_left_indent_in = style.left_indent;
+            measurement.action_right_indent_in = style.right_indent;
+        }
+        if let Some(style) = settings.paragraph_styles.get("Dialogue") {
+            measurement.dialogue_left_indent_in = style.left_indent;
+            measurement.dialogue_right_indent_in = style.right_indent;
+        }
+        if let Some(style) = settings.paragraph_styles.get("Character") {
+            measurement.character_left_indent_in = style.left_indent;
+            measurement.character_right_indent_in = style.right_indent;
+        }
+        if let Some(style) = settings.paragraph_styles.get("Parenthetical") {
+            measurement.parenthetical_left_indent_in = style.left_indent;
+            measurement.parenthetical_right_indent_in = style.right_indent;
+        }
+        if let Some(style) = settings.paragraph_styles.get("Lyric") {
+            measurement.lyric_left_indent_in = style.left_indent;
+            measurement.lyric_right_indent_in = style.right_indent;
+        }
+        if let Some(style) = settings.paragraph_styles.get("Transition") {
+            measurement.transition_left_indent_in = style.left_indent;
+            measurement.transition_right_indent_in = style.right_indent;
+        }
+
+        measurement
     }
 }
 

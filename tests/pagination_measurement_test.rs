@@ -2,10 +2,12 @@ use jumpcut::pagination::{
     boundary_spacing_lines, measure_dialogue_part_lines, measure_dialogue_unit,
     measure_dialogue_unit_lines, measure_flow_unit, measure_flow_unit_lines, measure_text_lines,
     Cohesion, DialoguePart, DialoguePartKind, DialogueUnit, FlowKind, FlowUnit,
-    MeasurementConfig, PageKind, PaginatedScreenplay, PaginationConfig, PaginationScope,
-    SemanticScreenplay, SemanticUnit, UnitMeasurement,
+    FdxExtractedSettings, MeasurementConfig, PageKind, PaginatedScreenplay, PaginationConfig,
+    PaginationScope, SemanticScreenplay, SemanticUnit, UnitMeasurement,
 };
 use pretty_assertions::assert_eq;
+use std::fs;
+use std::path::Path;
 
 #[test]
 fn it_wraps_flow_units_to_the_configured_action_width() {
@@ -201,6 +203,55 @@ fn screenplay_default_exposes_narrower_dialogue_columns_than_action() {
 }
 
 #[test]
+fn fdx_derived_geometry_uses_real_dialogue_width_for_public_corpus() {
+    let measurement = public_corpus_measurement("big-fish");
+
+    assert_eq!(measurement.width_chars_for_flow_kind(&FlowKind::Action), 60);
+    assert_eq!(
+        measurement.width_chars_for_dialogue_part(&DialoguePartKind::Character),
+        37
+    );
+    assert_eq!(
+        measurement.width_chars_for_dialogue_part(&DialoguePartKind::Dialogue),
+        35
+    );
+    assert_eq!(
+        measurement.width_chars_for_dialogue_part(&DialoguePartKind::Parenthetical),
+        25
+    );
+}
+
+#[test]
+fn fdx_derived_geometry_matches_concrete_public_dialogue_examples_better() {
+    let measurement = public_corpus_measurement("big-fish");
+
+    assert_eq!(
+        measure_dialogue_part_lines(
+            &DialoguePartKind::Dialogue,
+            "I was thinking about death and all.  About seeing how you're gonna die.",
+            &measurement,
+        ),
+        2
+    );
+    assert_eq!(
+        measure_dialogue_part_lines(
+            &DialoguePartKind::Dialogue,
+            "The country just went through a  war. People want to be amused, not  preached at. Morals don’t sell  nowadays.  ",
+            &measurement,
+        ),
+        4
+    );
+    assert_eq!(
+        measure_dialogue_part_lines(
+            &DialoguePartKind::Dialogue,
+            "You can have it. Make the edits.  ",
+            &measurement,
+        ),
+        1
+    );
+}
+
+#[test]
 fn it_uses_shared_boundary_spacing_instead_of_double_counting_blank_lines() {
     let previous = UnitMeasurement {
         content_lines: 2,
@@ -329,4 +380,13 @@ fn splittable_cohesion() -> Cohesion {
         keep_with_next: false,
         can_split: true,
     }
+}
+
+fn public_corpus_measurement(screenplay: &str) -> MeasurementConfig {
+    let path = Path::new("/ductor/workspace/jumpcut-layout-corpus/corpus/public")
+        .join(screenplay)
+        .join("extracted/fdx-settings.json");
+    let settings: FdxExtractedSettings =
+        serde_json::from_str(&fs::read_to_string(path).unwrap()).unwrap();
+    MeasurementConfig::from_fdx_settings(&settings)
 }

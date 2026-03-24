@@ -1,9 +1,10 @@
 use jumpcut::pagination::{
     boundary_spacing_lines, build_semantic_screenplay, compare_paginated_to_fixture,
     measure_dialogue_part_lines, measure_dialogue_unit, measure_flow_unit, measure_lyric_unit,
-    measure_text_lines, normalize_screenplay, ComparisonIssueKind, DialoguePartKind, FlowKind,
-    MeasurementConfig, NormalizedElement, NormalizedScreenplay, PageBreakFixture,
-    PageBreakFixtureSourceRefs, PaginatedScreenplay, PaginationConfig, UnitMeasurement,
+    measure_text_lines, normalize_screenplay, ComparisonIssueKind, DialoguePartKind,
+    FdxExtractedSettings, FlowKind, MeasurementConfig, NormalizedElement,
+    NormalizedScreenplay, PageBreakFixture, PageBreakFixtureSourceRefs, PaginatedScreenplay,
+    PaginationConfig, UnitMeasurement,
 };
 use jumpcut::parse;
 use serde::Serialize;
@@ -64,25 +65,25 @@ fn selected_big_fish_window_probe_baselines_hold() {
     for (path, expected_lines, expected_score, expected_counts) in [
         (
             "tests/fixtures/pagination/big-fish.p38-40.page-breaks.json",
-            41,
-            (0, 0, 0),
-            (0, 0),
+            52,
+            (41, 15, 2),
+            (12, 12),
         ),
         (
             "tests/fixtures/pagination/big-fish.p42-44.page-breaks.json",
-            39,
-            (0, 0, 0),
+            37,
+            (3, 2, 1),
             (0, 0),
         ),
         (
             "tests/fixtures/pagination/big-fish.p55-57.page-breaks.json",
-            50,
+            42,
             (0, 0, 0),
             (0, 0),
         ),
         (
             "tests/fixtures/pagination/big-fish.p77-79.page-breaks.json",
-            42,
+            40,
             (0, 0, 0),
             (0, 0),
         ),
@@ -94,7 +95,7 @@ fn selected_big_fish_window_probe_baselines_hold() {
             &fixture,
         );
         let semantic = build_semantic_screenplay(normalized);
-        let run = best_probe_run(&fixture, &semantic);
+        let run = best_probe_run(&fixture, &semantic, measurement_for_screenplay("big-fish"));
         let report = &run.report;
 
         assert_eq!(run.lines_per_page, expected_lines, "{path}");
@@ -127,15 +128,15 @@ fn selected_public_window_probe_baselines_hold() {
             "tests/fixtures/pagination/brick-n-steel.p2-4.page-breaks.json",
             "brick-n-steel",
             "../jumpcut-layout-corpus/corpus/public/brick-n-steel/source/source.fountain",
-            38,
-            (2, 2, 0),
+            37,
+            (3, 3, 0),
             (0, 0),
         ),
         (
             "tests/fixtures/pagination/little-women.p4-6.page-breaks.json",
             "little-women",
             "../jumpcut-layout-corpus/corpus/public/little-women/source/source.fountain",
-            51,
+            46,
             (6, 3, 0),
             (1, 2),
         ),
@@ -143,7 +144,7 @@ fn selected_public_window_probe_baselines_hold() {
             "tests/fixtures/pagination/little-women.p13-14.page-breaks.json",
             "little-women",
             "../jumpcut-layout-corpus/corpus/public/little-women/source/source.fountain",
-            40,
+            39,
             (0, 0, 0),
             (0, 0),
         ),
@@ -151,7 +152,8 @@ fn selected_public_window_probe_baselines_hold() {
         let fixture: PageBreakFixture = read_fixture(path);
         let normalized = normalized_slice_from_fountain(screenplay_id, fountain_path, &fixture);
         let semantic = build_semantic_screenplay(normalized);
-        let run = best_probe_run(&fixture, &semantic);
+        let run =
+            best_probe_run(&fixture, &semantic, measurement_for_screenplay(screenplay_id));
         let report = &run.report;
 
         assert_eq!(run.lines_per_page, expected_lines, "{path}");
@@ -188,7 +190,7 @@ fn big_fish_public_slice_stays_at_or_better_than_width_measurement_baseline() {
     );
     let semantic = build_semantic_screenplay(normalized);
 
-    let run = best_probe_run(&fixture, &semantic);
+    let run = best_probe_run(&fixture, &semantic, measurement_for_screenplay("big-fish"));
     let report = &run.report;
 
     assert!(
@@ -232,7 +234,7 @@ fn probe_big_fish_selected_windows_against_canonical_fixtures() {
             &fixture,
         );
         let semantic = build_semantic_screenplay(normalized);
-        let run = best_probe_run(&fixture, &semantic);
+        let run = best_probe_run(&fixture, &semantic, measurement_for_screenplay("big-fish"));
 
         println!(
             "{}",
@@ -276,7 +278,8 @@ fn probe_selected_public_windows_against_canonical_fixtures() {
         let fixture: PageBreakFixture = read_fixture(path);
         let normalized = normalized_slice_from_fountain(screenplay_id, fountain_path, &fixture);
         let semantic = build_semantic_screenplay(normalized);
-        let run = best_probe_run(&fixture, &semantic);
+        let run =
+            best_probe_run(&fixture, &semantic, measurement_for_screenplay(screenplay_id));
 
         println!(
             "{}",
@@ -308,7 +311,7 @@ fn probe_big_fish_public_slice_against_canonical_fixture() {
         &fixture,
     );
     let semantic = build_semantic_screenplay(normalized);
-    let run = best_probe_run(&fixture, &semantic);
+    let run = best_probe_run(&fixture, &semantic, measurement_for_screenplay("big-fish"));
     println!(
         "{}",
         serde_json::to_string_pretty(&ProbeDebugOutput {
@@ -336,7 +339,7 @@ fn dump_big_fish_public_slice_paginated_output_json() {
         &fixture,
     );
     let semantic = build_semantic_screenplay(normalized.clone());
-    let run = best_probe_run(&fixture, &semantic);
+    let run = best_probe_run(&fixture, &semantic, measurement_for_screenplay("big-fish"));
     let previews = preview_map(&normalized);
 
     let debug_fixture = paginated_to_debug_fixture(
@@ -398,7 +401,8 @@ fn dump_selected_public_windows_paginated_output_json() {
         let fixture: PageBreakFixture = read_fixture(path);
         let normalized = normalized_slice_from_fountain(screenplay_id, fountain_path, &fixture);
         let semantic = build_semantic_screenplay(normalized.clone());
-        let run = best_probe_run(&fixture, &semantic);
+        let run =
+            best_probe_run(&fixture, &semantic, measurement_for_screenplay(screenplay_id));
         let previews = preview_map(&normalized);
         let debug_fixture = paginated_to_debug_fixture(
             &run.actual,
@@ -446,11 +450,15 @@ fn dump_selected_public_windows_paginated_output_json() {
 fn best_probe_run(
     fixture: &PageBreakFixture,
     semantic: &jumpcut::pagination::SemanticScreenplay,
+    measurement: MeasurementConfig,
 ) -> ProbeRun {
     let mut best = None;
     let page_numbers: Vec<u32> = fixture.pages.iter().map(|page| page.number).collect();
     for lines_per_page in 1..=60 {
-        let config = PaginationConfig::screenplay(lines_per_page);
+        let config = PaginationConfig {
+            lines_per_page,
+            measurement: measurement.clone(),
+        };
         let full_actual = PaginatedScreenplay::paginate(
             semantic.clone(),
             config.clone(),
@@ -484,6 +492,15 @@ fn best_probe_run(
     }
 
     best.unwrap().2
+}
+
+fn measurement_for_screenplay(screenplay_id: &str) -> MeasurementConfig {
+    let path = Path::new("../jumpcut-layout-corpus/corpus/public")
+        .join(screenplay_id)
+        .join("extracted/fdx-settings.json");
+    let settings: FdxExtractedSettings =
+        serde_json::from_str(&fs::read_to_string(path).unwrap()).unwrap();
+    MeasurementConfig::from_fdx_settings(&settings)
 }
 
 fn normalized_slice_from_fountain(
