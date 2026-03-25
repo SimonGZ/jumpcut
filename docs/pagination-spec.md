@@ -80,6 +80,7 @@ Pages are filled until visual height is exhausted, prompting a hard pagination m
 
 - **Scene Headings**: Must _never_ sit alone at the bottom of the page. It must be paired with at least a small portion of subsequent action or dialogue.
 - **Transitions**: Allowed to be placed as a single isolated line at the end of a page.
+- **Orphan and Widow Thresholds**: Action or dialogue splits require a minimum of **2 visual lines** on the terminating page, and **2 visual lines** on the sequential next page. _(Note: This is a working hypothesis and has not been fully confirmed.)_
 - **Splitting Logic**: Programs avoid ungainly "stranding." When splitting action or dialogue near the bottom of a page, splits should favor a sentence boundary where possible. The algorithm would rather push an entire element block onto the next page or slice at an earlier junction for a more elegant partition rather than stranding small bits of content at the top of the next page.
 
 ### 6.2 Configurable Elements
@@ -92,8 +93,4 @@ Pages are filled until visual height is exhausted, prompting a hard pagination m
 
 - **Forced Page Breaks**: Manual hard returns (e.g., `===`) immediately truncate the current page. The page stops accepting elements, and the paginator moves onto the next page starting with the next element.
 
-## 7. Open Questions and Specifications
 
-_The following features are known requirements but need explicit measurements or algorithms to finalize:_
-
-- **Orphan and Widow Thresholds**: What is the minimum line count requirement before a split is considered valid? (e.g., must an element have a minimum of 2 lines on the terminating page, and 2 lines on the sequential page?)
