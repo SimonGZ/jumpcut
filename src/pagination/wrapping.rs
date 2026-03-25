@@ -13,19 +13,24 @@ pub struct WrapConfig {
 
 impl WrapConfig {
     pub fn new(element_type: ElementType) -> Self {
+        // TEMPORARY HARDCODING. Later this will need to read settings from the document.
         let width = match element_type {
             ElementType::Action => 61,
-            ElementType::Character => 42, 
+            ElementType::Character => 42,
             ElementType::Dialogue => 35,
             ElementType::Parenthetical => 25,
             ElementType::Transition => 16,
             ElementType::Lyric => 48,
         };
-        Self { exact_width_chars: width }
+        Self {
+            exact_width_chars: width,
+        }
     }
 
     pub fn with_exact_width_chars(width: usize) -> Self {
-        Self { exact_width_chars: width }
+        Self {
+            exact_width_chars: width,
+        }
     }
 }
 
@@ -46,8 +51,8 @@ pub fn wrap_text_for_element(text: &str, config: &WrapConfig) -> Vec<String> {
         for word in words {
             let word_len = word.chars().count();
             let line_len = current_line.chars().count();
-            
-            // If the word ends with a space, that space doesn't force a wrap 
+
+            // If the word ends with a space, that space doesn't force a wrap
             // if it falls exactly on the boundary.
             let fits = if word.ends_with(' ') {
                 line_len + word_len - 1 <= max_width
@@ -66,7 +71,7 @@ pub fn wrap_text_for_element(text: &str, config: &WrapConfig) -> Vec<String> {
                 current_line = String::from(word);
             }
         }
-        
+
         if !current_line.is_empty() {
             lines.push(current_line.trim_end().to_string());
         }
