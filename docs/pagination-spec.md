@@ -96,5 +96,3 @@ Pages are filled until visual height is exhausted, prompting a hard pagination m
 ### 6.3 Forced Page Breaks
 
 - **Forced Page Breaks**: Manual hard returns (e.g., `===`) immediately truncate the current page. The page stops accepting elements, and the paginator moves onto the next page starting with the next element.
-
-
