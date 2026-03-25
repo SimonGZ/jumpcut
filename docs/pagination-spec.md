@@ -35,6 +35,10 @@ Each element type conforms to specific structural constraints defined relative t
   - Left Indent: 2.5 inches
   - Right Indent: 6.0 inches
   - Available Width: 3.5 inches (35 characters)
+- **Lyric**
+  - Left Indent: 2.5 inches
+  - Right Indent: 7.375 inches
+  - _Usually presented in italics._
 - **Parenthetical**
   - Left Indent: 3.0 inches
   - Right Indent: 5.5 inches
@@ -67,7 +71,7 @@ Elements dictate vertical padding above and below themselves by standard multipl
 
 - **Spacing Value**:
   - Scene headings require **2 visual blank lines** above and **1 visual blank line** below.
-  - Action blocks, and character blocks (grouping character, parenthetical, and dialogue) require **1 visual blank line** above and below.
+  - Action blocks, and character blocks (grouping character, parenthetical, dialogue, and lyric) require **1 visual blank line** above and below.
   - Dual Dialogue blocks follow the identical rule: **1 visual blank line** above and below.
 - **Shared Padding**: Intrinsic padding is not strictly additive. Two consecutive action blocks maintain _one_ blank line between them, not two.
 - **Page Boundaries**: Elements placed at the absolute top of a blank page disregard their required top visual spacing metric (no intrinsic blank line added at top). Elements placed at the absolute bottom of a page disregard their bottom visual spacing metric (no intrinsic blank line added at bottom).
