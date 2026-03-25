@@ -524,9 +524,13 @@ fn wrap_explicit_line_preserving_spaces(
         }
 
         // Final Draft does not count a trailing hyphen against the column width.
+        // It also does not count trailing whitespace.
         let current_len = current.chars().count();
         let token_len = token.chars().count();
-        let effective_len = if token.ends_with('-') {
+        
+        let effective_len = if is_whitespace {
+            current_len
+        } else if token.ends_with('-') {
             (current_len + token_len).saturating_sub(1)
         } else {
             current_len + token_len

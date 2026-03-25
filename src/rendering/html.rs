@@ -8,7 +8,11 @@ pub(crate) fn render_document(screenplay: &Screenplay, head: bool) -> String {
     let mut out = String::with_capacity(32 * 1024);
     if head {
         out.push_str("<!doctype html>\n\n<html>\n<head>\n  <meta charset=\"utf-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n\n  <title>");
-        out.push_str(&escape_html(&join_metadata(&screenplay.metadata, "title", " ")));
+        out.push_str(&escape_html(&join_metadata(
+            &screenplay.metadata,
+            "title",
+            " ",
+        )));
         out.push_str("</title>\n\n  <style type=\"text/css\" media=\"screen\">\n   ");
         out.push_str(HTML_STYLE);
         out.push_str("\n  </style>\n</head>\n\n<body>\n");
@@ -27,13 +31,31 @@ pub(crate) fn render_document(screenplay: &Screenplay, head: bool) -> String {
 
 fn render_body(out: &mut String, screenplay: &Screenplay) {
     if screenplay.metadata.get("title").is_some() {
-        out.push_str("    <section class=\"title-page\">\n        <div class=\"title\">\n            <h1>");
-        out.push_str(&escape_html(&join_metadata(&screenplay.metadata, "title", "")));
+        out.push_str(
+            "    <section class=\"title-page\">\n        <div class=\"title\">\n            <h1>",
+        );
+        out.push_str(&escape_html(&join_metadata(
+            &screenplay.metadata,
+            "title",
+            "",
+        )));
         out.push_str("</h1>\n            <p>");
-        out.push_str(&escape_html(&join_metadata(&screenplay.metadata, "credit", "")));
+        out.push_str(&escape_html(&join_metadata(
+            &screenplay.metadata,
+            "credit",
+            "",
+        )));
         out.push_str("</p>\n            <p>");
-        out.push_str(&escape_html(&join_metadata(&screenplay.metadata, "author", "")));
-        out.push_str(&escape_html(&join_metadata(&screenplay.metadata, "authors", "")));
+        out.push_str(&escape_html(&join_metadata(
+            &screenplay.metadata,
+            "author",
+            "",
+        )));
+        out.push_str(&escape_html(&join_metadata(
+            &screenplay.metadata,
+            "authors",
+            "",
+        )));
         out.push_str("</p>\n        </div>\n    </section>\n");
     }
 

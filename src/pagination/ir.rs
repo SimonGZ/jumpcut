@@ -127,6 +127,10 @@ impl PaginatedScreenplay {
                     index += 1;
                 }
                 unit => {
+                    if current_items.is_empty() {
+                        last_measurement = None;
+                    }
+
                     if let SemanticUnit::Flow(flow) = unit {
                         let flow_measurement = measure_flow_unit(flow, &config.measurement);
                         let remaining_lines = config.lines_per_page.saturating_sub(current_lines);
@@ -383,8 +387,9 @@ impl PaginatedScreenplay {
                         if let Some(next_index) = next_placeable_unit_index(&units, index + 1) {
                             let next_measurement =
                                 measure_unit(&units[next_index], &config.measurement);
-                            required_lines += next_measurement
-                                .placement_lines_with_prev(Some(&unit_measurement));
+                            let spacing_to_next = boundary_spacing_lines(Some(&unit_measurement), Some(&next_measurement));
+                            let min_next_lines = next_measurement.content_lines.min(2);
+                            required_lines = unit_lines + spacing_to_next + min_next_lines;
                         }
                     }
 
@@ -920,6 +925,10 @@ fn split_flow_unit(
         let suffix_lines = measure_flow_unit_lines(&suffix, measurement);
         let ends_at_sentence = ends_at_sentence_boundary(&prefix.text);
 
+        if prefix_lines < 2 || suffix_lines < 2 {
+            continue;
+        }
+
         candidates.push(SplitCandidate {
             prefix,
             suffix,
@@ -961,6 +970,10 @@ fn split_flow_unit(
             cohesion: unit.cohesion.clone(),
         };
         let suffix_lines = measure_flow_unit_lines(&suffix, measurement);
+
+        if prefix_lines < 2 || suffix_lines < 2 {
+            continue;
+        }
 
         candidates.push(SplitCandidate {
             prefix,
@@ -1026,6 +1039,11 @@ fn split_dialogue_unit(
                 }
 
                 let suffix_lines = measure_dialogue_parts_lines(&suffix_parts, measurement);
+                
+                if prefix_lines < 2 || suffix_lines < 2 {
+                    continue;
+                }
+                
                 candidates.push(SplitCandidate {
                     prefix: DialogueUnit {
                         block_id: unit.block_id.clone(),
@@ -1061,27 +1079,29 @@ fn split_dialogue_unit(
         let suffix = &unit.parts[index + 1..];
         if is_valid_dialogue_fragment(prefix) && is_valid_dialogue_fragment(suffix) {
             let suffix_lines = measure_dialogue_parts_lines(suffix, measurement);
-            candidates.push(SplitCandidate {
-                prefix: DialogueUnit {
-                    block_id: unit.block_id.clone(),
-                    parts: prefix.to_vec(),
-                    cohesion: unit.cohesion.clone(),
-                },
-                suffix: DialogueUnit {
-                    block_id: unit.block_id.clone(),
-                    parts: suffix.to_vec(),
-                    cohesion: unit.cohesion.clone(),
-                },
-                score: score_dialogue_split_candidate(
-                    prefix_lines,
-                    suffix_lines,
-                    available_lines,
-                    suffix.first().map(|part| &part.kind),
-                    ends_at_sentence_boundary(
-                        &prefix.last().map(|part| part.text.as_str()).unwrap_or(""),
+            if prefix_lines >= 2 && suffix_lines >= 2 {
+                candidates.push(SplitCandidate {
+                    prefix: DialogueUnit {
+                        block_id: unit.block_id.clone(),
+                        parts: prefix.to_vec(),
+                        cohesion: unit.cohesion.clone(),
+                    },
+                    suffix: DialogueUnit {
+                        block_id: unit.block_id.clone(),
+                        parts: suffix.to_vec(),
+                        cohesion: unit.cohesion.clone(),
+                    },
+                    score: score_dialogue_split_candidate(
+                        prefix_lines,
+                        suffix_lines,
+                        available_lines,
+                        suffix.first().map(|part| &part.kind),
+                        ends_at_sentence_boundary(
+                            &prefix.last().map(|part| part.text.as_str()).unwrap_or(""),
+                        ),
                     ),
-                ),
-            });
+                });
+            }
         }
 
         lines_before_part = prefix_lines;

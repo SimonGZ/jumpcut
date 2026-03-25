@@ -183,12 +183,15 @@ mod tests {
     fn test_fdx_renderer_matches_template_output() {
         let mut screenplay = sample_screenplay();
         let actual = screenplay.to_final_draft();
-        assert!(actual.contains("<FinalDraft DocumentType=\"Script\" Template=\"No\" Version=\"4\">"));
+        assert!(
+            actual.contains("<FinalDraft DocumentType=\"Script\" Template=\"No\" Version=\"4\">")
+        );
         assert!(actual.contains("<Paragraph Type=\"Scene Heading\" Number=\"1\">"));
         assert!(actual.contains("<Text Style=\"Bold\">BOLD</Text>"));
         assert!(actual.contains("<DualDialogue>"));
         assert!(actual.contains("<ElementSettings Type=\"Dialogue\">"));
-        assert!(actual.contains("LeftIndent=\"2.50\" RightIndent=\"6.00\" SpaceBefore=\"0\" Spacing=\"1\""));
+        assert!(actual
+            .contains("LeftIndent=\"2.50\" RightIndent=\"6.00\" SpaceBefore=\"0\" Spacing=\"1\""));
         assert!(actual.contains("<Text AdornmentStyle=\"-1\""));
         assert!(actual.contains("Font=\"Courier Prime\""));
         assert!(actual.contains(">DRAFT</Text>"));
@@ -205,7 +208,8 @@ mod tests {
         metadata.insert("draft date".into(), vec!["DATE".into()]);
         metadata.insert("fmt".into(), vec!["bsh".into()]);
 
-        let styled = ElementText::Styled(vec![tr("BOLD", vec!["Bold"]), tr("ITALIC", vec!["Italic"])]);
+        let styled =
+            ElementText::Styled(vec![tr("BOLD", vec!["Bold"]), tr("ITALIC", vec!["Italic"])]);
         let mut scene_attrs = blank_attributes();
         scene_attrs.scene_number = Some("1".into());
         let mut centered_attrs = blank_attributes();

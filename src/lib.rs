@@ -708,8 +708,7 @@ fn is_act_marker(tokens: &[&str]) -> bool {
 fn is_supported_act_label(label: &str) -> bool {
     matches!(
         label,
-        "0"
-            | "1"
+        "0" | "1"
             | "2"
             | "3"
             | "4"
@@ -874,7 +873,11 @@ fn make_dialogue_block(hunk: Vec<&str>) -> Element {
             // if previous element was dialogue, add this line to that dialogue
             s.push_str("\n");
             let trimmed = processed_line.as_ref();
-            let trimmed = if trimmed.trim().is_empty() { trimmed } else { trimmed.trim_start() };
+            let trimmed = if trimmed.trim().is_empty() {
+                trimmed
+            } else {
+                trimmed.trim_start()
+            };
             s.push_str(trimmed);
         } else {
             // otherwise this is a new dialogue
@@ -1042,7 +1045,10 @@ mod tests {
         let fountain = "\u{200B}\u{2060}INT. HOUSE - DAY";
         assert_eq!(
             parse(fountain).elements,
-            vec![Element::SceneHeading(p("INT. HOUSE - DAY"), blank_attributes())]
+            vec![Element::SceneHeading(
+                p("INT. HOUSE - DAY"),
+                blank_attributes()
+            )]
         );
     }
 

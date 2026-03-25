@@ -6,7 +6,10 @@ pub(crate) fn sorted_style_names(run: &TextRun, preserve_case: bool) -> Vec<Stri
     if preserve_case {
         styles
     } else {
-        styles.into_iter().map(|style| style.to_lowercase()).collect()
+        styles
+            .into_iter()
+            .map(|style| style.to_lowercase())
+            .collect()
     }
 }
 
