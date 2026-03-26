@@ -6,6 +6,7 @@ use std::cmp::max;
 pub struct MeasuredFlowUnit {
     pub spacing_above: usize,
     pub content_lines: usize,
+    pub keep_with_next: bool,
 }
 
 pub fn compose(units: &[SemanticUnit]) -> Vec<MeasuredFlowUnit> {
@@ -49,6 +50,10 @@ pub fn compose(units: &[SemanticUnit]) -> Vec<MeasuredFlowUnit> {
         measured.push(MeasuredFlowUnit {
             spacing_above,
             content_lines,
+            keep_with_next: match unit {
+                SemanticUnit::Flow(flow) => flow.cohesion.keep_with_next,
+                _ => false,
+            },
         });
 
         previous_spacing_below = req_spacing_below;
