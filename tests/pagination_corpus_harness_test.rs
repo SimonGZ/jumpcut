@@ -325,20 +325,18 @@ fn big_fish_line_break_parity_reports_el_00787_as_an_exact_match() {
 
 #[test]
 // #[ignore = "Temporarily disabled"]
-fn big_fish_line_break_parity_has_no_dialogue_disagreements() {
+fn big_fish_macro_parity_holds_baseline() {
     let report = build_line_break_parity_report(
         "big-fish",
         "../jumpcut-layout-corpus/corpus/public/big-fish/working/parsed-elements.json",
         "../jumpcut-layout-corpus/corpus/public/big-fish/canonical/page-breaks.json",
     );
-
+    
+    // As of the new Geometry Engine integration and Parenthetical wrap fixes, there are exactly 0 disagreements
+    // across the entire 120-page screenplay compared to Canonical Final Draft PDFs!
     assert_eq!(
-        report
-            .items
-            .iter()
-            .filter(|item| item.kind == "Dialogue" && item.lines_agree == Some(false))
-            .count(),
-        0
+        report.disagreement_count, 0,
+        "Expected exact macro parity baseline of 0 disagreements. If this worsened, fix the regression!"
     );
 }
 
@@ -1719,7 +1717,10 @@ fn width_chars_for_parity_kind(
 }
 
 fn wrap_lines_for_parity_kind(_kind: &str, text: &str, width_chars: usize) -> Vec<String> {
-    wrap_text_lines_with_policy(text, width_chars, true)
+    jumpcut::pagination::wrapping::wrap_text_for_element(
+        text,
+        &jumpcut::pagination::wrapping::WrapConfig::with_exact_width_chars(width_chars),
+    )
 }
 
 fn render_line_break_parity_review(report: &LineBreakParityReport) -> String {

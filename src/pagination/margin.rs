@@ -6,9 +6,9 @@ pub fn calculate_element_width(left_indent: f32, right_indent: f32, cpi: f32, el
     let width_inches = right_indent - left_indent;
     let mut chars = (width_inches * cpi).floor() as usize;
 
-    // Apply the Final Draft specific quirk where the Action element grid explicitly 
-    // holds an N+1 amount of characters compared to pure mathematical bounds.
-    if matches!(element_type, ElementType::Action) {
+    // Apply the Final Draft specific quirk where the Action and Parenthetical grids explicitly 
+    // hold an N+1 amount of characters compared to pure mathematical bounds.
+    if matches!(element_type, ElementType::Action | ElementType::Parenthetical) {
         chars += 1;
     }
     

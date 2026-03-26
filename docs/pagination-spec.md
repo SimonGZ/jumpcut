@@ -42,6 +42,7 @@ Each element type conforms to specific structural constraints defined relative t
 - **Parenthetical**
   - Left Indent: 3.0 inches
   - Right Indent: 5.5 inches
+  - Available Width: 2.5 inches (Should be 25 characters, but Final Draft allows 26, so we copy that)
 - **Dual Dialogue**
   - _Configured as two side-by-side columns._
   - **Left Column**

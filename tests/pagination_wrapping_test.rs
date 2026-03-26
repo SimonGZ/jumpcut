@@ -98,3 +98,55 @@ fn action_text_wraps_jo_sits_scenario_correctly() {
     assert_eq!(lines[3], "scratches, Jo feels her heart breaking. She’s on the verge of");
     assert_eq!(lines[4], "tears when:");
 }
+
+#[test]
+fn final_draft_discounts_exactly_one_trailing_dash_from_word_width() {
+    let config = WrapConfig::with_exact_width_chars(10);
+
+    // SCENARIO 1: "A 12345678-" (length 11)
+    // "A " is 2 visual characters conceptually (or 2 length on line).
+    // Word is "12345678-" (length 9).
+    // Discounting EXACTLY ONE dash gives an effective word length of 8.
+    // Line width = 2 + 8 = 10. This FITS exactly within the 10-char limit!
+    let lines_fit = wrap_text_for_element("A 12345678-", &config);
+    assert_eq!(lines_fit.len(), 1, "The word ending in a single dash should fit when one dash is discounted");
+    assert_eq!(lines_fit[0], "A 12345678-");
+
+    // SCENARIO 2: "A 12345678--" (length 12)
+    // "A " is 2 limit.
+    // Word is "12345678--" (length 10).
+    // Discounting EXACTLY ONE dash gives an effective word length of 9.
+    // Line width = 2 + 9 = 11. This EXCEEDS the 10-char limit!
+    // If we incorrectly discounted BOTH dashes, effective length would be 8, and it would wrap incorrectly.
+    let lines_wrap = wrap_text_for_element("A 12345678--", &config);
+    assert_eq!(lines_wrap.len(), 2, "The word ending in two dashes should wrap because only one dash is discounted");
+    assert_eq!(lines_wrap[0], "A");
+    assert_eq!(lines_wrap[1], "12345678--");
+}
+
+#[test]
+fn final_draft_discounts_all_trailing_spaces_from_width() {
+    let config = WrapConfig::with_exact_width_chars(10);
+
+    // "1234567890" is exactly 10 characters.
+    // Adding 8 spaces makes it 18 characters: "1234567890        "
+    // Since Final Draft discounts ALL trailing spaces, this should evaluate as 10 characters,
+    // and thus FIT on the single 10-character line perfectly.
+    let text = "1234567890        ";
+    let lines = wrap_text_for_element(text, &config);
+
+    assert_eq!(
+        lines.len(),
+        1,
+        "A 10-character word followed by 8 spaces should not wrap on a 10-char limit!"
+    );
+    assert_eq!(lines[0], "1234567890");
+
+    // But if there is a visible character AFTER the spaces, it must wrap!
+    // "1234567890        A"
+    // The spaces are no longer trailing the line, they are internal to the wrap context!
+    // (It wraps after the 10th char)
+    let text2 = "1234567890        A";
+    let lines2 = wrap_text_for_element(text2, &config);
+    assert_eq!(lines2.len(), 2, "If a visible character follows the spaces, it must wrap.");
+}

@@ -172,7 +172,17 @@ impl MeasurementConfig {
                 self.dialogue_right_indent_in,
             ),
         };
-        width_chars(self.chars_per_inch, left, right)
+        
+        let mut chars = width_chars(self.chars_per_inch, left, right);
+        
+        // Apply the Final Draft specific quirk where the Parenthetical grid explicitly 
+        // holds an N+1 amount of characters compared to pure mathematical bounds 
+        // to account for its enclosing parentheses.
+        if matches!(kind, DialoguePartKind::Parenthetical) {
+            chars += 1;
+        }
+        
+        chars
     }
 
     pub fn spacing_for_flow_kind(&self, kind: &FlowKind) -> (u32, u32) {

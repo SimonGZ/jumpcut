@@ -47,23 +47,25 @@ pub fn wrap_text_for_element(text: &str, config: &WrapConfig) -> Vec<String> {
         return lines;
     }
 
-    for paragraph in text.split('\n') {
+    for paragraph in text.lines() {
         let mut current_line = String::new();
         // `split_inclusive` keeps the delimiter attached to the previous chunk,
         // allowing us to preserve internal spaces perfectly.
         let words: Vec<&str> = paragraph.split_inclusive(' ').collect();
 
         for word in words {
-            let word_len = word.chars().count();
-            let line_len = current_line.chars().count();
+            let combined = format!("{}{}", current_line, word);
+            
+            // Final Draft explicitly discounts trailing whitespace and exactly 
+            // ONE single trailing hyphen from column width limits.
+            let trimmed = combined.trim_end_matches(' ');
+            let mut effective_combined_len = trimmed.chars().count();
+            
+            if trimmed.ends_with('-') {
+                effective_combined_len = effective_combined_len.saturating_sub(1);
+            }
 
-            // If the word ends with a space, that space doesn't force a wrap
-            // if it falls exactly on the boundary.
-            let fits = if word.ends_with(' ') {
-                line_len + word_len - 1 <= max_width
-            } else {
-                line_len + word_len <= max_width
-            };
+            let fits = effective_combined_len <= max_width;
 
             if current_line.is_empty() {
                 // Always push the first word of a line, even if it's too long
