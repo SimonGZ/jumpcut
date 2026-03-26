@@ -1,4 +1,5 @@
 use crate::pagination::margin::calculate_element_width;
+use crate::pagination::LayoutGeometry;
 
 #[derive(Debug, Clone, Copy)]
 pub enum ElementType {
@@ -17,15 +18,17 @@ pub struct WrapConfig {
 
 impl WrapConfig {
     pub fn new(element_type: ElementType) -> Self {
+        let geometry = LayoutGeometry::default();
+
         // Still temporarily HARDCODING these numbers here.
         let width = match element_type {
-            ElementType::Action => calculate_element_width(1.5, 7.5, 10.0, element_type),
-            ElementType::SceneHeading => calculate_element_width(1.5, 7.5, 10.0, element_type),
-            ElementType::Character => calculate_element_width(3.5, 7.25, 10.0, element_type),
-            ElementType::Dialogue => calculate_element_width(2.5, 6.0, 10.0, element_type),
-            ElementType::Parenthetical => calculate_element_width(3.0, 5.5, 10.0, element_type),
-            ElementType::Transition => calculate_element_width(5.5, 7.1, 10.0, element_type),
-            ElementType::Lyric => calculate_element_width(2.5, 7.375, 10.0, element_type),
+            ElementType::Action => calculate_element_width(&geometry, element_type),
+            ElementType::SceneHeading => calculate_element_width(&geometry, element_type),
+            ElementType::Character => calculate_element_width(&geometry, element_type),
+            ElementType::Dialogue => calculate_element_width(&geometry, element_type),
+            ElementType::Parenthetical => calculate_element_width(&geometry, element_type),
+            ElementType::Transition => calculate_element_width(&geometry, element_type),
+            ElementType::Lyric => calculate_element_width(&geometry, element_type),
         };
         Self {
             exact_width_chars: width,
@@ -55,12 +58,12 @@ pub fn wrap_text_for_element(text: &str, config: &WrapConfig) -> Vec<String> {
 
         for word in words {
             let combined = format!("{}{}", current_line, word);
-            
-            // Final Draft explicitly discounts trailing whitespace and exactly 
+
+            // Final Draft explicitly discounts trailing whitespace and exactly
             // ONE single trailing hyphen from column width limits.
             let trimmed = combined.trim_end_matches(' ');
             let mut effective_combined_len = trimmed.chars().count();
-            
+
             if trimmed.ends_with('-') {
                 effective_combined_len = effective_combined_len.saturating_sub(1);
             }

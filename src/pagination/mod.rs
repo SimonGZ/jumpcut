@@ -20,6 +20,7 @@ pub use ir::{
     BlockPlacement, ContinuationMarker, Page, PageBlock, PageItem, PageKind, PageMetadata,
     PaginatedScreenplay, PaginationConfig,
 };
+pub use margin::LayoutGeometry;
 pub use measurement::{
     boundary_spacing_lines, measure_dialogue_part_lines, measure_dialogue_unit,
     measure_dialogue_unit_lines, measure_dual_dialogue_unit, measure_dual_dialogue_unit_lines,
