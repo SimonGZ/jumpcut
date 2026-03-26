@@ -82,3 +82,19 @@ fn multi_line_action_paragraph_splits_optimally() {
     );
     assert_eq!(lines[2], "feared.");
 }
+
+#[test]
+fn action_text_wraps_jo_sits_scenario_correctly() {
+    let config = WrapConfig::new(ElementType::Action);
+
+    let text = "Jo sits, hands folded, trying to cover the ink stains. Mr. Dashwood reads her story with a pen in hand, gleefully crossing out and making notes, changes. Every time his pen scratches, Jo feels her heart breaking. She’s on the verge of tears when:";
+
+    let lines = wrap_text_for_element(text, &config);
+
+    assert_eq!(lines.len(), 5);
+    assert_eq!(lines[0], "Jo sits, hands folded, trying to cover the ink stains. Mr.");
+    assert_eq!(lines[1], "Dashwood reads her story with a pen in hand, gleefully");
+    assert_eq!(lines[2], "crossing out and making notes, changes. Every time his pen");
+    assert_eq!(lines[3], "scratches, Jo feels her heart breaking. She’s on the verge of");
+    assert_eq!(lines[4], "tears when:");
+}
