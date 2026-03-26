@@ -19,19 +19,12 @@ pub struct WrapConfig {
 impl WrapConfig {
     pub fn new(element_type: ElementType) -> Self {
         let geometry = LayoutGeometry::default();
+        Self::from_geometry(&geometry, element_type)
+    }
 
-        // Still temporarily HARDCODING these numbers here.
-        let width = match element_type {
-            ElementType::Action => calculate_element_width(&geometry, element_type),
-            ElementType::SceneHeading => calculate_element_width(&geometry, element_type),
-            ElementType::Character => calculate_element_width(&geometry, element_type),
-            ElementType::Dialogue => calculate_element_width(&geometry, element_type),
-            ElementType::Parenthetical => calculate_element_width(&geometry, element_type),
-            ElementType::Transition => calculate_element_width(&geometry, element_type),
-            ElementType::Lyric => calculate_element_width(&geometry, element_type),
-        };
+    pub fn from_geometry(geometry: &LayoutGeometry, element_type: ElementType) -> Self {
         Self {
-            exact_width_chars: width,
+            exact_width_chars: calculate_element_width(geometry, element_type),
         }
     }
 

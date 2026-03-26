@@ -7,6 +7,7 @@ use crate::pagination::semantic::{
     DialoguePartKind, DialogueUnit, FlowKind, FlowUnit, SemanticScreenplay,
     SemanticUnit,
 };
+use crate::pagination::LayoutGeometry;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ContinuationMarker {
@@ -99,8 +100,9 @@ impl PaginatedScreenplay {
             .starting_page_number
             .unwrap_or_else(|| first_page_number(&scope));
         let style_profile = style_profile.into();
+        let geometry = LayoutGeometry::default();
 
-        let blocks = crate::pagination::composer::compose(&semantic.units);
+        let blocks = crate::pagination::composer::compose(&semantic.units, &geometry);
         let paged_blocks = crate::pagination::paginator::paginate(&blocks, config.lines_per_page as usize);
 
         let mut pages: Vec<Page> = Vec::new();

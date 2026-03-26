@@ -150,3 +150,22 @@ fn final_draft_discounts_all_trailing_spaces_from_width() {
     let lines2 = wrap_text_for_element(text2, &config);
     assert_eq!(lines2.len(), 2, "If a visible character follows the spaces, it must wrap.");
 }
+
+#[test]
+fn wrap_config_can_be_created_from_custom_geometry() {
+    use jumpcut::pagination::LayoutGeometry;
+    
+    let mut geometry = LayoutGeometry::default();
+    // Default dialogue is 2.5 to 6.0 (3.5 inches = 35 chars)
+    // Let's make it narrower: 2.5 to 5.0 (2.5 inches = 25 chars)
+    geometry.dialogue_right = 5.0; 
+    
+    // This constructor doesn't exist yet
+    let config = WrapConfig::from_geometry(&geometry, ElementType::Dialogue);
+    
+    assert_eq!(config.exact_width_chars, 25);
+    
+    let text = "1234567890123456789012345 6"; // Space at 26th char. "1234567890123456789012345 " is 26 chars, trimmed is 25.
+    let lines = wrap_text_for_element(text, &config);
+    assert_eq!(lines.len(), 2, "Should wrap at the space after 25 characters");
+}
