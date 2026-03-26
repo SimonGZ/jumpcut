@@ -1,20 +1,20 @@
 use jumpcut::pagination::{
     boundary_spacing_lines, build_semantic_screenplay, compare_paginated_to_fixture,
     measure_dialogue_part_lines, measure_dialogue_unit, measure_flow_unit, measure_lyric_unit,
-    measure_text_lines, normalize_screenplay, wrap_text_lines_with_policy,
-    ComparisonIssueKind, DialoguePartKind, FdxExtractedSettings, FlowKind, Fragment,
-    LineRange, MeasurementConfig, NormalizedElement, NormalizedScreenplay, PageBreakFixture,
-    PageBreakFixtureSourceRefs, PaginatedScreenplay, PaginationConfig, UnitMeasurement,
+    measure_text_lines, normalize_screenplay, wrap_text_lines_with_policy, ComparisonIssueKind,
+    DialoguePartKind, FdxExtractedSettings, FlowKind, Fragment, LineRange, MeasurementConfig,
+    NormalizedElement, NormalizedScreenplay, PageBreakFixture, PageBreakFixtureSourceRefs,
+    PaginatedScreenplay, PaginationConfig, UnitMeasurement,
 };
 use jumpcut::parse;
-use serde::Serialize;
 use serde::de::DeserializeOwned;
+use serde::Serialize;
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 
 #[test]
-#[ignore = "Temporarily disabled"]
+// #[ignore = "Temporarily disabled"]
 fn comparison_reports_no_issues_for_fixture_round_trip() {
     let fixture: PageBreakFixture =
         read_fixture("tests/fixtures/pagination/big-fish.split-page-breaks.json");
@@ -27,7 +27,7 @@ fn comparison_reports_no_issues_for_fixture_round_trip() {
 }
 
 #[test]
-#[ignore = "Temporarily disabled"]
+// #[ignore = "Temporarily disabled"]
 fn selected_big_fish_window_fixtures_round_trip() {
     for path in [
         "tests/fixtures/pagination/big-fish.p38-40.page-breaks.json",
@@ -46,7 +46,7 @@ fn selected_big_fish_window_fixtures_round_trip() {
 }
 
 #[test]
-#[ignore = "Temporarily disabled"]
+// #[ignore = "Temporarily disabled"]
 fn selected_public_window_fixtures_round_trip() {
     for path in [
         "tests/fixtures/pagination/brick-n-steel.p2-4.page-breaks.json",
@@ -64,7 +64,7 @@ fn selected_public_window_fixtures_round_trip() {
 }
 
 #[test]
-#[ignore = "Temporarily disabled"]
+// #[ignore = "Temporarily disabled"]
 fn selected_public_windows_have_useful_exact_unique_pdf_line_matches() {
     for (path, screenplay_id, fountain_path, min_exact_unique) in [
         (
@@ -98,15 +98,12 @@ fn selected_public_windows_have_useful_exact_unique_pdf_line_matches() {
 }
 
 #[test]
-#[ignore = "Temporarily disabled"]
+// #[ignore = "Temporarily disabled"]
 fn pdf_line_count_diagnostic_confirms_big_fish_el_00787_is_one_line() {
     let fixture: PageBreakFixture =
         read_fixture("tests/fixtures/pagination/big-fish.p38-40.page-breaks.json");
-    let normalized = normalized_slice_from_fountain(
-        "big-fish",
-        "benches/Big-Fish.fountain",
-        &fixture,
-    );
+    let normalized =
+        normalized_slice_from_fountain("big-fish", "benches/Big-Fish.fountain", &fixture);
     let debug = canonical_pdf_line_count_debug("big-fish", &fixture, &normalized);
     let item = debug
         .items
@@ -119,76 +116,13 @@ fn pdf_line_count_diagnostic_confirms_big_fish_el_00787_is_one_line() {
     assert_eq!(item.line_span, Some((10, 10)));
 }
 
-
 #[test]
-#[ignore = "Temporarily disabled"]
-fn selected_public_window_probe_baselines_hold() {
-    for (path, screenplay_id, fountain_path, expected_lines, expected_score, expected_counts) in [
-        (
-            "tests/fixtures/pagination/brick-n-steel.p2-4.page-breaks.json",
-            "brick-n-steel",
-            "../jumpcut-layout-corpus/corpus/public/brick-n-steel/source/source.fountain",
-            55,
-            (0, 0, 0),
-            (0, 0),
-        ),
-        (
-            "tests/fixtures/pagination/little-women.p4-6.page-breaks.json",
-            "little-women",
-            "../jumpcut-layout-corpus/corpus/public/little-women/source/source.fountain",
-            54,
-            (3, 0, 0),
-            (1, 2),
-        ),
-        (
-            "tests/fixtures/pagination/little-women.p13-14.page-breaks.json",
-            "little-women",
-            "../jumpcut-layout-corpus/corpus/public/little-women/source/source.fountain",
-            53,
-            (0, 0, 0),
-            (0, 0),
-        ),
-    ] {
-        let fixture: PageBreakFixture = read_fixture(path);
-        let normalized = normalized_slice_from_fountain(screenplay_id, fountain_path, &fixture);
-        let semantic = build_semantic_screenplay(normalized);
-        let run =
-            best_probe_run(&fixture, &semantic, measurement_for_screenplay(screenplay_id));
-        let report = &run.report;
-
-        assert_eq!(run.lines_per_page, expected_lines, "{path}");
-        assert_eq!(run.score, expected_score, "{path}");
-        assert_eq!(
-            report.issue_count(ComparisonIssueKind::MissingOccurrence),
-            expected_counts.0,
-            "{path}"
-        );
-        assert_eq!(
-            report.issue_count(ComparisonIssueKind::UnexpectedOccurrence),
-            expected_counts.1,
-            "{path}"
-        );
-        assert!(
-            report
-                .issues
-                .iter()
-                .filter(|issue| issue.kind != ComparisonIssueKind::UnexpectedOccurrence)
-                .all(|issue| issue.text_preview.is_some()),
-            "{path}: expected previews on non-unexpected issues"
-        );
-    }
-}
-
-#[test]
-#[ignore = "Temporarily disabled"]
+// #[ignore = "Temporarily disabled"]
 fn big_fish_public_slice_stays_at_or_better_than_width_measurement_baseline() {
     let fixture: PageBreakFixture =
         read_fixture("tests/fixtures/pagination/big-fish.split-page-breaks.json");
-    let normalized = normalized_slice_from_fountain(
-        "big-fish",
-        "benches/Big-Fish.fountain",
-        &fixture,
-    );
+    let normalized =
+        normalized_slice_from_fountain("big-fish", "benches/Big-Fish.fountain", &fixture);
     let semantic = build_semantic_screenplay(normalized);
 
     let run = best_probe_run(&fixture, &semantic, measurement_for_screenplay("big-fish"));
@@ -213,14 +147,17 @@ fn big_fish_public_slice_stays_at_or_better_than_width_measurement_baseline() {
         report.issues
     );
     assert!(
-        report.issues.iter().all(|issue| issue.text_preview.is_some()),
+        report
+            .issues
+            .iter()
+            .all(|issue| issue.text_preview.is_some()),
         "expected all issues to carry text previews: {:?}",
         report.issues
     );
 }
 
 #[test]
-#[ignore = "Temporarily disabled"]
+// #[ignore = "Temporarily disabled"]
 #[ignore = "diagnostic corpus probe"]
 fn probe_big_fish_selected_windows_against_canonical_fixtures() {
     for path in [
@@ -230,11 +167,8 @@ fn probe_big_fish_selected_windows_against_canonical_fixtures() {
         "tests/fixtures/pagination/big-fish.p77-79.page-breaks.json",
     ] {
         let fixture: PageBreakFixture = read_fixture(path);
-        let normalized = normalized_slice_from_fountain(
-            "big-fish",
-            "benches/Big-Fish.fountain",
-            &fixture,
-        );
+        let normalized =
+            normalized_slice_from_fountain("big-fish", "benches/Big-Fish.fountain", &fixture);
         let semantic = build_semantic_screenplay(normalized);
         let run = best_probe_run(&fixture, &semantic, measurement_for_screenplay("big-fish"));
 
@@ -248,8 +182,12 @@ fn probe_big_fish_selected_windows_against_canonical_fixtures() {
                 total_issues: run.report.total_issues(),
                 wrong_page: run.report.issue_count(ComparisonIssueKind::WrongPage),
                 wrong_fragment: run.report.issue_count(ComparisonIssueKind::WrongFragment),
-                missing: run.report.issue_count(ComparisonIssueKind::MissingOccurrence),
-                unexpected: run.report.issue_count(ComparisonIssueKind::UnexpectedOccurrence),
+                missing: run
+                    .report
+                    .issue_count(ComparisonIssueKind::MissingOccurrence),
+                unexpected: run
+                    .report
+                    .issue_count(ComparisonIssueKind::UnexpectedOccurrence),
                 report: run.report,
             })
             .unwrap()
@@ -258,7 +196,7 @@ fn probe_big_fish_selected_windows_against_canonical_fixtures() {
 }
 
 #[test]
-#[ignore = "Temporarily disabled"]
+// #[ignore = "Temporarily disabled"]
 #[ignore = "writes a single Big Fish review packet for human inspection"]
 fn build_big_fish_review_packet() {
     let debug_dir = Path::new("target/pagination-debug/big-fish-review");
@@ -285,11 +223,8 @@ fn build_big_fish_review_packet() {
         ),
     ] {
         let fixture: PageBreakFixture = read_fixture(path);
-        let normalized = normalized_slice_from_fountain(
-            "big-fish",
-            "benches/Big-Fish.fountain",
-            &fixture,
-        );
+        let normalized =
+            normalized_slice_from_fountain("big-fish", "benches/Big-Fish.fountain", &fixture);
         let semantic = build_semantic_screenplay(normalized.clone());
         let run = best_probe_run(&fixture, &semantic, measurement_for_screenplay("big-fish"));
         let previews = preview_map(&normalized);
@@ -301,13 +236,16 @@ fn build_big_fish_review_packet() {
             &run.measurement,
             &previews,
         );
-        let pdf_line_counts =
-            canonical_pdf_line_count_debug("big-fish", &fixture, &normalized);
+        let pdf_line_counts = canonical_pdf_line_count_debug("big-fish", &fixture, &normalized);
 
         let actual_path = debug_dir.join(format!("{stem}.actual.page-breaks.json"));
         let comparison_path = debug_dir.join(format!("{stem}.comparison-report.json"));
         let pdf_path = debug_dir.join(format!("{stem}.pdf-line-counts.json"));
-        fs::write(&actual_path, serde_json::to_string_pretty(&debug_fixture).unwrap()).unwrap();
+        fs::write(
+            &actual_path,
+            serde_json::to_string_pretty(&debug_fixture).unwrap(),
+        )
+        .unwrap();
         fs::write(
             &comparison_path,
             serde_json::to_string_pretty(&FixtureProbeDebugOutput {
@@ -318,14 +256,22 @@ fn build_big_fish_review_packet() {
                 total_issues: run.report.total_issues(),
                 wrong_page: run.report.issue_count(ComparisonIssueKind::WrongPage),
                 wrong_fragment: run.report.issue_count(ComparisonIssueKind::WrongFragment),
-                missing: run.report.issue_count(ComparisonIssueKind::MissingOccurrence),
-                unexpected: run.report.issue_count(ComparisonIssueKind::UnexpectedOccurrence),
+                missing: run
+                    .report
+                    .issue_count(ComparisonIssueKind::MissingOccurrence),
+                unexpected: run
+                    .report
+                    .issue_count(ComparisonIssueKind::UnexpectedOccurrence),
                 report: run.report.clone(),
             })
             .unwrap(),
         )
         .unwrap();
-        fs::write(&pdf_path, serde_json::to_string_pretty(&pdf_line_counts).unwrap()).unwrap();
+        fs::write(
+            &pdf_path,
+            serde_json::to_string_pretty(&pdf_line_counts).unwrap(),
+        )
+        .unwrap();
 
         summaries.push(BigFishReviewSummary {
             stem: stem.into(),
@@ -339,8 +285,12 @@ fn build_big_fish_review_packet() {
             total_issues: run.report.total_issues(),
             wrong_page: run.report.issue_count(ComparisonIssueKind::WrongPage),
             wrong_fragment: run.report.issue_count(ComparisonIssueKind::WrongFragment),
-            missing: run.report.issue_count(ComparisonIssueKind::MissingOccurrence),
-            unexpected: run.report.issue_count(ComparisonIssueKind::UnexpectedOccurrence),
+            missing: run
+                .report
+                .issue_count(ComparisonIssueKind::MissingOccurrence),
+            unexpected: run
+                .report
+                .issue_count(ComparisonIssueKind::UnexpectedOccurrence),
         });
     }
 
@@ -352,7 +302,7 @@ fn build_big_fish_review_packet() {
 }
 
 #[test]
-#[ignore = "Temporarily disabled"]
+// #[ignore = "Temporarily disabled"]
 fn big_fish_line_break_parity_reports_el_00787_as_an_exact_match() {
     let report = build_line_break_parity_report(
         "big-fish",
@@ -374,7 +324,7 @@ fn big_fish_line_break_parity_reports_el_00787_as_an_exact_match() {
 }
 
 #[test]
-#[ignore = "Temporarily disabled"]
+// #[ignore = "Temporarily disabled"]
 fn big_fish_line_break_parity_has_no_dialogue_disagreements() {
     let report = build_line_break_parity_report(
         "big-fish",
@@ -393,7 +343,7 @@ fn big_fish_line_break_parity_has_no_dialogue_disagreements() {
 }
 
 #[test]
-#[ignore = "Temporarily disabled"]
+// #[ignore = "Temporarily disabled"]
 #[ignore = "writes a script-wide Big Fish line-break parity packet"]
 fn build_big_fish_line_break_parity_packet() {
     let report = build_line_break_parity_report(
@@ -415,7 +365,7 @@ fn build_big_fish_line_break_parity_packet() {
 }
 
 #[test]
-#[ignore = "Temporarily disabled"]
+// #[ignore = "Temporarily disabled"]
 #[ignore = "diagnostic corpus probe"]
 fn probe_selected_public_windows_against_canonical_fixtures() {
     for (path, screenplay_id, fountain_path) in [
@@ -438,8 +388,11 @@ fn probe_selected_public_windows_against_canonical_fixtures() {
         let fixture: PageBreakFixture = read_fixture(path);
         let normalized = normalized_slice_from_fountain(screenplay_id, fountain_path, &fixture);
         let semantic = build_semantic_screenplay(normalized);
-        let run =
-            best_probe_run(&fixture, &semantic, measurement_for_screenplay(screenplay_id));
+        let run = best_probe_run(
+            &fixture,
+            &semantic,
+            measurement_for_screenplay(screenplay_id),
+        );
 
         println!(
             "{}",
@@ -451,8 +404,12 @@ fn probe_selected_public_windows_against_canonical_fixtures() {
                 total_issues: run.report.total_issues(),
                 wrong_page: run.report.issue_count(ComparisonIssueKind::WrongPage),
                 wrong_fragment: run.report.issue_count(ComparisonIssueKind::WrongFragment),
-                missing: run.report.issue_count(ComparisonIssueKind::MissingOccurrence),
-                unexpected: run.report.issue_count(ComparisonIssueKind::UnexpectedOccurrence),
+                missing: run
+                    .report
+                    .issue_count(ComparisonIssueKind::MissingOccurrence),
+                unexpected: run
+                    .report
+                    .issue_count(ComparisonIssueKind::UnexpectedOccurrence),
                 report: run.report,
             })
             .unwrap()
@@ -461,16 +418,13 @@ fn probe_selected_public_windows_against_canonical_fixtures() {
 }
 
 #[test]
-#[ignore = "Temporarily disabled"]
+// #[ignore = "Temporarily disabled"]
 #[ignore = "diagnostic corpus probe"]
 fn probe_big_fish_public_slice_against_canonical_fixture() {
     let fixture: PageBreakFixture =
         read_fixture("tests/fixtures/pagination/big-fish.split-page-breaks.json");
-    let normalized = normalized_slice_from_fountain(
-        "big-fish",
-        "benches/Big-Fish.fountain",
-        &fixture,
-    );
+    let normalized =
+        normalized_slice_from_fountain("big-fish", "benches/Big-Fish.fountain", &fixture);
     let semantic = build_semantic_screenplay(normalized);
     let run = best_probe_run(&fixture, &semantic, measurement_for_screenplay("big-fish"));
     println!(
@@ -481,8 +435,12 @@ fn probe_big_fish_public_slice_against_canonical_fixture() {
             total_issues: run.report.total_issues(),
             wrong_page: run.report.issue_count(ComparisonIssueKind::WrongPage),
             wrong_fragment: run.report.issue_count(ComparisonIssueKind::WrongFragment),
-            missing: run.report.issue_count(ComparisonIssueKind::MissingOccurrence),
-            unexpected: run.report.issue_count(ComparisonIssueKind::UnexpectedOccurrence),
+            missing: run
+                .report
+                .issue_count(ComparisonIssueKind::MissingOccurrence),
+            unexpected: run
+                .report
+                .issue_count(ComparisonIssueKind::UnexpectedOccurrence),
             report: run.report,
         })
         .unwrap()
@@ -490,16 +448,13 @@ fn probe_big_fish_public_slice_against_canonical_fixture() {
 }
 
 #[test]
-#[ignore = "Temporarily disabled"]
+// #[ignore = "Temporarily disabled"]
 #[ignore = "writes current paginated output json for manual comparison"]
 fn dump_big_fish_public_slice_paginated_output_json() {
     let fixture: PageBreakFixture =
         read_fixture("tests/fixtures/pagination/big-fish.split-page-breaks.json");
-    let normalized = normalized_slice_from_fountain(
-        "big-fish",
-        "benches/Big-Fish.fountain",
-        &fixture,
-    );
+    let normalized =
+        normalized_slice_from_fountain("big-fish", "benches/Big-Fish.fountain", &fixture);
     let semantic = build_semantic_screenplay(normalized.clone());
     let run = best_probe_run(&fixture, &semantic, measurement_for_screenplay("big-fish"));
     let previews = preview_map(&normalized);
@@ -531,8 +486,12 @@ fn dump_big_fish_public_slice_paginated_output_json() {
             total_issues: run.report.total_issues(),
             wrong_page: run.report.issue_count(ComparisonIssueKind::WrongPage),
             wrong_fragment: run.report.issue_count(ComparisonIssueKind::WrongFragment),
-            missing: run.report.issue_count(ComparisonIssueKind::MissingOccurrence),
-            unexpected: run.report.issue_count(ComparisonIssueKind::UnexpectedOccurrence),
+            missing: run
+                .report
+                .issue_count(ComparisonIssueKind::MissingOccurrence),
+            unexpected: run
+                .report
+                .issue_count(ComparisonIssueKind::UnexpectedOccurrence),
             report: run.report,
         })
         .unwrap(),
@@ -544,7 +503,7 @@ fn dump_big_fish_public_slice_paginated_output_json() {
 }
 
 #[test]
-#[ignore = "Temporarily disabled"]
+// #[ignore = "Temporarily disabled"]
 #[ignore = "writes current paginated output json for selected public windows"]
 fn dump_selected_public_windows_paginated_output_json() {
     for (path, screenplay_id, fountain_path, stem) in [
@@ -564,8 +523,11 @@ fn dump_selected_public_windows_paginated_output_json() {
         let fixture: PageBreakFixture = read_fixture(path);
         let normalized = normalized_slice_from_fountain(screenplay_id, fountain_path, &fixture);
         let semantic = build_semantic_screenplay(normalized.clone());
-        let run =
-            best_probe_run(&fixture, &semantic, measurement_for_screenplay(screenplay_id));
+        let run = best_probe_run(
+            &fixture,
+            &semantic,
+            measurement_for_screenplay(screenplay_id),
+        );
         let previews = preview_map(&normalized);
         let debug_fixture = paginated_to_debug_fixture(
             &run.actual,
@@ -597,19 +559,19 @@ fn dump_selected_public_windows_paginated_output_json() {
                 total_issues: run.report.total_issues(),
                 wrong_page: run.report.issue_count(ComparisonIssueKind::WrongPage),
                 wrong_fragment: run.report.issue_count(ComparisonIssueKind::WrongFragment),
-                missing: run.report.issue_count(ComparisonIssueKind::MissingOccurrence),
-                unexpected: run.report.issue_count(ComparisonIssueKind::UnexpectedOccurrence),
+                missing: run
+                    .report
+                    .issue_count(ComparisonIssueKind::MissingOccurrence),
+                unexpected: run
+                    .report
+                    .issue_count(ComparisonIssueKind::UnexpectedOccurrence),
                 report: run.report,
             })
             .unwrap(),
         )
         .unwrap();
 
-        let pdf_line_counts = canonical_pdf_line_count_debug(
-            screenplay_id,
-            &fixture,
-            &normalized,
-        );
+        let pdf_line_counts = canonical_pdf_line_count_debug(screenplay_id, &fixture, &normalized);
         let pdf_line_count_path = debug_dir.join(format!("{stem}.pdf-line-counts.json"));
         fs::write(
             &pdf_line_count_path,
@@ -624,7 +586,7 @@ fn dump_selected_public_windows_paginated_output_json() {
 }
 
 #[test]
-#[ignore = "Temporarily disabled"]
+// #[ignore = "Temporarily disabled"]
 #[ignore = "exports rich JSON for the visual pagination comparator tool"]
 fn export_visual_comparison_data() {
     let debug_dir = Path::new("target/pagination-debug/visual");
@@ -636,19 +598,18 @@ fn export_visual_comparison_data() {
             "../jumpcut-layout-corpus/corpus/public/big-fish/canonical/page-breaks.json",
             "../jumpcut-layout-corpus/corpus/public/big-fish/source/source.fountain",
             "big-fish",
-            Some(54u32),  // Proven by window probe tests
+            Some(54u32), // Proven by window probe tests
         ),
         (
             "little-women",
             "tests/fixtures/pagination/little-women.p4-6.page-breaks.json",
             "../jumpcut-layout-corpus/corpus/public/little-women/source/source.fountain",
             "little-women-p4-6",
-            None,  // Use probe sweep
+            None, // Use probe sweep
         ),
     ] {
         let fixture: PageBreakFixture = read_fixture(fixture_path);
-        let normalized =
-            normalized_slice_from_fountain(screenplay_id, fountain_path, &fixture);
+        let normalized = normalized_slice_from_fountain(screenplay_id, fountain_path, &fixture);
         let semantic = build_semantic_screenplay(normalized.clone());
         let measurement = measurement_for_screenplay(screenplay_id);
 
@@ -671,7 +632,13 @@ fn export_visual_comparison_data() {
                 report.issue_count(ComparisonIssueKind::WrongPage),
                 report.issue_count(ComparisonIssueKind::WrongFragment),
             );
-            ProbeRun { lines_per_page: lpp, score, actual, measurement, report }
+            ProbeRun {
+                lines_per_page: lpp,
+                score,
+                actual,
+                measurement,
+                report,
+            }
         } else {
             best_probe_run(&fixture, &semantic, measurement)
         };
@@ -727,8 +694,7 @@ fn export_visual_comparison_data() {
                     _ => full_text.clone(),
                 };
 
-                let wrapped_lines =
-                    wrap_text_lines_with_policy(&wrap_text, width_chars, true);
+                let wrapped_lines = wrap_text_lines_with_policy(&wrap_text, width_chars, true);
 
                 // Build a temp PageItem for measurement helpers
                 let temp_page_item = jumpcut::pagination::PageItem {
@@ -985,8 +951,7 @@ fn normalized_slice_from_fountain(
             .elements
             .into_iter()
             .filter(|element| {
-                element.element_id.as_str() >= *first_id
-                    && element.element_id.as_str() <= *last_id
+                element.element_id.as_str() >= *first_id && element.element_id.as_str() <= *last_id
             })
             .collect(),
     }
@@ -1019,12 +984,7 @@ fn preview_map(normalized: &NormalizedScreenplay) -> HashMap<String, String> {
     normalized
         .elements
         .iter()
-        .map(|element| {
-            (
-                element.element_id.clone(),
-                text_preview(&element.text),
-            )
-        })
+        .map(|element| (element.element_id.clone(), text_preview(&element.text)))
         .collect()
 }
 
@@ -1066,13 +1026,13 @@ fn paginated_to_debug_fixture(
                     measurement,
                 ),
                 debug_flow_geometry("New Act", "New Act", FlowKind::NewAct, measurement),
+                debug_flow_geometry("End of Act", "End of Act", FlowKind::EndOfAct, measurement),
                 debug_flow_geometry(
-                    "End of Act",
-                    "End of Act",
-                    FlowKind::EndOfAct,
+                    "Section",
+                    "Action (fallback)",
+                    FlowKind::Section,
                     measurement,
                 ),
-                debug_flow_geometry("Section", "Action (fallback)", FlowKind::Section, measurement),
                 debug_flow_geometry(
                     "Synopsis",
                     "Action (fallback)",
@@ -1153,7 +1113,10 @@ fn debug_flow_geometry(
             measurement.end_of_act_left_indent_in,
             measurement.end_of_act_right_indent_in,
         ),
-        _ => (measurement.action_left_indent_in, measurement.action_right_indent_in),
+        _ => (
+            measurement.action_left_indent_in,
+            measurement.action_right_indent_in,
+        ),
     };
 
     DebugGeometry {
@@ -1267,9 +1230,7 @@ fn text_preview(text: &str) -> String {
         .collect()
 }
 
-fn normalized_element_map(
-    normalized: &NormalizedScreenplay,
-) -> HashMap<String, NormalizedElement> {
+fn normalized_element_map(normalized: &NormalizedScreenplay) -> HashMap<String, NormalizedElement> {
     normalized
         .elements
         .iter()
@@ -1292,7 +1253,10 @@ fn canonical_pdf_line_count_debug(
     let mut items = Vec::new();
 
     for page in &fixture.pages {
-        let page_lines = pdf_pages.get(&page.number).map(Vec::as_slice).unwrap_or(&[]);
+        let page_lines = pdf_pages
+            .get(&page.number)
+            .map(Vec::as_slice)
+            .unwrap_or(&[]);
         for item in &page.items {
             let result = canonical_pdf_match_for_item(
                 page.number,
@@ -1349,9 +1313,7 @@ fn canonical_pdf_match_for_item(
         };
     };
 
-    let Some(candidate_text) =
-        canonical_pdf_text_for_item(fragment, line_range, element)
-    else {
+    let Some(candidate_text) = canonical_pdf_text_for_item(fragment, line_range, element) else {
         return CanonicalPdfLineCountItem {
             page_number,
             element_id: element_id.into(),
@@ -1393,17 +1355,12 @@ fn canonical_pdf_text_for_item(
 ) -> Option<String> {
     match (fragment, line_range) {
         (Fragment::Whole, None) => Some(element.text.clone()),
-        (_, Some(LineRange(start, end))) => {
-            Some(slice_explicit_lines(&element.text, start, end))
-        }
+        (_, Some(LineRange(start, end))) => Some(slice_explicit_lines(&element.text, start, end)),
         _ => None,
     }
 }
 
-fn exact_pdf_line_matches(
-    page_lines: &[String],
-    candidate_text: &str,
-) -> Vec<(u32, u32)> {
+fn exact_pdf_line_matches(page_lines: &[String], candidate_text: &str) -> Vec<(u32, u32)> {
     let mut matches = Vec::new();
     for start in 0..page_lines.len() {
         let mut accumulated = String::new();
@@ -1449,11 +1406,7 @@ fn render_big_fish_review_packet(summaries: &[BigFishReviewSummary]) -> String {
     let ordered_windows: Vec<&BigFishReviewSummary> = focus_windows
         .iter()
         .copied()
-        .chain(
-            summaries
-                .iter()
-                .filter(|summary| summary.total_issues == 0),
-        )
+        .chain(summaries.iter().filter(|summary| summary.total_issues == 0))
         .collect();
 
     let mut review = String::from(
@@ -1539,7 +1492,10 @@ fn build_line_break_parity_report(
     let mut disagreement_count = 0;
 
     for page in &canonical.pages {
-        let page_lines = pdf_pages.get(&page.number).map(Vec::as_slice).unwrap_or(&[]);
+        let page_lines = pdf_pages
+            .get(&page.number)
+            .map(Vec::as_slice)
+            .unwrap_or(&[]);
         for item in &page.items {
             let result = build_line_break_parity_item(
                 page.number,
@@ -1596,13 +1552,13 @@ fn build_line_break_parity_report(
                     &measurement,
                 ),
                 debug_flow_geometry("New Act", "New Act", FlowKind::NewAct, &measurement),
+                debug_flow_geometry("End of Act", "End of Act", FlowKind::EndOfAct, &measurement),
                 debug_flow_geometry(
-                    "End of Act",
-                    "End of Act",
-                    FlowKind::EndOfAct,
+                    "Section",
+                    "Action (fallback)",
+                    FlowKind::Section,
                     &measurement,
                 ),
-                debug_flow_geometry("Section", "Action (fallback)", FlowKind::Section, &measurement),
                 debug_flow_geometry(
                     "Synopsis",
                     "Action (fallback)",
@@ -1682,14 +1638,10 @@ fn build_line_break_parity_item(
     };
 
     let width_chars = width_chars_for_parity_kind(kind, block_id.is_some(), measurement);
-    let expected_wrapped_lines = wrap_lines_for_parity_kind(
-        kind,
-        &candidate_text,
-        width_chars,
-    )
-    .into_iter()
-    .map(|line| normalize_pdf_match_text(&line))
-    .collect::<Vec<_>>();
+    let expected_wrapped_lines = wrap_lines_for_parity_kind(kind, &candidate_text, width_chars)
+        .into_iter()
+        .map(|line| normalize_pdf_match_text(&line))
+        .collect::<Vec<_>>();
     let normalized_text = normalize_pdf_match_text(&candidate_text);
     let matches = exact_pdf_line_matches(page_lines, &normalized_text);
 
@@ -1816,9 +1768,7 @@ Read these first:\n\n",
         ));
     }
 
-    review.push_str(
-        "\nIf you only inspect one example, search for `el-00787` in `parity.json`.\n",
-    );
+    review.push_str("\nIf you only inspect one example, search for `el-00787` in `parity.json`.\n");
 
     review
 }
@@ -1833,26 +1783,20 @@ fn measured_lines_for_item(
     };
 
     match item.kind.as_str() {
-        "Character" => measure_dialogue_part_lines(
-            &DialoguePartKind::Character,
-            &element.text,
-            measurement,
-        ),
+        "Character" => {
+            measure_dialogue_part_lines(&DialoguePartKind::Character, &element.text, measurement)
+        }
         "Parenthetical" => measure_dialogue_part_lines(
             &DialoguePartKind::Parenthetical,
             &element.text,
             measurement,
         ),
-        "Dialogue" => measure_dialogue_part_lines(
-            &DialoguePartKind::Dialogue,
-            &element.text,
-            measurement,
-        ),
-        "Lyric" => measure_dialogue_part_lines(
-            &DialoguePartKind::Lyric,
-            &element.text,
-            measurement,
-        ),
+        "Dialogue" => {
+            measure_dialogue_part_lines(&DialoguePartKind::Dialogue, &element.text, measurement)
+        }
+        "Lyric" => {
+            measure_dialogue_part_lines(&DialoguePartKind::Lyric, &element.text, measurement)
+        }
         other => {
             let text = match item.line_range {
                 Some((start, end)) => slice_explicit_lines(&element.text, start, end),
@@ -1879,7 +1823,10 @@ fn measured_unit_for_item(
     match item.kind.as_str() {
         "Character" | "Parenthetical" | "Dialogue" => measure_dialogue_unit(
             &jumpcut::pagination::DialogueUnit {
-                block_id: item.block_id.clone().unwrap_or_else(|| item.element_id.clone()),
+                block_id: item
+                    .block_id
+                    .clone()
+                    .unwrap_or_else(|| item.element_id.clone()),
                 parts: vec![jumpcut::pagination::DialoguePart {
                     element_id: item.element_id.clone(),
                     kind: match item.kind.as_str() {
@@ -1899,7 +1846,10 @@ fn measured_unit_for_item(
         ),
         "Lyric" if item.block_id.is_some() => measure_dialogue_unit(
             &jumpcut::pagination::DialogueUnit {
-                block_id: item.block_id.clone().unwrap_or_else(|| item.element_id.clone()),
+                block_id: item
+                    .block_id
+                    .clone()
+                    .unwrap_or_else(|| item.element_id.clone()),
                 parts: vec![jumpcut::pagination::DialoguePart {
                     element_id: item.element_id.clone(),
                     kind: DialoguePartKind::Lyric,
@@ -1947,7 +1897,11 @@ fn measured_unit_for_item(
 }
 
 fn debug_unit_key(item: &jumpcut::pagination::PageItem) -> String {
-    match (&item.block_id, &item.dual_dialogue_group, item.dual_dialogue_side) {
+    match (
+        &item.block_id,
+        &item.dual_dialogue_group,
+        item.dual_dialogue_side,
+    ) {
         (Some(block_id), Some(group_id), Some(side)) => {
             format!("dual:{group_id}:{side}:{block_id}")
         }

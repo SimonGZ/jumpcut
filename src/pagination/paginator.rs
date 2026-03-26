@@ -1,20 +1,18 @@
-use crate::pagination::composer::MeasuredFlowUnit;
+use crate::pagination::composer::LayoutBlock;
+use crate::pagination::fixtures::Fragment;
 
-pub struct Page {
-    pub blocks: Vec<MeasuredFlowUnit>,
+pub struct Page<'a> {
+    pub blocks: Vec<LayoutBlock<'a>>,
 }
 
 /// An atomic group of blocks that absolutely cannot be split across a page boundary.
 struct Chunk<'a> {
-    blocks: Vec<&'a MeasuredFlowUnit>,
+    blocks: Vec<&'a LayoutBlock<'a>>,
 }
 
-pub fn paginate(blocks: &[MeasuredFlowUnit], page_limit_lines: usize) -> Vec<Page> {
-    // Phase 1: Group the raw measured units into indivisible Chunks.
-    // If a block has `keep_with_next: true`, it binds to the block immediately following it,
-    // forming a continuous chain until a block with `keep_with_next: false` terminates the chunk.
-    let mut chunks: Vec<Chunk> = Vec::new();
-    let mut current_chunk: Vec<&MeasuredFlowUnit> = Vec::new();
+pub fn paginate<'a>(blocks: &'a [LayoutBlock<'a>], page_limit_lines: usize) -> Vec<Page<'a>> {
+    let mut chunks: Vec<Chunk<'a>> = Vec::new();
+    let mut current_chunk: Vec<&LayoutBlock<'a>> = Vec::new();
 
     for block in blocks {
         current_chunk.push(block);
@@ -31,7 +29,7 @@ pub fn paginate(blocks: &[MeasuredFlowUnit], page_limit_lines: usize) -> Vec<Pag
     }
 
     // Phase 2: Distribute the Chunks across pages.
-    let mut pages: Vec<Page> = Vec::new();
+    let mut pages: Vec<Page<'a>> = Vec::new();
     let mut current_page_blocks = Vec::new();
     let mut current_page_lines = 0;
 
@@ -68,7 +66,9 @@ pub fn paginate(blocks: &[MeasuredFlowUnit], page_limit_lines: usize) -> Vec<Pag
                     // The Widow falling to the next page MUST also be at least 2 lines!
                     if lines_remaining >= 2 {
                         // Splinter the block!
-                        current_page_blocks.push(MeasuredFlowUnit {
+                        current_page_blocks.push(LayoutBlock {
+                            unit: block.unit,
+                            fragment: Fragment::ContinuedToNext,
                             spacing_above: effective_spacing,
                             content_lines: lines_that_fit,
                             keep_with_next: false,
@@ -79,7 +79,9 @@ pub fn paginate(blocks: &[MeasuredFlowUnit], page_limit_lines: usize) -> Vec<Pag
                         pages.push(Page { blocks: current_page_blocks });
                         
                         // The splintered trailing block drops cleanly to the new page margin.
-                        current_page_blocks = vec![MeasuredFlowUnit {
+                        current_page_blocks = vec![LayoutBlock {
+                            unit: block.unit,
+                            fragment: Fragment::ContinuedFromPrev,
                             spacing_above: 0, 
                             // Penalty fulfilled and converted to geometric layout height!
                             content_lines: lines_remaining + block.widow_penalty, 
@@ -106,7 +108,9 @@ pub fn paginate(blocks: &[MeasuredFlowUnit], page_limit_lines: usize) -> Vec<Pag
             for (i, block) in chunk.blocks.iter().enumerate() {
                 let effective_spacing = if i == 0 { 0 } else { block.spacing_above };
                 
-                current_page_blocks.push(MeasuredFlowUnit {
+                current_page_blocks.push(LayoutBlock {
+                    unit: block.unit,
+                    fragment: block.fragment.clone(),
                     spacing_above: effective_spacing,
                     content_lines: block.content_lines,
                     keep_with_next: block.keep_with_next,
@@ -121,7 +125,9 @@ pub fn paginate(blocks: &[MeasuredFlowUnit], page_limit_lines: usize) -> Vec<Pag
             for (i, block) in chunk.blocks.iter().enumerate() {
                 let effective_spacing = if is_top_of_page && i == 0 { 0 } else { block.spacing_above };
                 
-                current_page_blocks.push(MeasuredFlowUnit {
+                current_page_blocks.push(LayoutBlock {
+                    unit: block.unit,
+                    fragment: block.fragment.clone(),
                     spacing_above: effective_spacing,
                     content_lines: block.content_lines,
                     keep_with_next: block.keep_with_next,

@@ -1,9 +1,12 @@
-use crate::pagination::semantic::{SemanticUnit, FlowKind};
+use crate::pagination::semantic::{SemanticUnit, FlowKind, DialoguePartKind};
 use crate::pagination::wrapping::{wrap_text_for_element, WrapConfig, ElementType};
+use crate::pagination::fixtures::Fragment;
 use std::cmp::max;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct MeasuredFlowUnit {
+pub struct LayoutBlock<'a> {
+    pub unit: &'a SemanticUnit,
+    pub fragment: Fragment,
     pub spacing_above: usize,
     pub content_lines: usize,
     pub keep_with_next: bool,
@@ -11,7 +14,7 @@ pub struct MeasuredFlowUnit {
     pub widow_penalty: usize,
 }
 
-pub fn compose(units: &[SemanticUnit]) -> Vec<MeasuredFlowUnit> {
+pub fn compose<'a>(units: &'a [SemanticUnit]) -> Vec<LayoutBlock<'a>> {
     let mut measured = Vec::new();
     let mut previous_spacing_below = 0;
 
@@ -38,8 +41,38 @@ pub fn compose(units: &[SemanticUnit]) -> Vec<MeasuredFlowUnit> {
                 
                 (lines.len(), sp_above, sp_below)
             },
-            // Other elements like Dialogue blocks will need similar measurement logic
-            _ => (0, 0, 0),
+            SemanticUnit::Dialogue(dialogue) => {
+                let mut lines = 0;
+                for part in &dialogue.parts {
+                    let el_type = match part.kind {
+                        DialoguePartKind::Character => ElementType::Character,
+                        DialoguePartKind::Parenthetical => ElementType::Parenthetical,
+                        DialoguePartKind::Dialogue => ElementType::Dialogue,
+                        DialoguePartKind::Lyric => ElementType::Lyric,
+                    };
+                    let config = WrapConfig::new(el_type);
+                    lines += wrap_text_for_element(&part.text, &config).len();
+                }
+                (lines, 1, 1)
+            },
+            SemanticUnit::DualDialogue(dual) => {
+                let mut max_lines = 0;
+                for side in &dual.sides {
+                    let mut side_lines = 0;
+                    for part in &side.dialogue.parts {
+                        // Temp fast approximation for Dual Dialogue halves
+                        side_lines += wrap_text_for_element(&part.text, &WrapConfig::new(ElementType::Action)).len();
+                    }
+                    if side_lines > max_lines { max_lines = side_lines; }
+                }
+                (max_lines, 1, 1)
+            },
+            SemanticUnit::Lyric(lyric) => {
+                let config = WrapConfig::new(ElementType::Lyric);
+                let lines = wrap_text_for_element(&lyric.text, &config).len();
+                (lines, 1, 1)
+            },
+            SemanticUnit::PageStart(_) => (0, 0, 0),
         };
 
         // Resolution: non-additive padding logic
@@ -49,7 +82,9 @@ pub fn compose(units: &[SemanticUnit]) -> Vec<MeasuredFlowUnit> {
             max(previous_spacing_below, req_spacing_above)
         };
 
-        measured.push(MeasuredFlowUnit {
+        measured.push(LayoutBlock {
+            unit,
+            fragment: Fragment::Whole,
             spacing_above,
             content_lines,
             keep_with_next: match unit {

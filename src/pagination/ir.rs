@@ -99,329 +99,52 @@ impl PaginatedScreenplay {
         style_profile: impl Into<String>,
         scope: PaginationScope,
     ) -> Self {
-        let mut pages: Vec<Page> = Vec::new();
         let mut next_page_number = semantic
             .starting_page_number
             .unwrap_or_else(|| first_page_number(&scope));
-        let mut current_items: Vec<PageItem> = Vec::new();
-        let mut current_lines = 0;
-        let mut last_measurement: Option<UnitMeasurement> = None;
-        let units = semantic.units;
         let style_profile = style_profile.into();
-        let mut index = 0;
 
-        while index < units.len() {
-            match &units[index] {
-                SemanticUnit::PageStart(_) => {
-                    if !current_items.is_empty() {
-                        pages.push(build_page(
-                            pages.len(),
-                            next_page_number,
-                            &scope,
-                            std::mem::take(&mut current_items),
-                        ));
-                        next_page_number += 1;
-                        current_lines = 0;
-                        last_measurement = None;
-                    }
-                    index += 1;
-                }
-                unit => {
-                    if current_items.is_empty() {
-                        last_measurement = None;
-                    }
+        let blocks = crate::pagination::composer::compose(&semantic.units);
+        let paged_blocks = crate::pagination::paginator::paginate(&blocks, config.lines_per_page as usize);
 
-                    if let SemanticUnit::Flow(flow) = unit {
-                        let flow_measurement = measure_flow_unit(flow, &config.measurement);
-                        let remaining_lines = config.lines_per_page.saturating_sub(current_lines);
-                        let spacing_before =
-                            boundary_spacing_lines(last_measurement.as_ref(), Some(&flow_measurement));
-                        let available_lines = remaining_lines.saturating_sub(spacing_before);
-                        let prefer_soft_split = should_prefer_flow_split(
-                            flow,
-                            available_lines,
-                            config.lines_per_page,
-                            &config.measurement,
-                            &units,
-                            index,
-                            !current_items.is_empty(),
-                        );
+        let mut pages: Vec<Page> = Vec::new();
 
-                        if flow.cohesion.can_split
-                            && (flow_measurement.content_lines > available_lines
-                                || prefer_soft_split)
-                        {
-                            if let Some((current_segment, remainder)) =
-                                split_flow_unit(flow, available_lines, &config.measurement)
-                            {
-                                current_items.push(flow_page_item(
-                                    &current_segment,
-                                    false,
-                                    true,
-                                ));
-
-                                pages.push(build_page(
-                                    pages.len(),
-                                    next_page_number,
-                                    &scope,
-                                    std::mem::take(&mut current_items),
-                                ));
-                                next_page_number += 1;
-                                current_lines = 0;
-                                last_measurement = None;
-
-                                let mut carry = remainder;
-                                loop {
-                                    let carry_measurement =
-                                        measure_flow_unit(&carry, &config.measurement);
-                                    if carry_measurement.content_lines <= config.lines_per_page {
-                                        current_items.push(flow_page_item(
-                                            &carry,
-                                            true,
-                                            false,
-                                        ));
-                                        current_lines = current_lines.saturating_add(
-                                            carry_measurement.placement_lines_with_prev(
-                                                last_measurement.as_ref(),
-                                            ),
-                                        );
-                                        last_measurement = Some(carry_measurement);
-                                        break;
-                                    }
-
-                                    if let Some((head, tail)) =
-                                        split_flow_unit(
-                                            &carry,
-                                            config.lines_per_page,
-                                            &config.measurement,
-                                        )
-                                    {
-                                        current_items.push(flow_page_item(&head, true, true));
-                                        pages.push(build_page(
-                                            pages.len(),
-                                            next_page_number,
-                                            &scope,
-                                            std::mem::take(&mut current_items),
-                                        ));
-                                        next_page_number += 1;
-                                        current_lines = 0;
-                                        last_measurement = None;
-                                        carry = tail;
-                                    } else {
-                                        current_items.push(flow_page_item(&carry, true, false));
-                                        current_lines = current_lines.saturating_add(
-                                            carry_measurement.placement_lines_with_prev(
-                                                last_measurement.as_ref(),
-                                            ),
-                                        );
-                                        last_measurement = Some(carry_measurement);
-                                        break;
-                                    }
-                                }
-
-                                index += 1;
-                                continue;
-                            } else if !current_items.is_empty() {
-                                pages.push(build_page(
-                                    pages.len(),
-                                    next_page_number,
-                                    &scope,
-                                    std::mem::take(&mut current_items),
-                                ));
-                                next_page_number += 1;
-                                current_lines = 0;
-                                last_measurement = None;
-                                continue;
+        for paged_page in paged_blocks.into_iter() {
+            let mut current_items = Vec::new();
+            for block in paged_page.blocks {
+                let mut items = page_items_from_semantic_unit(block.unit);
+                
+                if !items.is_empty() {
+                    match block.fragment {
+                        crate::pagination::fixtures::Fragment::ContinuedToNext => {
+                            if let Some(last) = items.last_mut() {
+                                last.fragment = merge_fragment(&last.fragment, &crate::pagination::fixtures::Fragment::ContinuedToNext);
+                                last.continuation_markers = continuation_markers_for_fragment(&last.fragment);
                             }
-                        }
-                    }
-
-                    if let SemanticUnit::Dialogue(dialogue) = unit {
-                        let dialogue_measurement =
-                            measure_dialogue_unit(dialogue, &config.measurement);
-                        let remaining_lines = config.lines_per_page.saturating_sub(current_lines);
-                        let spacing_before = boundary_spacing_lines(
-                            last_measurement.as_ref(),
-                            Some(&dialogue_measurement),
-                        );
-                        let available_lines = remaining_lines.saturating_sub(spacing_before);
-
-                        let prefer_soft_split = should_prefer_dialogue_split(
-                            dialogue,
-                            available_lines,
-                            config.lines_per_page,
-                            &config.measurement,
-                            &units,
-                            index,
-                            !current_items.is_empty(),
-                        );
-
-                        if dialogue_measurement.content_lines > available_lines || prefer_soft_split {
-                            let split_candidate = split_dialogue_unit(
-                                dialogue,
-                                available_lines,
-                                &config.measurement,
-                            )
-                            .or_else(|| {
-                                (!current_items.is_empty()
-                                    && available_lines < config.lines_per_page)
-                                    .then(|| {
-                                        split_dialogue_unit(
-                                            dialogue,
-                                            available_lines.saturating_add(1),
-                                            &config.measurement,
-                                        )
-                                    })
-                                    .flatten()
-                            });
-
-                            if let Some((current_segment, remainder)) = split_candidate
-                            {
-                                let placed_items = dialogue_items_with_fragment_markers(
-                                    &current_segment,
-                                    None,
-                                    None,
-                                    false,
-                                    true,
-                                );
-                                current_items.extend(placed_items);
-
-                                pages.push(build_page(
-                                    pages.len(),
-                                    next_page_number,
-                                    &scope,
-                                    std::mem::take(&mut current_items),
-                                ));
-                                next_page_number += 1;
-                                current_lines = 0;
-                                last_measurement = None;
-
-                                let mut carry = remainder;
-                                loop {
-                                    let carry_measurement =
-                                        measure_dialogue_unit(&carry, &config.measurement);
-                                    if carry_measurement.content_lines <= config.lines_per_page {
-                                        let placed_items = dialogue_items_with_fragment_markers(
-                                            &carry,
-                                            None,
-                                            None,
-                                            true,
-                                            false,
-                                        );
-                                        current_lines = current_lines.saturating_add(
-                                            carry_measurement.placement_lines_with_prev(
-                                                last_measurement.as_ref(),
-                                            ),
-                                        );
-                                        current_items.extend(placed_items);
-                                        last_measurement = Some(carry_measurement);
-                                        break;
-                                    }
-
-                                    if let Some((head, tail)) =
-                                        split_dialogue_unit(
-                                            &carry,
-                                            config.lines_per_page,
-                                            &config.measurement,
-                                        )
-                                    {
-                                        let placed_items = dialogue_items_with_fragment_markers(
-                                            &head,
-                                            None,
-                                            None,
-                                            true,
-                                            true,
-                                        );
-                                        current_items.extend(placed_items);
-                                        pages.push(build_page(
-                                            pages.len(),
-                                            next_page_number,
-                                            &scope,
-                                            std::mem::take(&mut current_items),
-                                        ));
-                                        next_page_number += 1;
-                                        current_lines = 0;
-                                        last_measurement = None;
-                                        carry = tail;
-                                    } else {
-                                        let placed_items = dialogue_items_with_fragment_markers(
-                                            &carry,
-                                            None,
-                                            None,
-                                            true,
-                                            false,
-                                        );
-                                        current_lines = current_lines.saturating_add(
-                                            carry_measurement.placement_lines_with_prev(
-                                                last_measurement.as_ref(),
-                                            ),
-                                        );
-                                        current_items.extend(placed_items);
-                                        last_measurement = Some(carry_measurement);
-                                        break;
-                                    }
-                                }
-
-                                index += 1;
-                                continue;
-                            } else if !current_items.is_empty() {
-                                pages.push(build_page(
-                                    pages.len(),
-                                    next_page_number,
-                                    &scope,
-                                    std::mem::take(&mut current_items),
-                                ));
-                                next_page_number += 1;
-                                current_lines = 0;
-                                last_measurement = None;
-                                continue;
+                        },
+                        crate::pagination::fixtures::Fragment::ContinuedFromPrev => {
+                            if let Some(first) = items.first_mut() {
+                                first.fragment = merge_fragment(&first.fragment, &crate::pagination::fixtures::Fragment::ContinuedFromPrev);
+                                first.continuation_markers = continuation_markers_for_fragment(&first.fragment);
                             }
-                        }
+                        },
+                        _ => {}
                     }
-
-                    let unit_measurement = measure_unit(unit, &config.measurement);
-                    let mut unit_lines =
-                        unit_measurement.placement_lines_with_prev(last_measurement.as_ref());
-                    let mut required_lines = unit_lines;
-                    if should_keep_with_next(unit) {
-                        if let Some(next_index) = next_placeable_unit_index(&units, index + 1) {
-                            let next_measurement =
-                                measure_unit(&units[next_index], &config.measurement);
-                            let spacing_to_next = boundary_spacing_lines(Some(&unit_measurement), Some(&next_measurement));
-                            let min_next_lines = next_measurement.content_lines.min(2);
-                            required_lines = unit_lines + spacing_to_next + min_next_lines;
-                        }
-                    }
-
-                    let remaining_lines = config.lines_per_page.saturating_sub(current_lines);
-                    if !current_items.is_empty() && required_lines > remaining_lines {
-                        pages.push(build_page(
-                            pages.len(),
-                            next_page_number,
-                            &scope,
-                            std::mem::take(&mut current_items),
-                        ));
-                        next_page_number += 1;
-                        current_lines = 0;
-                        unit_lines = unit_measurement.placement_lines_with_prev(None);
-                    }
-
-                    let placed_items = page_items_from_semantic_unit(unit);
-                    current_lines = current_lines.saturating_add(unit_lines);
-                    current_items.extend(placed_items);
-                    last_measurement = Some(unit_measurement);
-                    index += 1;
                 }
+
+                current_items.extend(items);
             }
-        }
 
-        if !current_items.is_empty() {
-            pages.push(build_page(
-                pages.len(),
-                next_page_number,
-                &scope,
-                current_items,
-            ));
+            // `build_page` expects us to skip empty pages. `SemanticUnit::PageStart` yields 0 items natively.
+            if !current_items.is_empty() {
+                pages.push(build_page(
+                    pages.len(),
+                    next_page_number,
+                    &scope,
+                    current_items,
+                ));
+                next_page_number += 1;
+            }
         }
 
         Self {
