@@ -8,6 +8,7 @@ pub struct MeasuredFlowUnit {
     pub content_lines: usize,
     pub keep_with_next: bool,
     pub can_split: bool,
+    pub widow_penalty: usize,
 }
 
 pub fn compose(units: &[SemanticUnit]) -> Vec<MeasuredFlowUnit> {
@@ -59,6 +60,7 @@ pub fn compose(units: &[SemanticUnit]) -> Vec<MeasuredFlowUnit> {
                 SemanticUnit::Flow(flow) => flow.cohesion.can_split,
                 _ => false,
             },
+            widow_penalty: 0, // Dialogue will set this to 1 later
         });
 
         previous_spacing_below = req_spacing_below;
