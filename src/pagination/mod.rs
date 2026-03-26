@@ -5,6 +5,8 @@ mod measurement;
 mod normalized;
 mod semantic;
 pub mod wrapping;
+pub mod margin;
+pub mod composer;
 
 pub use comparison::{
     compare_paginated_to_fixture, ComparisonIssue, ComparisonIssueKind, ComparisonReport,

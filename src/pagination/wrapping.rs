@@ -3,6 +3,7 @@ use crate::pagination::margin::calculate_element_width;
 #[derive(Debug, Clone, Copy)]
 pub enum ElementType {
     Action,
+    SceneHeading,
     Character,
     Dialogue,
     Parenthetical,
@@ -19,6 +20,7 @@ impl WrapConfig {
         // Still temporarily HARDCODING these numbers here.
         let width = match element_type {
             ElementType::Action => calculate_element_width(1.5, 7.5, 10.0, element_type),
+            ElementType::SceneHeading => calculate_element_width(1.5, 7.5, 10.0, element_type),
             ElementType::Character => calculate_element_width(3.5, 7.25, 10.0, element_type),
             ElementType::Dialogue => calculate_element_width(2.5, 6.0, 10.0, element_type),
             ElementType::Parenthetical => calculate_element_width(3.0, 5.5, 10.0, element_type),
