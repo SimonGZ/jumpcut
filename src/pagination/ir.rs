@@ -103,7 +103,7 @@ impl PaginatedScreenplay {
         let geometry = LayoutGeometry::default();
 
         let blocks = crate::pagination::composer::compose(&semantic.units, &geometry);
-        let paged_blocks = crate::pagination::paginator::paginate(&blocks, config.lines_per_page as usize);
+        let paged_blocks = crate::pagination::paginator::paginate(&blocks, config.lines_per_page as usize, &geometry);
 
         let mut pages: Vec<Page> = Vec::new();
 

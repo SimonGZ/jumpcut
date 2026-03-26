@@ -15,6 +15,17 @@ pub struct LayoutGeometry {
     pub lyric_left: f32,
     pub lyric_right: f32,
     pub cpi: f32,
+
+    // Vertical Spacing (Blank lines before element)
+    pub action_spacing_before: usize,
+    pub scene_heading_spacing_before: usize,
+    pub character_spacing_before: usize,
+    pub transition_spacing_before: usize,
+    pub lyric_spacing_before: usize,
+
+    // Orphan/Widow Limits
+    pub orphan_limit: usize,
+    pub widow_limit: usize,
 }
 
 impl Default for LayoutGeometry {
@@ -33,6 +44,15 @@ impl Default for LayoutGeometry {
             lyric_left: 2.5,
             lyric_right: 7.375,
             cpi: 10.0,
+
+            action_spacing_before: 1,
+            scene_heading_spacing_before: 2,
+            character_spacing_before: 1,
+            transition_spacing_before: 1,
+            lyric_spacing_before: 1,
+
+            orphan_limit: 2,
+            widow_limit: 2,
         }
     }
 }

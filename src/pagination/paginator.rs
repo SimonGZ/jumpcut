@@ -1,5 +1,6 @@
 use crate::pagination::composer::LayoutBlock;
 use crate::pagination::fixtures::Fragment;
+use crate::pagination::LayoutGeometry;
 
 pub struct Page<'a> {
     pub blocks: Vec<LayoutBlock<'a>>,
@@ -10,7 +11,7 @@ struct Chunk<'a> {
     blocks: Vec<&'a LayoutBlock<'a>>,
 }
 
-pub fn paginate<'a>(blocks: &'a [LayoutBlock<'a>], page_limit_lines: usize) -> Vec<Page<'a>> {
+pub fn paginate<'a>(blocks: &'a [LayoutBlock<'a>], page_limit_lines: usize, geometry: &LayoutGeometry) -> Vec<Page<'a>> {
     let mut chunks: Vec<Chunk<'a>> = Vec::new();
     let mut current_chunk: Vec<&LayoutBlock<'a>> = Vec::new();
 
@@ -58,13 +59,13 @@ pub fn paginate<'a>(blocks: &'a [LayoutBlock<'a>], page_limit_lines: usize) -> V
                 let effective_spacing = if is_top_of_page { 0 } else { block.spacing_above };
                 let available_lines = page_limit_lines.saturating_sub(current_page_lines);
                 
-                // We MUST have enough space to fulfill the Top Padding PLUS at least 2 Orphan lines
-                if available_lines >= effective_spacing + 2 {
+                // We MUST have enough space to fulfill the Top Padding PLUS at least orphan_limit lines
+                if available_lines >= effective_spacing + geometry.orphan_limit {
                     let lines_that_fit = available_lines - effective_spacing;
                     let lines_remaining = block.content_lines - lines_that_fit;
                     
-                    // The Widow falling to the next page MUST also be at least 2 lines!
-                    if lines_remaining >= 2 {
+                    // The Widow falling to the next page MUST also be at least widow_limit lines!
+                    if lines_remaining >= geometry.widow_limit {
                         // Splinter the block!
                         current_page_blocks.push(LayoutBlock {
                             unit: block.unit,

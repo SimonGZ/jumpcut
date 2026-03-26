@@ -2,7 +2,6 @@ use crate::pagination::semantic::{SemanticUnit, FlowKind, DialoguePartKind};
 use crate::pagination::wrapping::{wrap_text_for_element, WrapConfig, ElementType};
 use crate::pagination::LayoutGeometry;
 use crate::pagination::fixtures::Fragment;
-use std::cmp::max;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct LayoutBlock<'a> {
@@ -17,10 +16,10 @@ pub struct LayoutBlock<'a> {
 
 pub fn compose<'a>(units: &'a [SemanticUnit], geometry: &LayoutGeometry) -> Vec<LayoutBlock<'a>> {
     let mut measured = Vec::new();
-    let mut previous_spacing_below = 0;
 
     for (i, unit) in units.iter().enumerate() {
-        let (content_lines, req_spacing_above, req_spacing_below) = match unit {
+        let (content_lines, spacing_above) = match unit {
+// ... (the match block stays as is)
             SemanticUnit::Flow(flow) => {
                 let el_type = match flow.kind {
                     FlowKind::Action => ElementType::Action,
@@ -33,14 +32,14 @@ pub fn compose<'a>(units: &'a [SemanticUnit], geometry: &LayoutGeometry) -> Vec<
                 let config = WrapConfig::from_geometry(geometry, el_type);
                 let lines = wrap_text_for_element(&flow.text, &config);
                 
-                let (sp_above, sp_below) = match flow.kind {
-                    FlowKind::SceneHeading => (2, 1), // 2 visual lines above, 1 below
-                    FlowKind::Action => (1, 1),
-                    FlowKind::Transition => (1, 1),
-                    _ => (1, 1),
+                let sp_above = match flow.kind {
+                    FlowKind::SceneHeading => geometry.scene_heading_spacing_before,
+                    FlowKind::Action => geometry.action_spacing_before,
+                    FlowKind::Transition => geometry.transition_spacing_before,
+                    _ => 1,
                 };
                 
-                (lines.len(), sp_above, sp_below)
+                (lines.len(), sp_above)
             },
             SemanticUnit::Dialogue(dialogue) => {
                 let mut lines = 0;
@@ -54,7 +53,7 @@ pub fn compose<'a>(units: &'a [SemanticUnit], geometry: &LayoutGeometry) -> Vec<
                     let config = WrapConfig::from_geometry(geometry, el_type);
                     lines += wrap_text_for_element(&part.text, &config).len();
                 }
-                (lines, 1, 1)
+                (lines, geometry.character_spacing_before)
             },
             SemanticUnit::DualDialogue(dual) => {
                 let mut max_lines = 0;
@@ -67,21 +66,14 @@ pub fn compose<'a>(units: &'a [SemanticUnit], geometry: &LayoutGeometry) -> Vec<
                     }
                     if side_lines > max_lines { max_lines = side_lines; }
                 }
-                (max_lines, 1, 1)
+                (max_lines, geometry.character_spacing_before)
             },
             SemanticUnit::Lyric(lyric) => {
                 let config = WrapConfig::from_geometry(geometry, ElementType::Lyric);
                 let lines = wrap_text_for_element(&lyric.text, &config).len();
-                (lines, 1, 1)
+                (lines, geometry.lyric_spacing_before)
             },
-            SemanticUnit::PageStart(_) => (0, 0, 0),
-        };
-
-        // Resolution: non-additive padding logic
-        let spacing_above = if i == 0 {
-            req_spacing_above
-        } else {
-            max(previous_spacing_below, req_spacing_above)
+            SemanticUnit::PageStart(_) => (0, 0),
         };
 
         measured.push(LayoutBlock {
@@ -99,8 +91,6 @@ pub fn compose<'a>(units: &'a [SemanticUnit], geometry: &LayoutGeometry) -> Vec<
             },
             widow_penalty: 0, // Dialogue will set this to 1 later
         });
-
-        previous_spacing_below = req_spacing_below;
     }
 
     measured

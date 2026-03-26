@@ -1,8 +1,7 @@
 // tests/pagination_paginator_test.rs
 use jumpcut::pagination::composer::LayoutBlock;
 use jumpcut::pagination::paginator::paginate;
-use jumpcut::pagination::{SemanticUnit, PageStartUnit};
-use jumpcut::pagination::Fragment;
+use jumpcut::pagination::{SemanticUnit, PageStartUnit, LayoutGeometry, Fragment};
 
 fn mock_block<'a>(unit: &'a SemanticUnit, lines: usize, padding: usize, keep_with_next: bool, can_split: bool, widow_penalty: usize) -> LayoutBlock<'a> {
     LayoutBlock {
@@ -18,6 +17,7 @@ fn mock_block<'a>(unit: &'a SemanticUnit, lines: usize, padding: usize, keep_wit
 
 #[test]
 fn paginator_distributes_blocks_across_pages_when_they_exceed_limits() {
+    let geometry = LayoutGeometry::default();
     // Standard screenplay page is 54 playable lines
     let page_limit = 54;
     let unit1 = SemanticUnit::PageStart(PageStartUnit { source_element_id: "1".into() });
@@ -30,7 +30,7 @@ fn paginator_distributes_blocks_across_pages_when_they_exceed_limits() {
         mock_block(&unit2, 10, 1, false, false, 0), 
     ];
 
-    let pages = paginate(&blocks, page_limit);
+    let pages = paginate(&blocks, page_limit, &geometry);
     
     assert_eq!(pages.len(), 2, "Expected exactly two pages of output");
     assert_eq!(pages[0].blocks.len(), 1, "First 50-line block fills Page 1");
@@ -40,6 +40,7 @@ fn paginator_distributes_blocks_across_pages_when_they_exceed_limits() {
 
 #[test]
 fn paginator_strips_intrinsic_padding_from_elements_landing_at_the_top_of_a_page() {
+    let geometry = LayoutGeometry::default();
     let page_limit = 54;
     let unit1 = SemanticUnit::PageStart(PageStartUnit { source_element_id: "1".into() });
     let unit2 = SemanticUnit::PageStart(PageStartUnit { source_element_id: "2".into() });
@@ -49,7 +50,7 @@ fn paginator_strips_intrinsic_padding_from_elements_landing_at_the_top_of_a_page
         mock_block(&unit2, 5, 2, false, false, 0),  // A Scene Heading-like block demanding 2 lines of padding above
     ];
 
-    let pages = paginate(&blocks, page_limit);
+    let pages = paginate(&blocks, page_limit, &geometry);
     
     assert_eq!(pages.len(), 2);
     
@@ -61,6 +62,7 @@ fn paginator_strips_intrinsic_padding_from_elements_landing_at_the_top_of_a_page
 
 #[test]
 fn paginator_prevents_stranding_blocks_that_require_keep_with_next() {
+    let geometry = LayoutGeometry::default();
     let page_limit = 54;
     let unit1 = SemanticUnit::PageStart(PageStartUnit { source_element_id: "1".into() });
     let unit2 = SemanticUnit::PageStart(PageStartUnit { source_element_id: "2".into() });
@@ -80,7 +82,7 @@ fn paginator_prevents_stranding_blocks_that_require_keep_with_next() {
         mock_block(&unit3, 2, 1, false, false, 0), 
     ];
 
-    let pages = paginate(&blocks, page_limit);
+    let pages = paginate(&blocks, page_limit, &geometry);
     
     assert_eq!(pages.len(), 2);
     
@@ -101,6 +103,7 @@ fn paginator_prevents_stranding_blocks_that_require_keep_with_next() {
 
 #[test]
 fn paginator_splits_splittable_blocks_while_respecting_orphan_widow_limits() {
+    let geometry = LayoutGeometry::default();
     let page_limit = 54;
     let unit1 = SemanticUnit::PageStart(PageStartUnit { source_element_id: "1".into() });
     let unit2 = SemanticUnit::PageStart(PageStartUnit { source_element_id: "2".into() });
@@ -113,7 +116,7 @@ fn paginator_splits_splittable_blocks_while_respecting_orphan_widow_limits() {
                                          // It pushes 3 content lines to Page 2.
     ];
 
-    let pages = paginate(&blocks, page_limit);
+    let pages = paginate(&blocks, page_limit, &geometry);
     
     assert_eq!(pages.len(), 2);
     
@@ -127,6 +130,7 @@ fn paginator_splits_splittable_blocks_while_respecting_orphan_widow_limits() {
 
 #[test]
 fn paginator_rejects_splits_that_violate_orphan_limits_and_pushes_entire_block() {
+    let geometry = LayoutGeometry::default();
     let page_limit = 54;
     let unit1 = SemanticUnit::PageStart(PageStartUnit { source_element_id: "1".into() });
     let unit2 = SemanticUnit::PageStart(PageStartUnit { source_element_id: "2".into() });
@@ -139,7 +143,7 @@ fn paginator_rejects_splits_that_violate_orphan_limits_and_pushes_entire_block()
                                          // Split is REJECTED. The whole block goes to Page 2.
     ];
 
-    let pages = paginate(&blocks, page_limit);
+    let pages = paginate(&blocks, page_limit, &geometry);
     
     assert_eq!(pages.len(), 2);
     assert_eq!(pages[0].blocks.len(), 1, "Page 1 holds the 53-line block, leaves the 1 remaining line blank");
@@ -150,6 +154,7 @@ fn paginator_rejects_splits_that_violate_orphan_limits_and_pushes_entire_block()
 
 #[test]
 fn paginator_accounts_for_additional_widow_penalty_lines_when_splitting_dialogue() {
+    let geometry = LayoutGeometry::default();
     let page_limit = 54;
     let unit1 = SemanticUnit::PageStart(PageStartUnit { source_element_id: "1".into() });
     let unit2 = SemanticUnit::PageStart(PageStartUnit { source_element_id: "2".into() });
@@ -163,7 +168,7 @@ fn paginator_accounts_for_additional_widow_penalty_lines_when_splitting_dialogue
                                             // So the trailing widow block on Page 2 should have 4 + 1 = 5 content lines!
     ];
 
-    let pages = paginate(&blocks, page_limit);
+    let pages = paginate(&blocks, page_limit, &geometry);
     
     assert_eq!(pages.len(), 2);
     
@@ -172,4 +177,33 @@ fn paginator_accounts_for_additional_widow_penalty_lines_when_splitting_dialogue
     
     // The widow block on Page 2 receives the structural penalty 
     assert_eq!(pages[1].blocks[0].content_lines, 5, "Remaining 4 lines + 1 penalty = 5 lines on Page 2");
+}
+
+#[test]
+fn paginator_respects_custom_orphan_widow_limits() {
+    let mut geometry = LayoutGeometry::default();
+    geometry.orphan_limit = 4; // Much higher than default 2
+    geometry.widow_limit = 4;
+    
+    let page_limit = 54;
+    let unit1 = SemanticUnit::PageStart(PageStartUnit { source_element_id: "1".into() });
+    let unit2 = SemanticUnit::PageStart(PageStartUnit { source_element_id: "2".into() });
+    
+    let blocks = vec![
+        mock_block(&unit1, 50, 0, false, false, 0), // 4 lines remaining on Page 1
+        mock_block(&unit2, 10, 0, false, true, 0),  // 10 line block. 
+                                         // Technically 4 lines fit on Page 1.
+                                         // Since orphan_limit is 4, it should SPLIT exactly at 4.
+    ];
+
+    let pages = paginate(&blocks, page_limit, &geometry);
+    assert_eq!(pages[0].blocks.len(), 2, "Should split exactly at the 4-line orphan limit");
+
+    // Case B: Only 3 lines available on Page 1. Orphan limit is 4. Should NOT split.
+    let blocks2 = vec![
+        mock_block(&unit1, 51, 0, false, false, 0), // 3 lines remaining
+        mock_block(&unit2, 10, 0, false, true, 0),
+    ];
+    let pages2 = paginate(&blocks2, page_limit, &geometry);
+    assert_eq!(pages2[0].blocks.len(), 1, "Should NOT split if available space (3) < orphan limit (4)");
 }
