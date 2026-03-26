@@ -70,6 +70,7 @@ pub fn paginate(blocks: &[MeasuredFlowUnit], page_limit_lines: usize) -> Vec<Pag
                     spacing_above: effective_spacing,
                     content_lines: block.content_lines,
                     keep_with_next: block.keep_with_next,
+                    can_split: block.can_split,
                 });
                 
                 current_page_lines += effective_spacing + block.content_lines;
@@ -83,6 +84,7 @@ pub fn paginate(blocks: &[MeasuredFlowUnit], page_limit_lines: usize) -> Vec<Pag
                     spacing_above: effective_spacing,
                     content_lines: block.content_lines,
                     keep_with_next: block.keep_with_next,
+                    can_split: block.can_split,
                 });
                 
                 current_page_lines += effective_spacing + block.content_lines;
