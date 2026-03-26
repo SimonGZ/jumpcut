@@ -26,7 +26,7 @@ Each element type conforms to specific structural constraints defined relative t
 - **Action**
   - Left Indent: 1.5 inches
   - Right Indent: 7.5 inches
-  - Available Width: 6.0 inches (60 characters)
+  - Available Width: 6.0 inches (Should be 60 characters, but Final Draft allows 61, so we copy that)
 - **Character**
   - Left Indent: 3.5 inches
   - Right Indent: 7.25 inches
