@@ -17,7 +17,8 @@ This is a living document formalizing the mechanics of screenplay pagination and
 - **Typesetting**: Standard format is Courier (or Courier-equivalent monospaced typeface, in our case Courier Prime).
 - **Size**: Usually 12-point.
 - **Horizontal Pitch**: Exactly 10 characters per inch (10 CPI).
-- **Vertical Pitch/Line Height**: Approximately 6 lines per inch (LPI). _Note: Final Draft line height often hovers between 13-15pt. Exact calibration needed._
+- **Vertical Pitch/Line Height**: Approximately 6 lines per inch (LPI).
+  - _Line Leading (Spacing)_: Configurable (default 1.0). Supported values are 1.0, 1.5, and 2.0. Extra space is added *above* each visual line of text within an element (but not below).
 
 ## 3. Element Widths and Indents
 

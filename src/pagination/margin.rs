@@ -26,6 +26,9 @@ pub struct LayoutGeometry {
     // Orphan/Widow Limits
     pub orphan_limit: usize,
     pub widow_limit: usize,
+
+    // Spacing
+    pub line_height: f32,
 }
 
 impl Default for LayoutGeometry {
@@ -53,6 +56,7 @@ impl Default for LayoutGeometry {
 
             orphan_limit: 2,
             widow_limit: 2,
+            line_height: 1.0,
         }
     }
 }

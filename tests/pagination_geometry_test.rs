@@ -26,6 +26,9 @@ fn layout_geometry_defaults_match_spec() {
     // Limits
     assert_eq!(geometry.orphan_limit, 2);
     assert_eq!(geometry.widow_limit, 2);
+    
+    // Spacing
+    assert_eq!(geometry.line_height, 1.0);
 }
 
 #[test]

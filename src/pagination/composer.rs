@@ -3,21 +3,21 @@ use crate::pagination::wrapping::{wrap_text_for_element, WrapConfig, ElementType
 use crate::pagination::LayoutGeometry;
 use crate::pagination::fixtures::Fragment;
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct LayoutBlock<'a> {
     pub unit: &'a SemanticUnit,
     pub fragment: Fragment,
-    pub spacing_above: usize,
-    pub content_lines: usize,
+    pub spacing_above: f32,
+    pub content_lines: f32,
     pub keep_with_next: bool,
     pub can_split: bool,
-    pub widow_penalty: usize,
+    pub widow_penalty: f32,
 }
 
 pub fn compose<'a>(units: &'a [SemanticUnit], geometry: &LayoutGeometry) -> Vec<LayoutBlock<'a>> {
     let mut measured = Vec::new();
 
-    for (i, unit) in units.iter().enumerate() {
+    for (_i, unit) in units.iter().enumerate() {
         let (content_lines, spacing_above) = match unit {
 // ... (the match block stays as is)
             SemanticUnit::Flow(flow) => {
@@ -79,8 +79,8 @@ pub fn compose<'a>(units: &'a [SemanticUnit], geometry: &LayoutGeometry) -> Vec<
         measured.push(LayoutBlock {
             unit,
             fragment: Fragment::Whole,
-            spacing_above,
-            content_lines,
+            spacing_above: spacing_above as f32,
+            content_lines: content_lines as f32 * geometry.line_height,
             keep_with_next: match unit {
                 SemanticUnit::Flow(flow) => flow.cohesion.keep_with_next,
                 _ => false,
@@ -89,7 +89,7 @@ pub fn compose<'a>(units: &'a [SemanticUnit], geometry: &LayoutGeometry) -> Vec<
                 SemanticUnit::Flow(flow) => flow.cohesion.can_split,
                 _ => false,
             },
-            widow_penalty: 0, // Dialogue will set this to 1 later
+            widow_penalty: 0.0, // Dialogue will set this to 1.0 later
         });
     }
 
