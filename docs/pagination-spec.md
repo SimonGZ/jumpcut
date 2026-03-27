@@ -30,10 +30,10 @@ Each element type conforms to specific structural constraints defined relative t
   - Available Width: 6.0 inches (Should be 60 characters, but Final Draft allows 61, so we copy that)
 - **Character**
   - Left Indent: 3.5 inches
-  - Right Indent: 7.25 inches
+  - Right Indent: 7.25 inches (Multi-Cam: 6.25 inches)
   - Available Width: 4.25 inches
 - **Dialogue**
-  - Left Indent: 2.5 inches
+  - Left Indent: 2.5 inches (Multi-Cam: 2.25 inches)
   - Right Indent: 6.0 inches
   - Available Width: 3.5 inches (35 characters)
 - **Lyric**
@@ -41,7 +41,7 @@ Each element type conforms to specific structural constraints defined relative t
   - Right Indent: 7.375 inches
   - _Usually presented in italics._
 - **Parenthetical**
-  - Left Indent: 3.0 inches
+  - Left Indent: 3.0 inches (Multi-Cam: 2.75 inches)
   - Right Indent: 5.5 inches
   - Available Width: 2.5 inches (Should be 25 characters, but Final Draft allows 26, so we copy that)
 - **Dual Dialogue**
@@ -60,7 +60,7 @@ Each element type conforms to specific structural constraints defined relative t
     - Available Width: 2.875 inches (Should be 28 characters, but Final Draft allows 29, so we copy that)
 - **Transition**
   - Left Indent: 5.5 inches
-  - Right Indent: 7.1 inches
+  - Right Indent: 7.1 inches (Multi-Cam: 7.25 inches)
 
 ## 4. Line Wrapping
 
