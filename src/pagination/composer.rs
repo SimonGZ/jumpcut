@@ -42,28 +42,27 @@ pub fn compose<'a>(units: &'a [SemanticUnit], geometry: &LayoutGeometry) -> Vec<
                 (lines.len(), sp_above)
             },
             SemanticUnit::Dialogue(dialogue) => {
-                let mut lines = 0;
-                for part in &dialogue.parts {
-                    let el_type = match part.kind {
+                let lines = measure_dialogue_lines(dialogue.parts.iter(), geometry, |part| {
+                    match part.kind {
                         DialoguePartKind::Character => ElementType::Character,
                         DialoguePartKind::Parenthetical => ElementType::Parenthetical,
                         DialoguePartKind::Dialogue => ElementType::Dialogue,
                         DialoguePartKind::Lyric => ElementType::Lyric,
-                    };
-                    let config = WrapConfig::from_geometry(geometry, el_type);
-                    lines += wrap_text_for_element(&part.text, &config).len();
-                }
+                    }
+                });
                 (lines, geometry.character_spacing_before)
             },
             SemanticUnit::DualDialogue(dual) => {
                 let mut max_lines = 0;
                 for side in &dual.sides {
-                    let mut side_lines = 0;
-                    let config = WrapConfig::from_geometry(geometry, ElementType::Action);
-                    for part in &side.dialogue.parts {
-                        // Temp fast approximation for Dual Dialogue halves
-                        side_lines += wrap_text_for_element(&part.text, &config).len();
-                    }
+                    let side_element_type = match side.side {
+                        1 => ElementType::DualDialogueLeft,
+                        _ => ElementType::DualDialogueRight,
+                    };
+                    let side_lines =
+                        measure_dialogue_lines(side.dialogue.parts.iter(), geometry, |_| {
+                            side_element_type
+                        });
                     if side_lines > max_lines { max_lines = side_lines; }
                 }
                 (max_lines, geometry.character_spacing_before)
@@ -94,4 +93,19 @@ pub fn compose<'a>(units: &'a [SemanticUnit], geometry: &LayoutGeometry) -> Vec<
     }
 
     measured
+}
+
+fn measure_dialogue_lines<'a>(
+    parts: impl Iterator<Item = &'a crate::pagination::semantic::DialoguePart>,
+    geometry: &LayoutGeometry,
+    element_type_for_part: impl Fn(&crate::pagination::semantic::DialoguePart) -> ElementType,
+) -> usize {
+    let mut lines = 0;
+
+    for part in parts {
+        let config = WrapConfig::from_geometry(geometry, element_type_for_part(part));
+        lines += wrap_text_for_element(&part.text, &config).len();
+    }
+
+    lines
 }

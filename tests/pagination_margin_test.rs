@@ -34,3 +34,17 @@ fn lyric_margin_calculation() {
     // Floored, we expect 48.
     assert_eq!(calculate_element_width(&geometry, ElementType::Lyric), 48);
 }
+
+#[test]
+fn dual_dialogue_margin_calculation_uses_special_29_character_width() {
+    let geometry = LayoutGeometry::default();
+
+    assert_eq!(
+        calculate_element_width(&geometry, ElementType::DualDialogueLeft),
+        29
+    );
+    assert_eq!(
+        calculate_element_width(&geometry, ElementType::DualDialogueRight),
+        29
+    );
+}

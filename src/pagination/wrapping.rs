@@ -10,9 +10,30 @@ pub enum ElementType {
     Parenthetical,
     Transition,
     Lyric,
+    DualDialogueLeft,
+    DualDialogueRight,
 }
 
 impl ElementType {
+    pub fn from_item_kind(kind: &str, dual_dialogue_side: Option<u8>) -> Self {
+        if let Some(side) = dual_dialogue_side {
+            return match side {
+                1 => Self::DualDialogueLeft,
+                _ => Self::DualDialogueRight,
+            };
+        }
+
+        match kind {
+            "Character" => Self::Character,
+            "Dialogue" => Self::Dialogue,
+            "Parenthetical" => Self::Parenthetical,
+            "Lyric" => Self::Lyric,
+            "Scene Heading" => Self::SceneHeading,
+            "Transition" => Self::Transition,
+            _ => Self::Action,
+        }
+    }
+
     pub fn from_flow_kind(kind: &crate::pagination::FlowKind) -> Self {
         match kind {
             crate::pagination::FlowKind::Action => Self::Action,

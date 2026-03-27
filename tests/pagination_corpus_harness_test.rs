@@ -12,6 +12,11 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 
+// This harness mixes two kinds of checks:
+// - page-break parity tests, which run the main parser -> semantic -> composer -> paginator pipeline
+// - line-break parity diagnostics, which compare PDF-extracted lines against direct wrapping of
+//   normalized items using production wrapping helpers, but do not run the full pagination engine
+
 #[test]
 // #[ignore = "Temporarily disabled"]
 fn comparison_reports_no_issues_for_fixture_round_trip() {
@@ -316,6 +321,107 @@ fn build_big_fish_review_packet() {
 
 #[test]
 // #[ignore = "Temporarily disabled"]
+#[ignore = "writes a Little Women review packet for human inspection"]
+fn build_little_women_review_packet() {
+    let debug_dir = Path::new("target/pagination-debug/little-women-review");
+    fs::create_dir_all(debug_dir).unwrap();
+
+    let mut summaries = Vec::new();
+
+    for (path, stem) in [
+        (
+            "tests/fixtures/pagination/little-women.p4-6.page-breaks.json",
+            "p4-6",
+        ),
+        (
+            "tests/fixtures/pagination/little-women.p13-14.page-breaks.json",
+            "p13-14",
+        ),
+    ] {
+        let fixture: PageBreakFixture = read_fixture(path);
+        let normalized = normalized_slice_from_fountain(
+            "little-women",
+            "tests/fixtures/corpus/public/little-women/source/source.fountain",
+            &fixture,
+        );
+        let semantic = build_semantic_screenplay(normalized.clone());
+        let run = best_probe_run(&fixture, &semantic, measurement_for_screenplay("little-women"));
+        let previews = preview_map(&normalized);
+        let debug_fixture = paginated_to_debug_fixture(
+            &run.actual,
+            &fixture.source,
+            &normalized,
+            run.lines_per_page,
+            &run.geometry,
+            &previews,
+        );
+        let pdf_line_counts = canonical_pdf_line_count_debug("little-women", &fixture, &normalized);
+
+        let actual_path = debug_dir.join(format!("{stem}.actual.page-breaks.json"));
+        let comparison_path = debug_dir.join(format!("{stem}.comparison-report.json"));
+        let pdf_path = debug_dir.join(format!("{stem}.pdf-line-counts.json"));
+        fs::write(
+            &actual_path,
+            serde_json::to_string_pretty(&debug_fixture).unwrap(),
+        )
+        .unwrap();
+        fs::write(
+            &comparison_path,
+            serde_json::to_string_pretty(&FixtureProbeDebugOutput {
+                fixture_path: path.to_string(),
+                page_numbers: fixture.pages.iter().map(|page| page.number).collect(),
+                lines_per_page: run.lines_per_page,
+                score: run.score,
+                total_issues: run.report.total_issues(),
+                wrong_page: run.report.issue_count(ComparisonIssueKind::WrongPage),
+                wrong_fragment: run.report.issue_count(ComparisonIssueKind::WrongFragment),
+                missing: run
+                    .report
+                    .issue_count(ComparisonIssueKind::MissingOccurrence),
+                unexpected: run
+                    .report
+                    .issue_count(ComparisonIssueKind::UnexpectedOccurrence),
+                report: run.report.clone(),
+            })
+            .unwrap(),
+        )
+        .unwrap();
+        fs::write(
+            &pdf_path,
+            serde_json::to_string_pretty(&pdf_line_counts).unwrap(),
+        )
+        .unwrap();
+
+        summaries.push(BigFishReviewSummary {
+            stem: stem.into(),
+            fixture_path: path.into(),
+            page_range: fixture
+                .pages
+                .iter()
+                .map(|page| page.number)
+                .collect::<Vec<_>>(),
+            lines_per_page: run.lines_per_page,
+            total_issues: run.report.total_issues(),
+            wrong_page: run.report.issue_count(ComparisonIssueKind::WrongPage),
+            wrong_fragment: run.report.issue_count(ComparisonIssueKind::WrongFragment),
+            missing: run
+                .report
+                .issue_count(ComparisonIssueKind::MissingOccurrence),
+            unexpected: run
+                .report
+                .issue_count(ComparisonIssueKind::UnexpectedOccurrence),
+        });
+    }
+
+    let review = render_little_women_review_packet(&summaries);
+    let review_path = debug_dir.join("REVIEW.md");
+    fs::write(&review_path, review).unwrap();
+
+    println!("wrote {}", review_path.display());
+}
+
+#[test]
+// #[ignore = "Temporarily disabled"]
 fn big_fish_line_break_parity_reports_el_00787_as_an_exact_match() {
     let report = build_line_break_parity_report(
         "big-fish",
@@ -370,6 +476,21 @@ fn brick_n_steel_macro_parity_holds_baseline() {
 
 #[test]
 // #[ignore = "Temporarily disabled"]
+fn little_women_macro_parity_holds_baseline() {
+    let report = build_line_break_parity_report(
+        "little-women",
+        "tests/fixtures/corpus/public/little-women/source/source.fountain",
+        "tests/fixtures/corpus/public/little-women/canonical/page-breaks.json",
+    );
+
+    assert_eq!(
+        report.disagreement_count, 0,
+        "Expected Little Women line-break parity against the Final Draft PDF to have 0 disagreements. If this fails, inspect the report and decide which pagination assumptions are wrong."
+    );
+}
+
+#[test]
+// #[ignore = "Temporarily disabled"]
 fn brick_n_steel_full_script_page_break_parity_holds_baseline() {
     let fixture: PageBreakFixture = read_fixture(
         "tests/fixtures/corpus/public/brick-n-steel/canonical/page-breaks.json",
@@ -391,6 +512,64 @@ fn brick_n_steel_full_script_page_break_parity_holds_baseline() {
 
 #[test]
 // #[ignore = "Temporarily disabled"]
+fn little_women_full_script_page_break_parity_holds_baseline() {
+    let fixture: PageBreakFixture =
+        read_fixture("tests/fixtures/corpus/public/little-women/canonical/page-breaks.json");
+    let normalized = normalized_slice_from_fountain(
+        "little-women",
+        "tests/fixtures/corpus/public/little-women/source/source.fountain",
+        &fixture,
+    );
+    let semantic = build_semantic_screenplay(normalized);
+    let run = best_probe_run(&fixture, &semantic, measurement_for_screenplay("little-women"));
+
+    assert_eq!(
+        run.report.total_issues(),
+        0,
+        "Expected Little Women full-script page-break parity against the Final Draft canonical fixture to have 0 issues. If this fails, inspect the report and decide which pagination assumptions are wrong."
+    );
+}
+
+#[test]
+fn dual_dialogue_parity_items_use_dual_dialogue_width_and_surface_dual_metadata() {
+    let geometry = LayoutGeometry::default();
+    let element = NormalizedElement {
+        element_id: "el-dual".into(),
+        kind: "Dialogue".into(),
+        text: "12345678901234567890123456789 12345678901234567890123456789".into(),
+        fragment: None,
+        starts_new_page: false,
+        scene_number: None,
+        block_kind: Some("DialogueBlock".into()),
+        block_id: Some("block-00001".into()),
+        dual_dialogue_group: Some("dual-00001".into()),
+        dual_dialogue_side: Some(1),
+    };
+
+    let item = build_line_break_parity_item(
+        1,
+        &element.element_id,
+        "Dialogue",
+        &Fragment::Whole,
+        None,
+        &element.dual_dialogue_group,
+        element.dual_dialogue_side,
+        Some(&element),
+        &[
+            "12345678901234567890123456789".into(),
+            "12345678901234567890123456789".into(),
+        ],
+        &geometry,
+    );
+
+    assert_eq!(item.width_chars, Some(29));
+    assert_eq!(item.dual_dialogue_group.as_deref(), Some("dual-00001"));
+    assert_eq!(item.dual_dialogue_side, Some(1));
+    assert_eq!(item.lines_agree, Some(true));
+}
+
+#[test]
+// #[ignore = "Temporarily disabled"]
 #[ignore = "writes a script-wide Big Fish line-break parity packet"]
 fn build_big_fish_line_break_parity_packet() {
     let report = build_line_break_parity_report(
@@ -406,6 +585,28 @@ fn build_big_fish_line_break_parity_packet() {
 
     let review_path = debug_dir.join("REVIEW.md");
     fs::write(&review_path, render_line_break_parity_review(&report)).unwrap();
+
+    println!("wrote {}", review_path.display());
+    println!("wrote {}", json_path.display());
+}
+
+#[test]
+// #[ignore = "Temporarily disabled"]
+#[ignore = "writes a script-wide Little Women line-break parity packet"]
+fn build_little_women_line_break_parity_packet() {
+    let report = build_line_break_parity_report(
+        "little-women",
+        "tests/fixtures/corpus/public/little-women/source/source.fountain",
+        "tests/fixtures/corpus/public/little-women/canonical/page-breaks.json",
+    );
+    let debug_dir = Path::new("target/pagination-debug/little-women-linebreak-parity");
+    fs::create_dir_all(debug_dir).unwrap();
+
+    let json_path = debug_dir.join("parity.json");
+    fs::write(&json_path, serde_json::to_string_pretty(&report).unwrap()).unwrap();
+
+    let review_path = debug_dir.join("REVIEW.md");
+    fs::write(&review_path, render_little_women_line_break_parity_review(&report)).unwrap();
 
     println!("wrote {}", review_path.display());
     println!("wrote {}", json_path.display());
@@ -732,12 +933,6 @@ fn export_visual_comparison_data() {
                 let element = elements.get(&item.element_id);
                 let full_text = element.map(|e| e.text.clone()).unwrap_or_default();
 
-                let _width_chars = width_chars_for_parity_kind(
-                    &item.kind,
-                    item.block_id.is_some(),
-                    &run.geometry,
-                );
-
                 let line_range_tuple = item.line_range.map(|lr| (lr.0, lr.1));
 
                 // Compute the text to wrap (respecting line_range for flow splits)
@@ -745,7 +940,8 @@ fn export_visual_comparison_data() {
                     (Some((s, e)), Some(_)) => slice_explicit_lines(&full_text, s, e),
                     _ => full_text.clone(),
                 };
-                let element_type = ElementType::from_flow_kind(&flow_width_kind(&item.kind));
+                let element_type =
+                    ElementType::from_item_kind(&item.kind, item.dual_dialogue_side);
                 let config = jumpcut::pagination::wrapping::WrapConfig::from_geometry(&run.geometry, element_type);
                 let wrapped_lines = jumpcut::pagination::wrapping::wrap_text_for_element(&wrap_text, &config);
                 let width_chars = config.exact_width_chars;
@@ -1439,6 +1635,78 @@ Current window summary:\n\n",
     review
 }
 
+fn render_little_women_review_packet(summaries: &[BigFishReviewSummary]) -> String {
+    let focus_windows: Vec<&BigFishReviewSummary> = summaries
+        .iter()
+        .filter(|summary| summary.total_issues > 0)
+        .collect();
+    let ordered_windows: Vec<&BigFishReviewSummary> = focus_windows
+        .iter()
+        .copied()
+        .chain(summaries.iter().filter(|summary| summary.total_issues == 0))
+        .collect();
+
+    let mut review = String::from(
+        "# Little Women Pagination Review Packet\n\n\
+Run this command to regenerate everything in this folder:\n\n\
+```bash\n\
+cargo test --test pagination_corpus_harness_test build_little_women_review_packet -- --ignored --nocapture\n\
+```\n\n\
+Read files in this order:\n\n\
+1. `target/pagination-debug/little-women-review/REVIEW.md`\n",
+    );
+
+    for (index, summary) in ordered_windows.iter().enumerate() {
+        let step = index * 3 + 2;
+        review.push_str(&format!(
+            "{step}. `target/pagination-debug/little-women-review/{stem}.comparison-report.json`\n\
+{step_plus_one}. `{fixture}`\n\
+{step_plus_two}. `target/pagination-debug/little-women-review/{stem}.actual.page-breaks.json`\n",
+            step = step,
+            step_plus_one = step + 1,
+            step_plus_two = step + 2,
+            stem = summary.stem,
+            fixture = summary.fixture_path,
+        ));
+    }
+
+    review.push_str(
+        "\nBackground:\n\n\
+- `comparison-report.json` is the quickest way to see where pages or fragments diverge.\n\
+- `actual.page-breaks.json` is the current engine output in canonical fixture shape.\n\
+- `pdf-line-counts.json` gives exact-unique PDF line counts where text alignment is recoverable.\n\
+- `tests/fixtures/corpus/public/little-women/source/source.fountain` is the vendored local source text.\n\n\
+Current window summary:\n\n",
+    );
+
+    for summary in summaries {
+        review.push_str(&format!(
+            "- `{stem}` pages {start}-{end}: lines_per_page={lines}, total={total}, wrong_page={wrong_page}, wrong_fragment={wrong_fragment}, missing={missing}, unexpected={unexpected}\n  canonical: `{fixture}`\n  actual: `target/pagination-debug/little-women-review/{stem}.actual.page-breaks.json`\n  report: `target/pagination-debug/little-women-review/{stem}.comparison-report.json`\n  pdf: `target/pagination-debug/little-women-review/{stem}.pdf-line-counts.json`\n",
+            stem = summary.stem,
+            start = summary.page_range.first().copied().unwrap_or_default(),
+            end = summary.page_range.last().copied().unwrap_or_default(),
+            lines = summary.lines_per_page,
+            total = summary.total_issues,
+            wrong_page = summary.wrong_page,
+            wrong_fragment = summary.wrong_fragment,
+            missing = summary.missing,
+            unexpected = summary.unexpected,
+            fixture = summary.fixture_path,
+        ));
+    }
+
+    if let Some(summary) = focus_windows.first() {
+        review.push_str(&format!(
+            "\nIf you only look at one thing, start with `{stem}.comparison-report.json`.\n",
+            stem = summary.stem,
+        ));
+    } else {
+        review.push_str("\nAll selected Little Women windows currently match.\n");
+    }
+
+    review
+}
+
 fn build_line_break_parity_report(
     screenplay_id: &str,
     fountain_path: &str,
@@ -1474,7 +1742,8 @@ fn build_line_break_parity_report(
                 &item.kind,
                 &item.fragment,
                 item.line_range,
-                &item.block_id,
+                &item.dual_dialogue_group,
+                item.dual_dialogue_side,
                 elements.get(&item.element_id),
                 page_lines,
                 &measurement,
@@ -1569,7 +1838,8 @@ fn build_line_break_parity_item(
     kind: &str,
     fragment: &Fragment,
     line_range: Option<LineRange>,
-    block_id: &Option<String>,
+    dual_dialogue_group: &Option<String>,
+    dual_dialogue_side: Option<u8>,
     element: Option<&NormalizedElement>,
     page_lines: &[String],
     measurement: &LayoutGeometry,
@@ -1580,6 +1850,8 @@ fn build_line_break_parity_item(
             element_id: element_id.into(),
             kind: kind.into(),
             text_preview: None,
+            dual_dialogue_group: dual_dialogue_group.clone(),
+            dual_dialogue_side,
             width_chars: None,
             expected_wrapped_lines: Vec::new(),
             match_kind: "missing-element".into(),
@@ -1597,6 +1869,8 @@ fn build_line_break_parity_item(
             element_id: element_id.into(),
             kind: kind.into(),
             text_preview: Some(text_preview(&element.text)),
+            dual_dialogue_group: dual_dialogue_group.clone(),
+            dual_dialogue_side,
             width_chars: None,
             expected_wrapped_lines: Vec::new(),
             match_kind: "unsupported-fragment".into(),
@@ -1608,8 +1882,13 @@ fn build_line_break_parity_item(
         };
     };
 
-    let width_chars = width_chars_for_parity_kind(kind, block_id.is_some(), measurement);
-    let expected_wrapped_lines = wrap_lines_for_parity_kind(kind, &candidate_text, width_chars)
+    let element_type = ElementType::from_item_kind(kind, dual_dialogue_side);
+    let config = jumpcut::pagination::wrapping::WrapConfig::from_geometry(measurement, element_type);
+    let width_chars = config.exact_width_chars;
+    let expected_wrapped_lines = jumpcut::pagination::wrapping::wrap_text_for_element(
+        &candidate_text,
+        &config,
+    )
         .into_iter()
         .map(|line| normalize_pdf_match_text(&line))
         .collect::<Vec<_>>();
@@ -1629,6 +1908,8 @@ fn build_line_break_parity_item(
                 element_id: element_id.into(),
                 kind: kind.into(),
                 text_preview: Some(text_preview(&candidate_text)),
+                dual_dialogue_group: dual_dialogue_group.clone(),
+                dual_dialogue_side,
                 width_chars: Some(width_chars),
                 expected_wrapped_lines,
                 match_kind: "exact_unique".into(),
@@ -1644,6 +1925,8 @@ fn build_line_break_parity_item(
             element_id: element_id.into(),
             kind: kind.into(),
             text_preview: Some(text_preview(&candidate_text)),
+            dual_dialogue_group: dual_dialogue_group.clone(),
+            dual_dialogue_side,
             width_chars: Some(width_chars),
             expected_wrapped_lines,
             match_kind: "unmatched".into(),
@@ -1658,6 +1941,8 @@ fn build_line_break_parity_item(
             element_id: element_id.into(),
             kind: kind.into(),
             text_preview: Some(text_preview(&candidate_text)),
+            dual_dialogue_group: dual_dialogue_group.clone(),
+            dual_dialogue_side,
             width_chars: Some(width_chars),
             expected_wrapped_lines,
             match_kind: "exact_ambiguous".into(),
@@ -1668,32 +1953,6 @@ fn build_line_break_parity_item(
             lines_agree: None,
         },
     }
-}
-
-fn width_chars_for_parity_kind(
-    kind: &str,
-    is_in_block: bool,
-    geometry: &LayoutGeometry,
-) -> usize {
-    match kind {
-        "Character" => jumpcut::pagination::margin::calculate_element_width(geometry, jumpcut::pagination::wrapping::ElementType::Character),
-        "Parenthetical" => {
-            jumpcut::pagination::margin::calculate_element_width(geometry, jumpcut::pagination::wrapping::ElementType::Parenthetical)
-        }
-        "Dialogue" => jumpcut::pagination::margin::calculate_element_width(geometry, jumpcut::pagination::wrapping::ElementType::Dialogue),
-        "Lyric" if is_in_block => {
-            jumpcut::pagination::margin::calculate_element_width(geometry, jumpcut::pagination::wrapping::ElementType::Lyric)
-        }
-        "Lyric" => jumpcut::pagination::margin::calculate_element_width(geometry, jumpcut::pagination::wrapping::ElementType::Lyric),
-        other => flow_width_for_kind(other, geometry),
-    }
-}
-
-fn wrap_lines_for_parity_kind(_kind: &str, text: &str, width_chars: usize) -> Vec<String> {
-    jumpcut::pagination::wrapping::wrap_text_for_element(
-        text,
-        &jumpcut::pagination::wrapping::WrapConfig::with_exact_width_chars(width_chars),
-    )
 }
 
 fn render_line_break_parity_review(report: &LineBreakParityReport) -> String {
@@ -1746,6 +2005,61 @@ Read these first:\n\n",
 
     review
 }
+
+fn render_little_women_line_break_parity_review(report: &LineBreakParityReport) -> String {
+    let disagreements: Vec<&LineBreakParityItem> = report
+        .items
+        .iter()
+        .filter(|item| item.lines_agree == Some(false))
+        .collect();
+
+    let mut review = format!(
+        "# Little Women Line-Break Parity Review\n\n\
+Run this command to regenerate this packet:\n\n\
+```bash\n\
+cargo test --test pagination_corpus_harness_test build_little_women_line_break_parity_packet -- --ignored --nocapture\n\
+```\n\n\
+Files in this packet:\n\n\
+- `target/pagination-debug/little-women-linebreak-parity/REVIEW.md`\n\
+- `target/pagination-debug/little-women-linebreak-parity/parity.json`\n\n\
+Coverage summary:\n\n\
+- exact unique items: {exact_unique}\n\
+- exact ambiguous items: {exact_ambiguous}\n\
+- unsupported/unmatched items: {unsupported}\n\
+- exact-unique line disagreements: {disagreements}\n\n\
+How to read `parity.json`:\n\n\
+- `expected_wrapped_lines` are our current wrapped lines for the recoverable text fragment\n\
+- `pdf_lines` are the exact PDF-extracted lines when the page match is unique\n\
+- `lines_agree = false` means the text match was trustworthy but our wrapping disagreed with the PDF\n\
+- `match_kind = exact_ambiguous` means the same text appears multiple times on that page; do not trust it as ground truth\n\
+- `match_kind = unsupported-fragment` usually means a split dialogue fragment whose exact per-page text cannot be reconstructed from the canonical fixture alone\n\n\
+Read these first:\n\n",
+        exact_unique = report.exact_unique_count,
+        exact_ambiguous = report.exact_ambiguous_count,
+        unsupported = report.unsupported_count,
+        disagreements = report.disagreement_count,
+    );
+
+    for item in disagreements.iter().take(10) {
+        review.push_str(&format!(
+            "- `{element_id}` page {page} `{kind}` width={width:?}\n  expected: {expected:?}\n  pdf: {pdf:?}\n",
+            element_id = item.element_id,
+            page = item.page_number,
+            kind = item.kind,
+            width = item.width_chars,
+            expected = item.expected_wrapped_lines,
+            pdf = item.pdf_lines,
+        ));
+    }
+
+    if disagreements.is_empty() {
+        review.push_str("\nNo exact-unique line-break disagreements were found.\n");
+    } else {
+        review.push_str("\nSearch for the listed `element_id` values in `parity.json` first.\n");
+    }
+
+    review
+}
 struct MeasuredItem {
     content_lines: f32,
     spacing_above: f32,
@@ -1760,13 +2074,10 @@ fn measured_lines_for_item(
         return MeasuredItem { content_lines: 0.0, spacing_above: 0.0 };
     };
 
-    let element_type = match item.kind.as_str() {
-        "Character" => jumpcut::pagination::wrapping::ElementType::Character,
-        "Parenthetical" => jumpcut::pagination::wrapping::ElementType::Parenthetical,
-        "Dialogue" => jumpcut::pagination::wrapping::ElementType::Dialogue,
-        "Lyric" => jumpcut::pagination::wrapping::ElementType::Lyric,
-        other => jumpcut::pagination::wrapping::ElementType::from_flow_kind(&flow_width_kind(other)),
-    };
+    let element_type = jumpcut::pagination::wrapping::ElementType::from_item_kind(
+        &item.kind,
+        item.dual_dialogue_side,
+    );
 
     let config = jumpcut::pagination::wrapping::WrapConfig::from_geometry(geometry, element_type);
     let text = match item.line_range {
@@ -1802,24 +2113,6 @@ fn slice_explicit_lines(text: &str, start: u32, end: u32) -> String {
         })
         .collect::<Vec<_>>()
         .join("\n")
-}
-
-fn flow_width_for_kind(kind: &str, geometry: &LayoutGeometry) -> usize {
-    let flow_kind = flow_width_kind(kind);
-    jumpcut::pagination::margin::calculate_element_width(geometry, jumpcut::pagination::wrapping::ElementType::from_flow_kind(&flow_kind))
-}
-
-fn flow_width_kind(kind: &str) -> FlowKind {
-    match kind {
-        "Scene Heading" => FlowKind::SceneHeading,
-        "Transition" => FlowKind::Transition,
-        "Section" => FlowKind::Section,
-        "Synopsis" => FlowKind::Synopsis,
-        "Cold Opening" => FlowKind::ColdOpening,
-        "New Act" => FlowKind::NewAct,
-        "End of Act" => FlowKind::EndOfAct,
-        _ => FlowKind::Action,
-    }
 }
 
 #[derive(Serialize)]
@@ -1884,6 +2177,10 @@ struct LineBreakParityItem {
     kind: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     text_preview: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    dual_dialogue_group: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    dual_dialogue_side: Option<u8>,
     #[serde(skip_serializing_if = "Option::is_none")]
     width_chars: Option<usize>,
     expected_wrapped_lines: Vec<String>,

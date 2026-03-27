@@ -1,6 +1,11 @@
 // tests/pagination_composer_test.rs
 use jumpcut::pagination::composer::compose;
-use jumpcut::pagination::{Cohesion, FlowKind, FlowUnit, LayoutGeometry, SemanticUnit};
+use jumpcut::pagination::{
+    Cohesion, DialoguePart, DialoguePartKind, DialogueUnit, DualDialogueSide, DualDialogueUnit,
+    FlowKind, FlowUnit, LayoutGeometry, SemanticUnit,
+};
+use jumpcut::pagination::{build_semantic_screenplay, normalize_screenplay};
+use jumpcut::parse;
 
 fn mock_action(id: &str, text: &str) -> SemanticUnit {
     SemanticUnit::Flow(FlowUnit {
@@ -28,6 +33,68 @@ fn mock_scene_heading(id: &str, text: &str) -> SemanticUnit {
             keep_together: true,
             keep_with_next: true,
             can_split: false,
+        },
+    })
+}
+
+fn mock_dual_dialogue(
+    left_text: &str,
+    right_text: &str,
+) -> SemanticUnit {
+    SemanticUnit::DualDialogue(DualDialogueUnit {
+        group_id: "dual-00001".into(),
+        sides: vec![
+            DualDialogueSide {
+                side: 1,
+                dialogue: DialogueUnit {
+                    block_id: "block-left".into(),
+                    parts: vec![
+                        DialoguePart {
+                            element_id: "el-left-char".into(),
+                            kind: DialoguePartKind::Character,
+                            text: "LEFT".into(),
+                        },
+                        DialoguePart {
+                            element_id: "el-left-dialogue".into(),
+                            kind: DialoguePartKind::Dialogue,
+                            text: left_text.into(),
+                        },
+                    ],
+                    cohesion: Cohesion {
+                        keep_together: false,
+                        keep_with_next: false,
+                        can_split: true,
+                    },
+                },
+            },
+            DualDialogueSide {
+                side: 2,
+                dialogue: DialogueUnit {
+                    block_id: "block-right".into(),
+                    parts: vec![
+                        DialoguePart {
+                            element_id: "el-right-char".into(),
+                            kind: DialoguePartKind::Character,
+                            text: "RIGHT".into(),
+                        },
+                        DialoguePart {
+                            element_id: "el-right-dialogue".into(),
+                            kind: DialoguePartKind::Dialogue,
+                            text: right_text.into(),
+                        },
+                    ],
+                    cohesion: Cohesion {
+                        keep_together: false,
+                        keep_with_next: false,
+                        can_split: true,
+                    },
+                },
+            },
+        ],
+        cohesion: Cohesion {
+            keep_together: false,
+            keep_with_next: false,
+            can_split: true,
         },
     })
 }
@@ -182,4 +249,38 @@ fn composer_respects_1_5_line_height() {
         blocks_3[0].content_lines, expected, 
         "Expected {} visual lines for {} text lines @ 1.5", expected, baseline_lines
     );
+}
+
+#[test]
+fn composer_measures_dual_dialogue_with_special_column_width_and_uses_taller_side() {
+    let geometry = LayoutGeometry::default();
+    let unit = mock_dual_dialogue(
+        "12345678901234567890123456789 12345678901234567890123456789",
+        "Short right side.",
+    );
+    let units = [unit];
+
+    let blocks = compose(&units, &geometry);
+
+    assert_eq!(blocks.len(), 1);
+    assert_eq!(
+        blocks[0].content_lines, 3.0,
+        "Left side should measure as 1 character line + 2 dialogue lines at the special dual-dialogue width, and the shared block should take that taller height"
+    );
+}
+
+#[test]
+fn composer_recognizes_dual_dialogue_from_real_parser_output() {
+    let screenplay = parse(
+        "BRICK\n12345678901234567890123456789 12345678901234567890123456789\n\nSTEEL ^\nShort right side.",
+    );
+    let normalized = normalize_screenplay("dual", &screenplay);
+    let semantic = build_semantic_screenplay(normalized);
+    let geometry = LayoutGeometry::default();
+
+    let blocks = compose(&semantic.units, &geometry);
+
+    assert_eq!(blocks.len(), 1);
+    assert!(matches!(blocks[0].unit, SemanticUnit::DualDialogue(_)));
+    assert_eq!(blocks[0].content_lines, 3.0);
 }

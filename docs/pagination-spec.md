@@ -49,13 +49,15 @@ Each element type conforms to specific structural constraints defined relative t
   - **Left Column**
     - Character Left Indent: 2.5 inches
     - Character Right Indent: 4.875 inches
-    - Dialogue Left Indent: 1.0 inch
-    - Dialogue Right Indent: 4.875 inches
+    - Dialogue Left Indent: 1.5 inch
+    - Dialogue Right Indent: 4.375 inches
+    - Available Width: 2.875 inches (Should be 28 characters, but Final Draft allows 29, so we copy that)
   - **Right Column**
     - Character Left Indent: 5.875 inches
     - Character Right Indent: 7.5 inches
-    - Dialogue Left Indent: 5.125 inches
+    - Dialogue Left Indent: 4.625 inches
     - Dialogue Right Indent: 7.5 inches
+    - Available Width: 2.875 inches (Should be 28 characters, but Final Draft allows 29, so we copy that)
 - **Transition**
   - Left Indent: 5.5 inches
   - Right Indent: 7.1 inches

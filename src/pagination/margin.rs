@@ -19,6 +19,10 @@ pub struct FdxParagraphStyle {
 pub struct LayoutGeometry {
     pub action_left: f32,
     pub action_right: f32,
+    pub dual_dialogue_left_left: f32,
+    pub dual_dialogue_left_right: f32,
+    pub dual_dialogue_right_left: f32,
+    pub dual_dialogue_right_right: f32,
     pub character_left: f32,
     pub character_right: f32,
     pub dialogue_left: f32,
@@ -51,6 +55,10 @@ impl Default for LayoutGeometry {
         Self {
             action_left: 1.5,
             action_right: 7.5,
+            dual_dialogue_left_left: 1.5,
+            dual_dialogue_left_right: 4.375,
+            dual_dialogue_right_left: 4.625,
+            dual_dialogue_right_right: 7.5,
             character_left: 3.5,
             character_right: 7.25,
             dialogue_left: 2.5,
@@ -129,6 +137,14 @@ pub fn calculate_element_width(geometry: &LayoutGeometry, element_type: ElementT
     let (left_indent, right_indent) = match element_type {
         ElementType::Action => (geometry.action_left, geometry.action_right),
         ElementType::SceneHeading => (geometry.action_left, geometry.action_right), // Standard default
+        ElementType::DualDialogueLeft => (
+            geometry.dual_dialogue_left_left,
+            geometry.dual_dialogue_left_right,
+        ),
+        ElementType::DualDialogueRight => (
+            geometry.dual_dialogue_right_left,
+            geometry.dual_dialogue_right_right,
+        ),
         ElementType::Character => (geometry.character_left, geometry.character_right),
         ElementType::Dialogue => (geometry.dialogue_left, geometry.dialogue_right),
         ElementType::Parenthetical => (geometry.parenthetical_left, geometry.parenthetical_right),
@@ -141,7 +157,13 @@ pub fn calculate_element_width(geometry: &LayoutGeometry, element_type: ElementT
 
     // Apply the Final Draft specific quirk where the Action and Parenthetical grids explicitly 
     // hold an N+1 amount of characters compared to pure mathematical bounds.
-    if matches!(element_type, ElementType::Action | ElementType::Parenthetical) {
+    if matches!(
+        element_type,
+        ElementType::Action
+            | ElementType::Parenthetical
+            | ElementType::DualDialogueLeft
+            | ElementType::DualDialogueRight
+    ) {
         chars += 1;
     }
     

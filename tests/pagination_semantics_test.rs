@@ -138,6 +138,42 @@ fn it_creates_standalone_lyric_units_from_normalized_parser_output() {
     }
 }
 
+#[test]
+fn parsed_dual_dialogue_is_normalized_and_grouped_as_a_dual_dialogue_unit() {
+    let screenplay = parse("BRICK\nLeft side.\n\nSTEEL ^\nRight side.");
+    let normalized = normalize_screenplay("dual", &screenplay);
+
+    assert_eq!(normalized.elements.len(), 4);
+    assert_eq!(
+        normalized.elements[0].dual_dialogue_group,
+        normalized.elements[1].dual_dialogue_group
+    );
+    assert_eq!(
+        normalized.elements[2].dual_dialogue_group,
+        normalized.elements[3].dual_dialogue_group
+    );
+    assert_eq!(
+        normalized.elements[0].dual_dialogue_group,
+        normalized.elements[2].dual_dialogue_group
+    );
+    assert_eq!(normalized.elements[0].dual_dialogue_side, Some(1));
+    assert_eq!(normalized.elements[1].dual_dialogue_side, Some(1));
+    assert_eq!(normalized.elements[2].dual_dialogue_side, Some(2));
+    assert_eq!(normalized.elements[3].dual_dialogue_side, Some(2));
+
+    let semantic = build_semantic_screenplay(normalized);
+
+    assert_eq!(semantic.units.len(), 1);
+    match &semantic.units[0] {
+        SemanticUnit::DualDialogue(unit) => {
+            assert_eq!(unit.sides.len(), 2);
+            assert_eq!(unit.sides[0].side, 1);
+            assert_eq!(unit.sides[1].side, 2);
+        }
+        other => panic!("expected dual dialogue unit, got {other:?}"),
+    }
+}
+
 fn normalized_element(element_id: &str, kind: &str, text: &str) -> NormalizedElement {
     NormalizedElement {
         element_id: element_id.into(),
