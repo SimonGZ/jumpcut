@@ -1,6 +1,8 @@
 mod comparison;
 mod fixtures;
 mod ir;
+pub mod line_break_diagnostics;
+pub mod page_break_diagnostics;
 mod normalized;
 mod semantic;
 pub mod wrapping;

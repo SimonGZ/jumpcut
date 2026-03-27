@@ -200,6 +200,37 @@ If you provide the `--metadata` flag without a file path, JumpCut will look for 
     # Uses 'common_header.fountain' from your templates directory
     ```
 
+## Pagination Diagnostics
+
+The pagination/parity harness includes several ignored tests that generate review packets and debug artifacts under `target/pagination-debug/`.
+
+If you want a single command that rebuilds all of those diagnostics, install [`just`](https://github.com/casey/just):
+
+```sh
+cargo install just
+```
+
+Then run:
+
+```sh
+just pagination-diagnostics
+```
+
+That recipe calls the dedicated Rust diagnostics tool:
+
+```sh
+cargo run --bin pagination-diagnostics -- all
+```
+
+The tool currently regenerates:
+
+- Big Fish review packet
+- Big Fish line-break parity packet
+- Little Women windowed review packet
+- Little Women full-script page-break review packet
+- Little Women line-break parity packet
+- the extra paginated-output JSON dumps and visual-comparison export used for manual debugging
+
 ## Development Plans
 
 I have open-sourced this project in case it can be useful to other developers and screenwriters. But I mostly develop it for my own use on my own projects. Features are added as-needed for my workflow.
