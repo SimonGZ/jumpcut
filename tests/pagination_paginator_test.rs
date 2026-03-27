@@ -61,6 +61,29 @@ fn paginator_strips_intrinsic_padding_from_elements_landing_at_the_top_of_a_page
 }
 
 #[test]
+fn paginator_ignores_page_start_markers_when_stripping_top_of_page_spacing() {
+    let geometry = LayoutGeometry::default();
+    let page_limit = 54.0;
+    let page_start = SemanticUnit::PageStart(PageStartUnit { source_element_id: "page-start".into() });
+    let scene_heading = SemanticUnit::PageStart(PageStartUnit { source_element_id: "scene-heading".into() });
+
+    let blocks = vec![
+        mock_block(&page_start, 0.0, 0.0, false, false, 0.0),
+        mock_block(&scene_heading, 1.0, 2.0, false, false, 0.0),
+    ];
+
+    let pages = paginate(&blocks, page_limit, &geometry);
+
+    assert_eq!(pages.len(), 1);
+    assert_eq!(pages[0].blocks.len(), 2);
+    assert_eq!(
+        pages[0].blocks[1].spacing_above,
+        0.0,
+        "the first visible block on a page should strip intrinsic spacing even if a PageStart marker precedes it",
+    );
+}
+
+#[test]
 fn paginator_prevents_stranding_blocks_that_require_keep_with_next() {
     let geometry = LayoutGeometry::default();
     let page_limit = 54.0;

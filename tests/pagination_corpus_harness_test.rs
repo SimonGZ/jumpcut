@@ -3,7 +3,7 @@ use jumpcut::pagination::{
     normalize_screenplay, wrapping::ElementType, ComparisonIssueKind,
     DialoguePartKind, FdxExtractedSettings, FlowKind, Fragment, LayoutGeometry, LineRange,
     NormalizedElement, NormalizedScreenplay, PageBreakFixture, PageBreakFixtureSourceRefs,
-    PaginatedScreenplay, PaginationConfig,
+    PaginatedScreenplay, PaginationConfig, SemanticUnit,
 };
 use jumpcut::parse;
 use serde::de::DeserializeOwned;
@@ -259,6 +259,7 @@ fn build_big_fish_review_packet() {
         let actual_path = debug_dir.join(format!("{stem}.actual.page-breaks.json"));
         let comparison_path = debug_dir.join(format!("{stem}.comparison-report.json"));
         let pdf_path = debug_dir.join(format!("{stem}.pdf-line-counts.json"));
+        let pseudo_pdf_path = debug_dir.join(format!("{stem}.pseudo-pdf.txt"));
         fs::write(
             &actual_path,
             serde_json::to_string_pretty(&debug_fixture).unwrap(),
@@ -288,6 +289,21 @@ fn build_big_fish_review_packet() {
         fs::write(
             &pdf_path,
             serde_json::to_string_pretty(&pdf_line_counts).unwrap(),
+        )
+        .unwrap();
+        fs::write(
+            &pseudo_pdf_path,
+            render_pseudo_pdf_output(&run.actual, &normalized, run.lines_per_page, &run.geometry),
+        )
+        .unwrap();
+        fs::write(
+            &pseudo_pdf_path,
+            render_pseudo_pdf_output(&run.actual, &normalized, run.lines_per_page, &run.geometry),
+        )
+        .unwrap();
+        fs::write(
+            &pseudo_pdf_path,
+            render_pseudo_pdf_output(&run.actual, &normalized, run.lines_per_page, &run.geometry),
         )
         .unwrap();
 
@@ -360,6 +376,7 @@ fn build_little_women_review_packet() {
         let actual_path = debug_dir.join(format!("{stem}.actual.page-breaks.json"));
         let comparison_path = debug_dir.join(format!("{stem}.comparison-report.json"));
         let pdf_path = debug_dir.join(format!("{stem}.pdf-line-counts.json"));
+        let pseudo_pdf_path = debug_dir.join(format!("{stem}.pseudo-pdf.txt"));
         fs::write(
             &actual_path,
             serde_json::to_string_pretty(&debug_fixture).unwrap(),
@@ -389,6 +406,11 @@ fn build_little_women_review_packet() {
         fs::write(
             &pdf_path,
             serde_json::to_string_pretty(&pdf_line_counts).unwrap(),
+        )
+        .unwrap();
+        fs::write(
+            &pseudo_pdf_path,
+            render_pseudo_pdf_output(&run.actual, &normalized, run.lines_per_page, &run.geometry),
         )
         .unwrap();
 
@@ -1224,6 +1246,7 @@ fn paginated_to_debug_fixture(
     previews: &HashMap<String, String>,
 ) -> DebugPageBreakFixture {
     let elements = normalized_element_map(normalized);
+    let paged_layout_totals = paged_layout_page_totals(normalized, lines_per_page, geometry);
 
     DebugPageBreakFixture {
         screenplay: actual.screenplay.clone(),
@@ -1278,7 +1301,10 @@ fn paginated_to_debug_fixture(
         pages: actual
             .pages
             .iter()
-            .map(|page| debug_page(page, &elements, geometry, geometry, previews))
+            .zip(paged_layout_totals)
+            .map(|(page, block_total_lines)| {
+                debug_page(page, &elements, geometry, geometry, previews, block_total_lines)
+            })
             .collect(),
     }
 }
@@ -1353,37 +1379,215 @@ fn debug_page(
     _measurement: &LayoutGeometry, // Renamed to _measurement as it's not used directly
     geometry: &LayoutGeometry,
     previews: &HashMap<String, String>,
+    block_total_lines: f32,
 ) -> DebugPageBreakFixturePage {
-    let mut measured_total_lines = 0;
     let mut items = Vec::with_capacity(page.items.len());
     for item in &page.items {
         let items_measured = measured_lines_for_item(item, elements, geometry);
         let measured_lines = items_measured.content_lines;
-        let spacing_before_lines = items_measured.spacing_above;
+        let intrinsic_spacing_before_lines = items_measured.spacing_above;
+        let width_chars = items_measured.width_chars;
+        let wrapped_lines = items_measured.wrapped_lines;
 
         items.push(DebugPageBreakItem {
             element_id: item.element_id.clone(),
             kind: item.kind.clone(),
             text_preview: previews.get(&item.element_id).cloned(),
             measured_lines,
-            spacing_before_lines,
-            intrinsic_top_spacing_lines: 0.0, // Deprecated in favor of block spacing
-            intrinsic_bottom_spacing_lines: 0.0,
+            intrinsic_spacing_before_lines,
+            width_chars,
+            wrapped_lines,
             fragment: item.fragment.clone(),
             line_range: item.line_range,
             block_id: item.block_id.clone(),
             dual_dialogue_group: item.dual_dialogue_group.clone(),
             dual_dialogue_side: item.dual_dialogue_side,
         });
-
-        measured_total_lines += (measured_lines + spacing_before_lines) as u32; // Rough approximation for debug JSON
     }
 
     DebugPageBreakFixturePage {
         number: page.metadata.number,
-        measured_total_lines,
+        block_total_lines,
+        item_count: page.items.len(),
+        block_count: page.blocks.len(),
         items,
     }
+}
+
+fn paged_layout_page_totals(
+    normalized: &NormalizedScreenplay,
+    lines_per_page: f32,
+    geometry: &LayoutGeometry,
+) -> Vec<f32> {
+    let semantic = build_semantic_screenplay(normalized.clone());
+    let blocks = jumpcut::pagination::composer::compose(&semantic.units, geometry);
+    jumpcut::pagination::paginator::paginate(&blocks, lines_per_page, geometry)
+        .into_iter()
+        .filter(|page| {
+            page.blocks
+                .iter()
+                .any(|block| !matches!(block.unit, SemanticUnit::PageStart(_)))
+        })
+        .map(|page| {
+            page.blocks
+                .iter()
+                .map(|block| block.spacing_above + block.content_lines)
+                .sum()
+        })
+        .collect()
+}
+
+fn render_pseudo_pdf_output(
+    actual: &PaginatedScreenplay,
+    normalized: &NormalizedScreenplay,
+    lines_per_page: f32,
+    geometry: &LayoutGeometry,
+) -> String {
+    let semantic = build_semantic_screenplay(normalized.clone());
+    let blocks = jumpcut::pagination::composer::compose(&semantic.units, geometry);
+    let layout_pages = jumpcut::pagination::paginator::paginate(&blocks, lines_per_page, geometry)
+        .into_iter()
+        .filter(|page| {
+            page.blocks
+                .iter()
+                .any(|block| !matches!(block.unit, SemanticUnit::PageStart(_)))
+        });
+
+    let mut out = String::new();
+    for (page, layout_page) in actual.pages.iter().zip(layout_pages) {
+        out.push_str(&format!("=== PAGE {} START ===\n", page.metadata.number));
+        let mut line_no: u32 = 1;
+
+        for block in &layout_page.blocks {
+            for _ in 0..(block.spacing_above.round() as usize) {
+                out.push_str(&format!("{line_no:02}:\n"));
+                line_no += 1;
+            }
+
+            for line in render_layout_block_lines(block, geometry) {
+                out.push_str(&format!("{line_no:02}: {line}\n"));
+                line_no += 1;
+            }
+        }
+
+        out.push_str(&format!("=== PAGE {} END ===\n\n", page.metadata.number));
+    }
+
+    out
+}
+
+fn render_layout_block_lines(
+    block: &jumpcut::pagination::composer::LayoutBlock<'_>,
+    geometry: &LayoutGeometry,
+) -> Vec<String> {
+    let all_lines = render_semantic_unit_lines(block.unit, geometry);
+    let target_line_count = (block.content_lines / geometry.line_height).round() as usize;
+
+    match block.fragment {
+        Fragment::Whole => all_lines,
+        Fragment::ContinuedToNext => all_lines.into_iter().take(target_line_count).collect(),
+        Fragment::ContinuedFromPrev => {
+            let len = all_lines.len();
+            all_lines
+                .into_iter()
+                .skip(len.saturating_sub(target_line_count))
+                .collect()
+        }
+        Fragment::ContinuedFromPrevAndToNext => all_lines
+            .into_iter()
+            .take(target_line_count)
+            .collect(),
+    }
+}
+
+fn render_semantic_unit_lines(unit: &SemanticUnit, geometry: &LayoutGeometry) -> Vec<String> {
+    match unit {
+        SemanticUnit::PageStart(_) => Vec::new(),
+        SemanticUnit::Flow(flow) => {
+            let element_type = ElementType::from_flow_kind(&flow.kind);
+            render_indented_lines(&flow.text, element_type, geometry)
+        }
+        SemanticUnit::Lyric(lyric) => render_indented_lines(&lyric.text, ElementType::Lyric, geometry),
+        SemanticUnit::Dialogue(dialogue) => dialogue
+            .parts
+            .iter()
+            .flat_map(|part| {
+                let element_type = ElementType::from_dialogue_part_kind(&part.kind);
+                render_indented_lines(&part.text, element_type, geometry)
+            })
+            .collect(),
+        SemanticUnit::DualDialogue(dual) => {
+            let left_lines = dual
+                .sides
+                .iter()
+                .find(|side| side.side == 1)
+                .map(|side| render_dual_dialogue_side_lines(&side.dialogue, ElementType::DualDialogueLeft, geometry))
+                .unwrap_or_default();
+            let right_lines = dual
+                .sides
+                .iter()
+                .find(|side| side.side == 2)
+                .map(|side| render_dual_dialogue_side_lines(&side.dialogue, ElementType::DualDialogueRight, geometry))
+                .unwrap_or_default();
+
+            let right_indent = indent_spaces_for_element_type(ElementType::DualDialogueRight, geometry);
+            let mut lines = Vec::new();
+            for index in 0..left_lines.len().max(right_lines.len()) {
+                let left = left_lines.get(index).cloned().unwrap_or_default();
+                let right = right_lines.get(index).cloned().unwrap_or_default();
+
+                if right.is_empty() {
+                    lines.push(left);
+                } else if left.is_empty() {
+                    lines.push(format!("{:width$}{}", "", right, width = right_indent));
+                } else {
+                    lines.push(format!("{left:width$}{right}", width = right_indent));
+                }
+            }
+            lines
+        }
+    }
+}
+
+fn render_dual_dialogue_side_lines(
+    dialogue: &jumpcut::pagination::DialogueUnit,
+    element_type: ElementType,
+    geometry: &LayoutGeometry,
+) -> Vec<String> {
+    let config = jumpcut::pagination::wrapping::WrapConfig::from_geometry(geometry, element_type);
+    dialogue
+        .parts
+        .iter()
+        .flat_map(|part| jumpcut::pagination::wrapping::wrap_text_for_element(&part.text, &config))
+        .collect()
+}
+
+fn render_indented_lines(
+    text: &str,
+    element_type: ElementType,
+    geometry: &LayoutGeometry,
+) -> Vec<String> {
+    let config = jumpcut::pagination::wrapping::WrapConfig::from_geometry(geometry, element_type);
+    let indent = " ".repeat(indent_spaces_for_element_type(element_type, geometry));
+    jumpcut::pagination::wrapping::wrap_text_for_element(text, &config)
+        .into_iter()
+        .map(|line| format!("{indent}{line}"))
+        .collect()
+}
+
+fn indent_spaces_for_element_type(element_type: ElementType, geometry: &LayoutGeometry) -> usize {
+    let left_indent_in = match element_type {
+        ElementType::Action | ElementType::SceneHeading => geometry.action_left,
+        ElementType::Character => geometry.character_left,
+        ElementType::Dialogue => geometry.dialogue_left,
+        ElementType::Parenthetical => geometry.parenthetical_left,
+        ElementType::Transition => geometry.transition_left,
+        ElementType::Lyric => geometry.lyric_left,
+        ElementType::DualDialogueLeft => geometry.dual_dialogue_left_left,
+        ElementType::DualDialogueRight => geometry.dual_dialogue_right_left,
+    };
+
+    ((left_indent_in - geometry.action_left) * geometry.cpi).floor() as usize
 }
 
 fn text_preview(text: &str) -> String {
@@ -1675,13 +1879,14 @@ Read files in this order:\n\n\
 - `comparison-report.json` is the quickest way to see where pages or fragments diverge.\n\
 - `actual.page-breaks.json` is the current engine output in canonical fixture shape.\n\
 - `pdf-line-counts.json` gives exact-unique PDF line counts where text alignment is recoverable.\n\
+- `pseudo-pdf.txt` is a plain-text rendering of the current engine's predicted page lines and blank spacing.\n\
 - `tests/fixtures/corpus/public/little-women/source/source.fountain` is the vendored local source text.\n\n\
 Current window summary:\n\n",
     );
 
     for summary in summaries {
         review.push_str(&format!(
-            "- `{stem}` pages {start}-{end}: lines_per_page={lines}, total={total}, wrong_page={wrong_page}, wrong_fragment={wrong_fragment}, missing={missing}, unexpected={unexpected}\n  canonical: `{fixture}`\n  actual: `target/pagination-debug/little-women-review/{stem}.actual.page-breaks.json`\n  report: `target/pagination-debug/little-women-review/{stem}.comparison-report.json`\n  pdf: `target/pagination-debug/little-women-review/{stem}.pdf-line-counts.json`\n",
+            "- `{stem}` pages {start}-{end}: lines_per_page={lines}, total={total}, wrong_page={wrong_page}, wrong_fragment={wrong_fragment}, missing={missing}, unexpected={unexpected}\n  canonical: `{fixture}`\n  actual: `target/pagination-debug/little-women-review/{stem}.actual.page-breaks.json`\n  report: `target/pagination-debug/little-women-review/{stem}.comparison-report.json`\n  pdf: `target/pagination-debug/little-women-review/{stem}.pdf-line-counts.json`\n  pseudo: `target/pagination-debug/little-women-review/{stem}.pseudo-pdf.txt`\n",
             stem = summary.stem,
             start = summary.page_range.first().copied().unwrap_or_default(),
             end = summary.page_range.last().copied().unwrap_or_default(),
@@ -2063,6 +2268,8 @@ Read these first:\n\n",
 struct MeasuredItem {
     content_lines: f32,
     spacing_above: f32,
+    width_chars: usize,
+    wrapped_lines: Vec<String>,
 }
 
 fn measured_lines_for_item(
@@ -2071,7 +2278,12 @@ fn measured_lines_for_item(
     geometry: &LayoutGeometry,
 ) -> MeasuredItem {
     let Some(element) = elements.get(&item.element_id) else {
-        return MeasuredItem { content_lines: 0.0, spacing_above: 0.0 };
+        return MeasuredItem {
+            content_lines: 0.0,
+            spacing_above: 0.0,
+            width_chars: 0,
+            wrapped_lines: Vec::new(),
+        };
     };
 
     let element_type = jumpcut::pagination::wrapping::ElementType::from_item_kind(
@@ -2084,7 +2296,8 @@ fn measured_lines_for_item(
         Some((start, end)) => slice_explicit_lines(&element.text, start, end),
         None => element.text.clone(),
     };
-    let content_lines = jumpcut::pagination::wrapping::wrap_text_for_element(&text, &config).len() as f32 * geometry.line_height;
+    let wrapped_lines = jumpcut::pagination::wrapping::wrap_text_for_element(&text, &config);
+    let content_lines = wrapped_lines.len() as f32 * geometry.line_height;
 
     let spacing_above = match element_type {
         jumpcut::pagination::wrapping::ElementType::Action => geometry.action_spacing_before,
@@ -2098,6 +2311,8 @@ fn measured_lines_for_item(
     MeasuredItem {
         content_lines,
         spacing_above,
+        width_chars: config.exact_width_chars,
+        wrapped_lines,
     }
 }
 
@@ -2217,7 +2432,9 @@ struct DebugPageBreakFixture {
 #[derive(Serialize)]
 struct DebugPageBreakFixturePage {
     number: u32,
-    measured_total_lines: u32,
+    block_total_lines: f32,
+    item_count: usize,
+    block_count: usize,
     items: Vec<DebugPageBreakItem>,
 }
 
@@ -2228,9 +2445,9 @@ struct DebugPageBreakItem {
     #[serde(skip_serializing_if = "Option::is_none")]
     text_preview: Option<String>,
     measured_lines: f32,
-    spacing_before_lines: f32,
-    intrinsic_top_spacing_lines: f32,
-    intrinsic_bottom_spacing_lines: f32,
+    intrinsic_spacing_before_lines: f32,
+    width_chars: usize,
+    wrapped_lines: Vec<String>,
     fragment: jumpcut::pagination::Fragment,
     line_range: Option<(u32, u32)>,
     block_id: Option<String>,
