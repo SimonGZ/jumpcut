@@ -2,7 +2,6 @@ use crate::pagination::fixtures::{
     Fragment, NormalizedElement, NormalizedScreenplay, PageBreakFixture,
     PageBreakFixtureSourceRefs, PaginationScope,
 };
-use crate::pagination::measurement::MeasurementConfig;
 use crate::pagination::semantic::{
     DialoguePartKind, DialogueUnit, FlowKind, FlowUnit, SemanticScreenplay,
     SemanticUnit,
@@ -76,15 +75,15 @@ pub struct PaginatedScreenplay {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct PaginationConfig {
-    pub lines_per_page: u32,
-    pub measurement: MeasurementConfig,
+    pub lines_per_page: f32,
+    pub geometry: LayoutGeometry,
 }
 
 impl PaginationConfig {
-    pub fn screenplay(lines_per_page: u32) -> Self {
+    pub fn screenplay(lines_per_page: f32) -> Self {
         Self {
             lines_per_page,
-            measurement: MeasurementConfig::screenplay_default(),
+            geometry: LayoutGeometry::default(),
         }
     }
 }
@@ -100,10 +99,10 @@ impl PaginatedScreenplay {
             .starting_page_number
             .unwrap_or_else(|| first_page_number(&scope));
         let style_profile = style_profile.into();
-        let geometry = LayoutGeometry::default();
+        let geometry = &config.geometry;
 
-        let blocks = crate::pagination::composer::compose(&semantic.units, &geometry);
-        let paged_blocks = crate::pagination::paginator::paginate(&blocks, config.lines_per_page as f32, &geometry);
+        let blocks = crate::pagination::composer::compose(&semantic.units, geometry);
+        let paged_blocks = crate::pagination::paginator::paginate(&blocks, config.lines_per_page, geometry);
 
         let mut pages: Vec<Page> = Vec::new();
 

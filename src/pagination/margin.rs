@@ -1,4 +1,19 @@
+use std::collections::BTreeMap;
+use serde::Deserialize;
 use crate::pagination::wrapping::ElementType;
+
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+pub struct FdxExtractedSettings {
+    pub paragraph_styles: BTreeMap<String, FdxParagraphStyle>,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+pub struct FdxParagraphStyle {
+    pub left_indent: f32,
+    pub right_indent: f32,
+    pub space_before: f32,
+    pub spacing: f32,
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct LayoutGeometry {
@@ -17,11 +32,11 @@ pub struct LayoutGeometry {
     pub cpi: f32,
 
     // Vertical Spacing (Blank lines before element)
-    pub action_spacing_before: usize,
-    pub scene_heading_spacing_before: usize,
-    pub character_spacing_before: usize,
-    pub transition_spacing_before: usize,
-    pub lyric_spacing_before: usize,
+    pub action_spacing_before: f32,
+    pub scene_heading_spacing_before: f32,
+    pub character_spacing_before: f32,
+    pub transition_spacing_before: f32,
+    pub lyric_spacing_before: f32,
 
     // Orphan/Widow Limits
     pub orphan_limit: usize,
@@ -48,17 +63,64 @@ impl Default for LayoutGeometry {
             lyric_right: 7.375,
             cpi: 10.0,
 
-            action_spacing_before: 1,
-            scene_heading_spacing_before: 2,
-            character_spacing_before: 1,
-            transition_spacing_before: 1,
-            lyric_spacing_before: 1,
+            action_spacing_before: 1.0,
+            scene_heading_spacing_before: 2.0,
+            character_spacing_before: 1.0,
+            transition_spacing_before: 1.0,
+            lyric_spacing_before: 1.0,
 
             orphan_limit: 2,
             widow_limit: 2,
             line_height: 1.0,
         }
     }
+}
+
+impl LayoutGeometry {
+    pub fn from_fdx_settings(settings: &FdxExtractedSettings) -> Self {
+        let mut geometry = Self::default();
+
+        let lpi = 6.0; // Default Final Draft lines per inch
+
+        if let Some(style) = settings.paragraph_styles.get("Action") {
+            geometry.action_left = style.left_indent;
+            geometry.action_right = style.right_indent;
+            geometry.action_spacing_before = spacing_lines_from_points(style.space_before, lpi);
+        }
+        if let Some(style) = settings.paragraph_styles.get("Scene Heading") {
+            geometry.scene_heading_spacing_before = spacing_lines_from_points(style.space_before, lpi);
+        }
+        if let Some(style) = settings.paragraph_styles.get("Dialogue") {
+            geometry.dialogue_left = style.left_indent;
+            geometry.dialogue_right = style.right_indent;
+        }
+        if let Some(style) = settings.paragraph_styles.get("Character") {
+            geometry.character_left = style.left_indent;
+            geometry.character_right = style.right_indent;
+            geometry.character_spacing_before = spacing_lines_from_points(style.space_before, lpi);
+        }
+        if let Some(style) = settings.paragraph_styles.get("Parenthetical") {
+            geometry.parenthetical_left = style.left_indent;
+            geometry.parenthetical_right = style.right_indent;
+        }
+        if let Some(style) = settings.paragraph_styles.get("Lyric") {
+            geometry.lyric_left = style.left_indent;
+            geometry.lyric_right = style.right_indent;
+            geometry.lyric_spacing_before = spacing_lines_from_points(style.space_before, lpi);
+        }
+        if let Some(style) = settings.paragraph_styles.get("Transition") {
+            geometry.transition_left = style.left_indent;
+            geometry.transition_right = style.right_indent;
+            geometry.transition_spacing_before = spacing_lines_from_points(style.space_before, lpi);
+        }
+
+        geometry
+    }
+}
+
+fn spacing_lines_from_points(space_before_points: f32, lines_per_inch: f32) -> f32 {
+    let points_per_line = 72.0 / lines_per_inch;
+    space_before_points / points_per_line
 }
 
 /// Calculates the exact character capacity for an element given its physical 

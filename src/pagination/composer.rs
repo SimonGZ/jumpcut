@@ -36,7 +36,7 @@ pub fn compose<'a>(units: &'a [SemanticUnit], geometry: &LayoutGeometry) -> Vec<
                     FlowKind::SceneHeading => geometry.scene_heading_spacing_before,
                     FlowKind::Action => geometry.action_spacing_before,
                     FlowKind::Transition => geometry.transition_spacing_before,
-                    _ => 1,
+                    _ => 1.0,
                 };
                 
                 (lines.len(), sp_above)
@@ -73,13 +73,13 @@ pub fn compose<'a>(units: &'a [SemanticUnit], geometry: &LayoutGeometry) -> Vec<
                 let lines = wrap_text_for_element(&lyric.text, &config).len();
                 (lines, geometry.lyric_spacing_before)
             },
-            SemanticUnit::PageStart(_) => (0, 0),
+            SemanticUnit::PageStart(_) => (0, 0.0),
         };
 
         measured.push(LayoutBlock {
             unit,
             fragment: Fragment::Whole,
-            spacing_above: spacing_above as f32,
+            spacing_above,
             content_lines: content_lines as f32 * geometry.line_height,
             keep_with_next: match unit {
                 SemanticUnit::Flow(flow) => flow.cohesion.keep_with_next,

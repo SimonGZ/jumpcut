@@ -12,6 +12,26 @@ pub enum ElementType {
     Lyric,
 }
 
+impl ElementType {
+    pub fn from_flow_kind(kind: &crate::pagination::FlowKind) -> Self {
+        match kind {
+            crate::pagination::FlowKind::Action => Self::Action,
+            crate::pagination::FlowKind::SceneHeading => Self::SceneHeading,
+            crate::pagination::FlowKind::Transition => Self::Transition,
+            _ => Self::Action,
+        }
+    }
+
+    pub fn from_dialogue_part_kind(kind: &crate::pagination::DialoguePartKind) -> Self {
+        match kind {
+            crate::pagination::DialoguePartKind::Character => Self::Character,
+            crate::pagination::DialoguePartKind::Dialogue => Self::Dialogue,
+            crate::pagination::DialoguePartKind::Parenthetical => Self::Parenthetical,
+            crate::pagination::DialoguePartKind::Lyric => Self::Lyric,
+        }
+    }
+}
+
 pub struct WrapConfig {
     pub exact_width_chars: usize,
 }

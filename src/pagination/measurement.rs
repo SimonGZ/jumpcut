@@ -18,18 +18,18 @@ pub struct FdxParagraphStyle {
     pub spacing: f32,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct UnitMeasurement {
-    pub content_lines: u32,
-    pub top_spacing_lines: u32,
-    pub bottom_spacing_lines: u32,
+    pub content_lines: f32,
+    pub top_spacing_lines: f32,
+    pub bottom_spacing_lines: f32,
 }
 
 impl UnitMeasurement {
     pub fn placement_lines_with_prev(
         &self,
         previous: Option<&UnitMeasurement>,
-    ) -> u32 {
+    ) -> f32 {
         self.content_lines + boundary_spacing_lines(previous, Some(self))
     }
 }
@@ -58,22 +58,22 @@ pub struct MeasurementConfig {
     pub lyric_right_indent_in: f32,
     pub transition_left_indent_in: f32,
     pub transition_right_indent_in: f32,
-    pub action_top_spacing_lines: u32,
-    pub action_bottom_spacing_lines: u32,
-    pub scene_heading_top_spacing_lines: u32,
-    pub scene_heading_bottom_spacing_lines: u32,
-    pub cold_opening_top_spacing_lines: u32,
-    pub cold_opening_bottom_spacing_lines: u32,
-    pub new_act_top_spacing_lines: u32,
-    pub new_act_bottom_spacing_lines: u32,
-    pub end_of_act_top_spacing_lines: u32,
-    pub end_of_act_bottom_spacing_lines: u32,
-    pub transition_top_spacing_lines: u32,
-    pub transition_bottom_spacing_lines: u32,
-    pub dialogue_top_spacing_lines: u32,
-    pub dialogue_bottom_spacing_lines: u32,
-    pub lyric_top_spacing_lines: u32,
-    pub lyric_bottom_spacing_lines: u32,
+    pub action_top_spacing_lines: f32,
+    pub action_bottom_spacing_lines: f32,
+    pub scene_heading_top_spacing_lines: f32,
+    pub scene_heading_bottom_spacing_lines: f32,
+    pub cold_opening_top_spacing_lines: f32,
+    pub cold_opening_bottom_spacing_lines: f32,
+    pub new_act_top_spacing_lines: f32,
+    pub new_act_bottom_spacing_lines: f32,
+    pub end_of_act_top_spacing_lines: f32,
+    pub end_of_act_bottom_spacing_lines: f32,
+    pub transition_top_spacing_lines: f32,
+    pub transition_bottom_spacing_lines: f32,
+    pub dialogue_top_spacing_lines: f32,
+    pub dialogue_bottom_spacing_lines: f32,
+    pub lyric_top_spacing_lines: f32,
+    pub lyric_bottom_spacing_lines: f32,
 }
 
 impl MeasurementConfig {
@@ -101,22 +101,22 @@ impl MeasurementConfig {
             lyric_right_indent_in: 7.38,
             transition_left_indent_in: 5.50,
             transition_right_indent_in: 7.10,
-            action_top_spacing_lines: 0,
-            action_bottom_spacing_lines: 0,
-            scene_heading_top_spacing_lines: 0,
-            scene_heading_bottom_spacing_lines: 0,
-            cold_opening_top_spacing_lines: 0,
-            cold_opening_bottom_spacing_lines: 0,
-            new_act_top_spacing_lines: 0,
-            new_act_bottom_spacing_lines: 0,
-            end_of_act_top_spacing_lines: 0,
-            end_of_act_bottom_spacing_lines: 0,
-            transition_top_spacing_lines: 0,
-            transition_bottom_spacing_lines: 0,
-            dialogue_top_spacing_lines: 0,
-            dialogue_bottom_spacing_lines: 0,
-            lyric_top_spacing_lines: 0,
-            lyric_bottom_spacing_lines: 0,
+            action_top_spacing_lines: 0.0,
+            action_bottom_spacing_lines: 0.0,
+            scene_heading_top_spacing_lines: 0.0,
+            scene_heading_bottom_spacing_lines: 0.0,
+            cold_opening_top_spacing_lines: 0.0,
+            cold_opening_bottom_spacing_lines: 0.0,
+            new_act_top_spacing_lines: 0.0,
+            new_act_bottom_spacing_lines: 0.0,
+            end_of_act_top_spacing_lines: 0.0,
+            end_of_act_bottom_spacing_lines: 0.0,
+            transition_top_spacing_lines: 0.0,
+            transition_bottom_spacing_lines: 0.0,
+            dialogue_top_spacing_lines: 0.0,
+            dialogue_bottom_spacing_lines: 0.0,
+            lyric_top_spacing_lines: 0.0,
+            lyric_bottom_spacing_lines: 0.0,
         }
     }
 
@@ -185,7 +185,7 @@ impl MeasurementConfig {
         chars
     }
 
-    pub fn spacing_for_flow_kind(&self, kind: &FlowKind) -> (u32, u32) {
+    pub fn spacing_for_flow_kind(&self, kind: &FlowKind) -> (f32, f32) {
         match kind {
             FlowKind::SceneHeading => (
                 self.scene_heading_top_spacing_lines,
@@ -214,14 +214,14 @@ impl MeasurementConfig {
         }
     }
 
-    pub fn spacing_for_dialogue_unit(&self) -> (u32, u32) {
+    pub fn spacing_for_dialogue_unit(&self) -> (f32, f32) {
         (
             self.dialogue_top_spacing_lines,
             self.dialogue_bottom_spacing_lines,
         )
     }
 
-    pub fn spacing_for_lyric_unit(&self) -> (u32, u32) {
+    pub fn spacing_for_lyric_unit(&self) -> (f32, f32) {
         (self.lyric_top_spacing_lines, self.lyric_bottom_spacing_lines)
     }
 
@@ -233,35 +233,35 @@ impl MeasurementConfig {
             measurement.action_right_indent_in = style.right_indent;
             measurement.action_top_spacing_lines =
                 spacing_lines_from_points(style.space_before, measurement.lines_per_inch);
-            measurement.action_bottom_spacing_lines = 0;
+            measurement.action_bottom_spacing_lines = 0.0;
         }
         if let Some(style) = settings.paragraph_styles.get("Scene Heading") {
             measurement.scene_heading_left_indent_in = style.left_indent;
             measurement.scene_heading_right_indent_in = style.right_indent;
             measurement.scene_heading_top_spacing_lines =
                 spacing_lines_from_points(style.space_before, measurement.lines_per_inch);
-            measurement.scene_heading_bottom_spacing_lines = 0;
+            measurement.scene_heading_bottom_spacing_lines = 0.0;
         }
         if let Some(style) = settings.paragraph_styles.get("Cold Opening") {
             measurement.cold_opening_left_indent_in = style.left_indent;
             measurement.cold_opening_right_indent_in = style.right_indent;
             measurement.cold_opening_top_spacing_lines =
                 spacing_lines_from_points(style.space_before, measurement.lines_per_inch);
-            measurement.cold_opening_bottom_spacing_lines = 0;
+            measurement.cold_opening_bottom_spacing_lines = 0.0;
         }
         if let Some(style) = settings.paragraph_styles.get("New Act") {
             measurement.new_act_left_indent_in = style.left_indent;
             measurement.new_act_right_indent_in = style.right_indent;
             measurement.new_act_top_spacing_lines =
                 spacing_lines_from_points(style.space_before, measurement.lines_per_inch);
-            measurement.new_act_bottom_spacing_lines = 0;
+            measurement.new_act_bottom_spacing_lines = 0.0;
         }
         if let Some(style) = settings.paragraph_styles.get("End of Act") {
             measurement.end_of_act_left_indent_in = style.left_indent;
             measurement.end_of_act_right_indent_in = style.right_indent;
             measurement.end_of_act_top_spacing_lines =
                 spacing_lines_from_points(style.space_before, measurement.lines_per_inch);
-            measurement.end_of_act_bottom_spacing_lines = 0;
+            measurement.end_of_act_bottom_spacing_lines = 0.0;
         }
         if let Some(style) = settings.paragraph_styles.get("Dialogue") {
             measurement.dialogue_left_indent_in = style.left_indent;
@@ -272,7 +272,7 @@ impl MeasurementConfig {
             measurement.character_right_indent_in = style.right_indent;
             measurement.dialogue_top_spacing_lines =
                 spacing_lines_from_points(style.space_before, measurement.lines_per_inch);
-            measurement.dialogue_bottom_spacing_lines = 0;
+            measurement.dialogue_bottom_spacing_lines = 0.0;
         }
         if let Some(style) = settings.paragraph_styles.get("Parenthetical") {
             measurement.parenthetical_left_indent_in = style.left_indent;
@@ -283,23 +283,23 @@ impl MeasurementConfig {
             measurement.lyric_right_indent_in = style.right_indent;
             measurement.lyric_top_spacing_lines =
                 spacing_lines_from_points(style.space_before, measurement.lines_per_inch);
-            measurement.lyric_bottom_spacing_lines = 0;
+            measurement.lyric_bottom_spacing_lines = 0.0;
         }
         if let Some(style) = settings.paragraph_styles.get("Transition") {
             measurement.transition_left_indent_in = style.left_indent;
             measurement.transition_right_indent_in = style.right_indent;
             measurement.transition_top_spacing_lines =
                 spacing_lines_from_points(style.space_before, measurement.lines_per_inch);
-            measurement.transition_bottom_spacing_lines = 0;
+            measurement.transition_bottom_spacing_lines = 0.0;
         }
 
         measurement
     }
 }
 
-fn spacing_lines_from_points(space_before_points: f32, lines_per_inch: f32) -> u32 {
+fn spacing_lines_from_points(space_before_points: f32, lines_per_inch: f32) -> f32 {
     let points_per_line = 72.0 / lines_per_inch;
-    (space_before_points / points_per_line).round() as u32
+    space_before_points / points_per_line
 }
 
 pub fn measure_flow_unit(unit: &FlowUnit, measurement: &MeasurementConfig) -> UnitMeasurement {
@@ -311,18 +311,18 @@ pub fn measure_flow_unit(unit: &FlowUnit, measurement: &MeasurementConfig) -> Un
             measurement.width_chars_for_flow_kind(&unit.kind),
             true,
         )
-        .len() as u32,
+        .len() as f32,
         top_spacing_lines,
         bottom_spacing_lines,
     }
 }
 
-pub fn measure_flow_unit_lines(unit: &FlowUnit, measurement: &MeasurementConfig) -> u32 {
+pub fn measure_flow_unit_lines(unit: &FlowUnit, measurement: &MeasurementConfig) -> f32 {
     measure_flow_unit(unit, measurement).content_lines
 }
 
-pub fn measure_flow_text_lines(text: &str, _kind: &FlowKind, width_chars: usize) -> u32 {
-    wrap_text_lines_with_policy(text, width_chars, true).len() as u32
+pub fn measure_flow_text_lines(text: &str, _kind: &FlowKind, width_chars: usize) -> f32 {
+    wrap_text_lines_with_policy(text, width_chars, true).len() as f32
 }
 
 pub fn measure_lyric_unit(unit: &LyricUnit, measurement: &MeasurementConfig) -> UnitMeasurement {
@@ -341,7 +341,7 @@ pub fn measure_lyric_unit(unit: &LyricUnit, measurement: &MeasurementConfig) -> 
     }
 }
 
-pub fn measure_lyric_unit_lines(unit: &LyricUnit, measurement: &MeasurementConfig) -> u32 {
+pub fn measure_lyric_unit_lines(unit: &LyricUnit, measurement: &MeasurementConfig) -> f32 {
     measure_lyric_unit(unit, measurement).content_lines
 }
 
@@ -349,13 +349,13 @@ pub fn measure_dialogue_part_lines(
     kind: &DialoguePartKind,
     text: &str,
     measurement: &MeasurementConfig,
-) -> u32 {
+) -> f32 {
     wrap_text_lines_with_policy(
         text,
         measurement.width_chars_for_dialogue_part(kind),
         true,
     )
-    .len() as u32
+    .len() as f32
 }
 
 pub fn measure_dialogue_unit(
@@ -368,14 +368,14 @@ pub fn measure_dialogue_unit(
             .parts
             .iter()
             .map(|part| measure_dialogue_part_lines(&part.kind, &part.text, measurement))
-            .sum::<u32>()
-            .max(1),
+            .sum::<f32>()
+            .max(1.0),
         top_spacing_lines,
         bottom_spacing_lines,
     }
 }
 
-pub fn measure_dialogue_unit_lines(unit: &DialogueUnit, measurement: &MeasurementConfig) -> u32 {
+pub fn measure_dialogue_unit_lines(unit: &DialogueUnit, measurement: &MeasurementConfig) -> f32 {
     measure_dialogue_unit(unit, measurement).content_lines
 }
 
@@ -389,8 +389,7 @@ pub fn measure_dual_dialogue_unit(
             .sides
             .iter()
             .map(|side| measure_dialogue_unit_lines(&side.dialogue, measurement))
-            .max()
-            .unwrap_or(1),
+            .fold(1.0, f32::max),
         top_spacing_lines,
         bottom_spacing_lines,
     }
@@ -399,7 +398,7 @@ pub fn measure_dual_dialogue_unit(
 pub fn measure_dual_dialogue_unit_lines(
     unit: &DualDialogueUnit,
     measurement: &MeasurementConfig,
-) -> u32 {
+) -> f32 {
     measure_dual_dialogue_unit(unit, measurement).content_lines
 }
 
@@ -419,17 +418,17 @@ pub fn measure_semantic_unit(
 pub fn boundary_spacing_lines(
     previous: Option<&UnitMeasurement>,
     current: Option<&UnitMeasurement>,
-) -> u32 {
+) -> f32 {
     match (previous, current) {
         (Some(previous), Some(current)) => previous
             .bottom_spacing_lines
             .max(current.top_spacing_lines),
-        _ => 0,
+        _ => 0.0,
     }
 }
 
-pub fn measure_text_lines(text: &str, width_chars: usize) -> u32 {
-    wrap_text_lines_with_policy(text, width_chars, true).len() as u32
+pub fn measure_text_lines(text: &str, width_chars: usize) -> f32 {
+    wrap_text_lines_with_policy(text, width_chars, true).len() as f32
 }
 
 pub fn wrap_text_lines_with_policy(

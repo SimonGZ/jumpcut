@@ -1,7 +1,6 @@
 mod comparison;
 mod fixtures;
 mod ir;
-mod measurement;
 mod normalized;
 mod semantic;
 pub mod wrapping;
@@ -20,15 +19,7 @@ pub use ir::{
     BlockPlacement, ContinuationMarker, Page, PageBlock, PageItem, PageKind, PageMetadata,
     PaginatedScreenplay, PaginationConfig,
 };
-pub use margin::LayoutGeometry;
-pub use measurement::{
-    boundary_spacing_lines, measure_dialogue_part_lines, measure_dialogue_unit,
-    measure_dialogue_unit_lines, measure_dual_dialogue_unit, measure_dual_dialogue_unit_lines,
-    measure_flow_text_lines, measure_flow_unit, measure_flow_unit_lines, measure_lyric_unit,
-    measure_lyric_unit_lines, measure_semantic_unit, measure_text_lines,
-    wrap_text_lines_with_policy, FdxExtractedSettings, FdxParagraphStyle, MeasurementConfig,
-    UnitMeasurement,
-};
+pub use margin::{LayoutGeometry, FdxExtractedSettings, FdxParagraphStyle};
 pub use normalized::normalize_screenplay;
 pub use semantic::{
     build_semantic_screenplay, Cohesion, DialoguePart, DialoguePartKind, DialogueUnit,

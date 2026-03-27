@@ -114,7 +114,7 @@ fn composer_respects_custom_geometry() {
 fn composer_respects_custom_vertical_spacing() {
     let mut geometry = LayoutGeometry::default();
     // Default action spacing is 1 above. Let's make it 3.
-    geometry.action_spacing_before = 3;
+    geometry.action_spacing_before = 3.0;
     
     let units = vec![mock_action("el-1", "Starting action.")];
     let blocks = compose(&units, &geometry);

@@ -17,11 +17,11 @@ fn layout_geometry_defaults_match_spec() {
     assert_eq!(geometry.transition_right, 7.1);
     assert_eq!(geometry.lyric_left, 2.5);
     // Vertical Spacing Defaults (Blank lines before)
-    assert_eq!(geometry.action_spacing_before, 1);
-    assert_eq!(geometry.scene_heading_spacing_before, 2);
-    assert_eq!(geometry.character_spacing_before, 1);
-    assert_eq!(geometry.transition_spacing_before, 1);
-    assert_eq!(geometry.lyric_spacing_before, 1);
+    assert_eq!(geometry.action_spacing_before, 1.0);
+    assert_eq!(geometry.scene_heading_spacing_before, 2.0);
+    assert_eq!(geometry.character_spacing_before, 1.0);
+    assert_eq!(geometry.transition_spacing_before, 1.0);
+    assert_eq!(geometry.lyric_spacing_before, 1.0);
     
     // Limits
     assert_eq!(geometry.orphan_limit, 2);
