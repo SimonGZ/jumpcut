@@ -33,6 +33,25 @@ pub fn paginate<'a>(blocks: &'a [LayoutBlock<'a>], page_limit_lines: f32, geomet
     let mut current_page_lines: f32 = 0.0;
 
     for chunk in chunks {
+        if chunk.blocks.len() == 1 && matches!(chunk.blocks[0].unit, SemanticUnit::PageStart(_)) {
+            if current_page_blocks.iter().any(block_has_visible_content) {
+                pages.push(Page { blocks: current_page_blocks });
+                current_page_blocks = Vec::new();
+                current_page_lines = 0.0;
+            }
+
+            current_page_blocks.push(LayoutBlock {
+                unit: chunk.blocks[0].unit,
+                fragment: chunk.blocks[0].fragment.clone(),
+                spacing_above: 0.0,
+                content_lines: 0.0,
+                keep_with_next: false,
+                can_split: false,
+                widow_penalty: 0.0,
+            });
+            continue;
+        }
+
         let mut chunk_height: f32 = 0.0;
         let mut page_has_visible_content =
             current_page_blocks.iter().any(block_has_visible_content);

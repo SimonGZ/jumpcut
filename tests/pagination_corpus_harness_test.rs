@@ -553,6 +553,85 @@ fn little_women_full_script_page_break_parity_holds_baseline() {
 }
 
 #[test]
+#[ignore = "writes a full-script Little Women page-break review packet for human inspection"]
+fn build_little_women_full_script_page_break_packet() {
+    let fixture: PageBreakFixture =
+        read_fixture("tests/fixtures/corpus/public/little-women/canonical/page-breaks.json");
+    let normalized = normalized_slice_from_fountain(
+        "little-women",
+        "tests/fixtures/corpus/public/little-women/source/source.fountain",
+        &fixture,
+    );
+    let semantic = build_semantic_screenplay(normalized.clone());
+    let run = best_probe_run(&fixture, &semantic, measurement_for_screenplay("little-women"));
+    let previews = preview_map(&normalized);
+    let debug_fixture = paginated_to_debug_fixture(
+        &run.actual,
+        &fixture.source,
+        &normalized,
+        run.lines_per_page,
+        &run.geometry,
+        &previews,
+    );
+    let report = run.report.clone();
+
+    let debug_dir = Path::new("target/pagination-debug/little-women-full-script");
+    fs::create_dir_all(debug_dir).unwrap();
+
+    let actual_path = debug_dir.join("actual.page-breaks.json");
+    fs::write(
+        &actual_path,
+        serde_json::to_string_pretty(&debug_fixture).unwrap(),
+    )
+    .unwrap();
+
+    let report_path = debug_dir.join("comparison-report.json");
+    fs::write(
+        &report_path,
+        serde_json::to_string_pretty(&FixtureProbeDebugOutput {
+            fixture_path: "tests/fixtures/corpus/public/little-women/canonical/page-breaks.json"
+                .to_string(),
+            page_numbers: fixture.pages.iter().map(|page| page.number).collect(),
+            lines_per_page: run.lines_per_page,
+            score: run.score,
+            total_issues: run.report.total_issues(),
+            wrong_page: run.report.issue_count(ComparisonIssueKind::WrongPage),
+            wrong_fragment: run.report.issue_count(ComparisonIssueKind::WrongFragment),
+            missing: run
+                .report
+                .issue_count(ComparisonIssueKind::MissingOccurrence),
+            unexpected: run
+                .report
+                .issue_count(ComparisonIssueKind::UnexpectedOccurrence),
+            report: report.clone(),
+        })
+        .unwrap(),
+    )
+    .unwrap();
+
+    let pseudo_pdf_path = debug_dir.join("pseudo-pdf.txt");
+    fs::write(
+        &pseudo_pdf_path,
+        render_pseudo_pdf_output(&run.actual, &normalized, run.lines_per_page, &run.geometry),
+    )
+    .unwrap();
+
+    let review_path = debug_dir.join("REVIEW.md");
+    fs::write(
+        &review_path,
+        render_little_women_full_script_review_packet(
+            run.lines_per_page,
+            run.score,
+            &fixture,
+            &report,
+        ),
+    )
+    .unwrap();
+
+    println!("wrote {}", review_path.display());
+}
+
+#[test]
 fn dual_dialogue_parity_items_use_dual_dialogue_width_and_surface_dual_metadata() {
     let geometry = LayoutGeometry::default();
     let element = NormalizedElement {
@@ -1910,6 +1989,47 @@ Current window summary:\n\n",
     }
 
     review
+}
+
+fn render_little_women_full_script_review_packet(
+    lines_per_page: f32,
+    score: (usize, usize, usize),
+    fixture: &PageBreakFixture,
+    report: &jumpcut::pagination::ComparisonReport,
+) -> String {
+    format!(
+        "# Little Women Full-Script Page-Break Review Packet\n\n\
+Run this command to regenerate everything in this folder:\n\n\
+```bash\n\
+cargo test --test pagination_corpus_harness_test build_little_women_full_script_page_break_packet -- --ignored --nocapture\n\
+```\n\n\
+Read files in this order:\n\n\
+1. `target/pagination-debug/little-women-full-script/REVIEW.md`\n\
+2. `target/pagination-debug/little-women-full-script/comparison-report.json`\n\
+3. `tests/fixtures/corpus/public/little-women/canonical/page-breaks.json`\n\
+4. `target/pagination-debug/little-women-full-script/actual.page-breaks.json`\n\
+5. `target/pagination-debug/little-women-full-script/pseudo-pdf.txt`\n\n\
+Current full-script summary:\n\n\
+- pages: {page_count}\n\
+- lines_per_page: {lines_per_page}\n\
+- total issues: {total}\n\
+- wrong page: {wrong_page}\n\
+- wrong fragment: {wrong_fragment}\n\
+- missing: {missing}\n\
+- unexpected: {unexpected}\n\n\
+Notes:\n\n\
+- `comparison-report.json` is the quickest way to see where page assignments diverge.\n\
+- `actual.page-breaks.json` is the current engine output in canonical fixture shape.\n\
+- `pseudo-pdf.txt` is a plain-text rendering of the current engine's predicted page lines and blank spacing.\n\
+- `tests/fixtures/corpus/public/little-women/source/source.fountain` is the vendored local source text.\n",
+        page_count = fixture.pages.len(),
+        lines_per_page = lines_per_page,
+        total = report.total_issues(),
+        wrong_page = score.1,
+        wrong_fragment = score.2,
+        missing = report.issue_count(ComparisonIssueKind::MissingOccurrence),
+        unexpected = report.issue_count(ComparisonIssueKind::UnexpectedOccurrence),
+    )
 }
 
 fn build_line_break_parity_report(

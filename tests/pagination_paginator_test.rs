@@ -1,7 +1,9 @@
 // tests/pagination_paginator_test.rs
 use jumpcut::pagination::composer::LayoutBlock;
 use jumpcut::pagination::paginator::paginate;
-use jumpcut::pagination::{SemanticUnit, PageStartUnit, LayoutGeometry, Fragment};
+use jumpcut::pagination::{
+    Cohesion, FlowKind, FlowUnit, Fragment, LayoutGeometry, PageStartUnit, SemanticUnit,
+};
 
 fn mock_block<'a>(unit: &'a SemanticUnit, lines: f32, padding: f32, keep_with_next: bool, can_split: bool, widow_penalty: f32) -> LayoutBlock<'a> {
     LayoutBlock {
@@ -15,13 +17,28 @@ fn mock_block<'a>(unit: &'a SemanticUnit, lines: f32, padding: f32, keep_with_ne
     }
 }
 
+fn visible_unit(id: &str) -> SemanticUnit {
+    SemanticUnit::Flow(FlowUnit {
+        element_id: id.into(),
+        kind: FlowKind::Action,
+        text: format!("dummy-{id}"),
+        line_range: None,
+        scene_number: None,
+        cohesion: Cohesion {
+            keep_together: false,
+            keep_with_next: false,
+            can_split: true,
+        },
+    })
+}
+
 #[test]
 fn paginator_distributes_blocks_across_pages_when_they_exceed_limits() {
     let geometry = LayoutGeometry::default();
     // Standard screenplay page is 54 playable lines
     let page_limit = 54.0;
-    let unit1 = SemanticUnit::PageStart(PageStartUnit { source_element_id: "1".into() });
-    let unit2 = SemanticUnit::PageStart(PageStartUnit { source_element_id: "2".into() });
+    let unit1 = visible_unit("1");
+    let unit2 = visible_unit("2");
     
     let blocks = vec![
         mock_block(&unit1, 50.0, 0.0, false, false, 0.0), // Page 1 takes 50 lines
@@ -42,8 +59,8 @@ fn paginator_distributes_blocks_across_pages_when_they_exceed_limits() {
 fn paginator_strips_intrinsic_padding_from_elements_landing_at_the_top_of_a_page() {
     let geometry = LayoutGeometry::default();
     let page_limit = 54.0;
-    let unit1 = SemanticUnit::PageStart(PageStartUnit { source_element_id: "1".into() });
-    let unit2 = SemanticUnit::PageStart(PageStartUnit { source_element_id: "2".into() });
+    let unit1 = visible_unit("1");
+    let unit2 = visible_unit("2");
     
     let blocks = vec![
         mock_block(&unit1, 54.0, 0.0, false, false, 0.0), // Perfectly fills Page 1 to the absolute brim
@@ -65,7 +82,7 @@ fn paginator_ignores_page_start_markers_when_stripping_top_of_page_spacing() {
     let geometry = LayoutGeometry::default();
     let page_limit = 54.0;
     let page_start = SemanticUnit::PageStart(PageStartUnit { source_element_id: "page-start".into() });
-    let scene_heading = SemanticUnit::PageStart(PageStartUnit { source_element_id: "scene-heading".into() });
+    let scene_heading = visible_unit("scene-heading");
 
     let blocks = vec![
         mock_block(&page_start, 0.0, 0.0, false, false, 0.0),
@@ -84,12 +101,34 @@ fn paginator_ignores_page_start_markers_when_stripping_top_of_page_spacing() {
 }
 
 #[test]
+fn paginator_starts_a_new_page_when_it_encounters_a_page_start_marker() {
+    let geometry = LayoutGeometry::default();
+    let page_limit = 54.0;
+    let before_break = visible_unit("before-break");
+    let page_start = SemanticUnit::PageStart(PageStartUnit { source_element_id: "page-start".into() });
+    let after_break = visible_unit("after-break");
+
+    let blocks = vec![
+        mock_block(&before_break, 2.0, 0.0, false, false, 0.0),
+        mock_block(&page_start, 0.0, 0.0, false, false, 0.0),
+        mock_block(&after_break, 1.0, 2.0, false, false, 0.0),
+    ];
+
+    let pages = paginate(&blocks, page_limit, &geometry);
+
+    assert_eq!(pages.len(), 2, "PageStart should force a new page even when plenty of space remains");
+    assert_eq!(pages[0].blocks.len(), 1, "The visible content before the PageStart should stay on page 1");
+    assert_eq!(pages[1].blocks.len(), 2, "Page 2 should contain the PageStart marker and the following visible block");
+    assert_eq!(pages[1].blocks[1].spacing_above, 0.0, "The first visible block after a forced page break should strip intrinsic spacing");
+}
+
+#[test]
 fn paginator_prevents_stranding_blocks_that_require_keep_with_next() {
     let geometry = LayoutGeometry::default();
     let page_limit = 54.0;
-    let unit1 = SemanticUnit::PageStart(PageStartUnit { source_element_id: "1".into() });
-    let unit2 = SemanticUnit::PageStart(PageStartUnit { source_element_id: "2".into() });
-    let unit3 = SemanticUnit::PageStart(PageStartUnit { source_element_id: "3".into() });
+    let unit1 = visible_unit("1");
+    let unit2 = visible_unit("2");
+    let unit3 = visible_unit("3");
     
     let blocks = vec![
         mock_block(&unit1, 50.0, 0.0, false, false, 0.0), // Fills lines 1-50
@@ -128,8 +167,8 @@ fn paginator_prevents_stranding_blocks_that_require_keep_with_next() {
 fn paginator_splits_splittable_blocks_while_respecting_orphan_widow_limits() {
     let geometry = LayoutGeometry::default();
     let page_limit = 54.0;
-    let unit1 = SemanticUnit::PageStart(PageStartUnit { source_element_id: "1".into() });
-    let unit2 = SemanticUnit::PageStart(PageStartUnit { source_element_id: "2".into() });
+    let unit1 = visible_unit("1");
+    let unit2 = visible_unit("2");
     
     let blocks = vec![
         mock_block(&unit1, 51.0, 0.0, false, false, 0.0), // Fills 51 lines (3 lines remaining on Page 1)
@@ -152,8 +191,8 @@ fn paginator_splits_splittable_blocks_while_respecting_orphan_widow_limits() {
 fn paginator_rejects_splits_that_violate_orphan_limits_and_pushes_entire_block() {
     let geometry = LayoutGeometry::default();
     let page_limit = 54.0;
-    let unit1 = SemanticUnit::PageStart(PageStartUnit { source_element_id: "1".into() });
-    let unit2 = SemanticUnit::PageStart(PageStartUnit { source_element_id: "2".into() });
+    let unit1 = visible_unit("1");
+    let unit2 = visible_unit("2");
     
     let blocks = vec![
         mock_block(&unit1, 53.0, 0.0, false, false, 0.0), // Fills exactly 53 lines (1 line remaining)
@@ -176,8 +215,8 @@ fn paginator_rejects_splits_that_violate_orphan_limits_and_pushes_entire_block()
 fn paginator_accounts_for_additional_widow_penalty_lines_when_splitting_dialogue() {
     let geometry = LayoutGeometry::default();
     let page_limit = 54.0;
-    let unit1 = SemanticUnit::PageStart(PageStartUnit { source_element_id: "1".into() });
-    let unit2 = SemanticUnit::PageStart(PageStartUnit { source_element_id: "2".into() });
+    let unit1 = visible_unit("1");
+    let unit2 = visible_unit("2");
     
     let blocks = vec![
         mock_block(&unit1, 50.0, 0.0, false, false, 0.0), // Fills 50 lines (4 lines remaining on Page 1)
@@ -206,8 +245,8 @@ fn paginator_respects_custom_orphan_widow_limits() {
     geometry.widow_limit = 4;
     
     let page_limit = 54.0;
-    let unit1 = SemanticUnit::PageStart(PageStartUnit { source_element_id: "1".into() });
-    let unit2 = SemanticUnit::PageStart(PageStartUnit { source_element_id: "2".into() });
+    let unit1 = visible_unit("1");
+    let unit2 = visible_unit("2");
     
     let blocks = vec![
         mock_block(&unit1, 50.0, 0.0, false, false, 0.0), // 4 lines remaining on Page 1
@@ -237,7 +276,7 @@ fn paginator_verifies_final_draft_parity_for_1_5_leading() {
     // They should fit EXACTLY on one 54.0-line page without a spill.
     let mut blocks = Vec::new();
     let units: Vec<SemanticUnit> = (0..36).map(|i| {
-        SemanticUnit::PageStart(PageStartUnit { source_element_id: format!("el-{}", i) })
+        visible_unit(&format!("el-{}", i))
     }).collect();
 
     for unit in &units {
@@ -259,7 +298,7 @@ fn paginator_verifies_final_draft_parity_for_2_0_leading() {
     // They should fit EXACTLY on one 54.0-line page without a spill.
     let mut blocks = Vec::new();
     let units: Vec<SemanticUnit> = (0..27).map(|i| {
-        SemanticUnit::PageStart(PageStartUnit { source_element_id: format!("el-{}", i) })
+        visible_unit(&format!("el-{}", i))
     }).collect();
 
     for unit in &units {
