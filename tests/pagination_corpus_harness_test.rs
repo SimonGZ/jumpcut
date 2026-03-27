@@ -69,13 +69,13 @@ fn selected_public_windows_have_useful_exact_unique_pdf_line_matches() {
         (
             "tests/fixtures/pagination/brick-n-steel.p2-4.page-breaks.json",
             "brick-n-steel",
-            "../jumpcut-layout-corpus/corpus/public/brick-n-steel/source/source.fountain",
+            "tests/fixtures/corpus/public/brick-n-steel/source/source.fountain",
             50,
         ),
         (
             "tests/fixtures/pagination/little-women.p4-6.page-breaks.json",
             "little-women",
-            "../jumpcut-layout-corpus/corpus/public/little-women/source/source.fountain",
+            "tests/fixtures/corpus/public/little-women/source/source.fountain",
             45,
         ),
     ] {
@@ -102,7 +102,11 @@ fn pdf_line_count_diagnostic_confirms_big_fish_el_00787_is_one_line() {
     let fixture: PageBreakFixture =
         read_fixture("tests/fixtures/pagination/big-fish.p38-40.page-breaks.json");
     let normalized =
-        normalized_slice_from_fountain("big-fish", "benches/Big-Fish.fountain", &fixture);
+        normalized_slice_from_fountain(
+            "big-fish",
+            "tests/fixtures/corpus/public/big-fish/source/source.fountain",
+            &fixture,
+        );
     let debug = canonical_pdf_line_count_debug("big-fish", &fixture, &normalized);
     let item = debug
         .items
@@ -121,7 +125,11 @@ fn big_fish_public_slice_stays_at_or_better_than_width_measurement_baseline() {
     let fixture: PageBreakFixture =
         read_fixture("tests/fixtures/pagination/big-fish.split-page-breaks.json");
     let normalized =
-        normalized_slice_from_fountain("big-fish", "benches/Big-Fish.fountain", &fixture);
+        normalized_slice_from_fountain(
+            "big-fish",
+            "tests/fixtures/corpus/public/big-fish/source/source.fountain",
+            &fixture,
+        );
     let semantic = build_semantic_screenplay(normalized);
 
     let run = best_probe_run(&fixture, &semantic, measurement_for_screenplay("big-fish"));
@@ -166,8 +174,11 @@ fn probe_big_fish_selected_windows_against_canonical_fixtures() {
         "tests/fixtures/pagination/big-fish.p77-79.page-breaks.json",
     ] {
         let fixture: PageBreakFixture = read_fixture(path);
-        let normalized =
-            normalized_slice_from_fountain("big-fish", "benches/Big-Fish.fountain", &fixture);
+        let normalized = normalized_slice_from_fountain(
+            "big-fish",
+            "tests/fixtures/corpus/public/big-fish/source/source.fountain",
+            &fixture,
+        );
         let semantic = build_semantic_screenplay(normalized);
         let run = best_probe_run(&fixture, &semantic, measurement_for_screenplay("big-fish"));
 
@@ -222,8 +233,11 @@ fn build_big_fish_review_packet() {
         ),
     ] {
         let fixture: PageBreakFixture = read_fixture(path);
-        let normalized =
-            normalized_slice_from_fountain("big-fish", "benches/Big-Fish.fountain", &fixture);
+        let normalized = normalized_slice_from_fountain(
+            "big-fish",
+            "tests/fixtures/corpus/public/big-fish/source/source.fountain",
+            &fixture,
+        );
         let semantic = build_semantic_screenplay(normalized.clone());
         let run = best_probe_run(&fixture, &semantic, measurement_for_screenplay("big-fish"));
         let previews = preview_map(&normalized);
@@ -305,8 +319,8 @@ fn build_big_fish_review_packet() {
 fn big_fish_line_break_parity_reports_el_00787_as_an_exact_match() {
     let report = build_line_break_parity_report(
         "big-fish",
-        "../jumpcut-layout-corpus/corpus/public/big-fish/working/parsed-elements.json",
-        "../jumpcut-layout-corpus/corpus/public/big-fish/canonical/page-breaks.json",
+        "tests/fixtures/corpus/public/big-fish/source/source.fountain",
+        "tests/fixtures/corpus/public/big-fish/canonical/page-breaks.json",
     );
     let item = report
         .items
@@ -327,8 +341,8 @@ fn big_fish_line_break_parity_reports_el_00787_as_an_exact_match() {
 fn big_fish_macro_parity_holds_baseline() {
     let report = build_line_break_parity_report(
         "big-fish",
-        "../jumpcut-layout-corpus/corpus/public/big-fish/working/parsed-elements.json",
-        "../jumpcut-layout-corpus/corpus/public/big-fish/canonical/page-breaks.json",
+        "tests/fixtures/corpus/public/big-fish/source/source.fountain",
+        "tests/fixtures/corpus/public/big-fish/canonical/page-breaks.json",
     );
     
     // As of the new Geometry Engine integration and Parenthetical wrap fixes, there are exactly 0 disagreements
@@ -341,12 +355,48 @@ fn big_fish_macro_parity_holds_baseline() {
 
 #[test]
 // #[ignore = "Temporarily disabled"]
+fn brick_n_steel_macro_parity_holds_baseline() {
+    let report = build_line_break_parity_report(
+        "brick-n-steel",
+        "tests/fixtures/corpus/public/brick-n-steel/source/source.fountain",
+        "tests/fixtures/corpus/public/brick-n-steel/canonical/page-breaks.json",
+    );
+
+    assert_eq!(
+        report.disagreement_count, 0,
+        "Expected Brick & Steel line-break parity against the Final Draft PDF to have 0 disagreements. If this fails, inspect the report and decide which pagination assumptions are wrong."
+    );
+}
+
+#[test]
+// #[ignore = "Temporarily disabled"]
+fn brick_n_steel_full_script_page_break_parity_holds_baseline() {
+    let fixture: PageBreakFixture = read_fixture(
+        "tests/fixtures/corpus/public/brick-n-steel/canonical/page-breaks.json",
+    );
+    let normalized = normalized_slice_from_fountain(
+        "brick-n-steel",
+        "tests/fixtures/corpus/public/brick-n-steel/source/source.fountain",
+        &fixture,
+    );
+    let semantic = build_semantic_screenplay(normalized);
+    let run = best_probe_run(&fixture, &semantic, measurement_for_screenplay("brick-n-steel"));
+
+    assert_eq!(
+        run.report.total_issues(),
+        0,
+        "Expected Brick & Steel full-script page-break parity against the Final Draft canonical fixture to have 0 issues. If this fails, inspect the report and decide which pagination assumptions are wrong."
+    );
+}
+
+#[test]
+// #[ignore = "Temporarily disabled"]
 #[ignore = "writes a script-wide Big Fish line-break parity packet"]
 fn build_big_fish_line_break_parity_packet() {
     let report = build_line_break_parity_report(
         "big-fish",
-        "../jumpcut-layout-corpus/corpus/public/big-fish/working/parsed-elements.json",
-        "../jumpcut-layout-corpus/corpus/public/big-fish/canonical/page-breaks.json",
+        "tests/fixtures/corpus/public/big-fish/source/source.fountain",
+        "tests/fixtures/corpus/public/big-fish/canonical/page-breaks.json",
     );
     let debug_dir = Path::new("target/pagination-debug/big-fish-linebreak-parity");
     fs::create_dir_all(debug_dir).unwrap();
@@ -369,17 +419,17 @@ fn probe_selected_public_windows_against_canonical_fixtures() {
         (
             "tests/fixtures/pagination/brick-n-steel.p2-4.page-breaks.json",
             "brick-n-steel",
-            "../jumpcut-layout-corpus/corpus/public/brick-n-steel/source/source.fountain",
+            "tests/fixtures/corpus/public/brick-n-steel/source/source.fountain",
         ),
         (
             "tests/fixtures/pagination/little-women.p4-6.page-breaks.json",
             "little-women",
-            "../jumpcut-layout-corpus/corpus/public/little-women/source/source.fountain",
+            "tests/fixtures/corpus/public/little-women/source/source.fountain",
         ),
         (
             "tests/fixtures/pagination/little-women.p13-14.page-breaks.json",
             "little-women",
-            "../jumpcut-layout-corpus/corpus/public/little-women/source/source.fountain",
+            "tests/fixtures/corpus/public/little-women/source/source.fountain",
         ),
     ] {
         let fixture: PageBreakFixture = read_fixture(path);
@@ -421,7 +471,11 @@ fn probe_big_fish_public_slice_against_canonical_fixture() {
     let fixture: PageBreakFixture =
         read_fixture("tests/fixtures/pagination/big-fish.split-page-breaks.json");
     let normalized =
-        normalized_slice_from_fountain("big-fish", "benches/Big-Fish.fountain", &fixture);
+        normalized_slice_from_fountain(
+            "big-fish",
+            "tests/fixtures/corpus/public/big-fish/source/source.fountain",
+            &fixture,
+        );
     let semantic = build_semantic_screenplay(normalized);
     let run = best_probe_run(&fixture, &semantic, measurement_for_screenplay("big-fish"));
     println!(
@@ -451,7 +505,11 @@ fn dump_big_fish_public_slice_paginated_output_json() {
     let fixture: PageBreakFixture =
         read_fixture("tests/fixtures/pagination/big-fish.split-page-breaks.json");
     let normalized =
-        normalized_slice_from_fountain("big-fish", "benches/Big-Fish.fountain", &fixture);
+        normalized_slice_from_fountain(
+            "big-fish",
+            "tests/fixtures/corpus/public/big-fish/source/source.fountain",
+            &fixture,
+        );
     let semantic = build_semantic_screenplay(normalized.clone());
     let run = best_probe_run(&fixture, &semantic, measurement_for_screenplay("big-fish"));
     let previews = preview_map(&normalized);
@@ -507,13 +565,13 @@ fn dump_selected_public_windows_paginated_output_json() {
         (
             "tests/fixtures/pagination/brick-n-steel.p2-4.page-breaks.json",
             "brick-n-steel",
-            "../jumpcut-layout-corpus/corpus/public/brick-n-steel/source/source.fountain",
+            "tests/fixtures/corpus/public/brick-n-steel/source/source.fountain",
             "brick-n-steel.p2-4",
         ),
         (
             "tests/fixtures/pagination/little-women.p4-6.page-breaks.json",
             "little-women",
-            "../jumpcut-layout-corpus/corpus/public/little-women/source/source.fountain",
+            "tests/fixtures/corpus/public/little-women/source/source.fountain",
             "little-women.p4-6",
         ),
     ] {
@@ -592,15 +650,15 @@ fn export_visual_comparison_data() {
     for (screenplay_id, fixture_path, fountain_path, label, fixed_lpp) in [
         (
             "big-fish",
-            "../jumpcut-layout-corpus/corpus/public/big-fish/canonical/page-breaks.json",
-            "../jumpcut-layout-corpus/corpus/public/big-fish/source/source.fountain",
+            "tests/fixtures/corpus/public/big-fish/canonical/page-breaks.json",
+            "tests/fixtures/corpus/public/big-fish/source/source.fountain",
             "big-fish",
             Some(54u32), // Proven by window probe tests
         ),
         (
             "little-women",
             "tests/fixtures/pagination/little-women.p4-6.page-breaks.json",
-            "../jumpcut-layout-corpus/corpus/public/little-women/source/source.fountain",
+            "tests/fixtures/corpus/public/little-women/source/source.fountain",
             "little-women-p4-6",
             None, // Use probe sweep
         ),
@@ -893,7 +951,7 @@ fn best_probe_run(
 }
 
 fn measurement_for_screenplay(screenplay_id: &str) -> LayoutGeometry {
-    let path = Path::new("../jumpcut-layout-corpus/corpus/public")
+    let path = Path::new("tests/fixtures/corpus/public")
         .join(screenplay_id)
         .join("extracted/fdx-settings.json");
     let settings: FdxExtractedSettings =
@@ -1297,7 +1355,7 @@ fn normalize_pdf_match_text(text: &str) -> String {
 }
 
 fn public_pdf_pages(screenplay_id: &str) -> HashMap<u32, Vec<String>> {
-    let path = Path::new("../jumpcut-layout-corpus/corpus/public")
+    let path = Path::new("tests/fixtures/corpus/public")
         .join(screenplay_id)
         .join("extracted/pdf-pages.json");
     let pdf_pages: PublicPdfPages =
@@ -1349,7 +1407,7 @@ Read files in this order:\n\n\
 - For the first nonzero window above, does the canonical break look like missing spacing/rhythm in our model, an obvious line-wrap-count problem, or a split-choice problem?\n\n\
 Useful extra files:\n\n\
 - `target/pagination-debug/big-fish-review/<window>.pdf-line-counts.json` gives exact-unique PDF line counts where text alignment is recoverable.\n\
-- `benches/Big-Fish.fountain` is the local source text.\n\n\
+- `tests/fixtures/corpus/public/big-fish/source/source.fountain` is the vendored local source text.\n\n\
 Current window summary:\n\n",
     );
 
@@ -1383,11 +1441,13 @@ Current window summary:\n\n",
 
 fn build_line_break_parity_report(
     screenplay_id: &str,
-    parsed_elements_path: &str,
+    fountain_path: &str,
     canonical_page_breaks_path: &str,
 ) -> LineBreakParityReport {
     let measurement = measurement_for_screenplay(screenplay_id);
-    let parsed: ParsedElementsFile = read_fixture(parsed_elements_path);
+    let fountain = fs::read_to_string(fountain_path).unwrap();
+    let screenplay = parse(&fountain);
+    let parsed = normalize_screenplay(screenplay_id, &screenplay);
     let canonical: PageBreakFixture = read_fixture(canonical_page_breaks_path);
     let pdf_pages = public_pdf_pages(screenplay_id);
     let elements: HashMap<String, NormalizedElement> = parsed
@@ -1934,11 +1994,6 @@ struct PublicPdfPages {
 struct PublicPdfPage {
     number: u32,
     text: String,
-}
-
-#[derive(serde::Deserialize)]
-struct ParsedElementsFile {
-    elements: Vec<NormalizedElement>,
 }
 
 #[derive(Serialize)]
