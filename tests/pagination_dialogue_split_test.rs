@@ -53,3 +53,46 @@ fn dialogue_split_can_start_the_continuation_with_a_parenthetical() {
 
     assert_eq!(split, Some(DialogueSplitDecision { top_line_count: 5 }));
 }
+
+#[test]
+fn dialogue_split_prefers_the_sentence_boundary_that_also_fills_the_page() {
+    let mut lines = vec![
+        DialogueLine { role: DialogueLineRole::Character, text: "EDWARD (CONT'D)".into() },
+        DialogueLine { role: DialogueLineRole::Dialogue, text: "For the next couple weeks, I didn't".into() },
+        DialogueLine { role: DialogueLineRole::Dialogue, text: "have another dream.  Until one".into() },
+        DialogueLine { role: DialogueLineRole::Dialogue, text: "night the crow came back and said,".into() },
+        DialogueLine { role: DialogueLineRole::Dialogue, text: "\"Your Daddy is going to die.\"".into() },
+        DialogueLine { role: DialogueLineRole::Parenthetical, text: "(beat)".into() },
+    ];
+    lines.extend([
+        "Well, I didn't know what to do.",
+        "But finally I told my father.  And",
+        "he said not to worry, but I could",
+        "tell he was rattled.  That next",
+        "day, he wasn't himself, always",
+        "looking around, waiting for",
+        "something to drop on his head.",
+        "Because the crow didn't tell how it",
+        "was going to happen, just those",
+        "words:  your Daddy is going to die.",
+        "Well, he went into town early and",
+        "was gone for a long time.",
+        "And when he finally came back, he looked",
+        "terrible, like he was waiting for",
+        "the axe to fall all day.  He said",
+        "to my mother, \"Good God.  I just",
+        "had the worst day of my life.\"",
+    ]
+    .into_iter()
+    .map(|text| DialogueLine { role: DialogueLineRole::Dialogue, text: text.into() }));
+
+    let split = choose_dialogue_split(&lines, 18, 2, 2);
+
+    let decision = split.unwrap();
+    assert_eq!(decision, DialogueSplitDecision { top_line_count: 18 });
+    assert_eq!(lines[decision.top_line_count - 1].text, "was gone for a long time.");
+    assert_eq!(
+        lines[decision.top_line_count].text,
+        "And when he finally came back, he looked"
+    );
+}

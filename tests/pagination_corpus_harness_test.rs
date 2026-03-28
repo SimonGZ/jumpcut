@@ -209,6 +209,49 @@ fn big_fish_pages_38_39_split_beamen_action_at_sentence_boundary() {
 }
 
 #[test]
+fn big_fish_pages_53_54_split_el_01146_after_was_gone_for_a_long_time() {
+    let mut fixture: PageBreakFixture =
+        read_fixture("tests/fixtures/corpus/public/big-fish/canonical/page-breaks.json");
+    fixture.pages.retain(|page| matches!(page.number, 53 | 54));
+
+    let normalized = normalized_window_from_fountain(
+        "big-fish",
+        "tests/fixtures/corpus/public/big-fish/source/source.fountain",
+        &fixture,
+    );
+    let semantic = build_semantic_screenplay(normalized);
+    let config = PaginationConfig {
+        lines_per_page: 54.0,
+        geometry: geometry_for_screenplay("big-fish"),
+    };
+    let full_actual = PaginatedScreenplay::paginate(
+        semantic,
+        config,
+        fixture.style_profile.clone(),
+        fixture.scope.clone(),
+    );
+    let actual = slice_paginated_to_fixture_window(&full_actual, &[53, 54]);
+
+    let page_53_item = actual
+        .pages
+        .iter()
+        .find(|page| page.metadata.number == 53)
+        .and_then(|page| page.items.iter().find(|item| item.element_id == "el-01146"))
+        .expect("expected el-01146 on page 53");
+    let page_54_item = actual
+        .pages
+        .iter()
+        .find(|page| page.metadata.number == 54)
+        .and_then(|page| page.items.iter().find(|item| item.element_id == "el-01146"))
+        .expect("expected el-01146 on page 54");
+
+    assert_eq!(page_53_item.fragment, Fragment::ContinuedToNext);
+    assert_eq!(page_54_item.fragment, Fragment::ContinuedFromPrev);
+    assert_eq!(page_53_item.line_range, Some((1, 12)));
+    assert_eq!(page_54_item.line_range, Some((13, 17)));
+}
+
+#[test]
 // #[ignore = "Temporarily disabled"]
 fn big_fish_line_break_parity_reports_el_00787_as_an_exact_match() {
     let report = build_line_break_parity_report(
