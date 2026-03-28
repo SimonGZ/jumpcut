@@ -32,6 +32,21 @@ fn visible_unit(id: &str) -> SemanticUnit {
     })
 }
 
+fn transition_unit(id: &str) -> SemanticUnit {
+    SemanticUnit::Flow(FlowUnit {
+        element_id: id.into(),
+        kind: FlowKind::Transition,
+        text: format!("CUT TO: {id}"),
+        line_range: None,
+        scene_number: None,
+        cohesion: Cohesion {
+            keep_together: false,
+            keep_with_next: false,
+            can_split: true,
+        },
+    })
+}
+
 #[test]
 fn paginator_distributes_blocks_across_pages_when_they_exceed_limits() {
     let geometry = LayoutGeometry::default();
@@ -161,6 +176,39 @@ fn paginator_prevents_stranding_blocks_that_require_keep_with_next() {
     // The Action block retains its spacing from the Scene Heading
     assert_eq!(pages[1].blocks[1].spacing_above, 1.0);
     assert_eq!(pages[1].blocks[1].content_lines, 2.0);
+}
+
+#[test]
+fn paginator_pulls_a_transition_off_the_top_of_the_next_page() {
+    let geometry = LayoutGeometry::default();
+    let page_limit = 54.0;
+    let unit1 = visible_unit("1");
+    let unit2 = visible_unit("2");
+    let transition = transition_unit("cut");
+
+    let blocks = vec![
+        mock_block(&unit1, 49.0, 0.0, false, false, 0.0),
+        mock_block(&unit2, 4.0, 0.0, false, false, 0.0),
+        mock_block(&transition, 1.0, 1.0, false, false, 0.0),
+    ];
+
+    let pages = paginate(&blocks, page_limit, &geometry);
+
+    assert_eq!(pages.len(), 2);
+    assert_eq!(
+        pages[0].blocks.len(),
+        1,
+        "The paginator should leave extra white space on page 1 instead of stranding a transition at the top of page 2",
+    );
+    assert_eq!(pages[1].blocks.len(), 2);
+    assert!(matches!(pages[1].blocks[0].unit, SemanticUnit::Flow(FlowUnit { kind: FlowKind::Action, .. })));
+    assert!(matches!(pages[1].blocks[1].unit, SemanticUnit::Flow(FlowUnit { kind: FlowKind::Transition, .. })));
+    assert_eq!(pages[1].blocks[0].spacing_above, 0.0);
+    assert_eq!(
+        pages[1].blocks[1].spacing_above,
+        1.0,
+        "The transition should keep its intrinsic spacing once it is no longer the first visible block on the page",
+    );
 }
 
 #[test]

@@ -23,6 +23,7 @@ pub fn write_big_fish_public_slice_json(debug_dir: &Path) {
     let semantic = build_semantic_screenplay(normalized.clone());
     let run = run_window_diagnostics(&fixture, &semantic, geometry_for_screenplay("big-fish"));
     let previews = preview_map(&normalized);
+    let report = enrich_report_previews(run.report, &previews);
     let debug_fixture = paginated_to_debug_fixture(
         &run.actual,
         &fixture.source,
@@ -43,12 +44,12 @@ pub fn write_big_fish_public_slice_json(debug_dir: &Path) {
         serde_json::to_string_pretty(&ProbeDebugOutput {
             lines_per_page: run.lines_per_page,
             score: run.score,
-            total_issues: run.report.total_issues(),
-            wrong_page: run.report.issue_count(ComparisonIssueKind::WrongPage),
-            wrong_fragment: run.report.issue_count(ComparisonIssueKind::WrongFragment),
-            missing: run.report.issue_count(ComparisonIssueKind::MissingOccurrence),
-            unexpected: run.report.issue_count(ComparisonIssueKind::UnexpectedOccurrence),
-            report: run.report,
+            total_issues: report.total_issues(),
+            wrong_page: report.issue_count(ComparisonIssueKind::WrongPage),
+            wrong_fragment: report.issue_count(ComparisonIssueKind::WrongFragment),
+            missing: report.issue_count(ComparisonIssueKind::MissingOccurrence),
+            unexpected: report.issue_count(ComparisonIssueKind::UnexpectedOccurrence),
+            report,
         })
         .unwrap(),
     )
@@ -77,6 +78,7 @@ pub fn write_selected_public_windows_json(debug_dir: &Path) {
         let semantic = build_semantic_screenplay(normalized.clone());
         let run = run_window_diagnostics(&fixture, &semantic, geometry_for_screenplay(screenplay_id));
         let previews = preview_map(&normalized);
+        let report = enrich_report_previews(run.report, &previews);
         let debug_fixture = paginated_to_debug_fixture(
             &run.actual,
             &fixture.source,
@@ -98,12 +100,12 @@ pub fn write_selected_public_windows_json(debug_dir: &Path) {
                 page_numbers: fixture.pages.iter().map(|page| page.number).collect(),
                 lines_per_page: run.lines_per_page,
                 score: run.score,
-                total_issues: run.report.total_issues(),
-                wrong_page: run.report.issue_count(ComparisonIssueKind::WrongPage),
-                wrong_fragment: run.report.issue_count(ComparisonIssueKind::WrongFragment),
-                missing: run.report.issue_count(ComparisonIssueKind::MissingOccurrence),
-                unexpected: run.report.issue_count(ComparisonIssueKind::UnexpectedOccurrence),
-                report: run.report,
+                total_issues: report.total_issues(),
+                wrong_page: report.issue_count(ComparisonIssueKind::WrongPage),
+                wrong_fragment: report.issue_count(ComparisonIssueKind::WrongFragment),
+                missing: report.issue_count(ComparisonIssueKind::MissingOccurrence),
+                unexpected: report.issue_count(ComparisonIssueKind::UnexpectedOccurrence),
+                report,
             })
             .unwrap(),
         )
@@ -185,6 +187,7 @@ pub fn write_little_women_full_script_page_break_packet(debug_dir: &Path) {
         report.issue_count(ComparisonIssueKind::WrongFragment),
     );
     let previews = preview_map(&normalized);
+    let report = enrich_report_previews(report, &previews);
     let debug_fixture = paginated_to_debug_fixture(
         &actual,
         &fixture.source,
@@ -229,6 +232,72 @@ pub fn write_little_women_full_script_page_break_packet(debug_dir: &Path) {
     .unwrap();
 }
 
+pub fn write_big_fish_full_script_page_break_packet(debug_dir: &Path) {
+    let fixture_path = "tests/fixtures/corpus/public/big-fish/canonical/page-breaks.json";
+    let fixture: PageBreakFixture = read_fixture(fixture_path);
+    let fountain = fs::read_to_string("tests/fixtures/corpus/public/big-fish/source/source.fountain")
+        .unwrap();
+    let screenplay = parse(&fountain);
+    let normalized = normalize_screenplay("big-fish", &screenplay);
+    let config = PaginationConfig::from_screenplay(&screenplay, 54.0);
+    let actual = PaginatedScreenplay::from_screenplay(
+        "big-fish",
+        &screenplay,
+        54.0,
+        fixture.scope.clone(),
+    );
+    let report = compare_paginated_to_fixture(&actual, &fixture);
+    let score = (
+        report.total_issues(),
+        report.issue_count(ComparisonIssueKind::WrongPage),
+        report.issue_count(ComparisonIssueKind::WrongFragment),
+    );
+    let previews = preview_map(&normalized);
+    let report = enrich_report_previews(report, &previews);
+    let debug_fixture = paginated_to_debug_fixture(
+        &actual,
+        &fixture.source,
+        &normalized,
+        54.0,
+        &config.geometry,
+        &previews,
+    );
+
+    fs::create_dir_all(debug_dir).unwrap();
+    fs::write(
+        debug_dir.join("actual.page-breaks.json"),
+        serde_json::to_string_pretty(&debug_fixture).unwrap(),
+    )
+    .unwrap();
+    fs::write(
+        debug_dir.join("comparison-report.json"),
+        serde_json::to_string_pretty(&FixtureProbeDebugOutput {
+            fixture_path: fixture_path.to_string(),
+            page_numbers: fixture.pages.iter().map(|page| page.number).collect(),
+            lines_per_page: 54.0,
+            score,
+            total_issues: report.total_issues(),
+            wrong_page: report.issue_count(ComparisonIssueKind::WrongPage),
+            wrong_fragment: report.issue_count(ComparisonIssueKind::WrongFragment),
+            missing: report.issue_count(ComparisonIssueKind::MissingOccurrence),
+            unexpected: report.issue_count(ComparisonIssueKind::UnexpectedOccurrence),
+            report: report.clone(),
+        })
+        .unwrap(),
+    )
+    .unwrap();
+    fs::write(
+        debug_dir.join("pseudo-pdf.txt"),
+        render_pseudo_pdf_output(&actual, &normalized, 54.0, &config.geometry),
+    )
+    .unwrap();
+    fs::write(
+        debug_dir.join("REVIEW.md"),
+        render_big_fish_full_script_review_packet(54.0, score, &fixture, &report),
+    )
+    .unwrap();
+}
+
 pub fn write_mostly_genius_full_script_page_break_packet(debug_dir: &Path) {
     let fixture_path = "tests/fixtures/corpus/public/mostly-genius/canonical/page-breaks.json";
     let fixture: PageBreakFixture = read_fixture(fixture_path);
@@ -250,6 +319,7 @@ pub fn write_mostly_genius_full_script_page_break_packet(debug_dir: &Path) {
         report.issue_count(ComparisonIssueKind::WrongFragment),
     );
     let previews = preview_map(&normalized);
+    let report = enrich_report_previews(report, &previews);
     let debug_fixture = paginated_to_debug_fixture(
         &actual,
         &fixture.source,
@@ -310,6 +380,7 @@ fn write_window_review_packet(
         let semantic = build_semantic_screenplay(normalized.clone());
         let run = run_window_diagnostics(&fixture, &semantic, geometry_for_screenplay(screenplay_id));
         let previews = preview_map(&normalized);
+        let report = enrich_report_previews(run.report.clone(), &previews);
         let debug_fixture = paginated_to_debug_fixture(
             &run.actual,
             &fixture.source,
@@ -332,12 +403,12 @@ fn write_window_review_packet(
                 page_numbers: fixture.pages.iter().map(|page| page.number).collect(),
                 lines_per_page: run.lines_per_page,
                 score: run.score,
-                total_issues: run.report.total_issues(),
-                wrong_page: run.report.issue_count(ComparisonIssueKind::WrongPage),
-                wrong_fragment: run.report.issue_count(ComparisonIssueKind::WrongFragment),
-                missing: run.report.issue_count(ComparisonIssueKind::MissingOccurrence),
-                unexpected: run.report.issue_count(ComparisonIssueKind::UnexpectedOccurrence),
-                report: run.report.clone(),
+                total_issues: report.total_issues(),
+                wrong_page: report.issue_count(ComparisonIssueKind::WrongPage),
+                wrong_fragment: report.issue_count(ComparisonIssueKind::WrongFragment),
+                missing: report.issue_count(ComparisonIssueKind::MissingOccurrence),
+                unexpected: report.issue_count(ComparisonIssueKind::UnexpectedOccurrence),
+                report: report.clone(),
             })
             .unwrap(),
         )
@@ -679,6 +750,18 @@ fn preview_map(normalized: &NormalizedScreenplay) -> HashMap<String, String> {
         .iter()
         .map(|element| (element.element_id.clone(), text_preview(&element.text)))
         .collect()
+}
+
+fn enrich_report_previews(
+    mut report: crate::pagination::ComparisonReport,
+    previews: &HashMap<String, String>,
+) -> crate::pagination::ComparisonReport {
+    for issue in &mut report.issues {
+        if issue.text_preview.is_none() {
+            issue.text_preview = previews.get(&issue.element_id).cloned();
+        }
+    }
+    report
 }
 
 fn paginated_to_debug_fixture(
@@ -1137,7 +1220,35 @@ fn exact_pdf_line_matches(page_lines: &[String], candidate_text: &str) -> Vec<(u
 }
 
 fn normalize_pdf_match_text(text: &str) -> String {
-    text.split_whitespace().collect::<Vec<_>>().join(" ")
+    let chars: Vec<char> = text.chars().collect();
+    let mut out = String::new();
+    let mut index = 0;
+
+    while index < chars.len() {
+        let ch = chars[index];
+        if ch.is_whitespace() {
+            let prev = out.chars().last();
+            let mut next_index = index + 1;
+            while next_index < chars.len() && chars[next_index].is_whitespace() {
+                next_index += 1;
+            }
+
+            let next = chars.get(next_index).copied();
+            let joins_hyphenated_word =
+                matches!(prev, Some('-')) && matches!(next, Some(c) if c.is_alphanumeric());
+
+            if !joins_hyphenated_word && !out.is_empty() && next.is_some() && !out.ends_with(' ') {
+                out.push(' ');
+            }
+            index = next_index;
+            continue;
+        }
+
+        out.push(ch);
+        index += 1;
+    }
+
+    out.trim().to_string()
 }
 
 fn public_pdf_pages(screenplay_id: &str) -> HashMap<u32, Vec<String>> {
@@ -1329,6 +1440,47 @@ Notes:\n\n\
         total = report.total_issues(),
         wrong_page = score.1,
         wrong_fragment = score.2,
+        missing = report.issue_count(ComparisonIssueKind::MissingOccurrence),
+        unexpected = report.issue_count(ComparisonIssueKind::UnexpectedOccurrence),
+    )
+}
+
+fn render_big_fish_full_script_review_packet(
+    lines_per_page: f32,
+    _score: (usize, usize, usize),
+    fixture: &PageBreakFixture,
+    report: &crate::pagination::ComparisonReport,
+) -> String {
+    format!(
+        "# Big Fish Full-Script Page-Break Review Packet\n\n\
+Run this command to regenerate everything in this folder:\n\n\
+```bash\n\
+cargo run --bin pagination-diagnostics -- big-fish-full-script\n\
+```\n\n\
+Read files in this order:\n\n\
+1. `target/pagination-debug/big-fish-full-script/REVIEW.md`\n\
+2. `target/pagination-debug/big-fish-full-script/comparison-report.json`\n\
+3. `tests/fixtures/corpus/public/big-fish/canonical/page-breaks.json`\n\
+4. `target/pagination-debug/big-fish-full-script/actual.page-breaks.json`\n\
+5. `target/pagination-debug/big-fish-full-script/pseudo-pdf.txt`\n\n\
+Current full-script summary:\n\n\
+- pages: {pages}\n\
+- lines_per_page: {lines_per_page}\n\
+- total issues: {total}\n\
+- wrong page: {wrong_page}\n\
+- wrong fragment: {wrong_fragment}\n\
+- missing: {missing}\n\
+- unexpected: {unexpected}\n\n\
+Notes:\n\n\
+- `comparison-report.json` is the quickest way to see where page assignments diverge.\n\
+- `actual.page-breaks.json` is the current engine output in canonical fixture shape.\n\
+- `pseudo-pdf.txt` is a plain-text rendering of the current engine's predicted page lines and blank spacing.\n\
+- `tests/fixtures/corpus/public/big-fish/source/source.fountain` is the vendored local source text.\n",
+        pages = fixture.pages.len(),
+        lines_per_page = lines_per_page,
+        total = report.total_issues(),
+        wrong_page = report.issue_count(ComparisonIssueKind::WrongPage),
+        wrong_fragment = report.issue_count(ComparisonIssueKind::WrongFragment),
         missing = report.issue_count(ComparisonIssueKind::MissingOccurrence),
         unexpected = report.issue_count(ComparisonIssueKind::UnexpectedOccurrence),
     )

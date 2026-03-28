@@ -87,7 +87,7 @@ Pages are filled until visual height is exhausted, prompting a hard pagination m
 ### 6.1 Stranding and Splitting
 
 - **Scene Headings**: Must _never_ sit alone at the bottom of the page. It must be paired with at least a small portion of subsequent action or dialogue.
-- **Transitions**: Allowed to be placed as a single isolated line at the end of a page.
+- **Transitions**: Allowed to be placed as a single isolated line at the end of a page, but they _should avoid_ being placed as the first element of a page with no content above them.
 - **Orphan and Widow Thresholds**: Action or dialogue splits require a minimum of **2 visual lines** on the terminating page, and **2 visual lines** on the sequential next page. _(Note: This is a working hypothesis and has not been fully confirmed.)_
 - **Splitting Logic**: Programs avoid ungainly "stranding." When splitting action or dialogue near the bottom of a page, splits should favor a sentence boundary where possible. The algorithm would rather push an entire element block onto the next page or slice at an earlier junction for a more elegant partition rather than stranding small bits of content at the top of the next page.
 

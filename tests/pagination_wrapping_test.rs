@@ -152,6 +152,25 @@ fn final_draft_discounts_all_trailing_spaces_from_width() {
 }
 
 #[test]
+fn final_draft_allows_hyphenated_compounds_to_break_after_a_trailing_hyphen() {
+    let config = WrapConfig::new(ElementType::Dialogue);
+
+    let text = "Did I want to deprive my soon-to-be-born son the chance to catch a fish like this of his own?  This lady fish and I, well, we had the same destiny.";
+    let lines = wrap_text_for_element(text, &config);
+
+    assert_eq!(
+        lines,
+        vec![
+            "Did I want to deprive my soon-to-be-",
+            "born son the chance to catch a fish",
+            "like this of his own?  This lady",
+            "fish and I, well, we had the same",
+            "destiny.",
+        ]
+    );
+}
+
+#[test]
 fn wrap_config_can_be_created_from_custom_geometry() {
     use jumpcut::pagination::LayoutGeometry;
     

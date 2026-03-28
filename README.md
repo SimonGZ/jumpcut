@@ -225,11 +225,21 @@ cargo run --bin pagination-diagnostics -- all
 The tool currently regenerates:
 
 - Big Fish review packet
+- Big Fish full-script page-break review packet
 - Big Fish line-break parity packet
 - Little Women windowed review packet
 - Little Women full-script page-break review packet
 - Little Women line-break parity packet
+- Mostly Genius full-script page-break review packet
+- Mostly Genius line-break parity packet
 - the extra paginated-output JSON dumps and visual-comparison export used for manual debugging
+
+There are also narrower convenience tasks:
+
+```sh
+just big-fish-diagnostics
+just mostly-genius-diagnostics
+```
 
 ## Development Plans
 

@@ -413,7 +413,35 @@ fn exact_pdf_line_matches(page_lines: &[String], candidate_text: &str) -> Vec<(u
 }
 
 fn normalize_pdf_match_text(text: &str) -> String {
-    text.split_whitespace().collect::<Vec<_>>().join(" ")
+    let chars: Vec<char> = text.chars().collect();
+    let mut out = String::new();
+    let mut index = 0;
+
+    while index < chars.len() {
+        let ch = chars[index];
+        if ch.is_whitespace() {
+            let prev = out.chars().last();
+            let mut next_index = index + 1;
+            while next_index < chars.len() && chars[next_index].is_whitespace() {
+                next_index += 1;
+            }
+
+            let next = chars.get(next_index).copied();
+            let joins_hyphenated_word =
+                matches!(prev, Some('-')) && matches!(next, Some(c) if c.is_alphanumeric());
+
+            if !joins_hyphenated_word && !out.is_empty() && next.is_some() && !out.ends_with(' ') {
+                out.push(' ');
+            }
+            index = next_index;
+            continue;
+        }
+
+        out.push(ch);
+        index += 1;
+    }
+
+    out.trim().to_string()
 }
 
 fn public_pdf_pages(screenplay_id: &str) -> HashMap<u32, Vec<String>> {

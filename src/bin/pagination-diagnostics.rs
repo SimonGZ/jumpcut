@@ -20,6 +20,10 @@ const DIAGNOSTIC_COMMANDS: &[DiagnosticCommand] = &[
         action: DiagnosticAction::Direct(write_big_fish_review),
     },
     DiagnosticCommand {
+        name: "big-fish-full-script",
+        action: DiagnosticAction::Direct(write_big_fish_full_script_review),
+    },
+    DiagnosticCommand {
         name: "big-fish-linebreak",
         action: DiagnosticAction::Direct(write_big_fish_linebreak),
     },
@@ -142,6 +146,12 @@ fn write_public_window_json(repo_root: &Path) {
 fn write_big_fish_review(repo_root: &Path) {
     let debug_dir = repo_root.join("target/pagination-debug/big-fish-review");
     page_break_diagnostics::write_big_fish_review_packet(&debug_dir);
+    println!("wrote {}", debug_dir.join("REVIEW.md").display());
+}
+
+fn write_big_fish_full_script_review(repo_root: &Path) {
+    let debug_dir = repo_root.join("target/pagination-debug/big-fish-full-script");
+    page_break_diagnostics::write_big_fish_full_script_page_break_packet(&debug_dir);
     println!("wrote {}", debug_dir.join("REVIEW.md").display());
 }
 

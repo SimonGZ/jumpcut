@@ -110,6 +110,52 @@ pub fn paginate<'a>(blocks: &'a [LayoutBlock<'a>], page_limit_lines: f32, geomet
                 }
             }
 
+            if chunk_starts_with_transition(&chunk)
+                && current_page_blocks.iter().any(block_has_visible_content)
+            {
+                if let Some(moved_block) = pull_last_visible_block_for_transition(&mut current_page_blocks) {
+                    if !current_page_blocks.is_empty() {
+                        pages.push(Page { blocks: current_page_blocks });
+                    }
+
+                    current_page_blocks = vec![LayoutBlock {
+                        unit: moved_block.unit,
+                        fragment: moved_block.fragment,
+                        spacing_above: 0.0,
+                        content_lines: moved_block.content_lines,
+                        keep_with_next: moved_block.keep_with_next,
+                        can_split: moved_block.can_split,
+                        widow_penalty: moved_block.widow_penalty,
+                    }];
+                    current_page_lines = current_page_blocks[0].content_lines;
+
+                    let mut page_has_visible_content = true;
+                    for block in &chunk.blocks {
+                        let effective_spacing = if !page_has_visible_content && block_has_visible_content(block) {
+                            0.0
+                        } else {
+                            block.spacing_above
+                        };
+
+                        current_page_blocks.push(LayoutBlock {
+                            unit: block.unit,
+                            fragment: block.fragment.clone(),
+                            spacing_above: effective_spacing,
+                            content_lines: block.content_lines,
+                            keep_with_next: block.keep_with_next,
+                            can_split: block.can_split,
+                            widow_penalty: block.widow_penalty,
+                        });
+
+                        current_page_lines += effective_spacing + block.content_lines;
+                        if block_has_visible_content(block) {
+                            page_has_visible_content = true;
+                        }
+                    }
+                    continue;
+                }
+            }
+
             if !current_page_blocks.is_empty() {
                 pages.push(Page { blocks: current_page_blocks });
             }
@@ -179,4 +225,32 @@ pub fn paginate<'a>(blocks: &'a [LayoutBlock<'a>], page_limit_lines: f32, geomet
 
 fn block_has_visible_content(block: &LayoutBlock<'_>) -> bool {
     !matches!(block.unit, SemanticUnit::PageStart(_)) || block.content_lines > 0.0
+}
+
+fn chunk_starts_with_transition(chunk: &Chunk<'_>) -> bool {
+    chunk.blocks.iter().find(|block| block_has_visible_content(block)).is_some_and(|block| {
+        matches!(
+            block.unit,
+            SemanticUnit::Flow(crate::pagination::FlowUnit {
+                kind: crate::pagination::FlowKind::Transition,
+                ..
+            })
+        )
+    })
+}
+
+fn pull_last_visible_block_for_transition<'a>(
+    current_page_blocks: &mut Vec<LayoutBlock<'a>>,
+) -> Option<LayoutBlock<'a>> {
+    let last_visible_index =
+        current_page_blocks.iter().rposition(block_has_visible_content)?;
+    let has_earlier_visible_content = current_page_blocks[..last_visible_index]
+        .iter()
+        .any(block_has_visible_content);
+
+    if !has_earlier_visible_content {
+        return None;
+    }
+
+    Some(current_page_blocks.remove(last_visible_index))
 }

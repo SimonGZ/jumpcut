@@ -189,6 +189,26 @@ fn big_fish_line_break_parity_reports_el_00787_as_an_exact_match() {
 }
 
 #[test]
+fn big_fish_line_break_parity_recovers_el_00533_hyphenated_pdf_match() {
+    let report = build_line_break_parity_report(
+        "big-fish",
+        "tests/fixtures/corpus/public/big-fish/source/source.fountain",
+        "tests/fixtures/corpus/public/big-fish/canonical/page-breaks.json",
+    );
+    let item = report
+        .items
+        .iter()
+        .find(|item| item.element_id == "el-00533")
+        .unwrap();
+
+    assert_eq!(item.match_kind, "exact_unique");
+    assert_eq!(item.pdf_line_count, Some(2));
+    assert_eq!(item.lines_agree, Some(true));
+    assert_eq!(item.expected_wrapped_lines.len(), 2);
+    assert_eq!(item.pdf_lines.len(), 2);
+}
+
+#[test]
 // #[ignore = "Temporarily disabled"]
 fn big_fish_macro_parity_holds_baseline() {
     let report = build_line_break_parity_report(
@@ -654,7 +674,35 @@ fn exact_pdf_line_matches(page_lines: &[String], candidate_text: &str) -> Vec<(u
 }
 
 fn normalize_pdf_match_text(text: &str) -> String {
-    text.split_whitespace().collect::<Vec<_>>().join(" ")
+    let chars: Vec<char> = text.chars().collect();
+    let mut out = String::new();
+    let mut index = 0;
+
+    while index < chars.len() {
+        let ch = chars[index];
+        if ch.is_whitespace() {
+            let prev = out.chars().last();
+            let mut next_index = index + 1;
+            while next_index < chars.len() && chars[next_index].is_whitespace() {
+                next_index += 1;
+            }
+
+            let next = chars.get(next_index).copied();
+            let joins_hyphenated_word =
+                matches!(prev, Some('-')) && matches!(next, Some(c) if c.is_alphanumeric());
+
+            if !joins_hyphenated_word && !out.is_empty() && next.is_some() && !out.ends_with(' ') {
+                out.push(' ');
+            }
+            index = next_index;
+            continue;
+        }
+
+        out.push(ch);
+        index += 1;
+    }
+
+    out.trim().to_string()
 }
 
 fn public_pdf_pages(screenplay_id: &str) -> HashMap<u32, Vec<String>> {
