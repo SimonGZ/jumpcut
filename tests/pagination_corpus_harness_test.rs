@@ -84,7 +84,7 @@ fn selected_public_windows_have_useful_exact_unique_pdf_line_matches() {
         ),
     ] {
         let fixture: PageBreakFixture = read_fixture(path);
-        let normalized = normalized_slice_from_fountain(screenplay_id, fountain_path, &fixture);
+        let normalized = normalized_window_from_fountain(screenplay_id, fountain_path, &fixture);
         let debug = canonical_pdf_line_count_debug(screenplay_id, &fixture, &normalized);
 
         assert_eq!(
@@ -106,7 +106,7 @@ fn pdf_line_count_diagnostic_confirms_big_fish_el_00787_is_one_line() {
     let fixture: PageBreakFixture =
         read_fixture("tests/fixtures/pagination/big-fish.p38-40.page-breaks.json");
     let normalized =
-        normalized_slice_from_fountain(
+        normalized_window_from_fountain(
             "big-fish",
             "tests/fixtures/corpus/public/big-fish/source/source.fountain",
             &fixture,
@@ -129,15 +129,14 @@ fn big_fish_public_slice_stays_at_or_better_than_width_measurement_baseline() {
     let fixture: PageBreakFixture =
         read_fixture("tests/fixtures/pagination/big-fish.split-page-breaks.json");
     let normalized =
-        normalized_slice_from_fountain(
+        normalized_window_from_fountain(
             "big-fish",
             "tests/fixtures/corpus/public/big-fish/source/source.fountain",
             &fixture,
         );
     let semantic = build_semantic_screenplay(normalized);
 
-    let run = best_probe_run(&fixture, &semantic, measurement_for_screenplay("big-fish"));
-    let report = &run.report;
+    let report = run_window_parity_check(&fixture, &semantic, geometry_for_screenplay("big-fish"));
 
     assert!(
         report.total_issues() == 0,
@@ -269,16 +268,19 @@ fn brick_n_steel_full_script_page_break_parity_holds_baseline() {
     let fixture: PageBreakFixture = read_fixture(
         "tests/fixtures/corpus/public/brick-n-steel/canonical/page-breaks.json",
     );
-    let normalized = normalized_slice_from_fountain(
+    let fountain = fs::read_to_string("tests/fixtures/corpus/public/brick-n-steel/source/source.fountain")
+        .unwrap();
+    let screenplay = parse(&fountain);
+    let actual = PaginatedScreenplay::from_screenplay(
         "brick-n-steel",
-        "tests/fixtures/corpus/public/brick-n-steel/source/source.fountain",
-        &fixture,
+        &screenplay,
+        54.0,
+        fixture.scope.clone(),
     );
-    let semantic = build_semantic_screenplay(normalized);
-    let run = best_probe_run(&fixture, &semantic, measurement_for_screenplay("brick-n-steel"));
+    let report = compare_paginated_to_fixture(&actual, &fixture);
 
     assert_eq!(
-        run.report.total_issues(),
+        report.total_issues(),
         0,
         "Expected Brick & Steel full-script page-break parity against the Final Draft canonical fixture to have 0 issues. If this fails, inspect the report and decide which pagination assumptions are wrong."
     );
@@ -289,16 +291,19 @@ fn brick_n_steel_full_script_page_break_parity_holds_baseline() {
 fn little_women_full_script_page_break_parity_holds_baseline() {
     let fixture: PageBreakFixture =
         read_fixture("tests/fixtures/corpus/public/little-women/canonical/page-breaks.json");
-    let normalized = normalized_slice_from_fountain(
+    let fountain = fs::read_to_string("tests/fixtures/corpus/public/little-women/source/source.fountain")
+        .unwrap();
+    let screenplay = parse(&fountain);
+    let actual = PaginatedScreenplay::from_screenplay(
         "little-women",
-        "tests/fixtures/corpus/public/little-women/source/source.fountain",
-        &fixture,
+        &screenplay,
+        54.0,
+        fixture.scope.clone(),
     );
-    let semantic = build_semantic_screenplay(normalized);
-    let run = best_probe_run(&fixture, &semantic, measurement_for_screenplay("little-women"));
+    let report = compare_paginated_to_fixture(&actual, &fixture);
 
     assert_eq!(
-        run.report.total_issues(),
+        report.total_issues(),
         0,
         "Expected Little Women full-script page-break parity against the Final Draft canonical fixture to have 0 issues. If this fails, inspect the report and decide which pagination assumptions are wrong."
     );
@@ -343,49 +348,27 @@ fn dual_dialogue_parity_items_use_dual_dialogue_width_and_surface_dual_metadata(
     assert_eq!(item.lines_agree, Some(true));
 }
 
-fn best_probe_run(
+fn run_window_parity_check(
     fixture: &PageBreakFixture,
     semantic: &jumpcut::pagination::SemanticScreenplay,
     geometry: LayoutGeometry,
-) -> ProbeRun {
-    let mut best = None;
+) -> jumpcut::pagination::ComparisonReport {
     let page_numbers: Vec<u32> = fixture.pages.iter().map(|page| page.number).collect();
-    for lpp_int in 54..=54 {
-        let lines_per_page = lpp_int as f32;
-        let config = PaginationConfig {
-            lines_per_page,
-            geometry: geometry.clone(),
-        };
-        let full_actual = PaginatedScreenplay::paginate(
-            semantic.clone(),
-            config.clone(),
-            fixture.style_profile.clone(),
-            fixture.scope.clone(),
-        );
-        let actual = paginated_page_window(&full_actual, &page_numbers);
-        let report = compare_paginated_to_fixture(&actual, fixture);
-        let score = (
-            report.total_issues(),
-            report.issue_count(ComparisonIssueKind::WrongPage),
-            report.issue_count(ComparisonIssueKind::WrongFragment),
-        );
-
-        match &best {
-            Some((best_score, _, _)) if best_score <= &score => {}
-            _ => {
-                best = Some((
-                    score,
-                    lines_per_page,
-                    ProbeRun { report },
-                ))
-            }
-        }
-    }
-
-    best.unwrap().2
+    let config = PaginationConfig {
+        lines_per_page: 54.0,
+        geometry,
+    };
+    let full_actual = PaginatedScreenplay::paginate(
+        semantic.clone(),
+        config,
+        fixture.style_profile.clone(),
+        fixture.scope.clone(),
+    );
+    let actual = slice_paginated_to_fixture_window(&full_actual, &page_numbers);
+    compare_paginated_to_fixture(&actual, fixture)
 }
 
-fn measurement_for_screenplay(screenplay_id: &str) -> LayoutGeometry {
+fn geometry_for_screenplay(screenplay_id: &str) -> LayoutGeometry {
     let path = Path::new("tests/fixtures/corpus/public")
         .join(screenplay_id)
         .join("source/source.fountain");
@@ -394,7 +377,7 @@ fn measurement_for_screenplay(screenplay_id: &str) -> LayoutGeometry {
     PaginationConfig::from_screenplay(&screenplay, 54.0).geometry
 }
 
-fn normalized_slice_from_fountain(
+fn normalized_window_from_fountain(
     screenplay_id: &str,
     fountain_path: &str,
     fixture: &PageBreakFixture,
@@ -423,7 +406,7 @@ fn normalized_slice_from_fountain(
     }
 }
 
-fn paginated_page_window(
+fn slice_paginated_to_fixture_window(
     actual: &PaginatedScreenplay,
     page_numbers: &[u32],
 ) -> PaginatedScreenplay {
@@ -693,7 +676,7 @@ fn build_line_break_parity_report(
     fountain_path: &str,
     canonical_page_breaks_path: &str,
 ) -> LineBreakParityReport {
-    let measurement = measurement_for_screenplay(screenplay_id);
+    let measurement = geometry_for_screenplay(screenplay_id);
     let fountain = fs::read_to_string(fountain_path).unwrap();
     let screenplay = parse(&fountain);
     let parsed = normalize_screenplay(screenplay_id, &screenplay);
@@ -987,10 +970,6 @@ struct LineBreakParityItem {
     candidate_spans: Vec<(u32, u32)>,
     #[serde(skip_serializing_if = "Option::is_none")]
     lines_agree: Option<bool>,
-}
-
-struct ProbeRun {
-    report: jumpcut::pagination::ComparisonReport,
 }
 
 #[derive(Serialize)]

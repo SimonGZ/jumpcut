@@ -1,5 +1,6 @@
 use jumpcut::pagination::{
-    normalize_screenplay, BlockPlacement, ContinuationMarker, NormalizedElement,
+    compare_paginated_to_fixture, normalize_screenplay, BlockPlacement, ComparisonIssueKind,
+    ContinuationMarker, NormalizedElement,
     NormalizedScreenplay, PageBreakFixture, PageKind, PaginatedScreenplay, PaginationScope,
 };
 use jumpcut::parse;
@@ -78,6 +79,28 @@ fn paginated_ir_from_normalized_matches_brick_n_steel_fixture_slice() {
     assert_eq!(actual.style_profile, expected.style_profile);
     assert_eq!(actual.scope, expected.scope);
     assert_eq!(actual.pages, expected.pages);
+}
+
+#[test]
+fn paginated_ir_from_screenplay_matches_brick_n_steel_full_fixture() {
+    let fixture: PageBreakFixture =
+        read_fixture("tests/fixtures/corpus/public/brick-n-steel/canonical/page-breaks.json");
+    let fountain = fs::read_to_string("tests/fixtures/corpus/public/brick-n-steel/source/source.fountain")
+        .unwrap();
+    let screenplay = parse(&fountain);
+
+    let actual = PaginatedScreenplay::from_screenplay(
+        "brick-n-steel",
+        &screenplay,
+        54.0,
+        fixture.scope.clone(),
+    );
+    let report = compare_paginated_to_fixture(&actual, &fixture);
+
+    assert_eq!(actual.style_profile, fixture.style_profile);
+    assert_eq!(report.total_issues(), 0);
+    assert_eq!(report.issue_count(ComparisonIssueKind::WrongPage), 0);
+    assert_eq!(report.issue_count(ComparisonIssueKind::WrongFragment), 0);
 }
 
 #[test]

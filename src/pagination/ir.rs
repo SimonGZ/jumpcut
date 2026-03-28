@@ -2,9 +2,10 @@ use crate::pagination::fixtures::{
     Fragment, NormalizedElement, NormalizedScreenplay, PageBreakFixture,
     PageBreakFixtureSourceRefs, PaginationScope,
 };
+use crate::pagination::normalize_screenplay;
 use crate::pagination::ScreenplayLayoutProfile;
 use crate::pagination::semantic::{
-    DialoguePartKind, DialogueUnit, FlowKind, FlowUnit, SemanticScreenplay,
+    build_semantic_screenplay, DialoguePartKind, DialogueUnit, FlowKind, FlowUnit, SemanticScreenplay,
     SemanticUnit,
 };
 use crate::pagination::LayoutGeometry;
@@ -209,6 +210,24 @@ impl PaginatedScreenplay {
             scope,
             pages,
         }
+    }
+
+    pub fn from_screenplay(
+        screenplay_id: &str,
+        screenplay: &Screenplay,
+        lines_per_page: f32,
+        scope: PaginationScope,
+    ) -> Self {
+        let layout_profile = ScreenplayLayoutProfile::from_metadata(&screenplay.metadata);
+        let style_profile = match layout_profile.style_profile {
+            crate::pagination::StyleProfile::Screenplay => "standard",
+            crate::pagination::StyleProfile::Multicam => "multicam",
+        };
+        let normalized = normalize_screenplay(screenplay_id, screenplay);
+        let semantic = build_semantic_screenplay(normalized);
+        let config = PaginationConfig::from_screenplay(screenplay, lines_per_page);
+
+        Self::paginate(semantic, config, style_profile, scope)
     }
 
     pub fn from_fixture(fixture: PageBreakFixture) -> Self {
@@ -534,4 +553,3 @@ fn title_page_number(page_number: u32, scope: &PaginationScope) -> Option<u32> {
         _ => None,
     }
 }
-

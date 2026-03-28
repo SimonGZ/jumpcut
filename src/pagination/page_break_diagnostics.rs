@@ -15,13 +15,13 @@ use crate::pagination::{
 pub fn write_big_fish_public_slice_json(debug_dir: &Path) {
     let fixture: PageBreakFixture =
         read_fixture("tests/fixtures/pagination/big-fish.split-page-breaks.json");
-    let normalized = normalized_slice_from_fountain(
+    let normalized = normalized_window_from_fountain(
         "big-fish",
         "tests/fixtures/corpus/public/big-fish/source/source.fountain",
         &fixture,
     );
     let semantic = build_semantic_screenplay(normalized.clone());
-    let run = best_probe_run(&fixture, &semantic, measurement_for_screenplay("big-fish"));
+    let run = run_window_diagnostics(&fixture, &semantic, geometry_for_screenplay("big-fish"));
     let previews = preview_map(&normalized);
     let debug_fixture = paginated_to_debug_fixture(
         &run.actual,
@@ -73,9 +73,9 @@ pub fn write_selected_public_windows_json(debug_dir: &Path) {
         ),
     ] {
         let fixture: PageBreakFixture = read_fixture(path);
-        let normalized = normalized_slice_from_fountain(screenplay_id, fountain_path, &fixture);
+        let normalized = normalized_window_from_fountain(screenplay_id, fountain_path, &fixture);
         let semantic = build_semantic_screenplay(normalized.clone());
-        let run = best_probe_run(&fixture, &semantic, measurement_for_screenplay(screenplay_id));
+        let run = run_window_diagnostics(&fixture, &semantic, geometry_for_screenplay(screenplay_id));
         let previews = preview_map(&normalized);
         let debug_fixture = paginated_to_debug_fixture(
             &run.actual,
@@ -167,23 +167,32 @@ pub fn write_little_women_review_packet(debug_dir: &Path) {
 pub fn write_little_women_full_script_page_break_packet(debug_dir: &Path) {
     let fixture_path = "tests/fixtures/corpus/public/little-women/canonical/page-breaks.json";
     let fixture: PageBreakFixture = read_fixture(fixture_path);
-    let normalized = normalized_slice_from_fountain(
+    let fountain = fs::read_to_string("tests/fixtures/corpus/public/little-women/source/source.fountain")
+        .unwrap();
+    let screenplay = parse(&fountain);
+    let normalized = normalize_screenplay("little-women", &screenplay);
+    let config = PaginationConfig::from_screenplay(&screenplay, 54.0);
+    let actual = PaginatedScreenplay::from_screenplay(
         "little-women",
-        "tests/fixtures/corpus/public/little-women/source/source.fountain",
-        &fixture,
+        &screenplay,
+        54.0,
+        fixture.scope.clone(),
     );
-    let semantic = build_semantic_screenplay(normalized.clone());
-    let run = best_probe_run(&fixture, &semantic, measurement_for_screenplay("little-women"));
+    let report = compare_paginated_to_fixture(&actual, &fixture);
+    let score = (
+        report.total_issues(),
+        report.issue_count(ComparisonIssueKind::WrongPage),
+        report.issue_count(ComparisonIssueKind::WrongFragment),
+    );
     let previews = preview_map(&normalized);
     let debug_fixture = paginated_to_debug_fixture(
-        &run.actual,
+        &actual,
         &fixture.source,
         &normalized,
-        run.lines_per_page,
-        &run.geometry,
+        54.0,
+        &config.geometry,
         &previews,
     );
-    let report = run.report.clone();
 
     fs::create_dir_all(debug_dir).unwrap();
     fs::write(
@@ -196,13 +205,13 @@ pub fn write_little_women_full_script_page_break_packet(debug_dir: &Path) {
         serde_json::to_string_pretty(&FixtureProbeDebugOutput {
             fixture_path: fixture_path.to_string(),
             page_numbers: fixture.pages.iter().map(|page| page.number).collect(),
-            lines_per_page: run.lines_per_page,
-            score: run.score,
-            total_issues: run.report.total_issues(),
-            wrong_page: run.report.issue_count(ComparisonIssueKind::WrongPage),
-            wrong_fragment: run.report.issue_count(ComparisonIssueKind::WrongFragment),
-            missing: run.report.issue_count(ComparisonIssueKind::MissingOccurrence),
-            unexpected: run.report.issue_count(ComparisonIssueKind::UnexpectedOccurrence),
+            lines_per_page: 54.0,
+            score,
+            total_issues: report.total_issues(),
+            wrong_page: report.issue_count(ComparisonIssueKind::WrongPage),
+            wrong_fragment: report.issue_count(ComparisonIssueKind::WrongFragment),
+            missing: report.issue_count(ComparisonIssueKind::MissingOccurrence),
+            unexpected: report.issue_count(ComparisonIssueKind::UnexpectedOccurrence),
             report: report.clone(),
         })
         .unwrap(),
@@ -210,12 +219,12 @@ pub fn write_little_women_full_script_page_break_packet(debug_dir: &Path) {
     .unwrap();
     fs::write(
         debug_dir.join("pseudo-pdf.txt"),
-        render_pseudo_pdf_output(&run.actual, &normalized, run.lines_per_page, &run.geometry),
+        render_pseudo_pdf_output(&actual, &normalized, 54.0, &config.geometry),
     )
     .unwrap();
     fs::write(
         debug_dir.join("REVIEW.md"),
-        render_little_women_full_script_review_packet(run.lines_per_page, run.score, &fixture, &report),
+        render_little_women_full_script_review_packet(54.0, score, &fixture, &report),
     )
     .unwrap();
 }
@@ -223,23 +232,32 @@ pub fn write_little_women_full_script_page_break_packet(debug_dir: &Path) {
 pub fn write_mostly_genius_full_script_page_break_packet(debug_dir: &Path) {
     let fixture_path = "tests/fixtures/corpus/public/mostly-genius/canonical/page-breaks.json";
     let fixture: PageBreakFixture = read_fixture(fixture_path);
-    let normalized = normalized_slice_from_fountain(
+    let fountain = fs::read_to_string("tests/fixtures/corpus/public/mostly-genius/source/source.fountain")
+        .unwrap();
+    let screenplay = parse(&fountain);
+    let normalized = normalize_screenplay("mostly-genius", &screenplay);
+    let config = PaginationConfig::from_screenplay(&screenplay, 54.0);
+    let actual = PaginatedScreenplay::from_screenplay(
         "mostly-genius",
-        "tests/fixtures/corpus/public/mostly-genius/source/source.fountain",
-        &fixture,
+        &screenplay,
+        54.0,
+        fixture.scope.clone(),
     );
-    let semantic = build_semantic_screenplay(normalized.clone());
-    let run = best_probe_run(&fixture, &semantic, measurement_for_screenplay("mostly-genius"));
+    let report = compare_paginated_to_fixture(&actual, &fixture);
+    let score = (
+        report.total_issues(),
+        report.issue_count(ComparisonIssueKind::WrongPage),
+        report.issue_count(ComparisonIssueKind::WrongFragment),
+    );
     let previews = preview_map(&normalized);
     let debug_fixture = paginated_to_debug_fixture(
-        &run.actual,
+        &actual,
         &fixture.source,
         &normalized,
-        run.lines_per_page,
-        &run.geometry,
+        54.0,
+        &config.geometry,
         &previews,
     );
-    let report = run.report.clone();
 
     fs::create_dir_all(debug_dir).unwrap();
     fs::write(
@@ -252,13 +270,13 @@ pub fn write_mostly_genius_full_script_page_break_packet(debug_dir: &Path) {
         serde_json::to_string_pretty(&FixtureProbeDebugOutput {
             fixture_path: fixture_path.to_string(),
             page_numbers: fixture.pages.iter().map(|page| page.number).collect(),
-            lines_per_page: run.lines_per_page,
-            score: run.score,
-            total_issues: run.report.total_issues(),
-            wrong_page: run.report.issue_count(ComparisonIssueKind::WrongPage),
-            wrong_fragment: run.report.issue_count(ComparisonIssueKind::WrongFragment),
-            missing: run.report.issue_count(ComparisonIssueKind::MissingOccurrence),
-            unexpected: run.report.issue_count(ComparisonIssueKind::UnexpectedOccurrence),
+            lines_per_page: 54.0,
+            score,
+            total_issues: report.total_issues(),
+            wrong_page: report.issue_count(ComparisonIssueKind::WrongPage),
+            wrong_fragment: report.issue_count(ComparisonIssueKind::WrongFragment),
+            missing: report.issue_count(ComparisonIssueKind::MissingOccurrence),
+            unexpected: report.issue_count(ComparisonIssueKind::UnexpectedOccurrence),
             report: report.clone(),
         })
         .unwrap(),
@@ -266,12 +284,12 @@ pub fn write_mostly_genius_full_script_page_break_packet(debug_dir: &Path) {
     .unwrap();
     fs::write(
         debug_dir.join("pseudo-pdf.txt"),
-        render_pseudo_pdf_output(&run.actual, &normalized, run.lines_per_page, &run.geometry),
+        render_pseudo_pdf_output(&actual, &normalized, 54.0, &config.geometry),
     )
     .unwrap();
     fs::write(
         debug_dir.join("REVIEW.md"),
-        render_mostly_genius_full_script_review_packet(run.lines_per_page, run.score, &fixture, &report),
+        render_mostly_genius_full_script_review_packet(54.0, score, &fixture, &report),
     )
     .unwrap();
 }
@@ -288,9 +306,9 @@ fn write_window_review_packet(
     let mut summaries = Vec::new();
     for (fixture_path, stem) in fixtures {
         let fixture: PageBreakFixture = read_fixture(fixture_path);
-        let normalized = normalized_slice_from_fountain(screenplay_id, fountain_path, &fixture);
+        let normalized = normalized_window_from_fountain(screenplay_id, fountain_path, &fixture);
         let semantic = build_semantic_screenplay(normalized.clone());
-        let run = best_probe_run(&fixture, &semantic, measurement_for_screenplay(screenplay_id));
+        let run = run_window_diagnostics(&fixture, &semantic, geometry_for_screenplay(screenplay_id));
         let previews = preview_map(&normalized);
         let debug_fixture = paginated_to_debug_fixture(
             &run.actual,
@@ -371,9 +389,9 @@ pub fn write_visual_comparison_data(debug_dir: &Path) {
         ),
     ] {
         let fixture: PageBreakFixture = read_fixture(fixture_path);
-        let normalized = normalized_slice_from_fountain(screenplay_id, fountain_path, &fixture);
+        let normalized = normalized_window_from_fountain(screenplay_id, fountain_path, &fixture);
         let semantic = build_semantic_screenplay(normalized.clone());
-        let measurement = measurement_for_screenplay(screenplay_id);
+        let measurement = geometry_for_screenplay(screenplay_id);
 
         let run = if let Some(lpp) = fixed_lpp {
             let config = PaginationConfig {
@@ -392,7 +410,7 @@ pub fn write_visual_comparison_data(debug_dir: &Path) {
                 report.issue_count(ComparisonIssueKind::WrongPage),
                 report.issue_count(ComparisonIssueKind::WrongFragment),
             );
-            ProbeRun {
+            PaginatedWindowRun {
                 lines_per_page: lpp as f32,
                 score,
                 actual,
@@ -400,7 +418,7 @@ pub fn write_visual_comparison_data(debug_dir: &Path) {
                 report,
             }
         } else {
-            best_probe_run(&fixture, &semantic, measurement)
+            run_window_diagnostics(&fixture, &semantic, measurement)
         };
 
         let elements = normalized_element_map(&normalized);
@@ -561,55 +579,40 @@ pub fn write_visual_comparison_data(debug_dir: &Path) {
     }
 }
 
-fn best_probe_run(
+fn run_window_diagnostics(
     fixture: &PageBreakFixture,
     semantic: &crate::pagination::SemanticScreenplay,
     geometry: LayoutGeometry,
-) -> ProbeRun {
-    let mut best = None;
+) -> PaginatedWindowRun {
     let page_numbers: Vec<u32> = fixture.pages.iter().map(|page| page.number).collect();
-    for lpp_int in 54..=54 {
-        let lines_per_page = lpp_int as f32;
-        let config = PaginationConfig {
-            lines_per_page,
-            geometry: geometry.clone(),
-        };
-        let full_actual = PaginatedScreenplay::paginate(
-            semantic.clone(),
-            config.clone(),
-            fixture.style_profile.clone(),
-            fixture.scope.clone(),
-        );
-        let actual = paginated_page_window(&full_actual, &page_numbers);
-        let report = compare_paginated_to_fixture(&actual, fixture);
-        let score = (
-            report.total_issues(),
-            report.issue_count(ComparisonIssueKind::WrongPage),
-            report.issue_count(ComparisonIssueKind::WrongFragment),
-        );
+    let config = PaginationConfig {
+        lines_per_page: 54.0,
+        geometry: geometry.clone(),
+    };
+    let full_actual = PaginatedScreenplay::paginate(
+        semantic.clone(),
+        config,
+        fixture.style_profile.clone(),
+        fixture.scope.clone(),
+    );
+    let actual = slice_paginated_to_fixture_window(&full_actual, &page_numbers);
+    let report = compare_paginated_to_fixture(&actual, fixture);
+    let score = (
+        report.total_issues(),
+        report.issue_count(ComparisonIssueKind::WrongPage),
+        report.issue_count(ComparisonIssueKind::WrongFragment),
+    );
 
-        match &best {
-            Some((best_score, _, _)) if best_score <= &score => {}
-            _ => {
-                best = Some((
-                    score,
-                    lines_per_page,
-                    ProbeRun {
-                        lines_per_page,
-                        score,
-                        actual,
-                        geometry: geometry.clone(),
-                        report,
-                    },
-                ))
-            }
-        }
+    PaginatedWindowRun {
+        lines_per_page: 54.0,
+        score,
+        actual,
+        geometry,
+        report,
     }
-
-    best.unwrap().2
 }
 
-fn measurement_for_screenplay(screenplay_id: &str) -> LayoutGeometry {
+fn geometry_for_screenplay(screenplay_id: &str) -> LayoutGeometry {
     let path = Path::new("tests/fixtures/corpus/public")
         .join(screenplay_id)
         .join("source/source.fountain");
@@ -618,7 +621,7 @@ fn measurement_for_screenplay(screenplay_id: &str) -> LayoutGeometry {
     PaginationConfig::from_screenplay(&screenplay, 54.0).geometry
 }
 
-fn normalized_slice_from_fountain(
+fn normalized_window_from_fountain(
     screenplay_id: &str,
     fountain_path: &str,
     fixture: &PageBreakFixture,
@@ -647,7 +650,10 @@ fn normalized_slice_from_fountain(
     }
 }
 
-fn paginated_page_window(actual: &PaginatedScreenplay, page_numbers: &[u32]) -> PaginatedScreenplay {
+fn slice_paginated_to_fixture_window(
+    actual: &PaginatedScreenplay,
+    page_numbers: &[u32],
+) -> PaginatedScreenplay {
     PaginatedScreenplay {
         screenplay: actual.screenplay.clone(),
         style_profile: actual.style_profile.clone(),
@@ -1506,7 +1512,7 @@ struct ReviewSummary {
     unexpected: usize,
 }
 
-struct ProbeRun {
+struct PaginatedWindowRun {
     lines_per_page: f32,
     score: (usize, usize, usize),
     actual: PaginatedScreenplay,
