@@ -1,7 +1,8 @@
 // tests/pagination_margin_test.rs
 use jumpcut::pagination::margin::calculate_element_width;
-use jumpcut::pagination::LayoutGeometry;
+use jumpcut::pagination::{Alignment, FdxExtractedSettings, FdxParagraphStyle, LayoutGeometry};
 use jumpcut::pagination::wrapping::ElementType;
+use std::collections::BTreeMap;
 
 #[test]
 fn action_margin_calculation_adds_inclusive_character_quirk() {
@@ -47,4 +48,59 @@ fn dual_dialogue_margin_calculation_uses_special_29_character_width() {
         calculate_element_width(&geometry, ElementType::DualDialogueRight),
         29
     );
+}
+
+#[test]
+fn layout_geometry_tracks_multicam_act_and_cold_opening_styles() {
+    let mut styles = BTreeMap::new();
+    styles.insert(
+        "Cold Opening".into(),
+        FdxParagraphStyle {
+            left_indent: 1.0,
+            right_indent: 7.5,
+            space_before: 12.0,
+            spacing: 1.0,
+            alignment: Alignment::Center,
+        },
+    );
+    styles.insert(
+        "New Act".into(),
+        FdxParagraphStyle {
+            left_indent: 1.5,
+            right_indent: 7.5,
+            space_before: 0.0,
+            spacing: 1.0,
+            alignment: Alignment::Center,
+        },
+    );
+    styles.insert(
+        "End of Act".into(),
+        FdxParagraphStyle {
+            left_indent: 1.5,
+            right_indent: 7.5,
+            space_before: 24.0,
+            spacing: 1.0,
+            alignment: Alignment::Center,
+        },
+    );
+    let settings = FdxExtractedSettings {
+        paragraph_styles: styles,
+    };
+
+    let geometry = LayoutGeometry::from_fdx_settings(&settings);
+
+    assert_eq!(geometry.cold_opening_left, 1.0);
+    assert_eq!(geometry.cold_opening_right, 7.5);
+    assert_eq!(geometry.cold_opening_spacing_before, 1.0);
+    assert_eq!(geometry.cold_opening_alignment, Alignment::Center);
+
+    assert_eq!(geometry.new_act_left, 1.5);
+    assert_eq!(geometry.new_act_right, 7.5);
+    assert_eq!(geometry.new_act_spacing_before, 0.0);
+    assert_eq!(geometry.new_act_alignment, Alignment::Center);
+
+    assert_eq!(geometry.end_of_act_left, 1.5);
+    assert_eq!(geometry.end_of_act_right, 7.5);
+    assert_eq!(geometry.end_of_act_spacing_before, 2.0);
+    assert_eq!(geometry.end_of_act_alignment, Alignment::Center);
 }

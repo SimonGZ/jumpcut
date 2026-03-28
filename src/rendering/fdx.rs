@@ -1,4 +1,5 @@
 use super::shared::{escape_xml_attr, escape_xml_text, join_metadata, sorted_style_names};
+use crate::pagination::{Alignment, ScreenplayLayoutProfile, ScreenplayElementStyle};
 use crate::{Element, ElementText, Metadata, Screenplay};
 use std::collections::HashMap;
 use std::fmt::Write;
@@ -13,13 +14,14 @@ pub(crate) fn prepare_screenplay(screenplay: &mut Screenplay) {
 }
 
 pub(crate) fn render_document(screenplay: &Screenplay) -> String {
+    let layout_profile = ScreenplayLayoutProfile::from_metadata(&screenplay.metadata);
     let mut out = String::with_capacity(64 * 1024);
     out.push_str("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\" ?>\n<FinalDraft DocumentType=\"Script\" Template=\"No\" Version=\"4\">\n    <Content>\n");
     render_content(&mut out, screenplay);
     out.push_str("    </Content>\n\n");
     render_header_and_footer(&mut out, &screenplay.metadata);
     out.push('\n');
-    render_element_settings(&mut out, &screenplay.metadata);
+    render_element_settings(&mut out, &screenplay.metadata, &layout_profile);
     out.push('\n');
     render_title_page(&mut out, &screenplay.metadata);
     out.push_str("\n  <MoresAndContinueds>\n");
@@ -36,16 +38,16 @@ pub(crate) fn render_document(screenplay: &Screenplay) -> String {
 pub(crate) fn add_fdx_formatting(metadata: &mut Metadata) {
     let mut scene_heading_styles = vec!["AllCaps"];
     let mut space_before_heading = "24".to_string();
-    let mut dialogue_spacing = "1".to_string();
     let mut action_text_style = "".to_string();
     let mut font_choice = "Courier Prime".to_string();
-    let mut dialogue_left_indent = "2.50".to_string();
-    let mut dialogue_right_indent = "6.00".to_string();
+    let mut style_profile = None;
 
     if let Some(opts_vec) = metadata.get_mut("fmt") {
         if let Some(opts_string) = opts_vec.first() {
             for option in opts_string.split_whitespace() {
-                if option.eq_ignore_ascii_case("bsh") {
+                if option.eq_ignore_ascii_case("multicam") {
+                    style_profile = Some("multicam".to_string());
+                } else if option.eq_ignore_ascii_case("bsh") {
                     scene_heading_styles.push("Bold");
                 } else if option.eq_ignore_ascii_case("ush") {
                     scene_heading_styles.push("Underline");
@@ -53,32 +55,60 @@ pub(crate) fn add_fdx_formatting(metadata: &mut Metadata) {
                     action_text_style.push_str("AllCaps");
                 } else if option.eq_ignore_ascii_case("ssbsh") {
                     space_before_heading = "12".to_string();
-                } else if option.eq_ignore_ascii_case("dsd") {
-                    dialogue_spacing = "2".to_string();
                 } else if option.eq_ignore_ascii_case("cfd") {
                     font_choice = "Courier Final Draft".to_string();
-                } else if let Some(value) = option.strip_prefix("dl-") {
-                    if value.parse::<f64>().is_ok() {
-                        dialogue_left_indent = value.to_string();
-                    }
-                } else if let Some(value) = option.strip_prefix("dr-") {
-                    if value.parse::<f64>().is_ok() {
-                        dialogue_right_indent = value.to_string();
-                    }
                 }
             }
         }
     }
 
+    let layout_profile = ScreenplayLayoutProfile::from_metadata(metadata);
+
     scene_heading_styles.sort_unstable();
     let scene_heading_style: String = scene_heading_styles.join("+");
     insert_metadata_value(metadata, "scene-heading-style", &scene_heading_style);
     insert_metadata_value(metadata, "space-before-heading", &space_before_heading);
-    insert_metadata_value(metadata, "dialogue-spacing", &dialogue_spacing);
+    insert_metadata_value(
+        metadata,
+        "dialogue-spacing",
+        &format_spacing(layout_profile.styles.dialogue.line_spacing),
+    );
     insert_metadata_value(metadata, "action-text-style", &action_text_style);
     insert_metadata_value(metadata, "font-choice", &font_choice);
-    insert_metadata_value(metadata, "dialogue-left-indent", &dialogue_left_indent);
-    insert_metadata_value(metadata, "dialogue-right-indent", &dialogue_right_indent);
+    insert_metadata_value(
+        metadata,
+        "dialogue-left-indent",
+        &format_indent(layout_profile.styles.dialogue.left_indent),
+    );
+    insert_metadata_value(
+        metadata,
+        "dialogue-right-indent",
+        &format_indent(layout_profile.styles.dialogue.right_indent),
+    );
+    if let Some(profile) = style_profile {
+        insert_metadata_value(metadata, "style-profile", &profile);
+    }
+    if layout_profile.styles.character.right_indent != 7.25 {
+        insert_metadata_value(
+            metadata,
+            "character-right-indent",
+            &format_indent(layout_profile.styles.character.right_indent),
+        );
+    }
+    if layout_profile.styles.parenthetical.left_indent != 3.0 {
+        insert_metadata_value(
+            metadata,
+            "parenthetical-left-indent",
+            &format_indent(layout_profile.styles.parenthetical.left_indent),
+        );
+    }
+    if layout_profile.styles.transition.right_indent != 7.1 {
+        insert_metadata_value(
+            metadata,
+            "transition-right-indent",
+            &format_indent(layout_profile.styles.transition.right_indent),
+        );
+    }
 }
 
 pub(crate) fn insert_metadata_value(
@@ -180,17 +210,21 @@ fn render_header_and_footer(out: &mut String, metadata: &Metadata) {
     out.push_str("            </Paragraph>\n        </Footer>\n    </HeaderAndFooter>\n");
 }
 
-fn render_element_settings(out: &mut String, metadata: &Metadata) {
+fn render_element_settings(
+    out: &mut String,
+    metadata: &Metadata,
+    layout_profile: &ScreenplayLayoutProfile,
+) {
     struct ElementSetting<'a> {
         type_name: &'a str,
         style: &'a str,
-        alignment: &'a str,
+        alignment: String,
         first_indent: &'a str,
-        left_indent: &'a str,
-        right_indent: &'a str,
-        space_before: &'a str,
-        spacing: &'a str,
-        starts_new_page: &'a str,
+        left_indent: String,
+        right_indent: String,
+        space_before: String,
+        spacing: String,
+        starts_new_page: String,
         paginate_as: &'a str,
         return_key: &'a str,
         shortcut: &'a str,
@@ -200,13 +234,13 @@ fn render_element_settings(out: &mut String, metadata: &Metadata) {
         ElementSetting {
             type_name: "General",
             style: "",
-            alignment: "Left",
+            alignment: "Left".to_string(),
             first_indent: "0.00",
-            left_indent: "1.50",
-            right_indent: "7.50",
-            space_before: "0",
-            spacing: "1",
-            starts_new_page: "No",
+            left_indent: "1.50".to_string(),
+            right_indent: "7.50".to_string(),
+            space_before: "0".to_string(),
+            spacing: "1".to_string(),
+            starts_new_page: "No".to_string(),
             paginate_as: "General",
             return_key: "General",
             shortcut: "0",
@@ -214,13 +248,13 @@ fn render_element_settings(out: &mut String, metadata: &Metadata) {
         ElementSetting {
             type_name: "Scene Heading",
             style: metadata_value(metadata, "scene-heading-style"),
-            alignment: "Left",
+            alignment: alignment_name(layout_profile.styles.scene_heading.alignment),
             first_indent: "0.00",
-            left_indent: "1.50",
-            right_indent: "7.50",
-            space_before: metadata_value(metadata, "space-before-heading"),
-            spacing: "1",
-            starts_new_page: "No",
+            left_indent: format_indent(layout_profile.styles.scene_heading.left_indent),
+            right_indent: format_indent(layout_profile.styles.scene_heading.right_indent),
+            space_before: format_space_before(&layout_profile.styles.scene_heading),
+            spacing: format_spacing(layout_profile.styles.scene_heading.line_spacing),
+            starts_new_page: format_starts_new_page(layout_profile.styles.scene_heading.starts_new_page),
             paginate_as: "Scene Heading",
             return_key: "Action",
             shortcut: "1",
@@ -228,13 +262,13 @@ fn render_element_settings(out: &mut String, metadata: &Metadata) {
         ElementSetting {
             type_name: "Action",
             style: metadata_value(metadata, "action-text-style"),
-            alignment: "Left",
+            alignment: alignment_name(layout_profile.styles.action.alignment),
             first_indent: "0.00",
-            left_indent: "1.50",
-            right_indent: "7.50",
-            space_before: "12",
-            spacing: "1",
-            starts_new_page: "No",
+            left_indent: format_indent(layout_profile.styles.action.left_indent),
+            right_indent: format_indent(layout_profile.styles.action.right_indent),
+            space_before: format_space_before(&layout_profile.styles.action),
+            spacing: format_spacing(layout_profile.styles.action.line_spacing),
+            starts_new_page: format_starts_new_page(layout_profile.styles.action.starts_new_page),
             paginate_as: "Action",
             return_key: "Action",
             shortcut: "2",
@@ -242,13 +276,13 @@ fn render_element_settings(out: &mut String, metadata: &Metadata) {
         ElementSetting {
             type_name: "Character",
             style: "AllCaps",
-            alignment: "Left",
+            alignment: alignment_name(layout_profile.styles.character.alignment),
             first_indent: "0.00",
-            left_indent: "3.50",
-            right_indent: "7.25",
-            space_before: "12",
-            spacing: "1",
-            starts_new_page: "No",
+            left_indent: format_indent(layout_profile.styles.character.left_indent),
+            right_indent: format_indent(layout_profile.styles.character.right_indent),
+            space_before: format_space_before(&layout_profile.styles.character),
+            spacing: format_spacing(layout_profile.styles.character.line_spacing),
+            starts_new_page: format_starts_new_page(layout_profile.styles.character.starts_new_page),
             paginate_as: "Character",
             return_key: "Dialogue",
             shortcut: "3",
@@ -256,13 +290,13 @@ fn render_element_settings(out: &mut String, metadata: &Metadata) {
         ElementSetting {
             type_name: "Parenthetical",
             style: "",
-            alignment: "Left",
+            alignment: alignment_name(layout_profile.styles.parenthetical.alignment),
             first_indent: "-0.10",
-            left_indent: "3.00",
-            right_indent: "5.50",
-            space_before: "0",
-            spacing: "1",
-            starts_new_page: "No",
+            left_indent: format_indent(layout_profile.styles.parenthetical.left_indent),
+            right_indent: format_indent(layout_profile.styles.parenthetical.right_indent),
+            space_before: format_space_before(&layout_profile.styles.parenthetical),
+            spacing: format_spacing(layout_profile.styles.parenthetical.line_spacing),
+            starts_new_page: format_starts_new_page(layout_profile.styles.parenthetical.starts_new_page),
             paginate_as: "Parenthetical",
             return_key: "Dialogue",
             shortcut: "4",
@@ -270,13 +304,13 @@ fn render_element_settings(out: &mut String, metadata: &Metadata) {
         ElementSetting {
             type_name: "Dialogue",
             style: "",
-            alignment: "Left",
+            alignment: alignment_name(layout_profile.styles.dialogue.alignment),
             first_indent: "0.00",
-            left_indent: metadata_value(metadata, "dialogue-left-indent"),
-            right_indent: metadata_value(metadata, "dialogue-right-indent"),
-            space_before: "0",
-            spacing: metadata_value(metadata, "dialogue-spacing"),
-            starts_new_page: "No",
+            left_indent: format_indent(layout_profile.styles.dialogue.left_indent),
+            right_indent: format_indent(layout_profile.styles.dialogue.right_indent),
+            space_before: format_space_before(&layout_profile.styles.dialogue),
+            spacing: format_spacing(layout_profile.styles.dialogue.line_spacing),
+            starts_new_page: format_starts_new_page(layout_profile.styles.dialogue.starts_new_page),
             paginate_as: "Dialogue",
             return_key: "Action",
             shortcut: "5",
@@ -284,13 +318,13 @@ fn render_element_settings(out: &mut String, metadata: &Metadata) {
         ElementSetting {
             type_name: "Transition",
             style: "AllCaps",
-            alignment: "Right",
+            alignment: alignment_name(layout_profile.styles.transition.alignment),
             first_indent: "0.00",
-            left_indent: "5.50",
-            right_indent: "7.10",
-            space_before: "12",
-            spacing: "1",
-            starts_new_page: "No",
+            left_indent: format_indent(layout_profile.styles.transition.left_indent),
+            right_indent: format_indent(layout_profile.styles.transition.right_indent),
+            space_before: format_space_before(&layout_profile.styles.transition),
+            spacing: format_spacing(layout_profile.styles.transition.line_spacing),
+            starts_new_page: format_starts_new_page(layout_profile.styles.transition.starts_new_page),
             paginate_as: "Transition",
             return_key: "Scene Heading",
             shortcut: "6",
@@ -298,13 +332,13 @@ fn render_element_settings(out: &mut String, metadata: &Metadata) {
         ElementSetting {
             type_name: "Shot",
             style: "AllCaps",
-            alignment: "Left",
+            alignment: "Left".to_string(),
             first_indent: "0.00",
-            left_indent: "1.50",
-            right_indent: "7.50",
-            space_before: "12",
-            spacing: "1",
-            starts_new_page: "No",
+            left_indent: "1.50".to_string(),
+            right_indent: "7.50".to_string(),
+            space_before: "12".to_string(),
+            spacing: "1".to_string(),
+            starts_new_page: "No".to_string(),
             paginate_as: "Scene Heading",
             return_key: "Action",
             shortcut: "7",
@@ -312,13 +346,13 @@ fn render_element_settings(out: &mut String, metadata: &Metadata) {
         ElementSetting {
             type_name: "Cast List",
             style: "AllCaps",
-            alignment: "Left",
+            alignment: "Left".to_string(),
             first_indent: "0.00",
-            left_indent: "1.50",
-            right_indent: "7.50",
-            space_before: "0",
-            spacing: "1",
-            starts_new_page: "No",
+            left_indent: "1.50".to_string(),
+            right_indent: "7.50".to_string(),
+            space_before: "0".to_string(),
+            spacing: "1".to_string(),
+            starts_new_page: "No".to_string(),
             paginate_as: "Action",
             return_key: "Action",
             shortcut: "8",
@@ -326,13 +360,13 @@ fn render_element_settings(out: &mut String, metadata: &Metadata) {
         ElementSetting {
             type_name: "New Act",
             style: "Underline+AllCaps",
-            alignment: "Center",
+            alignment: alignment_name(layout_profile.styles.new_act.alignment),
             first_indent: "0.00",
-            left_indent: "1.50",
-            right_indent: "7.50",
-            space_before: "0",
-            spacing: "1",
-            starts_new_page: "Yes",
+            left_indent: format_indent(layout_profile.styles.new_act.left_indent),
+            right_indent: format_indent(layout_profile.styles.new_act.right_indent),
+            space_before: format_space_before(&layout_profile.styles.new_act),
+            spacing: format_spacing(layout_profile.styles.new_act.line_spacing),
+            starts_new_page: format_starts_new_page(layout_profile.styles.new_act.starts_new_page),
             paginate_as: "General",
             return_key: "Scene Heading",
             shortcut: "9",
@@ -340,13 +374,13 @@ fn render_element_settings(out: &mut String, metadata: &Metadata) {
         ElementSetting {
             type_name: "End of Act",
             style: "Underline+AllCaps",
-            alignment: "Center",
+            alignment: alignment_name(layout_profile.styles.end_of_act.alignment),
             first_indent: "0.00",
-            left_indent: "1.50",
-            right_indent: "7.50",
-            space_before: "24",
-            spacing: "1",
-            starts_new_page: "No",
+            left_indent: format_indent(layout_profile.styles.end_of_act.left_indent),
+            right_indent: format_indent(layout_profile.styles.end_of_act.right_indent),
+            space_before: format_space_before(&layout_profile.styles.end_of_act),
+            spacing: format_spacing(layout_profile.styles.end_of_act.line_spacing),
+            starts_new_page: format_starts_new_page(layout_profile.styles.end_of_act.starts_new_page),
             paginate_as: "Character",
             return_key: "New Act",
             shortcut: ":",
@@ -354,13 +388,13 @@ fn render_element_settings(out: &mut String, metadata: &Metadata) {
         ElementSetting {
             type_name: "Cold Opening",
             style: "Underline+AllCaps",
-            alignment: "Center",
+            alignment: alignment_name(layout_profile.styles.cold_opening.alignment),
             first_indent: "0.00",
-            left_indent: "1.00",
-            right_indent: "7.50",
-            space_before: "12",
-            spacing: "1",
-            starts_new_page: "No",
+            left_indent: format_indent(layout_profile.styles.cold_opening.left_indent),
+            right_indent: format_indent(layout_profile.styles.cold_opening.right_indent),
+            space_before: format_space_before(&layout_profile.styles.cold_opening),
+            spacing: format_spacing(layout_profile.styles.cold_opening.line_spacing),
+            starts_new_page: format_starts_new_page(layout_profile.styles.cold_opening.starts_new_page),
             paginate_as: "General",
             return_key: "Scene Heading",
             shortcut: "",
@@ -368,13 +402,13 @@ fn render_element_settings(out: &mut String, metadata: &Metadata) {
         ElementSetting {
             type_name: "Lyric",
             style: "Italic",
-            alignment: "Left",
+            alignment: alignment_name(layout_profile.styles.lyric.alignment),
             first_indent: "0.00",
-            left_indent: "2.50",
-            right_indent: "7.38",
-            space_before: "0",
-            spacing: "1",
-            starts_new_page: "No",
+            left_indent: format_indent(layout_profile.styles.lyric.left_indent),
+            right_indent: format_indent(layout_profile.styles.lyric.right_indent),
+            space_before: format_space_before(&layout_profile.styles.lyric),
+            spacing: format_spacing(layout_profile.styles.lyric.line_spacing),
+            starts_new_page: format_starts_new_page(layout_profile.styles.lyric.starts_new_page),
             paginate_as: "Dialogue",
             return_key: "Action",
             shortcut: ";",
@@ -401,6 +435,43 @@ fn render_element_settings(out: &mut String, metadata: &Metadata) {
             escape_xml_attr(setting.shortcut),
         )
         .unwrap();
+    }
+}
+
+fn alignment_name(alignment: Alignment) -> String {
+    match alignment {
+        Alignment::Left => "Left".to_string(),
+        Alignment::Center => "Center".to_string(),
+        Alignment::Right => "Right".to_string(),
+    }
+}
+
+fn format_indent(value: f32) -> String {
+    format!("{value:.2}")
+}
+
+fn format_spacing(value: f32) -> String {
+    if value.fract() == 0.0 {
+        format!("{}", value as i32)
+    } else {
+        format!("{value:.2}")
+    }
+}
+
+fn format_space_before(style: &ScreenplayElementStyle) -> String {
+    let points = style.spacing_before * 12.0;
+    if points.fract() == 0.0 {
+        format!("{}", points as i32)
+    } else {
+        format!("{points:.2}")
+    }
+}
+
+fn format_starts_new_page(starts_new_page: bool) -> String {
+    if starts_new_page {
+        "Yes".to_string()
+    } else {
+        "No".to_string()
     }
 }
 

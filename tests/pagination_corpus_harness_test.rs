@@ -1,9 +1,8 @@
 use jumpcut::pagination::{
     build_semantic_screenplay, compare_paginated_to_fixture,
     normalize_screenplay, wrapping::ElementType, ComparisonIssueKind,
-    DialoguePartKind, FdxExtractedSettings, FlowKind, Fragment, LayoutGeometry, LineRange,
-    NormalizedElement, NormalizedScreenplay, PageBreakFixture, PaginatedScreenplay,
-    PaginationConfig,
+    DialoguePartKind, FlowKind, Fragment, LayoutGeometry, LineRange, NormalizedElement,
+    NormalizedScreenplay, PageBreakFixture, PaginatedScreenplay, PaginationConfig,
 };
 use jumpcut::parse;
 use serde::de::DeserializeOwned;
@@ -238,6 +237,33 @@ fn little_women_macro_parity_holds_baseline() {
 }
 
 #[test]
+fn mostly_genius_line_break_diagnostic_report_includes_multicam_act_markers() {
+    let report = build_line_break_parity_report(
+        "mostly-genius",
+        "tests/fixtures/corpus/public/mostly-genius/source/source.fountain",
+        "tests/fixtures/corpus/public/mostly-genius/canonical/page-breaks.json",
+    );
+
+    let new_act_count = report
+        .items
+        .iter()
+        .filter(|item| item.kind == "New Act")
+        .count();
+    let end_of_act_count = report
+        .items
+        .iter()
+        .filter(|item| item.kind == "End of Act")
+        .count();
+
+    assert_eq!(new_act_count, 3);
+    assert_eq!(end_of_act_count, 3);
+    assert!(
+        report.exact_unique_count > 0,
+        "Expected the multicam diagnostic report to find at least some exact-unique PDF matches."
+    );
+}
+
+#[test]
 // #[ignore = "Temporarily disabled"]
 fn brick_n_steel_full_script_page_break_parity_holds_baseline() {
     let fixture: PageBreakFixture = read_fixture(
@@ -362,10 +388,10 @@ fn best_probe_run(
 fn measurement_for_screenplay(screenplay_id: &str) -> LayoutGeometry {
     let path = Path::new("tests/fixtures/corpus/public")
         .join(screenplay_id)
-        .join("extracted/fdx-settings.json");
-    let settings: FdxExtractedSettings =
-        serde_json::from_str(&fs::read_to_string(path).unwrap()).unwrap();
-    LayoutGeometry::from_fdx_settings(&settings)
+        .join("source/source.fountain");
+    let fountain = fs::read_to_string(path).unwrap();
+    let screenplay = parse(&fountain);
+    PaginationConfig::from_screenplay(&screenplay, 54.0).geometry
 }
 
 fn normalized_slice_from_fountain(

@@ -121,8 +121,8 @@ mod tests {
         for pair in defaults.iter() {
             insert_metadata_value(&mut expected, pair.0, pair.1);
         }
-        insert_metadata_value(&mut expected, "dialogue-left-indent", "3.0");
-        insert_metadata_value(&mut expected, "dialogue-right-indent", "5.5");
+        insert_metadata_value(&mut expected, "dialogue-left-indent", "3.00");
+        insert_metadata_value(&mut expected, "dialogue-right-indent", "5.50");
         insert_metadata_value(&mut expected, "fmt", "dl-3.0 dr-5.5");
         add_fdx_formatting(&mut metadata);
         assert_eq!(
@@ -135,8 +135,8 @@ mod tests {
         for pair in defaults.iter() {
             insert_metadata_value(&mut expected, pair.0, pair.1);
         }
-        insert_metadata_value(&mut expected, "dialogue-left-indent", "2");
-        insert_metadata_value(&mut expected, "dialogue-right-indent", "8");
+        insert_metadata_value(&mut expected, "dialogue-left-indent", "2.00");
+        insert_metadata_value(&mut expected, "dialogue-right-indent", "8.00");
         insert_metadata_value(&mut expected, "scene-heading-style", "AllCaps+Bold");
         insert_metadata_value(&mut expected, "action-text-style", "AllCaps");
         insert_metadata_value(&mut expected, "fmt", "dl-2 dr-8 bsh acat");
@@ -169,6 +169,26 @@ mod tests {
             metadata, expected,
             "it should ignore invalid dialogue-right-indent values"
         );
+
+        metadata = HashMap::new();
+        expected = HashMap::new();
+        insert_metadata_value(&mut metadata, "fmt", "multicam dr-5.75");
+        for pair in defaults.iter() {
+            insert_metadata_value(&mut expected, pair.0, pair.1);
+        }
+        insert_metadata_value(&mut expected, "style-profile", "multicam");
+        insert_metadata_value(&mut expected, "dialogue-spacing", "2");
+        insert_metadata_value(&mut expected, "dialogue-left-indent", "2.25");
+        insert_metadata_value(&mut expected, "dialogue-right-indent", "5.75");
+        insert_metadata_value(&mut expected, "character-right-indent", "6.25");
+        insert_metadata_value(&mut expected, "parenthetical-left-indent", "2.75");
+        insert_metadata_value(&mut expected, "transition-right-indent", "7.25");
+        insert_metadata_value(&mut expected, "fmt", "multicam dr-5.75");
+        add_fdx_formatting(&mut metadata);
+        assert_eq!(
+            metadata, expected,
+            "it should apply multicam defaults first and then let explicit fmt knobs override them"
+        );
     }
 
     #[test]
@@ -196,6 +216,25 @@ mod tests {
         assert!(actual.contains("Font=\"Courier Prime\""));
         assert!(actual.contains(">DRAFT</Text>"));
         assert!(actual.contains(">DATE</Text>"));
+    }
+
+    #[test]
+    fn test_fdx_renderer_uses_shared_layout_profile_for_multicam_settings() {
+        let mut screenplay = sample_screenplay();
+        screenplay.metadata.insert("fmt".into(), vec!["multicam dr-5.75".into()]);
+
+        let actual = screenplay.to_final_draft();
+
+        assert!(actual.contains("<ElementSettings Type=\"Dialogue\">"));
+        assert!(actual
+            .contains("LeftIndent=\"2.25\" RightIndent=\"5.75\" SpaceBefore=\"0\" Spacing=\"2\""));
+        assert!(actual.contains("<ElementSettings Type=\"Character\">"));
+        assert!(actual.contains("RightIndent=\"6.25\" SpaceBefore=\"12\""));
+        assert!(actual.contains("<ElementSettings Type=\"Parenthetical\">"));
+        assert!(actual.contains("LeftIndent=\"2.75\" RightIndent=\"5.50\""));
+        assert!(actual.contains("<ElementSettings Type=\"Transition\">"));
+        assert!(actual.contains("Alignment=\"Right\""));
+        assert!(actual.contains("LeftIndent=\"5.50\" RightIndent=\"7.25\""));
     }
 
     fn sample_screenplay() -> Screenplay {
@@ -244,6 +283,15 @@ mod tests {
     }
 
     fn render_html_with_handlebars(screenplay: &Screenplay, head: bool) -> String {
+        let root_class = match screenplay
+            .metadata
+            .get("fmt")
+            .and_then(|values| values.first())
+            .map(|value| value.split_whitespace().any(|option| option.eq_ignore_ascii_case("multicam")))
+        {
+            Some(true) => "screenplay multicam",
+            _ => "screenplay",
+        };
         let template = if head {
             include_str!("templates/html.hbs")
         } else {
@@ -290,6 +338,20 @@ mod tests {
                  -> Result<(), handlebars::RenderError> {
                     let value = h.param(0).map(|p| p.value().render()).unwrap_or_default();
                     out.write(&value.to_lowercase())?;
+                    Ok(())
+                },
+            ),
+        );
+        handlebars.register_helper(
+            "root_class",
+            Box::new(
+                move |_: &handlebars::Helper<'_>,
+                      _: &Handlebars<'_>,
+                      _: &handlebars::Context,
+                      _: &mut handlebars::RenderContext<'_, '_>,
+                      out: &mut dyn handlebars::Output|
+                      -> Result<(), handlebars::RenderError> {
+                    out.write(root_class)?;
                     Ok(())
                 },
             ),

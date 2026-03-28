@@ -37,6 +37,21 @@ fn mock_scene_heading(id: &str, text: &str) -> SemanticUnit {
     })
 }
 
+fn mock_flow(id: &str, kind: FlowKind, text: &str) -> SemanticUnit {
+    SemanticUnit::Flow(FlowUnit {
+        element_id: id.to_string(),
+        kind,
+        text: text.to_string(),
+        line_range: None,
+        scene_number: None,
+        cohesion: Cohesion {
+            keep_together: false,
+            keep_with_next: false,
+            can_split: true,
+        },
+    })
+}
+
 fn mock_dual_dialogue(
     left_text: &str,
     right_text: &str,
@@ -283,4 +298,30 @@ fn composer_recognizes_dual_dialogue_from_real_parser_output() {
     assert_eq!(blocks.len(), 1);
     assert!(matches!(blocks[0].unit, SemanticUnit::DualDialogue(_)));
     assert_eq!(blocks[0].content_lines, 3.0);
+}
+
+#[test]
+fn composer_uses_explicit_multicam_flow_geometry_instead_of_action_fallbacks() {
+    let mut geometry = LayoutGeometry::default();
+    geometry.cold_opening_left = 1.0;
+    geometry.cold_opening_right = 7.5;
+    geometry.end_of_act_spacing_before = 2.0;
+
+    let cold_opening_text =
+        "12345678901234567890123456789012345678901234567890123456789012345";
+    let units = vec![
+        mock_flow("el-cold", FlowKind::ColdOpening, cold_opening_text),
+        mock_flow("el-end", FlowKind::EndOfAct, "END ACT ONE"),
+    ];
+
+    let blocks = compose(&units, &geometry);
+
+    assert_eq!(
+        blocks[0].content_lines, 1.0,
+        "Cold Opening should use its own wider geometry instead of Action fallback."
+    );
+    assert_eq!(
+        blocks[1].spacing_above, 2.0,
+        "End of Act should use its own spacing instead of Action fallback."
+    );
 }

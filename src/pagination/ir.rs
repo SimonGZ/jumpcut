@@ -2,11 +2,13 @@ use crate::pagination::fixtures::{
     Fragment, NormalizedElement, NormalizedScreenplay, PageBreakFixture,
     PageBreakFixtureSourceRefs, PaginationScope,
 };
+use crate::pagination::ScreenplayLayoutProfile;
 use crate::pagination::semantic::{
     DialoguePartKind, DialogueUnit, FlowKind, FlowUnit, SemanticScreenplay,
     SemanticUnit,
 };
 use crate::pagination::LayoutGeometry;
+use crate::Screenplay;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ContinuationMarker {
@@ -84,6 +86,14 @@ impl PaginationConfig {
         Self {
             lines_per_page,
             geometry: LayoutGeometry::default(),
+        }
+    }
+
+    pub fn from_screenplay(screenplay: &Screenplay, lines_per_page: f32) -> Self {
+        let profile = ScreenplayLayoutProfile::from_metadata(&screenplay.metadata);
+        Self {
+            lines_per_page,
+            geometry: profile.to_pagination_geometry(),
         }
     }
 }
@@ -524,5 +534,4 @@ fn title_page_number(page_number: u32, scope: &PaginationScope) -> Option<u32> {
         _ => None,
     }
 }
-
 

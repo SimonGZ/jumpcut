@@ -23,6 +23,9 @@ pub fn compose<'a>(units: &'a [SemanticUnit], geometry: &LayoutGeometry) -> Vec<
             SemanticUnit::Flow(flow) => {
                 let el_type = match flow.kind {
                     FlowKind::Action => ElementType::Action,
+                    FlowKind::ColdOpening => ElementType::ColdOpening,
+                    FlowKind::NewAct => ElementType::NewAct,
+                    FlowKind::EndOfAct => ElementType::EndOfAct,
                     FlowKind::SceneHeading => ElementType::SceneHeading,
                     FlowKind::Transition => ElementType::Transition,
                     // Temporary defaults for unhandled FlowKinds
@@ -34,6 +37,9 @@ pub fn compose<'a>(units: &'a [SemanticUnit], geometry: &LayoutGeometry) -> Vec<
                 
                 let sp_above = match flow.kind {
                     FlowKind::SceneHeading => geometry.scene_heading_spacing_before,
+                    FlowKind::ColdOpening => geometry.cold_opening_spacing_before,
+                    FlowKind::NewAct => geometry.new_act_spacing_before,
+                    FlowKind::EndOfAct => geometry.end_of_act_spacing_before,
                     FlowKind::Action => geometry.action_spacing_before,
                     FlowKind::Transition => geometry.transition_spacing_before,
                     _ => 1.0,

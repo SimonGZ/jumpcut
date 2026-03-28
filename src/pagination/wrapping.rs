@@ -4,6 +4,9 @@ use crate::pagination::LayoutGeometry;
 #[derive(Debug, Clone, Copy)]
 pub enum ElementType {
     Action,
+    ColdOpening,
+    NewAct,
+    EndOfAct,
     SceneHeading,
     Character,
     Dialogue,
@@ -30,6 +33,9 @@ impl ElementType {
             "Lyric" => Self::Lyric,
             "Scene Heading" => Self::SceneHeading,
             "Transition" => Self::Transition,
+            "Cold Opening" => Self::ColdOpening,
+            "New Act" => Self::NewAct,
+            "End of Act" => Self::EndOfAct,
             _ => Self::Action,
         }
     }
@@ -39,6 +45,9 @@ impl ElementType {
             crate::pagination::FlowKind::Action => Self::Action,
             crate::pagination::FlowKind::SceneHeading => Self::SceneHeading,
             crate::pagination::FlowKind::Transition => Self::Transition,
+            crate::pagination::FlowKind::ColdOpening => Self::ColdOpening,
+            crate::pagination::FlowKind::NewAct => Self::NewAct,
+            crate::pagination::FlowKind::EndOfAct => Self::EndOfAct,
             _ => Self::Action,
         }
     }

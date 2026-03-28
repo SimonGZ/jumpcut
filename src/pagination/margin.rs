@@ -13,12 +13,28 @@ pub struct FdxParagraphStyle {
     pub right_indent: f32,
     pub space_before: f32,
     pub spacing: f32,
+    #[serde(default = "default_alignment")]
+    pub alignment: Alignment,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "PascalCase")]
+pub enum Alignment {
+    Left,
+    Center,
+    Right,
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct LayoutGeometry {
     pub action_left: f32,
     pub action_right: f32,
+    pub cold_opening_left: f32,
+    pub cold_opening_right: f32,
+    pub new_act_left: f32,
+    pub new_act_right: f32,
+    pub end_of_act_left: f32,
+    pub end_of_act_right: f32,
     pub dual_dialogue_left_left: f32,
     pub dual_dialogue_left_right: f32,
     pub dual_dialogue_right_left: f32,
@@ -35,8 +51,22 @@ pub struct LayoutGeometry {
     pub lyric_right: f32,
     pub cpi: f32,
 
+    pub action_alignment: Alignment,
+    pub cold_opening_alignment: Alignment,
+    pub new_act_alignment: Alignment,
+    pub end_of_act_alignment: Alignment,
+    pub scene_heading_alignment: Alignment,
+    pub character_alignment: Alignment,
+    pub dialogue_alignment: Alignment,
+    pub parenthetical_alignment: Alignment,
+    pub transition_alignment: Alignment,
+    pub lyric_alignment: Alignment,
+
     // Vertical Spacing (Blank lines before element)
     pub action_spacing_before: f32,
+    pub cold_opening_spacing_before: f32,
+    pub new_act_spacing_before: f32,
+    pub end_of_act_spacing_before: f32,
     pub scene_heading_spacing_before: f32,
     pub character_spacing_before: f32,
     pub transition_spacing_before: f32,
@@ -55,6 +85,12 @@ impl Default for LayoutGeometry {
         Self {
             action_left: 1.5,
             action_right: 7.5,
+            cold_opening_left: 1.0,
+            cold_opening_right: 7.5,
+            new_act_left: 1.5,
+            new_act_right: 7.5,
+            end_of_act_left: 1.5,
+            end_of_act_right: 7.5,
             dual_dialogue_left_left: 1.5,
             dual_dialogue_left_right: 4.375,
             dual_dialogue_right_left: 4.625,
@@ -71,7 +107,21 @@ impl Default for LayoutGeometry {
             lyric_right: 7.375,
             cpi: 10.0,
 
+            action_alignment: Alignment::Left,
+            cold_opening_alignment: Alignment::Center,
+            new_act_alignment: Alignment::Center,
+            end_of_act_alignment: Alignment::Center,
+            scene_heading_alignment: Alignment::Left,
+            character_alignment: Alignment::Left,
+            dialogue_alignment: Alignment::Left,
+            parenthetical_alignment: Alignment::Left,
+            transition_alignment: Alignment::Right,
+            lyric_alignment: Alignment::Left,
+
             action_spacing_before: 1.0,
+            cold_opening_spacing_before: 1.0,
+            new_act_spacing_before: 0.0,
+            end_of_act_spacing_before: 2.0,
             scene_heading_spacing_before: 2.0,
             character_spacing_before: 1.0,
             transition_spacing_before: 1.0,
@@ -94,32 +144,57 @@ impl LayoutGeometry {
             geometry.action_left = style.left_indent;
             geometry.action_right = style.right_indent;
             geometry.action_spacing_before = spacing_lines_from_points(style.space_before, lpi);
+            geometry.action_alignment = style.alignment;
+        }
+        if let Some(style) = settings.paragraph_styles.get("Cold Opening") {
+            geometry.cold_opening_left = style.left_indent;
+            geometry.cold_opening_right = style.right_indent;
+            geometry.cold_opening_spacing_before = spacing_lines_from_points(style.space_before, lpi);
+            geometry.cold_opening_alignment = style.alignment;
+        }
+        if let Some(style) = settings.paragraph_styles.get("New Act") {
+            geometry.new_act_left = style.left_indent;
+            geometry.new_act_right = style.right_indent;
+            geometry.new_act_spacing_before = spacing_lines_from_points(style.space_before, lpi);
+            geometry.new_act_alignment = style.alignment;
+        }
+        if let Some(style) = settings.paragraph_styles.get("End of Act") {
+            geometry.end_of_act_left = style.left_indent;
+            geometry.end_of_act_right = style.right_indent;
+            geometry.end_of_act_spacing_before = spacing_lines_from_points(style.space_before, lpi);
+            geometry.end_of_act_alignment = style.alignment;
         }
         if let Some(style) = settings.paragraph_styles.get("Scene Heading") {
             geometry.scene_heading_spacing_before = spacing_lines_from_points(style.space_before, lpi);
+            geometry.scene_heading_alignment = style.alignment;
         }
         if let Some(style) = settings.paragraph_styles.get("Dialogue") {
             geometry.dialogue_left = style.left_indent;
             geometry.dialogue_right = style.right_indent;
+            geometry.dialogue_alignment = style.alignment;
         }
         if let Some(style) = settings.paragraph_styles.get("Character") {
             geometry.character_left = style.left_indent;
             geometry.character_right = style.right_indent;
             geometry.character_spacing_before = spacing_lines_from_points(style.space_before, lpi);
+            geometry.character_alignment = style.alignment;
         }
         if let Some(style) = settings.paragraph_styles.get("Parenthetical") {
             geometry.parenthetical_left = style.left_indent;
             geometry.parenthetical_right = style.right_indent;
+            geometry.parenthetical_alignment = style.alignment;
         }
         if let Some(style) = settings.paragraph_styles.get("Lyric") {
             geometry.lyric_left = style.left_indent;
             geometry.lyric_right = style.right_indent;
             geometry.lyric_spacing_before = spacing_lines_from_points(style.space_before, lpi);
+            geometry.lyric_alignment = style.alignment;
         }
         if let Some(style) = settings.paragraph_styles.get("Transition") {
             geometry.transition_left = style.left_indent;
             geometry.transition_right = style.right_indent;
             geometry.transition_spacing_before = spacing_lines_from_points(style.space_before, lpi);
+            geometry.transition_alignment = style.alignment;
         }
 
         geometry
@@ -136,6 +211,9 @@ fn spacing_lines_from_points(space_before_points: f32, lines_per_inch: f32) -> f
 pub fn calculate_element_width(geometry: &LayoutGeometry, element_type: ElementType) -> usize {
     let (left_indent, right_indent) = match element_type {
         ElementType::Action => (geometry.action_left, geometry.action_right),
+        ElementType::ColdOpening => (geometry.cold_opening_left, geometry.cold_opening_right),
+        ElementType::NewAct => (geometry.new_act_left, geometry.new_act_right),
+        ElementType::EndOfAct => (geometry.end_of_act_left, geometry.end_of_act_right),
         ElementType::SceneHeading => (geometry.action_left, geometry.action_right), // Standard default
         ElementType::DualDialogueLeft => (
             geometry.dual_dialogue_left_left,
@@ -160,6 +238,9 @@ pub fn calculate_element_width(geometry: &LayoutGeometry, element_type: ElementT
     if matches!(
         element_type,
         ElementType::Action
+            | ElementType::ColdOpening
+            | ElementType::NewAct
+            | ElementType::EndOfAct
             | ElementType::Parenthetical
             | ElementType::DualDialogueLeft
             | ElementType::DualDialogueRight
@@ -168,4 +249,8 @@ pub fn calculate_element_width(geometry: &LayoutGeometry, element_type: ElementT
     }
     
     chars
+}
+
+fn default_alignment() -> Alignment {
+    Alignment::Left
 }

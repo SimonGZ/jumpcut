@@ -2,6 +2,7 @@ mod comparison;
 mod fixtures;
 mod ir;
 pub mod line_break_diagnostics;
+pub mod layout_profile;
 pub mod page_break_diagnostics;
 mod normalized;
 mod semantic;
@@ -21,7 +22,10 @@ pub use ir::{
     BlockPlacement, ContinuationMarker, Page, PageBlock, PageItem, PageKind, PageMetadata,
     PaginatedScreenplay, PaginationConfig,
 };
-pub use margin::{LayoutGeometry, FdxExtractedSettings, FdxParagraphStyle};
+pub use layout_profile::{
+    ScreenplayElementStyle, ScreenplayElementStyles, ScreenplayLayoutProfile, StyleProfile,
+};
+pub use margin::{Alignment, FdxExtractedSettings, FdxParagraphStyle, LayoutGeometry};
 pub use normalized::normalize_screenplay;
 pub use semantic::{
     build_semantic_screenplay, Cohesion, DialoguePart, DialoguePartKind, DialogueUnit,

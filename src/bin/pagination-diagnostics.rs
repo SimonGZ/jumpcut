@@ -36,6 +36,14 @@ const DIAGNOSTIC_COMMANDS: &[DiagnosticCommand] = &[
         action: DiagnosticAction::Direct(write_little_women_linebreak),
     },
     DiagnosticCommand {
+        name: "mostly-genius-linebreak",
+        action: DiagnosticAction::Direct(write_mostly_genius_linebreak),
+    },
+    DiagnosticCommand {
+        name: "mostly-genius-full-script",
+        action: DiagnosticAction::Direct(write_mostly_genius_full_script_review),
+    },
+    DiagnosticCommand {
         name: "big-fish-json",
         action: DiagnosticAction::Direct(write_big_fish_json),
     },
@@ -106,6 +114,13 @@ fn write_little_women_linebreak(repo_root: &Path) {
     println!("wrote {}", debug_dir.join("parity.json").display());
 }
 
+fn write_mostly_genius_linebreak(repo_root: &Path) {
+    let debug_dir = repo_root.join("target/pagination-debug/mostly-genius-linebreak-parity");
+    line_break_diagnostics::write_mostly_genius_packet(&debug_dir);
+    println!("wrote {}", debug_dir.join("REVIEW.md").display());
+    println!("wrote {}", debug_dir.join("parity.json").display());
+}
+
 fn write_big_fish_json(repo_root: &Path) {
     let debug_dir = repo_root.join("target/pagination-debug");
     page_break_diagnostics::write_big_fish_public_slice_json(&debug_dir);
@@ -139,6 +154,12 @@ fn write_little_women_review(repo_root: &Path) {
 fn write_little_women_full_script_review(repo_root: &Path) {
     let debug_dir = repo_root.join("target/pagination-debug/little-women-full-script");
     page_break_diagnostics::write_little_women_full_script_page_break_packet(&debug_dir);
+    println!("wrote {}", debug_dir.join("REVIEW.md").display());
+}
+
+fn write_mostly_genius_full_script_review(repo_root: &Path) {
+    let debug_dir = repo_root.join("target/pagination-debug/mostly-genius-full-script");
+    page_break_diagnostics::write_mostly_genius_full_script_page_break_packet(&debug_dir);
     println!("wrote {}", debug_dir.join("REVIEW.md").display());
 }
 

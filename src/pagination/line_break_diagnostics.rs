@@ -6,8 +6,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::parse;
 use crate::pagination::{
-    normalize_screenplay, wrapping::ElementType, DialoguePartKind, FdxExtractedSettings,
-    FlowKind, Fragment, LayoutGeometry, LineRange, NormalizedElement, PageBreakFixture,
+    normalize_screenplay, wrapping::ElementType, DialoguePartKind, FlowKind, Fragment,
+    LayoutGeometry, LineRange, NormalizedElement, PageBreakFixture, PaginationConfig,
 };
 
 pub fn write_big_fish_packet(debug_dir: &Path) {
@@ -30,6 +30,17 @@ pub fn write_little_women_packet(debug_dir: &Path) {
     fs::create_dir_all(debug_dir).unwrap();
     fs::write(debug_dir.join("parity.json"), serde_json::to_string_pretty(&report).unwrap()).unwrap();
     fs::write(debug_dir.join("REVIEW.md"), render_little_women_review(&report)).unwrap();
+}
+
+pub fn write_mostly_genius_packet(debug_dir: &Path) {
+    let report = build_line_break_parity_report(
+        "mostly-genius",
+        "tests/fixtures/corpus/public/mostly-genius/source/source.fountain",
+        "tests/fixtures/corpus/public/mostly-genius/canonical/page-breaks.json",
+    );
+    fs::create_dir_all(debug_dir).unwrap();
+    fs::write(debug_dir.join("parity.json"), serde_json::to_string_pretty(&report).unwrap()).unwrap();
+    fs::write(debug_dir.join("REVIEW.md"), render_mostly_genius_review(&report)).unwrap();
 }
 
 pub fn build_line_break_parity_report(
@@ -257,6 +268,26 @@ fn render_little_women_review(report: &LineBreakParityReport) -> String {
     review
 }
 
+fn render_mostly_genius_review(report: &LineBreakParityReport) -> String {
+    let disagreements: Vec<&LineBreakParityItem> =
+        report.items.iter().filter(|item| item.lines_agree == Some(false)).collect();
+    let act_markers = report
+        .items
+        .iter()
+        .filter(|item| item.kind == "New Act" || item.kind == "End of Act" || item.kind == "Cold Opening")
+        .count();
+    let mut review = render_review_common("Mostly Genius", "mostly-genius", report);
+    review.push_str(&format!(
+        "\nMulticam-specific markers in this report: {act_markers}\n"
+    ));
+    if disagreements.is_empty() {
+        review.push_str("\nNo exact-unique line-break disagreements were found.\n");
+    } else {
+        review.push_str("\nSearch for multicam dialogue blocks and act-marker elements first in `parity.json`.\n");
+    }
+    review
+}
+
 fn render_review_common(title: &str, slug: &str, report: &LineBreakParityReport) -> String {
     let disagreements: Vec<&LineBreakParityItem> = report.items.iter().filter(|item| item.lines_agree == Some(false)).collect();
     let mut review = format!(
@@ -300,9 +331,10 @@ Read these first:\n\n",
 fn measurement_for_screenplay(screenplay_id: &str) -> LayoutGeometry {
     let path = Path::new("tests/fixtures/corpus/public")
         .join(screenplay_id)
-        .join("extracted/fdx-settings.json");
-    let settings: FdxExtractedSettings = serde_json::from_str(&fs::read_to_string(path).unwrap()).unwrap();
-    LayoutGeometry::from_fdx_settings(&settings)
+        .join("source/source.fountain");
+    let fountain = fs::read_to_string(path).unwrap();
+    let screenplay = parse(&fountain);
+    PaginationConfig::from_screenplay(&screenplay, 54.0).geometry
 }
 
 fn debug_flow_geometry(label: &str, source_style: &str, kind: FlowKind, geometry: &LayoutGeometry) -> DebugGeometry {
@@ -312,9 +344,9 @@ fn debug_flow_geometry(label: &str, source_style: &str, kind: FlowKind, geometry
             (geometry.action_left, geometry.action_right)
         }
         FlowKind::Transition => (geometry.transition_left, geometry.transition_right),
-        FlowKind::ColdOpening | FlowKind::NewAct | FlowKind::EndOfAct => {
-            (geometry.action_left, geometry.action_right)
-        }
+        FlowKind::ColdOpening => (geometry.cold_opening_left, geometry.cold_opening_right),
+        FlowKind::NewAct => (geometry.new_act_left, geometry.new_act_right),
+        FlowKind::EndOfAct => (geometry.end_of_act_left, geometry.end_of_act_right),
     };
     DebugGeometry {
         kind: label.into(),

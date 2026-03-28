@@ -1,10 +1,12 @@
 use super::shared::{escape_html, join_metadata, sorted_style_names};
+use crate::pagination::{ScreenplayLayoutProfile, StyleProfile};
 use crate::{Attributes, Element, ElementText, Screenplay};
 use std::fmt::Write;
 
 const HTML_STYLE: &str = include_str!("../templates/html_style.css");
 
 pub(crate) fn render_document(screenplay: &Screenplay, head: bool) -> String {
+    let layout_profile = ScreenplayLayoutProfile::from_metadata(&screenplay.metadata);
     let mut out = String::with_capacity(32 * 1024);
     if head {
         out.push_str("<!doctype html>\n\n<html>\n<head>\n  <meta charset=\"utf-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n\n  <title>");
@@ -18,7 +20,12 @@ pub(crate) fn render_document(screenplay: &Screenplay, head: bool) -> String {
         out.push_str("\n  </style>\n</head>\n\n<body>\n");
     }
 
-    out.push_str("<section class=\"screenplay\">\n");
+    write!(
+        out,
+        "<section class=\"{}\">\n",
+        root_class_name(&layout_profile)
+    )
+    .unwrap();
     render_body(&mut out, screenplay);
     out.push_str("</section>\n");
 
@@ -27,6 +34,13 @@ pub(crate) fn render_document(screenplay: &Screenplay, head: bool) -> String {
     }
 
     out
+}
+
+fn root_class_name(layout_profile: &ScreenplayLayoutProfile) -> &'static str {
+    match layout_profile.style_profile {
+        StyleProfile::Screenplay => "screenplay",
+        StyleProfile::Multicam => "screenplay multicam",
+    }
 }
 
 fn render_body(out: &mut String, screenplay: &Screenplay) {
