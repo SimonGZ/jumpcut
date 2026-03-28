@@ -8,6 +8,7 @@ use crate::pagination::semantic::{
     build_semantic_screenplay, DialoguePartKind, DialogueUnit, FlowKind, FlowUnit, SemanticScreenplay,
     SemanticUnit,
 };
+use crate::pagination::wrapping::{wrap_text_for_element, ElementType, WrapConfig};
 use crate::pagination::LayoutGeometry;
 use crate::Screenplay;
 
@@ -120,26 +121,7 @@ impl PaginatedScreenplay {
         for paged_page in paged_blocks.into_iter() {
             let mut current_items = Vec::new();
             for block in paged_page.blocks {
-                let mut items = page_items_from_semantic_unit(block.unit);
-                
-                if !items.is_empty() {
-                    match block.fragment {
-                        crate::pagination::fixtures::Fragment::ContinuedToNext => {
-                            if let Some(last) = items.last_mut() {
-                                last.fragment = merge_fragment(&last.fragment, &crate::pagination::fixtures::Fragment::ContinuedToNext);
-                                last.continuation_markers = continuation_markers_for_fragment(&last.fragment);
-                            }
-                        },
-                        crate::pagination::fixtures::Fragment::ContinuedFromPrev => {
-                            if let Some(first) = items.first_mut() {
-                                first.fragment = merge_fragment(&first.fragment, &crate::pagination::fixtures::Fragment::ContinuedFromPrev);
-                                first.continuation_markers = continuation_markers_for_fragment(&first.fragment);
-                            }
-                        },
-                        _ => {}
-                    }
-                }
-
+                let items = page_items_from_layout_block(&block, geometry);
                 current_items.extend(items);
             }
 
@@ -288,33 +270,48 @@ fn build_page(
 
 
 
-fn page_items_from_semantic_unit(unit: &SemanticUnit) -> Vec<PageItem> {
-    match unit {
+fn page_items_from_layout_block(
+    block: &crate::pagination::composer::LayoutBlock<'_>,
+    geometry: &LayoutGeometry,
+) -> Vec<PageItem> {
+    match block.unit {
         SemanticUnit::PageStart(_) => Vec::new(),
-        SemanticUnit::Flow(unit) => vec![flow_page_item(unit, false, false)],
+        SemanticUnit::Flow(unit) => vec![flow_page_item(
+            unit,
+            matches!(block.fragment, Fragment::ContinuedFromPrev | Fragment::ContinuedFromPrevAndToNext),
+            matches!(block.fragment, Fragment::ContinuedToNext | Fragment::ContinuedFromPrevAndToNext),
+        )],
         SemanticUnit::Lyric(unit) => vec![PageItem {
             element_id: unit.element_id.clone(),
             kind: "Lyric".into(),
-            fragment: Fragment::Whole,
+            fragment: block.fragment.clone(),
             line_range: None,
             block_id: None,
             dual_dialogue_group: None,
             dual_dialogue_side: None,
-            continuation_markers: Vec::new(),
+            continuation_markers: continuation_markers_for_fragment(&block.fragment),
         }],
         SemanticUnit::Dialogue(unit) => {
-            dialogue_items_with_fragment_markers(unit, None, None, false, false)
+            dialogue_items_for_fragment(
+                unit,
+                None,
+                None,
+                &block.fragment,
+                block.content_lines,
+                geometry,
+            )
         }
         SemanticUnit::DualDialogue(unit) => unit
             .sides
             .iter()
             .flat_map(|side| {
-                dialogue_items_with_fragment_markers(
+                dialogue_items_for_fragment(
                     &side.dialogue,
                     Some(unit.group_id.as_str()),
                     Some(side.side),
-                    false,
-                    false,
+                    &block.fragment,
+                    block.content_lines,
+                    geometry,
                 )
             })
             .collect(),
@@ -343,6 +340,51 @@ fn flow_page_item(
         dual_dialogue_group: None,
         dual_dialogue_side: None,
         continuation_markers: continuation_markers_for_fragment(&fragment),
+    }
+}
+
+fn dialogue_items_for_fragment(
+    unit: &DialogueUnit,
+    dual_group: Option<&str>,
+    dual_side: Option<u8>,
+    fragment: &Fragment,
+    visible_content_lines: f32,
+    geometry: &LayoutGeometry,
+) -> Vec<PageItem> {
+    if matches!(fragment, Fragment::Whole) {
+        return dialogue_items_with_fragment_markers(unit, dual_group, dual_side, false, false);
+    }
+
+    let line_counts = dialogue_part_line_counts(unit, dual_side, geometry);
+    let continuation_prefix_lines =
+        dialogue_continuation_prefix_line_count(unit, dual_side, geometry);
+    let visible_lines = (visible_content_lines / geometry.line_height).round() as usize;
+    let total_lines: usize = line_counts.iter().sum();
+
+    match fragment {
+        Fragment::ContinuedToNext => dialogue_top_fragment_items(
+            unit,
+            dual_group,
+            dual_side,
+            &line_counts,
+            visible_lines,
+        ),
+        Fragment::ContinuedFromPrev => dialogue_bottom_fragment_items(
+            unit,
+            dual_group,
+            dual_side,
+            &line_counts,
+            total_lines.saturating_sub(visible_lines.saturating_sub(continuation_prefix_lines)),
+        ),
+        Fragment::ContinuedFromPrevAndToNext => dialogue_middle_fragment_items(
+            unit,
+            dual_group,
+            dual_side,
+            &line_counts,
+            total_lines.saturating_sub(visible_lines.saturating_sub(continuation_prefix_lines)),
+            visible_lines.saturating_sub(continuation_prefix_lines),
+        ),
+        Fragment::Whole => unreachable!(),
     }
 }
 
@@ -383,6 +425,185 @@ fn dialogue_items_with_fragment_markers(
     }
 
     items
+}
+
+fn dialogue_part_line_counts(
+    unit: &DialogueUnit,
+    dual_side: Option<u8>,
+    geometry: &LayoutGeometry,
+) -> Vec<usize> {
+    unit.parts
+        .iter()
+        .map(|part| {
+            let element_type = match dual_side {
+                Some(1) => ElementType::DualDialogueLeft,
+                Some(_) => ElementType::DualDialogueRight,
+                None => match part.kind {
+                    DialoguePartKind::Character => ElementType::Character,
+                    DialoguePartKind::Parenthetical => ElementType::Parenthetical,
+                    DialoguePartKind::Dialogue => ElementType::Dialogue,
+                    DialoguePartKind::Lyric => ElementType::Lyric,
+                },
+            };
+            let config = WrapConfig::from_geometry(geometry, element_type);
+            wrap_text_for_element(&part.text, &config).len()
+        })
+        .collect()
+}
+
+fn dialogue_continuation_prefix_line_count(
+    unit: &DialogueUnit,
+    dual_side: Option<u8>,
+    geometry: &LayoutGeometry,
+) -> usize {
+    unit.parts
+        .iter()
+        .take_while(|part| matches!(part.kind, DialoguePartKind::Character))
+        .map(|part| {
+            let element_type = match dual_side {
+                Some(1) => ElementType::DualDialogueLeft,
+                Some(_) => ElementType::DualDialogueRight,
+                None => ElementType::Character,
+            };
+            let config = WrapConfig::from_geometry(geometry, element_type);
+            wrap_text_for_element(&part.text, &config).len()
+        })
+        .sum()
+}
+
+fn dialogue_top_fragment_items(
+    unit: &DialogueUnit,
+    dual_group: Option<&str>,
+    dual_side: Option<u8>,
+    line_counts: &[usize],
+    visible_lines: usize,
+) -> Vec<PageItem> {
+    let mut items = Vec::new();
+    let mut remaining = visible_lines;
+
+    for (part, part_lines) in unit.parts.iter().zip(line_counts.iter().copied()) {
+        if remaining == 0 {
+            break;
+        }
+
+        let taken = remaining.min(part_lines);
+        if taken == 0 {
+            continue;
+        }
+
+        items.push(dialogue_fragment_item(
+            unit,
+            part,
+            dual_group,
+            dual_side,
+            Fragment::Whole,
+            (taken < part_lines).then_some((1, taken as u32)),
+        ));
+        remaining -= taken;
+    }
+
+    if let Some(last) = items.last_mut() {
+        last.fragment = merge_fragment(&last.fragment, &Fragment::ContinuedToNext);
+        last.continuation_markers = continuation_markers_for_fragment(&last.fragment);
+    }
+
+    items
+}
+
+fn dialogue_bottom_fragment_items(
+    unit: &DialogueUnit,
+    dual_group: Option<&str>,
+    dual_side: Option<u8>,
+    line_counts: &[usize],
+    mut skipped_lines: usize,
+) -> Vec<PageItem> {
+    let mut items = Vec::new();
+
+    for (part, part_lines) in unit.parts.iter().zip(line_counts.iter().copied()) {
+        if skipped_lines >= part_lines {
+            skipped_lines -= part_lines;
+            continue;
+        }
+
+        let start_line = skipped_lines + 1;
+        let line_range = (start_line > 1).then_some((start_line as u32, part_lines as u32));
+
+        items.push(dialogue_fragment_item(
+            unit,
+            part,
+            dual_group,
+            dual_side,
+            Fragment::Whole,
+            line_range,
+        ));
+        skipped_lines = 0;
+    }
+
+    if let Some(first) = items.first_mut() {
+        first.fragment = merge_fragment(&first.fragment, &Fragment::ContinuedFromPrev);
+        first.continuation_markers = continuation_markers_for_fragment(&first.fragment);
+    }
+
+    items
+}
+
+fn dialogue_middle_fragment_items(
+    unit: &DialogueUnit,
+    dual_group: Option<&str>,
+    dual_side: Option<u8>,
+    line_counts: &[usize],
+    skipped_lines: usize,
+    visible_lines: usize,
+) -> Vec<PageItem> {
+    let mut items = dialogue_bottom_fragment_items(unit, dual_group, dual_side, line_counts, skipped_lines);
+    let mut remaining = visible_lines;
+
+    for item in &mut items {
+        if remaining == 0 {
+            item.line_range = None;
+            continue;
+        }
+        if let Some((start, end)) = item.line_range {
+            let count = (end - start + 1) as usize;
+            if count > remaining {
+                item.line_range = Some((start, start + remaining as u32 - 1));
+                remaining = 0;
+            } else {
+                remaining -= count;
+            }
+        } else {
+            remaining = remaining.saturating_sub(1);
+        }
+    }
+
+    items.retain(|item| item.line_range.map(|(start, end)| start <= end).unwrap_or(true));
+
+    if let Some(last) = items.last_mut() {
+        last.fragment = merge_fragment(&last.fragment, &Fragment::ContinuedToNext);
+        last.continuation_markers = continuation_markers_for_fragment(&last.fragment);
+    }
+
+    items
+}
+
+fn dialogue_fragment_item(
+    unit: &DialogueUnit,
+    part: &crate::pagination::semantic::DialoguePart,
+    dual_group: Option<&str>,
+    dual_side: Option<u8>,
+    fragment: Fragment,
+    line_range: Option<(u32, u32)>,
+) -> PageItem {
+    PageItem {
+        element_id: part.element_id.clone(),
+        kind: dialogue_part_kind_name(&part.kind).to_string(),
+        fragment: fragment.clone(),
+        line_range,
+        block_id: Some(unit.block_id.clone()),
+        dual_dialogue_group: dual_group.map(str::to_string),
+        dual_dialogue_side: dual_side,
+        continuation_markers: continuation_markers_for_fragment(&fragment),
+    }
 }
 
 fn page_item_from_normalized(element: NormalizedElement) -> PageItem {

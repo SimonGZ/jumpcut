@@ -958,6 +958,10 @@ fn render_layout_block_lines(
     block: &crate::pagination::composer::LayoutBlock<'_>,
     geometry: &LayoutGeometry,
 ) -> Vec<String> {
+    if let SemanticUnit::Dialogue(dialogue) = block.unit {
+        return render_dialogue_fragment_lines(dialogue, &block.fragment, block.content_lines, geometry);
+    }
+
     let all_lines = render_semantic_unit_lines(block.unit, geometry);
     let target_line_count = (block.content_lines / geometry.line_height).round() as usize;
 
@@ -973,6 +977,52 @@ fn render_layout_block_lines(
         }
         Fragment::ContinuedFromPrevAndToNext => all_lines.into_iter().take(target_line_count).collect(),
     }
+}
+
+fn render_dialogue_fragment_lines(
+    dialogue: &crate::pagination::DialogueUnit,
+    fragment: &Fragment,
+    content_lines: f32,
+    geometry: &LayoutGeometry,
+) -> Vec<String> {
+    let all_lines = render_semantic_unit_lines(&SemanticUnit::Dialogue(dialogue.clone()), geometry);
+    let continuation_prefix = render_dialogue_continuation_prefix(dialogue, geometry);
+    let continuation_prefix_lines = continuation_prefix.len();
+    let target_line_count = (content_lines / geometry.line_height).round() as usize;
+
+    match fragment {
+        Fragment::Whole => all_lines,
+        Fragment::ContinuedToNext => all_lines.into_iter().take(target_line_count).collect(),
+        Fragment::ContinuedFromPrev => {
+            let len = all_lines.len();
+            continuation_prefix
+                .into_iter()
+                .chain(all_lines.into_iter().skip(
+                    len.saturating_sub(target_line_count.saturating_sub(continuation_prefix_lines)),
+                ))
+                .collect()
+        }
+        Fragment::ContinuedFromPrevAndToNext => {
+            continuation_prefix
+                .into_iter()
+                .chain(all_lines.into_iter().take(
+                    target_line_count.saturating_sub(continuation_prefix_lines),
+                ))
+                .collect()
+        }
+    }
+}
+
+fn render_dialogue_continuation_prefix(
+    dialogue: &crate::pagination::DialogueUnit,
+    geometry: &LayoutGeometry,
+) -> Vec<String> {
+    dialogue
+        .parts
+        .iter()
+        .take_while(|part| matches!(part.kind, DialoguePartKind::Character))
+        .flat_map(|part| render_indented_lines(&part.text, ElementType::Character, geometry))
+        .collect()
 }
 
 fn render_semantic_unit_lines(unit: &SemanticUnit, geometry: &LayoutGeometry) -> Vec<String> {

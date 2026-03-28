@@ -167,6 +167,48 @@ fn big_fish_public_slice_stays_at_or_better_than_width_measurement_baseline() {
 }
 
 #[test]
+fn big_fish_pages_34_35_split_mayor_speech_at_sentence_boundary() {
+    let mut fixture: PageBreakFixture =
+        read_fixture("tests/fixtures/corpus/public/big-fish/canonical/page-breaks.json");
+    fixture.pages.retain(|page| matches!(page.number, 34 | 35));
+
+    let normalized = normalized_window_from_fountain(
+        "big-fish",
+        "tests/fixtures/corpus/public/big-fish/source/source.fountain",
+        &fixture,
+    );
+    let semantic = build_semantic_screenplay(normalized);
+    let report = run_window_parity_check(&fixture, &semantic, geometry_for_screenplay("big-fish"));
+
+    assert!(
+        report.issues.is_empty(),
+        "expected the page 34/35 window to match canonical split behavior for block-00213, got {:?}",
+        report.issues
+    );
+}
+
+#[test]
+fn big_fish_pages_38_39_split_beamen_action_at_sentence_boundary() {
+    let mut fixture: PageBreakFixture =
+        read_fixture("tests/fixtures/corpus/public/big-fish/canonical/page-breaks.json");
+    fixture.pages.retain(|page| matches!(page.number, 38 | 39));
+
+    let normalized = normalized_window_from_fountain(
+        "big-fish",
+        "tests/fixtures/corpus/public/big-fish/source/source.fountain",
+        &fixture,
+    );
+    let semantic = build_semantic_screenplay(normalized);
+    let report = run_window_parity_check(&fixture, &semantic, geometry_for_screenplay("big-fish"));
+
+    assert!(
+        report.issues.is_empty(),
+        "expected the page 38/39 window to match canonical split behavior for el-00800, got {:?}",
+        report.issues
+    );
+}
+
+#[test]
 // #[ignore = "Temporarily disabled"]
 fn big_fish_line_break_parity_reports_el_00787_as_an_exact_match() {
     let report = build_line_break_parity_report(

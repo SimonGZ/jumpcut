@@ -92,6 +92,7 @@ pub fn compose<'a>(units: &'a [SemanticUnit], geometry: &LayoutGeometry) -> Vec<
             },
             can_split: match unit {
                 SemanticUnit::Flow(flow) => flow.cohesion.can_split,
+                SemanticUnit::Dialogue(_) => true,
                 _ => false,
             },
             widow_penalty: 0.0, // Dialogue will set this to 1.0 later

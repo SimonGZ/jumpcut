@@ -1,6 +1,11 @@
 use crate::pagination::composer::LayoutBlock;
+use crate::pagination::dialogue_split::{
+    choose_dialogue_split, DialogueLine, DialogueLineRole,
+};
+use crate::pagination::flow_split::choose_flow_split;
 use crate::pagination::fixtures::Fragment;
-use crate::pagination::SemanticUnit;
+use crate::pagination::wrapping::{wrap_text_for_element, ElementType, WrapConfig};
+use crate::pagination::{DialoguePartKind, SemanticUnit};
 use crate::pagination::LayoutGeometry;
 
 pub struct Page<'a> {
@@ -77,36 +82,33 @@ pub fn paginate<'a>(blocks: &'a [LayoutBlock<'a>], page_limit_lines: f32, geomet
                     0.0
                 };
                 let available_lines = (page_limit_lines - current_page_lines).max(0.0);
-                
-                if available_lines >= effective_spacing + geometry.orphan_limit as f32 {
-                    let lines_that_fit = available_lines - effective_spacing;
-                    let lines_remaining = block.content_lines - lines_that_fit;
-                    
-                    if lines_remaining >= geometry.widow_limit as f32 {
-                        current_page_blocks.push(LayoutBlock {
-                            unit: block.unit,
-                            fragment: Fragment::ContinuedToNext,
-                            spacing_above: effective_spacing,
-                            content_lines: lines_that_fit,
-                            keep_with_next: false,
-                            can_split: false,
-                            widow_penalty: 0.0,
-                        });
-                        
-                        pages.push(Page { blocks: current_page_blocks });
-                        
-                        current_page_blocks = vec![LayoutBlock {
-                            unit: block.unit,
-                            fragment: Fragment::ContinuedFromPrev,
-                            spacing_above: 0.0, 
-                            content_lines: lines_remaining + block.widow_penalty, 
-                            keep_with_next: block.keep_with_next,
-                            can_split: block.can_split,
-                            widow_penalty: 0.0, 
-                        }];
-                        current_page_lines = lines_remaining + block.widow_penalty;
-                        continue;
-                    }
+
+                if let Some((top_lines, bottom_lines)) =
+                    choose_split_lines(block, available_lines, effective_spacing, geometry)
+                {
+                    current_page_blocks.push(LayoutBlock {
+                        unit: block.unit,
+                        fragment: Fragment::ContinuedToNext,
+                        spacing_above: effective_spacing,
+                        content_lines: top_lines,
+                        keep_with_next: false,
+                        can_split: false,
+                        widow_penalty: 0.0,
+                    });
+
+                    pages.push(Page { blocks: current_page_blocks });
+
+                    current_page_blocks = vec![LayoutBlock {
+                        unit: block.unit,
+                        fragment: Fragment::ContinuedFromPrev,
+                        spacing_above: 0.0,
+                        content_lines: bottom_lines + block.widow_penalty,
+                        keep_with_next: block.keep_with_next,
+                        can_split: block.can_split,
+                        widow_penalty: 0.0,
+                    }];
+                    current_page_lines = bottom_lines + block.widow_penalty;
+                    continue;
                 }
             }
 
@@ -225,6 +227,121 @@ pub fn paginate<'a>(blocks: &'a [LayoutBlock<'a>], page_limit_lines: f32, geomet
 
 fn block_has_visible_content(block: &LayoutBlock<'_>) -> bool {
     !matches!(block.unit, SemanticUnit::PageStart(_)) || block.content_lines > 0.0
+}
+
+fn choose_split_lines(
+    block: &LayoutBlock<'_>,
+    available_lines: f32,
+    effective_spacing: f32,
+    geometry: &LayoutGeometry,
+) -> Option<(f32, f32)> {
+    if available_lines < effective_spacing + geometry.orphan_limit as f32 {
+        return None;
+    }
+
+    match block.unit {
+        SemanticUnit::Dialogue(dialogue) => {
+            let max_top_lines = ((available_lines - effective_spacing) / geometry.line_height)
+                .floor() as usize;
+            let dialogue_lines = dialogue
+                .parts
+                .iter()
+                .flat_map(|part| {
+                    let element_type = match part.kind {
+                        DialoguePartKind::Character => ElementType::Character,
+                        DialoguePartKind::Parenthetical => ElementType::Parenthetical,
+                        DialoguePartKind::Dialogue => ElementType::Dialogue,
+                        DialoguePartKind::Lyric => ElementType::Lyric,
+                    };
+                    let config = WrapConfig::from_geometry(geometry, element_type);
+                    wrap_text_for_element(&part.text, &config)
+                        .into_iter()
+                        .map(move |line| DialogueLine {
+                            role: match part.kind {
+                                DialoguePartKind::Character => DialogueLineRole::Character,
+                                DialoguePartKind::Parenthetical => DialogueLineRole::Parenthetical,
+                                DialoguePartKind::Dialogue | DialoguePartKind::Lyric => DialogueLineRole::Dialogue,
+                            },
+                            text: line,
+                        })
+                })
+                .collect::<Vec<_>>();
+            let continuation_prefix_lines =
+                dialogue_continuation_prefix_line_count(dialogue, geometry);
+
+            let decision = choose_dialogue_split(
+                &dialogue_lines,
+                max_top_lines,
+                geometry.orphan_limit,
+                geometry.widow_limit,
+            )?;
+            let top_lines = decision.top_line_count as f32 * geometry.line_height;
+            let bottom_dialogue_lines = block.content_lines - top_lines;
+            let bottom_lines = bottom_dialogue_lines
+                + continuation_prefix_lines as f32 * geometry.line_height;
+            (bottom_lines >= geometry.widow_limit as f32 * geometry.line_height)
+                .then_some((top_lines, bottom_lines))
+        }
+        _ => {
+            let SemanticUnit::Flow(flow) = block.unit else {
+                return None;
+            };
+            let target_line_count = (block.content_lines / geometry.line_height).round() as usize;
+            let max_top_lines = ((available_lines - effective_spacing) / geometry.line_height)
+                .floor() as usize;
+            let element_type = match flow.kind {
+                crate::pagination::FlowKind::Action => ElementType::Action,
+                crate::pagination::FlowKind::SceneHeading => ElementType::SceneHeading,
+                crate::pagination::FlowKind::Transition => ElementType::Transition,
+                crate::pagination::FlowKind::ColdOpening => ElementType::ColdOpening,
+                crate::pagination::FlowKind::NewAct => ElementType::NewAct,
+                crate::pagination::FlowKind::EndOfAct => ElementType::EndOfAct,
+                crate::pagination::FlowKind::Section => ElementType::Action,
+                crate::pagination::FlowKind::Synopsis => ElementType::Action,
+            };
+            let config = WrapConfig::from_geometry(geometry, element_type);
+            let wrapped_lines = wrap_text_for_element(&flow.text, &config);
+            if wrapped_lines.len() != target_line_count {
+                let lines_that_fit = available_lines - effective_spacing;
+                let lines_remaining = block.content_lines - lines_that_fit;
+
+                if lines_remaining >= geometry.widow_limit as f32 {
+                    return Some((lines_that_fit, lines_remaining));
+                }
+                return None;
+            }
+
+            let decision = choose_flow_split(
+                &wrapped_lines,
+                max_top_lines,
+                geometry.orphan_limit,
+                geometry.widow_limit,
+            )?;
+            let top_lines = decision.top_line_count as f32 * geometry.line_height;
+            let bottom_lines = block.content_lines - top_lines;
+
+            if bottom_lines >= geometry.widow_limit as f32 * geometry.line_height {
+                Some((top_lines, bottom_lines))
+            } else {
+                None
+            }
+        }
+    }
+}
+
+fn dialogue_continuation_prefix_line_count(
+    dialogue: &crate::pagination::DialogueUnit,
+    geometry: &LayoutGeometry,
+) -> usize {
+    dialogue
+        .parts
+        .iter()
+        .take_while(|part| matches!(part.kind, DialoguePartKind::Character))
+        .map(|part| {
+            let config = WrapConfig::from_geometry(geometry, ElementType::Character);
+            wrap_text_for_element(&part.text, &config).len()
+        })
+        .sum()
 }
 
 fn chunk_starts_with_transition(chunk: &Chunk<'_>) -> bool {

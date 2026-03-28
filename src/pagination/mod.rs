@@ -1,4 +1,6 @@
 mod comparison;
+pub mod dialogue_split;
+pub mod flow_split;
 mod fixtures;
 mod ir;
 pub mod line_break_diagnostics;
@@ -10,6 +12,7 @@ pub mod wrapping;
 pub mod margin;
 pub mod composer;
 pub mod paginator;
+mod split_scoring;
 
 pub use comparison::{
     compare_paginated_to_fixture, ComparisonIssue, ComparisonIssueKind, ComparisonReport,
