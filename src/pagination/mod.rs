@@ -12,6 +12,7 @@ pub mod wrapping;
 pub mod margin;
 pub mod composer;
 pub mod paginator;
+mod sentence_boundary;
 mod split_scoring;
 
 pub use comparison::{

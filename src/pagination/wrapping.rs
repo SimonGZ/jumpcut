@@ -66,6 +66,18 @@ pub struct WrapConfig {
     pub exact_width_chars: usize,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WrappedLine {
+    pub text: String,
+    pub end_offset: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct WrapChunk {
+    text: String,
+    end_offset: usize,
+}
+
 impl WrapConfig {
     pub fn new(element_type: ElementType) -> Self {
         let geometry = LayoutGeometry::default();
@@ -86,6 +98,13 @@ impl WrapConfig {
 }
 
 pub fn wrap_text_for_element(text: &str, config: &WrapConfig) -> Vec<String> {
+    wrap_text_for_element_with_offsets(text, config)
+        .into_iter()
+        .map(|line| line.text)
+        .collect()
+}
+
+pub fn wrap_text_for_element_with_offsets(text: &str, config: &WrapConfig) -> Vec<WrappedLine> {
     let mut lines = Vec::new();
     let max_width = config.exact_width_chars;
 
@@ -93,12 +112,16 @@ pub fn wrap_text_for_element(text: &str, config: &WrapConfig) -> Vec<String> {
         return lines;
     }
 
-    for paragraph in text.lines() {
+    let paragraphs: Vec<&str> = text.split('\n').collect();
+    let mut paragraph_offset = 0;
+
+    for paragraph in paragraphs {
         let mut current_line = String::new();
-        let words = tokenize_wrap_chunks(paragraph);
+        let mut current_line_end_offset = paragraph_offset;
+        let words = tokenize_wrap_chunks(paragraph, paragraph_offset);
 
         for word in words {
-            let combined = format!("{}{}", current_line, word);
+            let combined = format!("{}{}", current_line, word.text);
 
             // Final Draft explicitly discounts trailing whitespace and exactly
             // ONE single trailing hyphen from column width limits.
@@ -113,54 +136,75 @@ pub fn wrap_text_for_element(text: &str, config: &WrapConfig) -> Vec<String> {
 
             if current_line.is_empty() {
                 // Always push the first word of a line, even if it's too long
-                current_line.push_str(&word);
+                current_line.push_str(&word.text);
+                current_line_end_offset = word.end_offset;
             } else if fits {
-                current_line.push_str(&word);
+                current_line.push_str(&word.text);
+                current_line_end_offset = word.end_offset;
             } else {
                 // Line is full. Trim trailing spaces on the rendered visual line
-                lines.push(current_line.trim_end().to_string());
-                current_line = word;
+                lines.push(WrappedLine {
+                    text: current_line.trim_end().to_string(),
+                    end_offset: current_line_end_offset,
+                });
+                current_line = word.text;
+                current_line_end_offset = word.end_offset;
             }
         }
 
         if !current_line.is_empty() {
-            lines.push(current_line.trim_end().to_string());
+            lines.push(WrappedLine {
+                text: current_line.trim_end().to_string(),
+                end_offset: current_line_end_offset,
+            });
         }
+
+        paragraph_offset += paragraph.len() + 1;
     }
 
     lines
 }
 
-fn tokenize_wrap_chunks(paragraph: &str) -> Vec<String> {
+fn tokenize_wrap_chunks(paragraph: &str, paragraph_offset: usize) -> Vec<WrapChunk> {
     let chars: Vec<char> = paragraph.chars().collect();
     let mut chunks = Vec::new();
     let mut index = 0;
+    let mut byte_index = paragraph_offset;
 
     while index < chars.len() {
         if chars[index].is_whitespace() {
             let start = index;
             while index < chars.len() && chars[index].is_whitespace() {
+                byte_index += chars[index].len_utf8();
                 index += 1;
             }
-            chunks.push(chars[start..index].iter().collect());
+            chunks.push(WrapChunk {
+                text: chars[start..index].iter().collect(),
+                end_offset: byte_index,
+            });
             continue;
         }
 
         let start = index;
+        let word_start_offset = byte_index;
         while index < chars.len() && !chars[index].is_whitespace() {
+            byte_index += chars[index].len_utf8();
             index += 1;
         }
 
         let word: String = chars[start..index].iter().collect();
-        let mut word_chunks = split_breakable_hyphen_chunks(&word);
+        let mut word_chunks = split_breakable_hyphen_chunks(&word, word_start_offset);
 
         let ws_start = index;
         while index < chars.len() && chars[index].is_whitespace() {
+            byte_index += chars[index].len_utf8();
             index += 1;
         }
         if ws_start < index {
+            let whitespace: String = chars[ws_start..index].iter().collect();
             if let Some(last) = word_chunks.last_mut() {
-                last.push_str(&chars[ws_start..index].iter().collect::<String>());
+                last.text.push_str(&whitespace);
+                last.end_offset = byte_index;
             }
         }
 
@@ -170,14 +214,17 @@ fn tokenize_wrap_chunks(paragraph: &str) -> Vec<String> {
     chunks
 }
 
-fn split_breakable_hyphen_chunks(word: &str) -> Vec<String> {
+fn split_breakable_hyphen_chunks(word: &str, start_offset: usize) -> Vec<WrapChunk> {
     let chars: Vec<char> = word.chars().collect();
     let mut chunks = Vec::new();
     let mut current = String::new();
+    let mut current_start_offset = start_offset;
+    let mut consumed_bytes = 0;
 
     for index in 0..chars.len() {
         let ch = chars[index];
         current.push(ch);
+        consumed_bytes += ch.len_utf8();
 
         if ch == '-'
             && index > 0
@@ -187,12 +234,20 @@ fn split_breakable_hyphen_chunks(word: &str) -> Vec<String> {
             && chars[index - 1] != '-'
             && chars[index + 1] != '-'
         {
-            chunks.push(std::mem::take(&mut current));
+            chunks.push(WrapChunk {
+                text: std::mem::take(&mut current),
+                end_offset: start_offset + consumed_bytes,
+            });
+            current_start_offset = start_offset + consumed_bytes;
         }
     }
 
     if !current.is_empty() {
-        chunks.push(current);
+        let current_len = current.len();
+        chunks.push(WrapChunk {
+            text: current,
+            end_offset: current_start_offset + current_len,
+        });
     }
 
     chunks

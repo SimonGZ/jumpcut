@@ -1,3 +1,4 @@
+use crate::pagination::dialogue_split::DialogueSplitPlan;
 use crate::pagination::fixtures::{
     Fragment, NormalizedElement, NormalizedScreenplay, PageBreakFixture,
     PageBreakFixtureSourceRefs, PaginationScope,
@@ -297,6 +298,7 @@ fn page_items_from_layout_block(
                 None,
                 None,
                 &block.fragment,
+                block.dialogue_split.as_ref(),
                 block.content_lines,
                 geometry,
             )
@@ -310,6 +312,7 @@ fn page_items_from_layout_block(
                     Some(unit.group_id.as_str()),
                     Some(side.side),
                     &block.fragment,
+                    None,
                     block.content_lines,
                     geometry,
                 )
@@ -348,6 +351,7 @@ fn dialogue_items_for_fragment(
     dual_group: Option<&str>,
     dual_side: Option<u8>,
     fragment: &Fragment,
+    split_plan: Option<&DialogueSplitPlan>,
     visible_content_lines: f32,
     geometry: &LayoutGeometry,
 ) -> Vec<PageItem> {
@@ -355,9 +359,33 @@ fn dialogue_items_for_fragment(
         return dialogue_items_with_fragment_markers(unit, dual_group, dual_side, false, false);
     }
 
+    if let Some(plan) = split_plan {
+        match fragment {
+            Fragment::ContinuedToNext => {
+                return dialogue_fragment_items_from_plan(
+                    unit,
+                    dual_group,
+                    dual_side,
+                    fragment,
+                    plan,
+                    true,
+                );
+            }
+            Fragment::ContinuedFromPrev => {
+                return dialogue_fragment_items_from_plan(
+                    unit,
+                    dual_group,
+                    dual_side,
+                    fragment,
+                    plan,
+                    false,
+                );
+            }
+            Fragment::Whole | Fragment::ContinuedFromPrevAndToNext => {}
+        }
+    }
+
     let line_counts = dialogue_part_line_counts(unit, dual_side, geometry);
-    let continuation_prefix_lines =
-        dialogue_continuation_prefix_line_count(unit, dual_side, geometry);
     let visible_lines = (visible_content_lines / geometry.line_height).round() as usize;
     let total_lines: usize = line_counts.iter().sum();
 
@@ -374,18 +402,84 @@ fn dialogue_items_for_fragment(
             dual_group,
             dual_side,
             &line_counts,
-            total_lines.saturating_sub(visible_lines.saturating_sub(continuation_prefix_lines)),
+            total_lines.saturating_sub(visible_lines),
         ),
         Fragment::ContinuedFromPrevAndToNext => dialogue_middle_fragment_items(
             unit,
             dual_group,
             dual_side,
             &line_counts,
-            total_lines.saturating_sub(visible_lines.saturating_sub(continuation_prefix_lines)),
-            visible_lines.saturating_sub(continuation_prefix_lines),
+            total_lines.saturating_sub(visible_lines),
+            visible_lines,
         ),
         Fragment::Whole => unreachable!(),
     }
+}
+
+fn dialogue_fragment_items_from_plan(
+    unit: &DialogueUnit,
+    dual_group: Option<&str>,
+    dual_side: Option<u8>,
+    fragment: &Fragment,
+    plan: &DialogueSplitPlan,
+    use_top_lines: bool,
+) -> Vec<PageItem> {
+    let mut items = Vec::new();
+
+    for (part, part_plan) in unit.parts.iter().zip(plan.parts.iter()) {
+        let visible_lines = if use_top_lines {
+            &part_plan.top_lines
+        } else {
+            &part_plan.bottom_lines
+        };
+
+        if visible_lines.is_empty() {
+            continue;
+        }
+
+        let hidden_line_count = if use_top_lines {
+            part_plan.bottom_lines.len()
+        } else {
+            part_plan.top_lines.len()
+        };
+        let line_range = if hidden_line_count == 0 {
+            None
+        } else if use_top_lines {
+            Some((1, visible_lines.len() as u32))
+        } else {
+            Some((
+                part_plan.top_lines.len() as u32 + 1,
+                (part_plan.top_lines.len() + visible_lines.len()) as u32,
+            ))
+        };
+
+        items.push(dialogue_fragment_item(
+            unit,
+            part,
+            dual_group,
+            dual_side,
+            Fragment::Whole,
+            line_range,
+        ));
+    }
+
+    match fragment {
+        Fragment::ContinuedToNext => {
+            if let Some(last) = items.last_mut() {
+                last.fragment = merge_fragment(&last.fragment, &Fragment::ContinuedToNext);
+                last.continuation_markers = continuation_markers_for_fragment(&last.fragment);
+            }
+        }
+        Fragment::ContinuedFromPrev => {
+            if let Some(first) = items.first_mut() {
+                first.fragment = merge_fragment(&first.fragment, &Fragment::ContinuedFromPrev);
+                first.continuation_markers = continuation_markers_for_fragment(&first.fragment);
+            }
+        }
+        Fragment::Whole | Fragment::ContinuedFromPrevAndToNext => {}
+    }
+
+    items
 }
 
 fn dialogue_items_with_fragment_markers(
@@ -449,26 +543,6 @@ fn dialogue_part_line_counts(
             wrap_text_for_element(&part.text, &config).len()
         })
         .collect()
-}
-
-fn dialogue_continuation_prefix_line_count(
-    unit: &DialogueUnit,
-    dual_side: Option<u8>,
-    geometry: &LayoutGeometry,
-) -> usize {
-    unit.parts
-        .iter()
-        .take_while(|part| matches!(part.kind, DialoguePartKind::Character))
-        .map(|part| {
-            let element_type = match dual_side {
-                Some(1) => ElementType::DualDialogueLeft,
-                Some(_) => ElementType::DualDialogueRight,
-                None => ElementType::Character,
-            };
-            let config = WrapConfig::from_geometry(geometry, element_type);
-            wrap_text_for_element(&part.text, &config).len()
-        })
-        .sum()
 }
 
 fn dialogue_top_fragment_items(

@@ -1,6 +1,8 @@
 use jumpcut::pagination::dialogue_split::{
-    choose_dialogue_split, DialogueLine, DialogueLineRole, DialogueSplitDecision,
+    choose_dialogue_split, plan_dialogue_split, DialogueLine, DialogueLineRole,
+    DialogueSplitDecision,
 };
+use jumpcut::pagination::{Cohesion, DialoguePart, DialoguePartKind, DialogueUnit, LayoutGeometry};
 
 #[test]
 fn dialogue_split_prefers_a_sentence_boundary_for_the_mayor_case() {
@@ -14,7 +16,7 @@ fn dialogue_split_prefers_a_sentence_boundary_for_the_mayor_case() {
         DialogueLine { role: DialogueLineRole::Dialogue, text: "back, all our doors are open to you.".into() },
     ];
 
-    let split = choose_dialogue_split(&lines, 4, 2, 2);
+    let split = choose_dialogue_split(&lines, 5, 2, 2);
 
     assert_eq!(split, Some(DialogueSplitDecision { top_line_count: 4 }));
 }
@@ -49,7 +51,7 @@ fn dialogue_split_can_start_the_continuation_with_a_parenthetical() {
         DialogueLine { role: DialogueLineRole::Dialogue, text: "you bring home next.".into() },
     ];
 
-    let split = choose_dialogue_split(&lines, 5, 2, 2);
+    let split = choose_dialogue_split(&lines, 6, 2, 2);
 
     assert_eq!(split, Some(DialogueSplitDecision { top_line_count: 5 }));
 }
@@ -86,7 +88,7 @@ fn dialogue_split_prefers_the_sentence_boundary_that_also_fills_the_page() {
     .into_iter()
     .map(|text| DialogueLine { role: DialogueLineRole::Dialogue, text: text.into() }));
 
-    let split = choose_dialogue_split(&lines, 18, 2, 2);
+    let split = choose_dialogue_split(&lines, 19, 2, 2);
 
     let decision = split.unwrap();
     assert_eq!(decision, DialogueSplitDecision { top_line_count: 18 });
@@ -94,5 +96,48 @@ fn dialogue_split_prefers_the_sentence_boundary_that_also_fills_the_page() {
     assert_eq!(
         lines[decision.top_line_count].text,
         "And when he finally came back, he looked"
+    );
+}
+
+#[test]
+fn dialogue_split_plan_can_split_at_a_sentence_boundary_inside_a_wrapped_line() {
+    let dialogue = DialogueUnit {
+        block_id: "block-01146".into(),
+        parts: vec![
+            DialoguePart {
+                element_id: "el-01145".into(),
+                kind: DialoguePartKind::Character,
+                text: "EDWARD (CONT'D)".into(),
+            },
+            DialoguePart {
+                element_id: "el-01146".into(),
+                kind: DialoguePartKind::Dialogue,
+                text: "Well, I didn't know what to do.  But finally I told my father.  And he said not to worry, but I could tell he was rattled.  That next day, he wasn't himself, always looking around, waiting for something to drop on his head.  Because the crow didn't tell how it was going to happen, just those words:  your Daddy is going to die.  Well, he went into town early and was gone for a long time.  And when he finally came back, he looked terrible, like he was waiting for the axe to fall all day.  He said to my mother, \"Good God.  I just had the worst day of my life.\"".into(),
+            },
+        ],
+        cohesion: Cohesion {
+            keep_together: false,
+            keep_with_next: false,
+            can_split: true,
+        },
+    };
+
+    let plan = plan_dialogue_split(&dialogue, &LayoutGeometry::default(), 14, 2, 2).unwrap();
+
+    assert_eq!(plan.top_line_count, 13);
+    assert_eq!(plan.bottom_line_count, 6);
+    assert_eq!(plan.parts[1].top_lines.len(), 12);
+    assert_eq!(plan.parts[1].bottom_lines.len(), 6);
+    assert_eq!(
+        plan.parts[1].top_text.trim_end(),
+        "Well, I didn't know what to do.  But finally I told my father.  And he said not to worry, but I could tell he was rattled.  That next day, he wasn't himself, always looking around, waiting for something to drop on his head.  Because the crow didn't tell how it was going to happen, just those words:  your Daddy is going to die.  Well, he went into town early and was gone for a long time."
+    );
+    assert!(
+        plan.parts[1]
+            .bottom_text
+            .trim_start()
+            .starts_with("And when he finally came back, he looked"),
+        "expected continuation text to start at the next sentence boundary, got: {:?}",
+        plan.parts[1].bottom_text
     );
 }

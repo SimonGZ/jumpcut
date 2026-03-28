@@ -1,8 +1,19 @@
 use crate::pagination::split_scoring::choose_best_scored_split;
+use crate::pagination::sentence_boundary::{sentence_boundary_offsets, text_ends_sentence};
+use crate::pagination::wrapping::{wrap_text_for_element, wrap_text_for_element_with_offsets, WrapConfig};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct FlowSplitDecision {
     pub top_line_count: usize,
+    pub bottom_line_count: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FlowSplitPlan {
+    pub top_text: String,
+    pub bottom_text: String,
+    pub top_line_count: usize,
+    pub bottom_line_count: usize,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -21,26 +32,44 @@ impl Default for FlowSplitPolicy {
 }
 
 pub fn choose_flow_split(
-    wrapped_lines: &[String],
+    text: &str,
+    config: &WrapConfig,
     max_top_lines: usize,
     min_top_lines: usize,
     min_bottom_lines: usize,
-) -> Option<FlowSplitDecision> {
+) -> Option<FlowSplitPlan> {
     let policy = FlowSplitPolicy::default();
+    let wrapped_lines = wrap_text_for_element_with_offsets(text, config);
+    let sentence_boundaries = sentence_boundary_offsets(text);
+    let mut candidate_offsets = wrapped_lines
+        .iter()
+        .map(|line| line.end_offset)
+        .collect::<Vec<_>>();
+    candidate_offsets.extend(sentence_boundaries);
+    candidate_offsets.sort_unstable();
+    candidate_offsets.dedup();
 
-    choose_best_scored_split(1..wrapped_lines.len(), |top_line_count| {
-        if top_line_count > max_top_lines {
+    choose_best_scored_split(candidate_offsets.into_iter(), |offset| {
+        if offset == 0 || offset >= text.len() {
             return None;
         }
 
-        let bottom_line_count = wrapped_lines.len() - top_line_count;
+        let (top_text, bottom_text) = text.split_at(offset);
+        let top_lines = wrap_fragment_lines(top_text, config);
+        let bottom_lines = wrap_fragment_lines(bottom_text, config);
+        let top_line_count = top_lines.len();
+        let bottom_line_count = bottom_lines.len();
+
         if top_line_count < min_top_lines || bottom_line_count < min_bottom_lines {
+            return None;
+        }
+        if top_line_count > max_top_lines {
             return None;
         }
 
         Some(FlowSplitScore {
             ends_sentence: policy.prefer_sentence_boundaries
-                && line_ends_sentence(&wrapped_lines[top_line_count - 1]),
+                && text_ends_sentence(top_text),
             fuller_top_fragment: if policy.prefer_fuller_top_fragment {
                 top_line_count
             } else {
@@ -49,7 +78,18 @@ pub fn choose_flow_split(
             balance_score: balance_score(top_line_count, bottom_line_count),
         })
     })
-    .map(|top_line_count| FlowSplitDecision { top_line_count })
+    .map(|offset| {
+        let (top_text, bottom_text) = text.split_at(offset);
+        let top_line_count = wrap_fragment_lines(top_text, config).len();
+        let bottom_line_count = wrap_fragment_lines(bottom_text, config).len();
+
+        FlowSplitPlan {
+            top_text: top_text.to_string(),
+            bottom_text: bottom_text.to_string(),
+            top_line_count,
+            bottom_line_count,
+        }
+    })
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -59,8 +99,12 @@ struct FlowSplitScore {
     balance_score: usize,
 }
 
-fn line_ends_sentence(line: &str) -> bool {
-    matches!(line.trim_end().chars().last(), Some('.') | Some('!') | Some('?'))
+fn wrap_fragment_lines(text: &str, config: &WrapConfig) -> Vec<String> {
+    if text.is_empty() {
+        Vec::new()
+    } else {
+        wrap_text_for_element(text, config)
+    }
 }
 
 fn balance_score(top_lines: usize, bottom_lines: usize) -> usize {

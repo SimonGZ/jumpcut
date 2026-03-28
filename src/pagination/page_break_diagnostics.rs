@@ -943,8 +943,12 @@ fn render_pseudo_pdf_output(
             }
 
             for line in render_layout_block_lines(block, geometry) {
-                out.push_str(&format!("{line_no:02}: {line}\n"));
-                line_no += 1;
+                if line.counted {
+                    out.push_str(&format!("{line_no:02}: {}\n", line.text));
+                    line_no += 1;
+                } else {
+                    out.push_str(&format!("00: {}\n", line.text));
+                }
             }
         }
 
@@ -954,18 +958,49 @@ fn render_pseudo_pdf_output(
     out
 }
 
+struct DiagnosticRenderedLine {
+    text: String,
+    counted: bool,
+}
+
 fn render_layout_block_lines(
     block: &crate::pagination::composer::LayoutBlock<'_>,
     geometry: &LayoutGeometry,
-) -> Vec<String> {
+) -> Vec<DiagnosticRenderedLine> {
     if let SemanticUnit::Dialogue(dialogue) = block.unit {
-        return render_dialogue_fragment_lines(dialogue, &block.fragment, block.content_lines, geometry);
+        return render_dialogue_fragment_lines(
+            dialogue,
+            &block.fragment,
+            block.dialogue_split.as_ref(),
+            block.content_lines,
+            geometry,
+        );
+    }
+
+    if let SemanticUnit::Flow(flow) = block.unit {
+        if let Some(plan) = block.flow_split.as_ref() {
+            let text = match block.fragment {
+                Fragment::ContinuedToNext => plan.top_text.clone(),
+                Fragment::ContinuedFromPrev => plan.bottom_text.clone(),
+                Fragment::ContinuedFromPrevAndToNext => plan.top_text.clone(),
+                Fragment::Whole => flow.text.clone(),
+            };
+
+            return render_indented_lines(
+                &text,
+                ElementType::from_flow_kind(&flow.kind),
+                geometry,
+            )
+            .into_iter()
+            .map(|text| DiagnosticRenderedLine { text, counted: true })
+            .collect();
+        }
     }
 
     let all_lines = render_semantic_unit_lines(block.unit, geometry);
     let target_line_count = (block.content_lines / geometry.line_height).round() as usize;
 
-    match block.fragment {
+    let lines = match block.fragment {
         Fragment::Whole => all_lines,
         Fragment::ContinuedToNext => all_lines.into_iter().take(target_line_count).collect(),
         Fragment::ContinuedFromPrev => {
@@ -976,39 +1011,114 @@ fn render_layout_block_lines(
                 .collect()
         }
         Fragment::ContinuedFromPrevAndToNext => all_lines.into_iter().take(target_line_count).collect(),
-    }
+    };
+
+    lines
+        .into_iter()
+        .map(|text| DiagnosticRenderedLine { text, counted: true })
+        .collect()
 }
 
 fn render_dialogue_fragment_lines(
     dialogue: &crate::pagination::DialogueUnit,
     fragment: &Fragment,
+    split_plan: Option<&crate::pagination::dialogue_split::DialogueSplitPlan>,
     content_lines: f32,
     geometry: &LayoutGeometry,
-) -> Vec<String> {
+) -> Vec<DiagnosticRenderedLine> {
+    if let Some(plan) = split_plan {
+        match fragment {
+            Fragment::ContinuedToNext => {
+                let mut lines = plan
+                    .parts
+                    .iter()
+                    .zip(dialogue.parts.iter())
+                    .flat_map(|(part, dialogue_part)| {
+                        let element_type =
+                            ElementType::from_dialogue_part_kind(&dialogue_part.kind);
+                        render_indented_lines(&part.top_text, element_type, geometry)
+                    })
+                    .map(|text| DiagnosticRenderedLine { text, counted: true })
+                    .collect::<Vec<_>>();
+                lines.push(render_more_marker_line());
+                return lines;
+            }
+            Fragment::ContinuedFromPrev => {
+                let continuation_prefix = render_dialogue_continuation_prefix(dialogue, geometry);
+                return continuation_prefix
+                    .into_iter()
+                    .map(|text| DiagnosticRenderedLine {
+                        text,
+                        counted: false,
+                    })
+                    .chain(
+                        plan.parts
+                            .iter()
+                            .zip(dialogue.parts.iter())
+                            .flat_map(|(part, dialogue_part)| {
+                                let element_type =
+                                    ElementType::from_dialogue_part_kind(&dialogue_part.kind);
+                                render_indented_lines(&part.bottom_text, element_type, geometry)
+                            })
+                            .map(|text| DiagnosticRenderedLine { text, counted: true })
+                            .collect::<Vec<_>>(),
+                    )
+                    .collect();
+            }
+            Fragment::Whole | Fragment::ContinuedFromPrevAndToNext => {}
+        }
+    }
+
     let all_lines = render_semantic_unit_lines(&SemanticUnit::Dialogue(dialogue.clone()), geometry);
     let continuation_prefix = render_dialogue_continuation_prefix(dialogue, geometry);
-    let continuation_prefix_lines = continuation_prefix.len();
     let target_line_count = (content_lines / geometry.line_height).round() as usize;
 
     match fragment {
-        Fragment::Whole => all_lines,
-        Fragment::ContinuedToNext => all_lines.into_iter().take(target_line_count).collect(),
+        Fragment::Whole => all_lines
+            .into_iter()
+            .map(|text| DiagnosticRenderedLine { text, counted: true })
+            .collect(),
+        Fragment::ContinuedToNext => {
+            let mut lines = all_lines
+                .into_iter()
+                .take(target_line_count.saturating_sub(1))
+                .map(|text| DiagnosticRenderedLine { text, counted: true })
+                .collect::<Vec<_>>();
+            lines.push(render_more_marker_line());
+            lines
+        }
         Fragment::ContinuedFromPrev => {
             let len = all_lines.len();
             continuation_prefix
                 .into_iter()
-                .chain(all_lines.into_iter().skip(
-                    len.saturating_sub(target_line_count.saturating_sub(continuation_prefix_lines)),
-                ))
+                .map(|text| DiagnosticRenderedLine {
+                    text,
+                    counted: false,
+                })
+                .chain(
+                    all_lines
+                        .into_iter()
+                        .skip(len.saturating_sub(target_line_count))
+                        .map(|text| DiagnosticRenderedLine { text, counted: true }),
+                )
                 .collect()
         }
         Fragment::ContinuedFromPrevAndToNext => {
-            continuation_prefix
+            let mut lines = continuation_prefix
                 .into_iter()
-                .chain(all_lines.into_iter().take(
-                    target_line_count.saturating_sub(continuation_prefix_lines),
-                ))
-                .collect()
+                .map(|text| DiagnosticRenderedLine {
+                    text,
+                    counted: false,
+                })
+                .chain(
+                    all_lines
+                        .into_iter()
+                        .take(target_line_count.saturating_sub(1))
+                        .map(|text| DiagnosticRenderedLine { text, counted: true }),
+                )
+                .collect::<Vec<_>>();
+            lines.push(render_more_marker_line());
+            lines
         }
     }
 }
@@ -1021,8 +1131,32 @@ fn render_dialogue_continuation_prefix(
         .parts
         .iter()
         .take_while(|part| matches!(part.kind, DialoguePartKind::Character))
-        .flat_map(|part| render_indented_lines(&part.text, ElementType::Character, geometry))
+        .flat_map(|part| {
+            render_indented_lines(
+                &continued_character_cue_text(&part.text),
+                ElementType::Character,
+                geometry,
+            )
+        })
         .collect()
+}
+
+fn continued_character_cue_text(text: &str) -> String {
+    let trimmed = text.trim_end();
+    let upper = trimmed.to_ascii_uppercase();
+
+    if upper.ends_with("(CONT'D)") || upper.ends_with("(CONT’D)") {
+        trimmed.to_string()
+    } else {
+        format!("{trimmed} (CONT'D)")
+    }
+}
+
+fn render_more_marker_line() -> DiagnosticRenderedLine {
+    DiagnosticRenderedLine {
+        text: "(MORE)".to_string(),
+        counted: true,
+    }
 }
 
 fn render_semantic_unit_lines(unit: &SemanticUnit, geometry: &LayoutGeometry) -> Vec<String> {

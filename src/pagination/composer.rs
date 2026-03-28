@@ -1,4 +1,6 @@
-use crate::pagination::semantic::{SemanticUnit, FlowKind, DialoguePartKind};
+use crate::pagination::dialogue_split::DialogueSplitPlan;
+use crate::pagination::flow_split::FlowSplitPlan;
+use crate::pagination::semantic::{DialoguePartKind, FlowKind, SemanticUnit};
 use crate::pagination::wrapping::{wrap_text_for_element, WrapConfig, ElementType};
 use crate::pagination::LayoutGeometry;
 use crate::pagination::fixtures::Fragment;
@@ -9,6 +11,8 @@ pub struct LayoutBlock<'a> {
     pub fragment: Fragment,
     pub spacing_above: f32,
     pub content_lines: f32,
+    pub dialogue_split: Option<DialogueSplitPlan>,
+    pub flow_split: Option<FlowSplitPlan>,
     pub keep_with_next: bool,
     pub can_split: bool,
     pub widow_penalty: f32,
@@ -86,6 +90,8 @@ pub fn compose<'a>(units: &'a [SemanticUnit], geometry: &LayoutGeometry) -> Vec<
             fragment: Fragment::Whole,
             spacing_above,
             content_lines: content_lines as f32 * geometry.line_height,
+            dialogue_split: None,
+            flow_split: None,
             keep_with_next: match unit {
                 SemanticUnit::Flow(flow) => flow.cohesion.keep_with_next,
                 _ => false,

@@ -198,13 +198,57 @@ fn big_fish_pages_38_39_split_beamen_action_at_sentence_boundary() {
         "tests/fixtures/corpus/public/big-fish/source/source.fountain",
         &fixture,
     );
+    let config = PaginationConfig {
+        lines_per_page: 54.0,
+        geometry: geometry_for_screenplay("big-fish"),
+    };
     let semantic = build_semantic_screenplay(normalized);
-    let report = run_window_parity_check(&fixture, &semantic, geometry_for_screenplay("big-fish"));
+    let blocks = jumpcut::pagination::composer::compose(&semantic.units, &config.geometry);
+    let pages = jumpcut::pagination::paginator::paginate(&blocks, config.lines_per_page, &config.geometry);
+
+    let page_38_block = pages
+        .iter()
+        .find_map(|page| {
+            page.blocks.iter().find(|block| {
+                matches!(
+                    block.unit,
+                    jumpcut::pagination::SemanticUnit::Flow(jumpcut::pagination::FlowUnit {
+                        element_id,
+                        ..
+                    }) if element_id == "el-00800" && block.fragment == Fragment::ContinuedToNext
+                )
+            })
+        })
+        .expect("expected el-00800 top fragment");
+    let page_39_block = pages
+        .iter()
+        .find_map(|page| {
+            page.blocks.iter().find(|block| {
+                matches!(
+                    block.unit,
+                    jumpcut::pagination::SemanticUnit::Flow(jumpcut::pagination::FlowUnit {
+                        element_id,
+                        ..
+                    }) if element_id == "el-00800" && block.fragment == Fragment::ContinuedFromPrev
+                )
+            })
+        })
+        .expect("expected el-00800 bottom fragment");
+
+    let page_38_text = flow_fragment_text(page_38_block, &config.geometry);
+    let page_39_text = flow_fragment_text(page_39_block, &config.geometry);
 
     assert!(
-        report.issues.is_empty(),
-        "expected the page 38/39 window to match canonical split behavior for el-00800, got {:?}",
-        report.issues
+        page_38_text.trim_end().ends_with("to greet Edward."),
+        "expected page 38 fragment to end after 'to greet Edward.', got: {:?}",
+        page_38_text
+    );
+    assert!(
+        page_39_text
+            .trim_start()
+            .starts_with("Friendly but a little drunk, he's the closest thing the town"),
+        "expected page 39 fragment to start with 'Friendly but a little drunk, he's the closest thing the town', got: {:?}",
+        page_39_text
     );
 }
 
@@ -212,7 +256,7 @@ fn big_fish_pages_38_39_split_beamen_action_at_sentence_boundary() {
 fn big_fish_pages_53_54_split_el_01146_after_was_gone_for_a_long_time() {
     let mut fixture: PageBreakFixture =
         read_fixture("tests/fixtures/corpus/public/big-fish/canonical/page-breaks.json");
-    fixture.pages.retain(|page| matches!(page.number, 53 | 54));
+    fixture.pages.retain(|page| matches!(page.number, 52 | 53 | 54));
 
     let normalized = normalized_window_from_fountain(
         "big-fish",
@@ -224,31 +268,118 @@ fn big_fish_pages_53_54_split_el_01146_after_was_gone_for_a_long_time() {
         lines_per_page: 54.0,
         geometry: geometry_for_screenplay("big-fish"),
     };
-    let full_actual = PaginatedScreenplay::paginate(
-        semantic,
-        config,
-        fixture.style_profile.clone(),
-        fixture.scope.clone(),
+    let blocks = jumpcut::pagination::composer::compose(&semantic.units, &config.geometry);
+    let pages = jumpcut::pagination::paginator::paginate(&blocks, config.lines_per_page, &config.geometry);
+
+    let page_53_block = pages
+        .iter()
+        .find_map(|page| {
+            page.blocks.iter().find(|block| {
+                matches!(
+                    block.unit,
+                    jumpcut::pagination::SemanticUnit::Dialogue(jumpcut::pagination::DialogueUnit {
+                        block_id,
+                        ..
+                    }) if block_id == "block-00343" && block.fragment == Fragment::ContinuedToNext
+                )
+            })
+        })
+        .expect("expected el-01146 top fragment");
+    let page_54_block = pages
+        .iter()
+        .find_map(|page| {
+            page.blocks.iter().find(|block| {
+                matches!(
+                    block.unit,
+                    jumpcut::pagination::SemanticUnit::Dialogue(jumpcut::pagination::DialogueUnit {
+                        block_id,
+                        ..
+                    }) if block_id == "block-00343" && block.fragment == Fragment::ContinuedFromPrev
+                )
+            })
+        })
+        .expect("expected el-01146 bottom fragment");
+
+    let page_53_text = dialogue_block_fragment_text(page_53_block);
+    let page_54_text = dialogue_block_fragment_text(page_54_block);
+
+    assert!(
+        page_53_text.trim_end().ends_with("was gone for a long time."),
+        "expected page 53 fragment to end after 'was gone for a long time.', got: {:?}",
+        page_53_text
     );
-    let actual = slice_paginated_to_fixture_window(&full_actual, &[53, 54]);
+    assert!(
+        page_54_text
+            .trim_start()
+            .starts_with("And when he finally came back, he looked"),
+        "expected page 54 fragment to start with 'And when he finally came back, he looked', got: {:?}",
+        page_54_text
+    );
+}
 
-    let page_53_item = actual
-        .pages
-        .iter()
-        .find(|page| page.metadata.number == 53)
-        .and_then(|page| page.items.iter().find(|item| item.element_id == "el-01146"))
-        .expect("expected el-01146 on page 53");
-    let page_54_item = actual
-        .pages
-        .iter()
-        .find(|page| page.metadata.number == 54)
-        .and_then(|page| page.items.iter().find(|item| item.element_id == "el-01146"))
-        .expect("expected el-01146 on page 54");
+#[test]
+fn big_fish_pages_55_56_split_el_01197_before_more_line_costs_space() {
+    let mut fixture: PageBreakFixture =
+        read_fixture("tests/fixtures/corpus/public/big-fish/canonical/page-breaks.json");
+    fixture.pages.retain(|page| matches!(page.number, 55 | 56));
 
-    assert_eq!(page_53_item.fragment, Fragment::ContinuedToNext);
-    assert_eq!(page_54_item.fragment, Fragment::ContinuedFromPrev);
-    assert_eq!(page_53_item.line_range, Some((1, 12)));
-    assert_eq!(page_54_item.line_range, Some((13, 17)));
+    let normalized = normalized_window_from_fountain(
+        "big-fish",
+        "tests/fixtures/corpus/public/big-fish/source/source.fountain",
+        &fixture,
+    );
+    let semantic = build_semantic_screenplay(normalized);
+    let config = PaginationConfig {
+        lines_per_page: 54.0,
+        geometry: geometry_for_screenplay("big-fish"),
+    };
+    let blocks = jumpcut::pagination::composer::compose(&semantic.units, &config.geometry);
+    let pages = jumpcut::pagination::paginator::paginate(&blocks, config.lines_per_page, &config.geometry);
+
+    let page_55_block = pages
+        .iter()
+        .find_map(|page| {
+            page.blocks.iter().find(|block| {
+                matches!(
+                    block.unit,
+                    jumpcut::pagination::SemanticUnit::Dialogue(jumpcut::pagination::DialogueUnit {
+                        block_id,
+                        ..
+                    }) if block_id == "block-00360" && block.fragment == Fragment::ContinuedToNext
+                )
+            })
+        })
+        .expect("expected el-01197 top fragment");
+    let page_56_block = pages
+        .iter()
+        .find_map(|page| {
+            page.blocks.iter().find(|block| {
+                matches!(
+                    block.unit,
+                    jumpcut::pagination::SemanticUnit::Dialogue(jumpcut::pagination::DialogueUnit {
+                        block_id,
+                        ..
+                    }) if block_id == "block-00360" && block.fragment == Fragment::ContinuedFromPrev
+                )
+            })
+        })
+        .expect("expected el-01197 bottom fragment");
+
+    let page_55_text = dialogue_part_fragment_text(page_55_block, "el-01197");
+    let page_56_text = dialogue_part_fragment_text(page_56_block, "el-01197");
+
+    assert!(
+        page_55_text.trim_end().ends_with("Probably just as well."),
+        "expected page 55 fragment to end after 'Probably just as well.', got: {:?}",
+        page_55_text
+    );
+    assert!(
+        page_56_text
+            .trim_start()
+            .starts_with("He would have told it wrong anyway."),
+        "expected page 56 fragment to start with 'He would have told it wrong anyway.', got: {:?}",
+        page_56_text
+    );
 }
 
 #[test]
@@ -527,6 +658,113 @@ fn slice_paginated_to_fixture_window(
             .cloned()
             .collect(),
     }
+}
+
+fn flow_fragment_text(
+    block: &jumpcut::pagination::composer::LayoutBlock<'_>,
+    geometry: &LayoutGeometry,
+) -> String {
+    let jumpcut::pagination::SemanticUnit::Flow(flow) = block.unit else {
+        panic!("expected flow block");
+    };
+
+    if let Some(plan) = block.flow_split.as_ref() {
+        return match block.fragment {
+            Fragment::Whole => flow.text.clone(),
+            Fragment::ContinuedToNext => plan.top_text.clone(),
+            Fragment::ContinuedFromPrev => plan.bottom_text.clone(),
+            Fragment::ContinuedFromPrevAndToNext => plan.top_text.clone(),
+        };
+    }
+
+    let element_type = ElementType::from_flow_kind(&flow.kind);
+    let config = jumpcut::pagination::wrapping::WrapConfig::from_geometry(geometry, element_type);
+    let wrapped_lines = jumpcut::pagination::wrapping::wrap_text_for_element(&flow.text, &config);
+    let fragment_line_count = (block.content_lines / geometry.line_height).round() as usize;
+
+    match block.fragment {
+        Fragment::Whole => wrapped_lines,
+        Fragment::ContinuedToNext => wrapped_lines.into_iter().take(fragment_line_count).collect(),
+        Fragment::ContinuedFromPrev => {
+            let len = wrapped_lines.len();
+            wrapped_lines
+                .into_iter()
+                .skip(len.saturating_sub(fragment_line_count))
+                .collect()
+        }
+        Fragment::ContinuedFromPrevAndToNext => wrapped_lines.into_iter().take(fragment_line_count).collect(),
+    }
+    .join("\n")
+}
+
+fn dialogue_part_fragment_text(
+    block: &jumpcut::pagination::composer::LayoutBlock<'_>,
+    element_id: &str,
+) -> String {
+    let jumpcut::pagination::SemanticUnit::Dialogue(unit) = block.unit else {
+        panic!("expected dialogue block");
+    };
+    let plan = block
+        .dialogue_split
+        .as_ref()
+        .expect("expected dialogue split plan");
+
+    let (part, part_plan) = unit
+        .parts
+        .iter()
+        .zip(plan.parts.iter())
+        .find(|(part, _)| part.element_id == element_id)
+        .expect("expected dialogue part in split plan");
+
+    match block.fragment {
+        Fragment::Whole => {
+            if part_plan.bottom_text.is_empty() {
+                part.text.clone()
+            } else {
+                [part_plan.top_text.as_str(), part_plan.bottom_text.as_str()]
+                    .into_iter()
+                    .filter(|text| !text.is_empty())
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            }
+        }
+        Fragment::ContinuedToNext => part_plan.top_text.clone(),
+        Fragment::ContinuedFromPrev => part_plan.bottom_text.clone(),
+        Fragment::ContinuedFromPrevAndToNext => part_plan.top_text.clone(),
+    }
+}
+
+fn dialogue_block_fragment_text(block: &jumpcut::pagination::composer::LayoutBlock<'_>) -> String {
+    let jumpcut::pagination::SemanticUnit::Dialogue(unit) = block.unit else {
+        panic!("expected dialogue block");
+    };
+    let plan = block
+        .dialogue_split
+        .as_ref()
+        .expect("expected dialogue split plan");
+
+    unit.parts
+        .iter()
+        .zip(plan.parts.iter())
+        .map(|(part, part_plan)| match block.fragment {
+            Fragment::Whole => {
+                if part_plan.bottom_text.is_empty() {
+                    part.text.clone()
+                } else {
+                    [part_plan.top_text.as_str(), part_plan.bottom_text.as_str()]
+                        .into_iter()
+                        .filter(|text| !text.is_empty())
+                        .collect::<Vec<_>>()
+                        .join("\n")
+                }
+            }
+            Fragment::ContinuedToNext => part_plan.top_text.clone(),
+            Fragment::ContinuedFromPrev => part_plan.bottom_text.clone(),
+            Fragment::ContinuedFromPrevAndToNext => part_plan.top_text.clone(),
+        })
+        .filter(|text| !text.is_empty())
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 fn read_fixture<T: DeserializeOwned>(path: &str) -> T {

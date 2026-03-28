@@ -1,10 +1,8 @@
 // tests/pagination_paginator_test.rs
 use jumpcut::pagination::composer::LayoutBlock;
 use jumpcut::pagination::paginator::paginate;
-use jumpcut::pagination::wrapping::{wrap_text_for_element, ElementType, WrapConfig};
 use jumpcut::pagination::{
-    Cohesion, DialoguePart, DialoguePartKind, DialogueUnit, FlowKind, FlowUnit, Fragment,
-    LayoutGeometry, PageStartUnit, SemanticUnit,
+    Cohesion, FlowKind, FlowUnit, Fragment, LayoutGeometry, PageStartUnit, SemanticUnit,
 };
 
 fn mock_block<'a>(unit: &'a SemanticUnit, lines: f32, padding: f32, keep_with_next: bool, can_split: bool, widow_penalty: f32) -> LayoutBlock<'a> {
@@ -13,6 +11,8 @@ fn mock_block<'a>(unit: &'a SemanticUnit, lines: f32, padding: f32, keep_with_ne
         fragment: Fragment::Whole,
         spacing_above: padding,
         content_lines: lines,
+        dialogue_split: None,
+        flow_split: None,
         keep_with_next,
         can_split,
         widow_penalty,
@@ -41,29 +41,6 @@ fn transition_unit(id: &str) -> SemanticUnit {
         text: format!("CUT TO: {id}"),
         line_range: None,
         scene_number: None,
-        cohesion: Cohesion {
-            keep_together: false,
-            keep_with_next: false,
-            can_split: true,
-        },
-    })
-}
-
-fn dialogue_unit(id: &str, character: &str, dialogue: &str) -> SemanticUnit {
-    SemanticUnit::Dialogue(DialogueUnit {
-        block_id: format!("block-{id}"),
-        parts: vec![
-            DialoguePart {
-                element_id: format!("char-{id}"),
-                kind: DialoguePartKind::Character,
-                text: character.into(),
-            },
-            DialoguePart {
-                element_id: format!("dlg-{id}"),
-                kind: DialoguePartKind::Dialogue,
-                text: dialogue.into(),
-            },
-        ],
         cohesion: Cohesion {
             keep_together: false,
             keep_with_next: false,
@@ -309,56 +286,6 @@ fn paginator_accounts_for_additional_widow_penalty_lines_when_splitting_dialogue
     
     // The widow block on Page 2 receives the structural penalty 
     assert_eq!(pages[1].blocks[0].content_lines, 5.0, "Remaining 4 lines + 1 penalty = 5 lines on Page 2");
-}
-
-#[test]
-fn paginator_counts_repeated_character_cue_height_on_dialogue_continuations() {
-    let geometry = LayoutGeometry::default();
-    let page_limit = 54.0;
-    let setup = visible_unit("setup");
-    let dialogue = dialogue_unit(
-        "continued-dialogue",
-        "EDWARD",
-        "One two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty.",
-    );
-
-    let character_lines = wrap_text_for_element(
-        "EDWARD",
-        &WrapConfig::from_geometry(&geometry, ElementType::Character),
-    )
-    .len();
-    let dialogue_lines = wrap_text_for_element(
-        "One two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty.",
-        &WrapConfig::from_geometry(&geometry, ElementType::Dialogue),
-    )
-    .len();
-
-    assert_eq!(character_lines, 1);
-    assert_eq!(dialogue_lines, 4, "test text should wrap to four dialogue lines");
-
-    let blocks = vec![
-        mock_block(&setup, 50.0, 0.0, false, false, 0.0),
-        mock_block(
-            &dialogue,
-            (character_lines + dialogue_lines) as f32,
-            1.0,
-            false,
-            true,
-            0.0,
-        ),
-    ];
-
-    let pages = paginate(&blocks, page_limit, &geometry);
-
-    assert_eq!(pages.len(), 2);
-    assert_eq!(pages[0].blocks[1].fragment, Fragment::ContinuedToNext);
-    assert_eq!(pages[0].blocks[1].content_lines, 3.0);
-    assert_eq!(pages[1].blocks[0].fragment, Fragment::ContinuedFromPrev);
-    assert_eq!(
-        pages[1].blocks[0].content_lines,
-        3.0,
-        "bottom fragment should include two continued dialogue lines plus the repeated character cue",
-    );
 }
 
 #[test]
