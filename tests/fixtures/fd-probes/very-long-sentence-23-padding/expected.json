@@ -1,0 +1,19 @@
+{
+  "probe_id": "very-long-sentence-23-padding",
+  "description": "Draft probe for very long sentence 23 padding.",
+  "status": "active",
+  "lines_per_page": 54,
+  "target": {
+    "kind": "dialogue",
+    "contains_text": "vagaries"
+  },
+  "expected": {
+    "kind": "push-whole",
+    "absent_from_page": 1,
+    "whole_on_page": 2,
+    "starts_with": "I told Norther about the vagaries"
+  },
+  "final_draft_notes": [
+    "A very long sentence with no good break opportunities makes Final Draft push the whole dialogue down, leaving several unused lines on previous page."
+  ]
+}

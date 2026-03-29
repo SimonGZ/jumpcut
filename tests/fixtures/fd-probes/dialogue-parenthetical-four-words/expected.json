@@ -1,7 +1,7 @@
 {
-  "probe_id": "dialogue-more-cost-template",
+  "probe_id": "dialogue-parenthetical-four-word",
   "description": "Template probe for a dialogue split where the bottom (MORE) line may change which sentence boundary Final Draft chooses.",
-  "status": "draft",
+  "status": "active",
   "lines_per_page": 54,
   "target": {
     "kind": "dialogue",
@@ -15,8 +15,5 @@
     "top_fragment_ends_with": "Probably just as well.",
     "bottom_fragment_starts_with": "He would have told it wrong anyway."
   },
-  "final_draft_notes": [
-    "Leave this probe as draft until Final Draft has been checked.",
-    "Record only what Final Draft actually did, not a guessed rule."
-  ]
+  "final_draft_notes": ["Page 54/55 split in original script."]
 }

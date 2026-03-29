@@ -1,0 +1,20 @@
+{
+  "probe_id": "two-short-sentences",
+  "description": "two short sentences leaving one longer sentence on next page",
+  "status": "active",
+  "lines_per_page": 54,
+  "target": {
+    "kind": "dialogue",
+    "contains_text": "Fuck it."
+  },
+  "expected": {
+    "kind": "split",
+    "top_page": 1,
+    "bottom_page": 2,
+    "top_fragment_ends_with": "He'd have told it wrong.",
+    "bottom_fragment_starts_with": "All the facts and none of the flavor."
+  },
+  "final_draft_notes": [
+    "Giving Final Draft two short sentences that fit on one line."
+  ]
+}

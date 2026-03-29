@@ -1,0 +1,20 @@
+{
+  "probe_id": "long-sentence-fragment",
+  "description": "Draft probe for long sentence fragment.",
+  "status": "active",
+  "lines_per_page": 54,
+  "target": {
+    "kind": "dialogue",
+    "contains_text": "first son of Ashton"
+  },
+  "expected": {
+    "kind": "split",
+    "top_page": 1,
+    "bottom_page": 2,
+    "top_fragment_ends_with": "go.",
+    "bottom_fragment_starts_with": "But take with you"
+  },
+  "final_draft_notes": [
+    "Because the last sentence is so long in this dialogue, Final Draft allows the top fragment to end awkwardly with a single word on the last line."
+  ]
+}
