@@ -17,3 +17,6 @@ fd-probe:
 
 fd-probe-new name source:
     python3 scripts/new_fd_probe.py "{{name}}" "{{source}}"
+
+fd-probe-diagnostics:
+    cargo run --bin pagination-diagnostics -- fd-probes

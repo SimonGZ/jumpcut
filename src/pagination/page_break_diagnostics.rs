@@ -450,6 +450,73 @@ pub fn write_mostly_genius_full_script_page_break_packet(debug_dir: &Path) {
     .unwrap();
 }
 
+pub fn write_fd_probe_packets(debug_dir: &Path) {
+    fs::create_dir_all(debug_dir).unwrap();
+    let probe_root = Path::new("tests/fixtures/fd-probes");
+    let mut summaries = Vec::new();
+
+    let mut probe_dirs = fs::read_dir(probe_root)
+        .unwrap()
+        .filter_map(Result::ok)
+        .map(|entry| entry.path())
+        .filter(|path| path.is_dir())
+        .filter(|path| path.join("expected.json").exists())
+        .collect::<Vec<_>>();
+    probe_dirs.sort();
+
+    for probe_dir in probe_dirs {
+        let expected_path = probe_dir.join("expected.json");
+        let fountain_path = probe_dir.join("source.fountain");
+        let spec: FinalDraftProbeSpec =
+            serde_json::from_str(&fs::read_to_string(&expected_path).unwrap()).unwrap();
+        let fountain = fs::read_to_string(&fountain_path).unwrap();
+        let screenplay = parse(&fountain);
+        let normalized = normalize_screenplay(&spec.probe_id, &screenplay);
+        let config = PaginationConfig::from_screenplay(&screenplay, spec.lines_per_page);
+        let actual = PaginatedScreenplay::from_screenplay(
+            &spec.probe_id,
+            &screenplay,
+            spec.lines_per_page,
+            spec_scope(),
+        );
+        let semantic = build_semantic_screenplay(normalized.clone());
+        let composed = crate::pagination::composer::compose(&semantic.units, &config.geometry);
+        let layout_pages =
+            crate::pagination::paginator::paginate(&composed, spec.lines_per_page, &config.geometry);
+        let actual_matches = collect_fd_probe_matches(&spec, &actual, &layout_pages);
+
+        let probe_debug_dir = debug_dir.join(probe_dir.file_name().unwrap());
+        fs::create_dir_all(&probe_debug_dir).unwrap();
+        fs::write(
+            probe_debug_dir.join("pseudo-pdf.txt"),
+            render_pseudo_pdf_output(&actual, &normalized, spec.lines_per_page, &config.geometry),
+        )
+        .unwrap();
+        fs::write(
+            probe_debug_dir.join("actual-observation.json"),
+            serde_json::to_string_pretty(&FdProbeActualObservation {
+                probe_id: spec.probe_id.clone(),
+                description: spec.description.clone(),
+                status: spec.status.clone(),
+                lines_per_page: spec.lines_per_page,
+                target: spec.target.clone(),
+                expected: spec.expected.clone(),
+                actual_matches,
+            })
+            .unwrap(),
+        )
+        .unwrap();
+
+        summaries.push(FdProbeSummary {
+            folder: probe_dir.file_name().unwrap().to_string_lossy().into_owned(),
+            probe_id: spec.probe_id,
+            status: spec.status,
+        });
+    }
+
+    fs::write(debug_dir.join("REVIEW.md"), render_fd_probe_review(&summaries)).unwrap();
+}
+
 fn write_window_review_packet(
     debug_dir: &Path,
     screenplay_id: &str,
@@ -1181,6 +1248,80 @@ struct DiagnosticRenderedLine {
     counted: bool,
 }
 
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+enum ProbeStatus {
+    Draft,
+    Active,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+enum ProbeTargetKind {
+    Dialogue,
+    Flow,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct FinalDraftProbeTarget {
+    kind: ProbeTargetKind,
+    contains_text: String,
+    #[serde(default)]
+    speaker: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(tag = "kind", rename_all = "kebab-case")]
+enum FinalDraftProbeExpectation {
+    Split {
+        top_page: u32,
+        bottom_page: u32,
+        top_fragment_ends_with: String,
+        bottom_fragment_starts_with: String,
+    },
+    PushWhole {
+        absent_from_page: u32,
+        whole_on_page: u32,
+        starts_with: String,
+    },
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct FinalDraftProbeSpec {
+    probe_id: String,
+    description: String,
+    status: ProbeStatus,
+    lines_per_page: f32,
+    target: FinalDraftProbeTarget,
+    expected: FinalDraftProbeExpectation,
+    #[serde(default)]
+    final_draft_notes: Vec<String>,
+}
+
+#[derive(Serialize)]
+struct FdProbeActualObservation {
+    probe_id: String,
+    description: String,
+    status: ProbeStatus,
+    lines_per_page: f32,
+    target: FinalDraftProbeTarget,
+    expected: FinalDraftProbeExpectation,
+    actual_matches: Vec<FdProbeActualMatch>,
+}
+
+#[derive(Serialize)]
+struct FdProbeActualMatch {
+    page_number: u32,
+    fragment: Fragment,
+    text: String,
+}
+
+struct FdProbeSummary {
+    folder: String,
+    probe_id: String,
+    status: ProbeStatus,
+}
+
 #[derive(Serialize)]
 struct PageEndingReport {
     screenplay: String,
@@ -1257,6 +1398,108 @@ fn render_layout_block_lines(
         .into_iter()
         .map(|text| DiagnosticRenderedLine { text, counted: true })
         .collect()
+}
+
+fn collect_fd_probe_matches(
+    spec: &FinalDraftProbeSpec,
+    actual: &PaginatedScreenplay,
+    layout_pages: &[crate::pagination::paginator::Page<'_>],
+) -> Vec<FdProbeActualMatch> {
+    actual
+        .pages
+        .iter()
+        .zip(layout_pages.iter())
+        .flat_map(|(page, layout_page)| {
+            layout_page.blocks.iter().filter_map(|block| {
+                fd_probe_block_matches(block, &spec.target).then(|| FdProbeActualMatch {
+                    page_number: page.metadata.number,
+                    fragment: block.fragment.clone(),
+                    text: fd_probe_rendered_block_text(block, &spec.target.kind),
+                })
+            })
+        })
+        .collect()
+}
+
+fn fd_probe_block_matches(
+    block: &crate::pagination::composer::LayoutBlock<'_>,
+    target: &FinalDraftProbeTarget,
+) -> bool {
+    match (&target.kind, block.unit) {
+        (ProbeTargetKind::Dialogue, SemanticUnit::Dialogue(dialogue)) => {
+            let speaker_matches = target.speaker.as_ref().is_none_or(|speaker| {
+                dialogue.parts.iter().any(|part| {
+                    matches!(part.kind, DialoguePartKind::Character)
+                        && part.text.trim() == speaker.trim()
+                })
+            });
+            speaker_matches
+                && dialogue
+                    .parts
+                    .iter()
+                    .map(|part| part.text.as_str())
+                    .collect::<Vec<_>>()
+                    .join("\n")
+                    .contains(&target.contains_text)
+        }
+        (ProbeTargetKind::Flow, SemanticUnit::Flow(flow)) => flow.text.contains(&target.contains_text),
+        _ => false,
+    }
+}
+
+fn fd_probe_rendered_block_text(
+    block: &crate::pagination::composer::LayoutBlock<'_>,
+    target_kind: &ProbeTargetKind,
+) -> String {
+    match target_kind {
+        ProbeTargetKind::Dialogue => {
+            let SemanticUnit::Dialogue(dialogue) = block.unit else {
+                panic!("expected dialogue block");
+            };
+            match block.dialogue_split.as_ref() {
+                Some(plan) => dialogue
+                    .parts
+                    .iter()
+                    .zip(plan.parts.iter())
+                    .map(|(part, part_plan)| match block.fragment {
+                        Fragment::Whole => part.text.clone(),
+                        Fragment::ContinuedToNext => part_plan.top_text.clone(),
+                        Fragment::ContinuedFromPrev => part_plan.bottom_text.clone(),
+                        Fragment::ContinuedFromPrevAndToNext => part_plan.top_text.clone(),
+                    })
+                    .filter(|text| !text.is_empty())
+                    .collect::<Vec<_>>()
+                    .join("\n"),
+                None => dialogue
+                    .parts
+                    .iter()
+                    .map(|part| part.text.as_str())
+                    .collect::<Vec<_>>()
+                    .join("\n"),
+            }
+        }
+        ProbeTargetKind::Flow => {
+            let SemanticUnit::Flow(flow) = block.unit else {
+                panic!("expected flow block");
+            };
+            match block.flow_split.as_ref() {
+                Some(plan) => match block.fragment {
+                    Fragment::Whole => flow.text.clone(),
+                    Fragment::ContinuedToNext => plan.top_text.clone(),
+                    Fragment::ContinuedFromPrev => plan.bottom_text.clone(),
+                    Fragment::ContinuedFromPrevAndToNext => plan.top_text.clone(),
+                },
+                None => flow.text.clone(),
+            }
+        }
+    }
+}
+
+fn spec_scope() -> crate::pagination::PaginationScope {
+    crate::pagination::PaginationScope {
+        title_page_count: None,
+        body_start_page: None,
+    }
 }
 
 fn render_dialogue_fragment_lines(
@@ -1958,6 +2201,35 @@ Notes:\n\n\
         missing = report.issue_count(ComparisonIssueKind::MissingOccurrence),
         unexpected = report.issue_count(ComparisonIssueKind::UnexpectedOccurrence),
     )
+}
+
+fn render_fd_probe_review(summaries: &[FdProbeSummary]) -> String {
+    let mut review = String::from(
+        "# Final Draft Probe Packet\n\n\
+Run this command to regenerate everything in this folder:\n\n\
+```bash\n\
+cargo run --bin pagination-diagnostics -- fd-probes\n\
+```\n\n\
+Each probe folder contains:\n\n\
+- `pseudo-pdf.txt`: current engine output for the probe\n\
+- `actual-observation.json`: the target-matching blocks the engine actually produced\n\
+- the source fixture in `tests/fixtures/fd-probes/<probe>/`\n\n\
+Probe folders:\n\n",
+    );
+
+    for summary in summaries {
+        review.push_str(&format!(
+            "- `{folder}` (`{probe_id}`, status: `{status}`)\n  fixture: `tests/fixtures/fd-probes/{folder}`\n  pseudo: `target/pagination-debug/fd-probes/{folder}/pseudo-pdf.txt`\n  actual: `target/pagination-debug/fd-probes/{folder}/actual-observation.json`\n",
+            folder = summary.folder,
+            probe_id = summary.probe_id,
+            status = match summary.status {
+                ProbeStatus::Draft => "draft",
+                ProbeStatus::Active => "active",
+            }
+        ));
+    }
+
+    review
 }
 
 fn text_preview(text: &str) -> String {
