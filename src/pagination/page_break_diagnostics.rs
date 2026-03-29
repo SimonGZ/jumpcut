@@ -2219,7 +2219,7 @@ Probe folders:\n\n",
 
     for summary in summaries {
         review.push_str(&format!(
-            "- `{folder}` (`{probe_id}`, status: `{status}`)\n  fixture: `tests/fixtures/fd-probes/{folder}`\n  pseudo: `target/pagination-debug/fd-probes/{folder}/pseudo-pdf.txt`\n  actual: `target/pagination-debug/fd-probes/{folder}/actual-observation.json`\n",
+            "- `{folder}` (`{probe_id}`, status: `{status}`)\n  fixture: `../../../tests/fixtures/fd-probes/{folder}`\n  pseudo: `{folder}/pseudo-pdf.txt`\n  actual: `{folder}/actual-observation.json`\n",
             folder = summary.folder,
             probe_id = summary.probe_id,
             status = match summary.status {
