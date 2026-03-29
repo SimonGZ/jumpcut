@@ -297,17 +297,28 @@ fn rendered_block_text(
             let jumpcut::pagination::SemanticUnit::Dialogue(dialogue) = block.unit else {
                 panic!("expected dialogue block");
             };
+
+            if matches!(block.fragment, Fragment::Whole) {
+                return dialogue
+                    .parts
+                    .iter()
+                    .filter(|part| !matches!(part.kind, jumpcut::pagination::DialoguePartKind::Character))
+                    .map(|part| part.text.clone())
+                    .collect::<Vec<_>>()
+                    .join("\n");
+            }
+
             let plan = block
                 .dialogue_split
                 .as_ref()
-                .expect("expected dialogue split metadata for probe");
+                .expect(&format!("expected dialogue split metadata for probe: {:?}", block.unit));
 
             dialogue
                 .parts
                 .iter()
                 .zip(plan.parts.iter())
                 .map(|(part, part_plan)| match block.fragment {
-                    Fragment::Whole => part.text.clone(),
+                    Fragment::Whole => unreachable!(),
                     Fragment::ContinuedToNext => part_plan.top_text.clone(),
                     Fragment::ContinuedFromPrev => part_plan.bottom_text.clone(),
                     Fragment::ContinuedFromPrevAndToNext => part_plan.top_text.clone(),

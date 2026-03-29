@@ -369,15 +369,15 @@ fn big_fish_pages_55_56_split_el_01197_before_more_line_costs_space() {
     let page_56_text = dialogue_part_fragment_text(page_56_block, "el-01197");
 
     assert!(
-        page_55_text.trim_end().ends_with("Probably just as well."),
-        "expected page 55 fragment to end after 'Probably just as well.', got: {:?}",
+        page_55_text.trim_end().ends_with("He would have told it wrong anyway."),
+        "expected page 55 fragment to end after 'He would have told it wrong anyway.', got: {:?}",
         page_55_text
     );
     assert!(
         page_56_text
             .trim_start()
-            .starts_with("He would have told it wrong anyway."),
-        "expected page 56 fragment to start with 'He would have told it wrong anyway.', got: {:?}",
+            .starts_with("All the facts and none of the flavor."),
+        "expected page 56 fragment to start with 'All the facts and none of the flavor.', got: {:?}",
         page_56_text
     );
 }

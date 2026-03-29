@@ -260,7 +260,7 @@ fn choose_split_lines(
         return None;
     }
 
-    match block.unit {
+    let decision = match block.unit {
         SemanticUnit::Dialogue(dialogue) => {
             let max_top_lines = ((available_lines - effective_spacing) / geometry.line_height)
                 .floor() as usize;
@@ -294,7 +294,7 @@ fn choose_split_lines(
                     geometry.widow_limit,
                 )?,
             };
-            let top_lines = plan.top_page_line_count() as f32 * geometry.line_height;
+            let top_lines = plan.top_line_count as f32 * geometry.line_height;
             let bottom_dialogue_lines = plan.bottom_line_count as f32 * geometry.line_height;
             let bottom_lines = bottom_dialogue_lines;
             (bottom_lines >= geometry.widow_limit as f32 * geometry.line_height)
@@ -360,7 +360,8 @@ fn choose_split_lines(
                 None
             }
         }
-    }
+    };
+    decision
 }
 
 fn chunk_starts_with_transition(chunk: &Chunk<'_>) -> bool {

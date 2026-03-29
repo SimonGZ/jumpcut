@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use crate::pagination::split_scoring::choose_best_scored_split;
 use crate::pagination::sentence_boundary::{sentence_boundary_offsets, text_ends_sentence};
 use crate::pagination::wrapping::{
-    wrap_text_for_element, wrap_text_for_element_with_offsets, ElementType, WrapConfig,
+    wrap_text_for_element, ElementType, WrapConfig,
 };
 use crate::pagination::{DialoguePartKind, DialogueUnit, LayoutGeometry};
 
@@ -72,6 +72,7 @@ struct DialogueSplitCandidate {
     top_dialogue_lines: usize,
     bottom_dialogue_lines: usize,
     ends_sentence: bool,
+    top_content_bytes: usize,
 }
 
 impl Default for DialogueSplitPolicy {
@@ -92,7 +93,7 @@ pub fn choose_dialogue_split(
     let policy = DialogueSplitPolicy::default();
 
     choose_best_scored_split(1..lines.len(), |top_line_count| {
-        if top_line_count + more_line_cost() > max_top_lines {
+        if top_line_count > max_top_lines {
             return None;
         }
 
@@ -115,6 +116,7 @@ pub fn choose_dialogue_split(
                 .then_some(top_line_count + more_line_cost())
                 .unwrap_or(0),
             balance_score: balance_score(top_dialogue_lines, bottom_dialogue_lines),
+            top_content_bytes: 0,
         })
     })
     .map(|top_line_count| DialogueSplitDecision { top_line_count })
@@ -158,7 +160,7 @@ pub fn plan_dialogue_split_parts(
 
     let winner = choose_best_scored_split(0..candidates.len(), |candidate_index| {
         let candidate = &candidates[candidate_index];
-        if candidate.plan.top_page_line_count() > max_top_lines {
+        if candidate.plan.top_line_count > max_top_lines {
             return None;
         }
 
@@ -178,6 +180,7 @@ pub fn plan_dialogue_split_parts(
                 candidate.top_dialogue_lines,
                 candidate.bottom_dialogue_lines,
             ),
+            top_content_bytes: candidate.top_content_bytes,
         })
     });
 
@@ -191,10 +194,10 @@ fn generate_dialogue_split_candidates(
     let mut boundaries: BTreeMap<(usize, usize), bool> = BTreeMap::new();
 
     for (part_index, part) in parts.iter().enumerate() {
+        // Part-end boundaries are always candidates but never score as sentence endings.
         boundaries
             .entry((part_index, part.text.len()))
-            .and_modify(|ends_sentence| *ends_sentence |= text_ends_sentence(&part.text))
-            .or_insert_with(|| text_ends_sentence(&part.text));
+            .or_insert(false);
 
         if !matches!(part.kind, DialoguePartKind::Dialogue | DialoguePartKind::Lyric) {
             continue;
@@ -202,15 +205,16 @@ fn generate_dialogue_split_candidates(
 
         let config =
             WrapConfig::from_geometry(geometry, element_type_for_part_kind(part.kind.clone()));
-        for line in wrap_text_for_element_with_offsets(&part.text, &config)
-            .into_iter()
-            .take_while(|line| line.end_offset < part.text.len())
-        {
-            boundaries
-                .entry((part_index, line.end_offset))
-                .or_insert(false);
+        let total_wrapped_lines = wrap_text_for_element(&part.text, &config).len();
+
+        // Only allow mid-text sentence splits for parts with at least 3 wrapped lines.
+        // A 2-line part is too compact to split cleanly.
+        if total_wrapped_lines < 3 {
+            continue;
         }
 
+        // FD only splits dialogue at sentence boundaries, never at arbitrary
+        // wrapped-line breaks.
         for offset in sentence_boundary_offsets(&part.text) {
             boundaries
                 .entry((part_index, offset))
@@ -256,7 +260,7 @@ fn build_candidate(
         top_line_count += top_lines.len();
         bottom_line_count += bottom_lines.len();
 
-        if matches!(part.kind, DialoguePartKind::Dialogue | DialoguePartKind::Lyric) {
+        if matches!(part.kind, DialoguePartKind::Dialogue | DialoguePartKind::Lyric | DialoguePartKind::Parenthetical) {
             top_dialogue_lines += top_lines.len();
             bottom_dialogue_lines += bottom_lines.len();
         }
@@ -273,6 +277,8 @@ fn build_candidate(
         return None;
     }
 
+    let top_content_bytes: usize = split_parts.iter().map(|p| p.top_text.len()).sum();
+
     Some(DialogueSplitCandidate {
         plan: DialogueSplitPlan {
             top_line_count,
@@ -283,6 +289,7 @@ fn build_candidate(
         top_dialogue_lines,
         bottom_dialogue_lines,
         ends_sentence: boundary.ends_sentence,
+        top_content_bytes,
     })
 }
 
@@ -324,11 +331,12 @@ struct SplitScore {
     ends_sentence: bool,
     fuller_top_fragment: usize,
     balance_score: usize,
+    top_content_bytes: usize,
 }
 
 fn count_dialogue_lines(lines: &[DialogueLine]) -> usize {
     lines.iter()
-        .filter(|line| line.role == DialogueLineRole::Dialogue)
+        .filter(|line| matches!(line.role, DialogueLineRole::Dialogue | DialogueLineRole::Parenthetical))
         .count()
 }
 
