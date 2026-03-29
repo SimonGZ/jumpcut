@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pagination Comparator</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700&display=swap');
+
+  :root {
+    --bg: #0e0e0f;
+    --surface: #161618;
+    --surface2: #1e1e21;
+    --border: #2a2a2f;
+    --accent: #e8c547;
+    --accent2: #4fc3a1;
+    --accent3: #e05c5c;
+    --accent4: #c084fc;
+    --text: #d4d4cc;
+    --text-dim: #6b6b72;
+    --mono: 'Share Tech Mono', 'Courier New', monospace;
+    --ui: 'Barlow Condensed', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--ui);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    padding: 20px;
+  }
+
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none; z-index: 0;
+  }
+
+  .container { max-width: 1400px; margin: 0 auto; width: 100%; position: relative; z-index: 1; }
+
+  header {
+    display: flex; align-items: baseline; gap: 16px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 14px; margin-bottom: 20px;
+  }
+
+  header h1 {
+    font-family: var(--ui);
+    font-size: 26px; font-weight: 700; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--accent);
+  }
+
+  header .subtitle {
+    font-size: 13px; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--text-dim);
+  }
+
+  /* Upload */
+  .upload-zone {
+    border: 1px dashed var(--border);
+    background: var(--surface);
+    padding: 32px 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+    margin-bottom: 20px;
+    position: relative;
+  }
+  .upload-zone:hover, .upload-zone.drag-over {
+    border-color: var(--accent2);
+    background: rgba(79,195,161,0.05);
+  }
+  .upload-zone input[type="file"] {
+    position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+  }
+  .upload-zone .upload-icon { font-size: 24px; margin-bottom: 8px; opacity: 0.4; }
+  .upload-zone .upload-title {
+    font-size: 14px; font-weight: 600; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--text-dim); margin-bottom: 4px;
+  }
+  .upload-zone .upload-hint { font-size: 11px; color: var(--text-dim); opacity: 0.5; }
+  .upload-zone.has-file { border-style: solid; border-color: var(--accent2); }
+  .upload-zone.has-file .upload-title { color: var(--accent2); }
+
+  /* Stats */
+  .stats-bar {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+    gap: 1px; background: var(--border);
+    border: 1px solid var(--border);
+    margin-bottom: 16px;
+  }
+  .stat {
+    background: var(--surface);
+    padding: 10px 12px; display: flex; flex-direction: column; gap: 3px;
+  }
+  .stat-label {
+    font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--text-dim);
+  }
+  .stat-value {
+    font-family: var(--mono); font-size: 18px; font-weight: 400;
+    color: var(--accent); line-height: 1;
+  }
+  .stat-value.good { color: var(--accent2); }
+  .stat-value.warn { color: var(--accent3); }
+
+  /* Page nav */
+  .page-nav {
+    display: flex; gap: 4px; flex-wrap: wrap;
+    margin-bottom: 16px; padding: 10px 12px;
+    background: var(--surface); border: 1px solid var(--border);
+    align-items: center;
+  }
+  .page-nav-label {
+    font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase;
+    color: var(--text-dim); margin-right: 8px; font-weight: 600;
+  }
+  .page-btn {
+    background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text-dim); font-family: var(--mono);
+    font-size: 12px; padding: 4px 10px; cursor: pointer;
+    transition: all 0.1s; min-width: 36px; text-align: center;
+  }
+  .page-btn:hover { border-color: var(--accent); color: var(--text); }
+  .page-btn.active { background: var(--accent); border-color: var(--accent); color: var(--bg); font-weight: 700; }
+  .page-btn.perfect { border-bottom: 2px solid var(--accent2); }
+  .page-btn.has-issues { border-bottom: 2px solid var(--accent3); }
+
+  /* Filter bar */
+  .filter-bar {
+    display: flex; gap: 8px; align-items: center;
+    margin-bottom: 16px; flex-wrap: wrap;
+  }
+  .filter-label {
+    font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase;
+    color: var(--text-dim); font-weight: 600; margin-right: 4px;
+  }
+  .filter-btn {
+    background: var(--surface); border: 1px solid var(--border);
+    color: var(--text-dim); font-family: var(--ui);
+    font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase;
+    padding: 4px 12px; cursor: pointer; transition: all 0.1s;
+  }
+  .filter-btn:hover { border-color: var(--accent); color: var(--text); }
+  .filter-btn.active { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+
+  /* Page detail */
+  .page-detail {
+    background: var(--surface); border: 1px solid var(--border);
+    margin-bottom: 20px;
+  }
+  .page-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 16px; border-bottom: 1px solid var(--border);
+    background: var(--surface2);
+  }
+  .page-title {
+    font-family: var(--ui); font-size: 16px; font-weight: 600;
+    letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent);
+  }
+  .page-meta {
+    font-family: var(--mono); font-size: 11px; color: var(--text-dim);
+    display: flex; gap: 16px;
+  }
+  .page-meta span { display: flex; gap: 4px; align-items: center; }
+
+  /* Element cards */
+  .element-list { padding: 8px 0; }
+
+  .element-card {
+    border-bottom: 1px solid var(--border);
+    transition: background 0.1s;
+  }
+  .element-card:last-child { border-bottom: none; }
+  .element-card:hover { background: rgba(255,255,255,0.015); }
+
+  .element-summary {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 10px; align-items: center;
+    padding: 7px 16px;
+    cursor: pointer; user-select: none;
+  }
+
+  .element-status {
+    width: 6px; height: 6px; border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .element-status.match { background: var(--accent2); }
+  .element-status.wrong_page { background: var(--accent3); }
+  .element-status.wrong_fragment { background: var(--accent); }
+  .element-status.missing { background: var(--accent4); }
+
+  .element-info { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+
+  .element-kind {
+    font-size: 9px; letter-spacing: 0.15em; text-transform: uppercase;
+    color: var(--text-dim); font-weight: 600; flex-shrink: 0;
+    padding: 1px 6px; border: 1px solid var(--border); background: var(--surface2);
+  }
+
+  .element-id {
+    font-family: var(--mono); font-size: 11px; color: var(--text-dim);
+    flex-shrink: 0;
+  }
+
+  .element-preview {
+    font-family: var(--mono); font-size: 12px; color: var(--text);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    min-width: 0;
+  }
+
+  .element-metrics {
+    display: flex; gap: 8px; flex-shrink: 0;
+  }
+  .metric-badge {
+    font-family: var(--mono); font-size: 10px;
+    padding: 1px 6px; border: 1px solid var(--border);
+    color: var(--text-dim); background: var(--surface);
+    white-space: nowrap;
+  }
+
+  /* Expanded element detail */
+  .element-detail {
+    display: none;
+    padding: 0 16px 12px 28px;
+    border-top: 1px solid var(--border);
+    background: rgba(30,30,33,0.5);
+  }
+  .element-card.expanded .element-detail { display: block; }
+
+  .detail-section {
+    margin-top: 10px;
+  }
+  .detail-label {
+    font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--text-dim); font-weight: 600; margin-bottom: 4px;
+  }
+
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 6px;
+  }
+  .metric-cell {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 4px 8px; background: var(--surface); border: 1px solid var(--border);
+  }
+  .metric-cell .ml { font-size: 10px; color: var(--text-dim); letter-spacing: 0.08em; text-transform: uppercase; }
+  .metric-cell .mv { font-family: var(--mono); font-size: 13px; color: var(--accent); }
+
+  /* Full text */
+  .full-text-box {
+    font-family: var(--mono); font-size: 12px;
+    background: var(--surface); border: 1px solid var(--border);
+    padding: 8px 12px; white-space: pre-wrap; word-break: break-word;
+    color: var(--text); max-height: 200px; overflow-y: auto;
+    line-height: 1.5;
+  }
+
+  /* Wrapped lines */
+  .wrapped-lines-box {
+    background: var(--surface); border: 1px solid var(--border);
+    padding: 4px 0;
+  }
+  .wrap-ruler {
+    font-family: var(--mono); font-size: 10px; color: var(--text-dim);
+    padding: 4px 12px 2px; white-space: pre; overflow: hidden;
+    opacity: 0.4; border-bottom: 1px solid var(--border);
+  }
+  .wrap-line {
+    display: flex; align-items: stretch; min-height: 20px;
+  }
+  .wrap-line-num {
+    font-family: var(--mono); font-size: 10px; color: var(--text-dim);
+    width: 32px; min-width: 32px; text-align: right;
+    padding: 2px 6px 2px 0; opacity: 0.4; flex-shrink: 0;
+  }
+  .wrap-line-content {
+    font-family: var(--mono); font-size: 12px; color: var(--text);
+    padding: 2px 0; white-space: pre; flex: 1;
+    position: relative;
+  }
+  .wrap-line-chars {
+    font-family: var(--mono); font-size: 10px; color: var(--text-dim);
+    padding: 2px 8px; opacity: 0.5; flex-shrink: 0;
+  }
+
+  /* Placement info */
+  .placement-row {
+    display: flex; gap: 12px; flex-wrap: wrap;
+    padding: 6px 8px; background: var(--surface); border: 1px solid var(--border);
+  }
+  .placement-tag {
+    font-family: var(--mono); font-size: 11px;
+    padding: 2px 8px; display: flex; gap: 4px; align-items: center;
+  }
+  .placement-tag .pt-label { color: var(--text-dim); font-size: 9px; text-transform: uppercase; letter-spacing: 0.1em; }
+  .placement-tag .pt-value { color: var(--text); }
+  .placement-tag.issue .pt-value { color: var(--accent3); }
+  .placement-tag.ok .pt-value { color: var(--accent2); }
+
+  /* Measurement table */
+  .measurement-panel {
+    background: var(--surface); border: 1px solid var(--border);
+    padding: 12px 16px; margin-bottom: 16px;
+  }
+  .measurement-title {
+    font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--text-dim); font-weight: 600; margin-bottom: 8px;
+  }
+  .measurement-table {
+    width: 100%; border-collapse: collapse;
+    font-family: var(--mono); font-size: 11px;
+  }
+  .measurement-table th {
+    text-align: left; padding: 4px 8px;
+    font-size: 9px; letter-spacing: 0.15em; text-transform: uppercase;
+    color: var(--text-dim); font-weight: 600;
+    border-bottom: 1px solid var(--border);
+  }
+  .measurement-table td {
+    padding: 3px 8px; color: var(--text);
+    border-bottom: 1px solid rgba(42,42,47,0.5);
+  }
+
+  /* Empty state */
+  .empty-state {
+    text-align: center; padding: 60px 0;
+    font-size: 14px; color: var(--text-dim); letter-spacing: 0.05em;
+  }
+
+  #app-content { display: none; }
+
+  .scroll-area { max-height: 75vh; overflow-y: auto; }
+  .scroll-area::-webkit-scrollbar { width: 6px; }
+  .scroll-area::-webkit-scrollbar-track { background: var(--surface); }
+  .scroll-area::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>Pagination Comparator</h1>
+    <span class="subtitle" id="headerLabel">No file loaded</span>
+  </header>
+
+  <div class="upload-zone" id="uploadZone">
+    <input type="file" id="fileInput" accept=".json" />
+    <div class="upload-icon">▤</div>
+    <div class="upload-title" id="uploadTitle">Drop a comparison JSON or click to browse</div>
+    <div class="upload-hint">Generated by: cargo test export_visual_comparison_data -- --ignored</div>
+  </div>
+
+  <div id="app-content">
+    <div class="stats-bar" id="statsBar"></div>
+
+    <div class="measurement-panel" id="measurementPanel"></div>
+
+    <div class="page-nav" id="pageNav">
+      <span class="page-nav-label">Pages</span>
+    </div>
+
+    <div class="filter-bar" id="filterBar">
+      <span class="filter-label">Show:</span>
+      <button class="filter-btn active" data-filter="all">All</button>
+      <button class="filter-btn" data-filter="issues">Issues Only</button>
+      <button class="filter-btn" data-filter="action">Action</button>
+      <button class="filter-btn" data-filter="dialogue">Dialogue</button>
+      <button class="filter-btn" data-filter="scene-heading">Scene Heading</button>
+    </div>
+
+    <div class="scroll-area">
+      <div class="page-detail" id="pageDetail"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+let DATA = null;
+let currentPage = 0;
+let currentFilter = 'all';
+
+// File loading
+const uploadZone = document.getElementById('uploadZone');
+const fileInput = document.getElementById('fileInput');
+
+uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
+uploadZone.addEventListener('drop', e => {
+  e.preventDefault();
+  uploadZone.classList.remove('drag-over');
+  if (e.dataTransfer.files.length) loadFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', () => { if (fileInput.files.length) loadFile(fileInput.files[0]); });
+
+function loadFile(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      DATA = JSON.parse(e.target.result);
+      uploadZone.classList.add('has-file');
+      document.getElementById('uploadTitle').textContent = file.name;
+      document.getElementById('app-content').style.display = 'block';
+      init();
+    } catch (err) {
+      alert('Invalid JSON: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+}
+
+function init() {
+  document.getElementById('headerLabel').textContent =
+    `${DATA.screenplay} · ${DATA.lines_per_page} lines/page · score (${DATA.score.join(', ')})`;
+
+  renderStats();
+  renderMeasurement();
+  renderPageNav();
+  renderFilterBar();
+  selectPage(0);
+}
+
+function renderStats() {
+  const bar = document.getElementById('statsBar');
+  const stats = [
+    { label: 'Pages', value: DATA.pages.length, cls: '' },
+    { label: 'Elements', value: DATA.total_elements, cls: '' },
+    { label: 'Matches', value: DATA.total_matches, cls: DATA.total_matches === DATA.total_elements ? 'good' : '' },
+    { label: 'Wrong Page', value: DATA.total_wrong_page, cls: DATA.total_wrong_page > 0 ? 'warn' : 'good' },
+    { label: 'Wrong Frag', value: DATA.total_wrong_fragment, cls: DATA.total_wrong_fragment > 0 ? 'warn' : 'good' },
+    { label: 'Missing', value: DATA.total_missing, cls: DATA.total_missing > 0 ? 'warn' : 'good' },
+    { label: 'Lines/Page', value: DATA.lines_per_page, cls: '' },
+    { label: 'Score', value: `(${DATA.score.join(',')})`, cls: DATA.score[0] === 0 ? 'good' : 'warn' },
+  ];
+  bar.innerHTML = stats.map(s => `
+    <div class="stat">
+      <span class="stat-label">${s.label}</span>
+      <span class="stat-value ${s.cls}">${s.value}</span>
+    </div>
+  `).join('');
+}
+
+function renderMeasurement() {
+  const panel = document.getElementById('measurementPanel');
+  const m = DATA.measurement;
+  let html = '<div class="measurement-title">Column Widths & Geometry</div>';
+  html += '<table class="measurement-table"><tr><th>Element</th><th>Style</th><th>Left</th><th>Right</th><th>Width (chars)</th></tr>';
+  for (const g of [...m.flow_geometries, ...m.dialogue_geometries]) {
+    html += `<tr><td>${g.kind}</td><td style="color:var(--text-dim)">${g.source_style}</td>
+      <td>${g.left_indent_in.toFixed(2)}"</td><td>${g.right_indent_in.toFixed(2)}"</td>
+      <td style="color:var(--accent)">${g.width_chars}</td></tr>`;
+  }
+  html += '</table>';
+  panel.innerHTML = html;
+}
+
+function renderPageNav() {
+  const nav = document.getElementById('pageNav');
+  nav.innerHTML = '<span class="page-nav-label">Pages</span>';
+  DATA.pages.forEach((page, idx) => {
+    const hasIssues = page.items.some(i => i.status !== 'match');
+    const btn = document.createElement('button');
+    btn.className = 'page-btn' + (hasIssues ? ' has-issues' : ' perfect');
+    btn.textContent = page.page_number;
+    btn.addEventListener('click', () => selectPage(idx));
+    btn.dataset.idx = idx;
+    nav.appendChild(btn);
+  });
+}
+
+function renderFilterBar() {
+  document.querySelectorAll('.filter-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentFilter = btn.dataset.filter;
+      renderPage();
+    });
+  });
+}
+
+function selectPage(idx) {
+  currentPage = idx;
+  document.querySelectorAll('.page-btn').forEach(b => b.classList.toggle('active', parseInt(b.dataset.idx) === idx));
+  renderPage();
+}
+
+function renderPage() {
+  const page = DATA.pages[currentPage];
+  const detail = document.getElementById('pageDetail');
+
+  let runningTotal = 0;
+  page.items.forEach(item => {
+    runningTotal += item.content_lines + item.spacing_before_lines;
+    item.running_lines = runningTotal;
+  });
+
+  let items = page.items;
+  if (currentFilter === 'issues') items = items.filter(i => i.status !== 'match');
+  else if (currentFilter === 'action') items = items.filter(i => i.kind === 'Action');
+  else if (currentFilter === 'dialogue') items = items.filter(i => ['Dialogue', 'Character', 'Parenthetical'].includes(i.kind));
+  else if (currentFilter === 'scene-heading') items = items.filter(i => i.kind === 'Scene Heading');
+
+  const issueCount = page.items.filter(i => i.status !== 'match').length;
+  const fillPct = Math.round(page.measured_total_lines / page.lines_per_page * 100);
+
+  detail.innerHTML = `
+    <div class="page-header">
+      <span class="page-title">Page ${page.page_number}</span>
+      <div class="page-meta">
+        <span>Items: <b>${page.item_count}</b></span>
+        <span>Lines: <b>${page.measured_total_lines}</b> / ${page.lines_per_page}</span>
+        <span>Fill: <b style="color:${fillPct > 100 ? 'var(--accent3)' : fillPct > 90 ? 'var(--accent2)' : 'var(--text)'}">${fillPct}%</b></span>
+        ${issueCount > 0 ? `<span style="color:var(--accent3)">Issues: <b>${issueCount}</b></span>` : '<span style="color:var(--accent2)">✓ Perfect</span>'}
+      </div>
+    </div>
+    <div class="element-list" id="elementList"></div>
+  `;
+
+  const list = document.getElementById('elementList');
+  items.forEach((item, i) => {
+    const card = document.createElement('div');
+    card.className = 'element-card';
+    card.innerHTML = `
+      <div class="element-summary" data-idx="${i}">
+        <span class="element-status ${item.status}"></span>
+        <div class="element-info">
+          <span class="element-kind">${item.kind}</span>
+          <span class="element-id">${item.element_id}</span>
+          <span class="element-preview">${escapeHtml(item.full_text.substring(0, 100))}</span>
+        </div>
+        <div class="element-metrics">
+          <span class="metric-badge" title="Content lines">${item.content_lines}L</span>
+          ${item.spacing_before_lines > 0 ? `<span class="metric-badge" title="Spacing before">↑${item.spacing_before_lines}</span>` : ''}
+          <span class="metric-badge" title="Running total lines">∑${item.running_lines}</span>
+          <span class="metric-badge" title="Width">${item.width_chars}w</span>
+        </div>
+      </div>
+      <div class="element-detail">
+        ${renderElementDetail(item)}
+      </div>
+    `;
+
+    card.querySelector('.element-summary').addEventListener('click', () => {
+      card.classList.toggle('expanded');
+    });
+
+    list.appendChild(card);
+  });
+}
+
+function renderElementDetail(item) {
+  // Placement row
+  const isMatch = item.status === 'match';
+  const placementClass = isMatch ? 'ok' : 'issue';
+  let placement = `
+    <div class="detail-section">
+      <div class="detail-label">Page Placement</div>
+      <div class="placement-row">
+        <div class="placement-tag ${placementClass}">
+          <span class="pt-label">Canonical</span>
+          <span class="pt-value">p${item.canonical_page} · ${item.canonical_fragment}</span>
+        </div>
+        <div class="placement-tag ${placementClass}">
+          <span class="pt-label">Actual</span>
+          <span class="pt-value">${item.actual_page != null ? `p${item.actual_page} · ${item.actual_fragment}` : 'NOT FOUND'}</span>
+        </div>
+        <div class="placement-tag">
+          <span class="pt-label">Status</span>
+          <span class="pt-value" style="color:${statusColor(item.status)}">${item.status.toUpperCase().replace('_', ' ')}</span>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Metrics
+  let metrics = `
+    <div class="detail-section">
+      <div class="detail-label">Measurements</div>
+      <div class="metrics-grid">
+        <div class="metric-cell"><span class="ml">Content Lines</span><span class="mv">${item.content_lines}</span></div>
+        <div class="metric-cell"><span class="ml">Width (chars)</span><span class="mv">${item.width_chars}</span></div>
+        <div class="metric-cell"><span class="ml">Top Spacing</span><span class="mv">${item.top_spacing_lines}</span></div>
+        <div class="metric-cell"><span class="ml">Bottom Spacing</span><span class="mv">${item.bottom_spacing_lines}</span></div>
+        <div class="metric-cell"><span class="ml">Spacing Before</span><span class="mv">${item.spacing_before_lines}</span></div>
+        ${item.line_range ? `<div class="metric-cell"><span class="ml">Line Range</span><span class="mv">${item.line_range[0]}–${item.line_range[1]}</span></div>` : ''}
+        ${item.block_id ? `<div class="metric-cell"><span class="ml">Block ID</span><span class="mv" style="font-size:10px">${item.block_id}</span></div>` : ''}
+      </div>
+    </div>
+  `;
+
+  // Wrapped lines
+  const ruler = buildRuler(item.width_chars);
+  let wrappedHtml = `
+    <div class="detail-section">
+      <div class="detail-label">Wrapped Lines (${item.wrapped_lines.length} lines at ${item.width_chars} chars)</div>
+      <div class="wrapped-lines-box">
+        <div class="wrap-ruler">${ruler}</div>
+        ${item.wrapped_lines.map((line, idx) => `
+          <div class="wrap-line">
+            <span class="wrap-line-num">${idx + 1}</span>
+            <span class="wrap-line-content">${escapeHtml(line)}</span>
+            <span class="wrap-line-chars">${line.length}</span>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+
+  // Full text
+  let fullTextHtml = `
+    <div class="detail-section">
+      <div class="detail-label">Full Source Text</div>
+      <div class="full-text-box">${escapeHtml(item.full_text)}</div>
+    </div>
+  `;
+
+  return placement + metrics + wrappedHtml + fullTextHtml;
+}
+
+function buildRuler(width) {
+  let ruler = '';
+  for (let i = 1; i <= width; i++) {
+    if (i % 10 === 0) {
+      ruler += String(i / 10 % 10);
+    } else if (i % 5 === 0) {
+      ruler += '·';
+    } else {
+      ruler += '‧';
+    }
+  }
+  return `    ${ruler}<span style="color:var(--accent)">│</span>`;
+}
+
+function statusColor(status) {
+  switch (status) {
+    case 'match': return 'var(--accent2)';
+    case 'wrong_page': return 'var(--accent3)';
+    case 'wrong_fragment': return 'var(--accent)';
+    case 'missing': return 'var(--accent4)';
+    default: return 'var(--text-dim)';
+  }
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+</script>
+</body>
+</html>
