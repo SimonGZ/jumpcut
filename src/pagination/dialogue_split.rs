@@ -37,6 +37,7 @@ pub struct DialoguePartSplitLines {
 pub struct DialogueSplitPlan {
     pub top_line_count: usize,
     pub bottom_line_count: usize,
+    pub ends_sentence: bool,
     pub parts: Vec<DialoguePartSplitLines>,
 }
 
@@ -276,6 +277,7 @@ fn build_candidate(
         plan: DialogueSplitPlan {
             top_line_count,
             bottom_line_count,
+            ends_sentence: boundary.ends_sentence,
             parts: split_parts,
         },
         top_dialogue_lines,

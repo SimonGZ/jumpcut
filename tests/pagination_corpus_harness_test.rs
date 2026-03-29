@@ -383,6 +383,175 @@ fn big_fish_pages_55_56_split_el_01197_before_more_line_costs_space() {
 }
 
 #[test]
+fn big_fish_pages_81_82_keep_el_01742_whole_on_page_82() {
+    let mut fixture: PageBreakFixture =
+        read_fixture("tests/fixtures/corpus/public/big-fish/canonical/page-breaks.json");
+    fixture.pages.retain(|page| matches!(page.number, 81 | 82));
+
+    let normalized = normalized_window_from_fountain(
+        "big-fish",
+        "tests/fixtures/corpus/public/big-fish/source/source.fountain",
+        &fixture,
+    );
+    let semantic = build_semantic_screenplay(normalized);
+    let config = PaginationConfig {
+        lines_per_page: 54.0,
+        geometry: geometry_for_screenplay("big-fish"),
+    };
+    let actual = PaginatedScreenplay::paginate(
+        semantic,
+        config,
+        fixture.style_profile.clone(),
+        fixture.scope.clone(),
+    );
+
+    let page_81_item = actual
+        .pages
+        .iter()
+        .find(|page| page.metadata.number == 81)
+        .and_then(|page| page.items.iter().find(|item| item.element_id == "el-01742"));
+    let page_82_item = actual
+        .pages
+        .iter()
+        .find(|page| page.metadata.number == 82)
+        .and_then(|page| page.items.iter().find(|item| item.element_id == "el-01742"))
+        .expect("expected el-01742 on page 82");
+
+    assert!(
+        page_81_item.is_none(),
+        "expected el-01742 to be pushed entirely off page 81, got: {:?}",
+        page_81_item
+    );
+    assert_eq!(page_82_item.fragment, Fragment::Whole);
+}
+
+#[test]
+fn big_fish_pages_93_94_keep_block_00582_whole_on_page_94() {
+    let mut fixture: PageBreakFixture =
+        read_fixture("tests/fixtures/corpus/public/big-fish/canonical/page-breaks.json");
+    fixture.pages.retain(|page| matches!(page.number, 93 | 94));
+
+    let normalized = normalized_window_from_fountain(
+        "big-fish",
+        "tests/fixtures/corpus/public/big-fish/source/source.fountain",
+        &fixture,
+    );
+    let semantic = build_semantic_screenplay(normalized);
+    let config = PaginationConfig {
+        lines_per_page: 54.0,
+        geometry: geometry_for_screenplay("big-fish"),
+    };
+    let actual = PaginatedScreenplay::paginate(
+        semantic,
+        config,
+        fixture.style_profile.clone(),
+        fixture.scope.clone(),
+    );
+
+    let page_93_block_items = actual
+        .pages
+        .iter()
+        .find(|page| page.metadata.number == 93)
+        .map(|page| {
+            page.items
+                .iter()
+                .filter(|item| item.block_id.as_deref() == Some("block-00582"))
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    let page_94_block_items = actual
+        .pages
+        .iter()
+        .find(|page| page.metadata.number == 94)
+        .map(|page| {
+            page.items
+                .iter()
+                .filter(|item| item.block_id.as_deref() == Some("block-00582"))
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+
+    assert!(
+        page_93_block_items.is_empty(),
+        "expected block-00582 to be pushed entirely off page 93, got: {:?}",
+        page_93_block_items
+    );
+    assert_eq!(page_94_block_items.len(), 2);
+    assert!(
+        page_94_block_items
+            .iter()
+            .all(|item| item.fragment == Fragment::Whole),
+        "expected block-00582 to stay whole on page 94, got: {:?}",
+        page_94_block_items
+    );
+}
+
+#[test]
+fn big_fish_pages_34_35_split_block_00213_after_go() {
+    let mut fixture: PageBreakFixture =
+        read_fixture("tests/fixtures/corpus/public/big-fish/canonical/page-breaks.json");
+    fixture.pages.retain(|page| matches!(page.number, 34 | 35));
+
+    let normalized = normalized_window_from_fountain(
+        "big-fish",
+        "tests/fixtures/corpus/public/big-fish/source/source.fountain",
+        &fixture,
+    );
+    let semantic = build_semantic_screenplay(normalized);
+    let config = PaginationConfig {
+        lines_per_page: 54.0,
+        geometry: geometry_for_screenplay("big-fish"),
+    };
+    let blocks = jumpcut::pagination::composer::compose(&semantic.units, &config.geometry);
+    let pages = jumpcut::pagination::paginator::paginate(&blocks, config.lines_per_page, &config.geometry);
+
+    let page_34_block = pages
+        .iter()
+        .find_map(|page| {
+            page.blocks.iter().find(|block| {
+                matches!(
+                    block.unit,
+                    jumpcut::pagination::SemanticUnit::Dialogue(jumpcut::pagination::DialogueUnit {
+                        block_id,
+                        ..
+                    }) if block_id == "block-00213" && block.fragment == Fragment::ContinuedToNext
+                )
+            })
+        })
+        .expect("expected block-00213 top fragment");
+    let page_35_block = pages
+        .iter()
+        .find_map(|page| {
+            page.blocks.iter().find(|block| {
+                matches!(
+                    block.unit,
+                    jumpcut::pagination::SemanticUnit::Dialogue(jumpcut::pagination::DialogueUnit {
+                        block_id,
+                        ..
+                    }) if block_id == "block-00213" && block.fragment == Fragment::ContinuedFromPrev
+                )
+            })
+        })
+        .expect("expected block-00213 bottom fragment");
+
+    let page_34_text = dialogue_block_fragment_text(page_34_block);
+    let page_35_text = dialogue_block_fragment_text(page_35_block);
+
+    assert!(
+        page_34_text.trim_end().ends_with("go."),
+        "expected page 34 fragment to end after 'go.', got: {:?}",
+        page_34_text
+    );
+    assert!(
+        page_35_text
+            .trim_start()
+            .starts_with("But take with you this Key"),
+        "expected page 35 fragment to start with 'But take with you this Key', got: {:?}",
+        page_35_text
+    );
+}
+
+#[test]
 // #[ignore = "Temporarily disabled"]
 fn big_fish_line_break_parity_reports_el_00787_as_an_exact_match() {
     let report = build_line_break_parity_report(

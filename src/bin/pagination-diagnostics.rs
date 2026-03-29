@@ -128,8 +128,9 @@ fn write_mostly_genius_linebreak(repo_root: &Path) {
 fn write_big_fish_json(repo_root: &Path) {
     let debug_dir = repo_root.join("target/pagination-debug");
     page_break_diagnostics::write_big_fish_public_slice_json(&debug_dir);
-    println!("wrote {}", debug_dir.join("big-fish.actual.page-breaks.json").display());
-    println!("wrote {}", debug_dir.join("big-fish.comparison-report.json").display());
+    println!("wrote {}", debug_dir.join("big-fish.p18-19.actual.page-breaks.json").display());
+    println!("wrote {}", debug_dir.join("big-fish.p18-19.comparison-report.json").display());
+    println!("wrote {}", debug_dir.join("big-fish.p18-19.page-endings.json").display());
 }
 
 fn write_public_window_json(repo_root: &Path) {

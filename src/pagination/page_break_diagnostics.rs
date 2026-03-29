@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::fs;
+use std::os::unix::fs::symlink;
 use std::path::Path;
 
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -34,13 +35,20 @@ pub fn write_big_fish_public_slice_json(debug_dir: &Path) {
     );
 
     fs::create_dir_all(debug_dir).unwrap();
+    for stale_name in [
+        "big-fish.actual.page-breaks.json",
+        "big-fish.comparison-report.json",
+        "big-fish.page-endings.json",
+    ] {
+        let _ = fs::remove_file(debug_dir.join(stale_name));
+    }
     fs::write(
-        debug_dir.join("big-fish.actual.page-breaks.json"),
+        debug_dir.join("big-fish.p18-19.actual.page-breaks.json"),
         serde_json::to_string_pretty(&debug_fixture).unwrap(),
     )
     .unwrap();
     fs::write(
-        debug_dir.join("big-fish.comparison-report.json"),
+        debug_dir.join("big-fish.p18-19.comparison-report.json"),
         serde_json::to_string_pretty(&ProbeDebugOutput {
             lines_per_page: run.lines_per_page,
             score: run.score,
@@ -52,6 +60,20 @@ pub fn write_big_fish_public_slice_json(debug_dir: &Path) {
             report,
         })
         .unwrap(),
+    )
+    .unwrap();
+    let page_numbers: Vec<u32> = fixture.pages.iter().map(|page| page.number).collect();
+    let page_endings = build_page_endings_report(
+        "big-fish",
+        &run.actual,
+        &normalized,
+        54.0,
+        &run.geometry,
+        Some(&page_numbers),
+    );
+    fs::write(
+        debug_dir.join("big-fish.p18-19.page-endings.json"),
+        serde_json::to_string_pretty(&page_endings).unwrap(),
     )
     .unwrap();
 }
@@ -115,6 +137,20 @@ pub fn write_selected_public_windows_json(debug_dir: &Path) {
         fs::write(
             debug_dir.join(format!("{stem}.pdf-line-counts.json")),
             serde_json::to_string_pretty(&pdf_line_counts).unwrap(),
+        )
+        .unwrap();
+        let page_numbers: Vec<u32> = fixture.pages.iter().map(|page| page.number).collect();
+        let page_endings = build_page_endings_report(
+            screenplay_id,
+            &run.actual,
+            &normalized,
+            run.lines_per_page,
+            &run.geometry,
+            Some(&page_numbers),
+        );
+        fs::write(
+            debug_dir.join(format!("{stem}.page-endings.json")),
+            serde_json::to_string_pretty(&page_endings).unwrap(),
         )
         .unwrap();
     }
@@ -225,6 +261,19 @@ pub fn write_little_women_full_script_page_break_packet(debug_dir: &Path) {
         render_pseudo_pdf_output(&actual, &normalized, 54.0, &config.geometry),
     )
     .unwrap();
+    let page_endings = build_page_endings_report(
+        "little-women",
+        &actual,
+        &normalized,
+        54.0,
+        &config.geometry,
+        None,
+    );
+    fs::write(
+        debug_dir.join("page-endings.json"),
+        serde_json::to_string_pretty(&page_endings).unwrap(),
+    )
+    .unwrap();
     fs::write(
         debug_dir.join("REVIEW.md"),
         render_little_women_full_script_review_packet(54.0, score, &fixture, &report),
@@ -264,6 +313,7 @@ pub fn write_big_fish_full_script_page_break_packet(debug_dir: &Path) {
     );
 
     fs::create_dir_all(debug_dir).unwrap();
+    write_fixture_symlink(debug_dir, fixture_path);
     fs::write(
         debug_dir.join("actual.page-breaks.json"),
         serde_json::to_string_pretty(&debug_fixture).unwrap(),
@@ -291,11 +341,34 @@ pub fn write_big_fish_full_script_page_break_packet(debug_dir: &Path) {
         render_pseudo_pdf_output(&actual, &normalized, 54.0, &config.geometry),
     )
     .unwrap();
+    let page_endings = build_page_endings_report(
+        "big-fish",
+        &actual,
+        &normalized,
+        54.0,
+        &config.geometry,
+        None,
+    );
+    fs::write(
+        debug_dir.join("page-endings.json"),
+        serde_json::to_string_pretty(&page_endings).unwrap(),
+    )
+    .unwrap();
     fs::write(
         debug_dir.join("REVIEW.md"),
         render_big_fish_full_script_review_packet(54.0, score, &fixture, &report),
     )
     .unwrap();
+}
+
+fn write_fixture_symlink(debug_dir: &Path, fixture_path: &str) {
+    let link_path = debug_dir.join("canonical.page-breaks.json");
+    let relative_target = Path::new("..")
+        .join("..")
+        .join("..")
+        .join(fixture_path);
+    let _ = fs::remove_file(&link_path);
+    symlink(&relative_target, &link_path).unwrap();
 }
 
 pub fn write_mostly_genius_full_script_page_break_packet(debug_dir: &Path) {
@@ -355,6 +428,19 @@ pub fn write_mostly_genius_full_script_page_break_packet(debug_dir: &Path) {
     fs::write(
         debug_dir.join("pseudo-pdf.txt"),
         render_pseudo_pdf_output(&actual, &normalized, 54.0, &config.geometry),
+    )
+    .unwrap();
+    let page_endings = build_page_endings_report(
+        "mostly-genius",
+        &actual,
+        &normalized,
+        54.0,
+        &config.geometry,
+        None,
+    );
+    fs::write(
+        debug_dir.join("page-endings.json"),
+        serde_json::to_string_pretty(&page_endings).unwrap(),
     )
     .unwrap();
     fs::write(
@@ -421,6 +507,20 @@ fn write_window_review_packet(
         fs::write(
             debug_dir.join(format!("{stem}.pseudo-pdf.txt")),
             render_pseudo_pdf_output(&run.actual, &normalized, run.lines_per_page, &run.geometry),
+        )
+        .unwrap();
+        let page_numbers: Vec<u32> = fixture.pages.iter().map(|page| page.number).collect();
+        let page_endings = build_page_endings_report(
+            screenplay_id,
+            &run.actual,
+            &normalized,
+            run.lines_per_page,
+            &run.geometry,
+            Some(&page_numbers),
+        );
+        fs::write(
+            debug_dir.join(format!("{stem}.page-endings.json")),
+            serde_json::to_string_pretty(&page_endings).unwrap(),
         )
         .unwrap();
 
@@ -958,9 +1058,149 @@ fn render_pseudo_pdf_output(
     out
 }
 
+fn build_page_endings_report(
+    screenplay_id: &str,
+    actual: &PaginatedScreenplay,
+    normalized: &NormalizedScreenplay,
+    lines_per_page: f32,
+    geometry: &LayoutGeometry,
+    page_numbers: Option<&[u32]>,
+) -> PageEndingReport {
+    let canonical_pages = public_pdf_pages(screenplay_id);
+    let actual_pages = rendered_actual_page_lines(actual, normalized, lines_per_page, geometry);
+    let mut selected_page_numbers: Vec<u32> = match page_numbers {
+        Some(page_numbers) => page_numbers.to_vec(),
+        None => canonical_pages
+            .keys()
+            .chain(actual_pages.keys())
+            .copied()
+            .collect(),
+    };
+    selected_page_numbers.sort_unstable();
+    selected_page_numbers.dedup();
+
+    let pages = selected_page_numbers
+        .into_iter()
+        .map(|page_number| {
+            let canonical_lines = canonical_pages
+                .get(&page_number)
+                .cloned()
+                .unwrap_or_default();
+            let actual_lines = actual_pages.get(&page_number).cloned().unwrap_or_default();
+            let canonical_last = last_meaningful_line(&canonical_lines);
+            let actual_last = last_meaningful_line(&actual_lines);
+
+            PageEndingItem {
+                page_number,
+                matches: canonical_last == actual_last,
+                canonical_last_line: canonical_last,
+                actual_last_line: actual_last,
+                canonical_raw_last_line: canonical_lines
+                    .iter()
+                    .rev()
+                    .find(|line| !line.trim().is_empty())
+                    .cloned(),
+                actual_raw_last_line: actual_lines
+                    .iter()
+                    .rev()
+                    .find(|line| !line.trim().is_empty())
+                    .cloned(),
+            }
+        })
+        .collect::<Vec<_>>();
+
+    let mismatch_count = pages.iter().filter(|page| !page.matches).count();
+
+    PageEndingReport {
+        screenplay: screenplay_id.to_string(),
+        page_count: pages.len(),
+        mismatch_count,
+        pages,
+    }
+}
+
+fn rendered_actual_page_lines(
+    actual: &PaginatedScreenplay,
+    normalized: &NormalizedScreenplay,
+    lines_per_page: f32,
+    geometry: &LayoutGeometry,
+) -> HashMap<u32, Vec<String>> {
+    let semantic = build_semantic_screenplay(normalized.clone());
+    let blocks = crate::pagination::composer::compose(&semantic.units, geometry);
+    let layout_pages = crate::pagination::paginator::paginate(&blocks, lines_per_page, geometry)
+        .into_iter()
+        .filter(|page| {
+            page.blocks
+                .iter()
+                .any(|block| !matches!(block.unit, SemanticUnit::PageStart(_)))
+        });
+
+    actual
+        .pages
+        .iter()
+        .zip(layout_pages)
+        .map(|(page, layout_page)| {
+            let mut lines = Vec::new();
+
+            for block in &layout_page.blocks {
+                for _ in 0..(block.spacing_above.round() as usize) {
+                    lines.push(String::new());
+                }
+
+                lines.extend(
+                    render_layout_block_lines(block, geometry)
+                        .into_iter()
+                        .map(|line| line.text),
+                );
+            }
+
+            (page.metadata.number, lines)
+        })
+        .collect()
+}
+
+fn last_meaningful_line(lines: &[String]) -> Option<String> {
+    lines.iter()
+        .rev()
+        .map(|line| line.trim())
+        .find(|line| !line.is_empty() && !is_footer_page_number_line(line))
+        .map(str::to_string)
+}
+
+fn is_footer_page_number_line(line: &str) -> bool {
+    let trimmed = line.trim();
+    !trimmed.is_empty()
+        && trimmed.ends_with('.')
+        && trimmed[..trimmed.len() - 1]
+            .chars()
+            .all(|ch| ch.is_ascii_digit())
+}
+
 struct DiagnosticRenderedLine {
     text: String,
     counted: bool,
+}
+
+#[derive(Serialize)]
+struct PageEndingReport {
+    screenplay: String,
+    page_count: usize,
+    mismatch_count: usize,
+    pages: Vec<PageEndingItem>,
+}
+
+#[derive(Serialize)]
+struct PageEndingItem {
+    page_number: u32,
+    matches: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    canonical_last_line: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    actual_last_line: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    canonical_raw_last_line: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    actual_raw_last_line: Option<String>,
 }
 
 fn render_layout_block_lines(
@@ -1484,6 +1724,7 @@ Read files in this order:\n\n\
         "\nPrimary review question:\n\n\
 - For the first nonzero window above, does the canonical break look like missing spacing/rhythm in our model, an obvious line-wrap-count problem, or a split-choice problem?\n\n\
 Useful extra files:\n\n\
+- `target/pagination-debug/big-fish-review/<window>.page-endings.json` compares our last meaningful line on each page against the canonical extracted PDF page ending.\n\
 - `target/pagination-debug/big-fish-review/<window>.pdf-line-counts.json` gives exact-unique PDF line counts where text alignment is recoverable.\n\
 - `tests/fixtures/corpus/public/big-fish/source/source.fountain` is the vendored local source text.\n\n\
 Current window summary:\n\n",
@@ -1491,7 +1732,7 @@ Current window summary:\n\n",
 
     for summary in summaries {
         review.push_str(&format!(
-            "- `{stem}` pages {start}-{end}: lines_per_page={lines}, total={total}, wrong_page={wrong_page}, wrong_fragment={wrong_fragment}, missing={missing}, unexpected={unexpected}\n  canonical: `{fixture}`\n  actual: `target/pagination-debug/big-fish-review/{stem}.actual.page-breaks.json`\n  report: `target/pagination-debug/big-fish-review/{stem}.comparison-report.json`\n  pdf: `target/pagination-debug/big-fish-review/{stem}.pdf-line-counts.json`\n",
+            "- `{stem}` pages {start}-{end}: lines_per_page={lines}, total={total}, wrong_page={wrong_page}, wrong_fragment={wrong_fragment}, missing={missing}, unexpected={unexpected}\n  canonical: `{fixture}`\n  actual: `target/pagination-debug/big-fish-review/{stem}.actual.page-breaks.json`\n  report: `target/pagination-debug/big-fish-review/{stem}.comparison-report.json`\n  endings: `target/pagination-debug/big-fish-review/{stem}.page-endings.json`\n  pdf: `target/pagination-debug/big-fish-review/{stem}.pdf-line-counts.json`\n",
             stem = summary.stem,
             start = summary.page_range.first().copied().unwrap_or_default(),
             end = summary.page_range.last().copied().unwrap_or_default(),
@@ -1554,6 +1795,7 @@ Read files in this order:\n\n\
         "\nBackground:\n\n\
 - `comparison-report.json` is the quickest way to see where pages or fragments diverge.\n\
 - `actual.page-breaks.json` is the current engine output in canonical fixture shape.\n\
+- `page-endings.json` compares our last meaningful line on each page against the canonical extracted PDF page ending.\n\
 - `pdf-line-counts.json` gives exact-unique PDF line counts where text alignment is recoverable.\n\
 - `pseudo-pdf.txt` is a plain-text rendering of the current engine's predicted page lines and blank spacing.\n\
 - `tests/fixtures/corpus/public/little-women/source/source.fountain` is the vendored local source text.\n\n\
@@ -1562,7 +1804,7 @@ Current window summary:\n\n",
 
     for summary in summaries {
         review.push_str(&format!(
-            "- `{stem}` pages {start}-{end}: lines_per_page={lines}, total={total}, wrong_page={wrong_page}, wrong_fragment={wrong_fragment}, missing={missing}, unexpected={unexpected}\n  canonical: `{fixture}`\n  actual: `target/pagination-debug/little-women-review/{stem}.actual.page-breaks.json`\n  report: `target/pagination-debug/little-women-review/{stem}.comparison-report.json`\n  pdf: `target/pagination-debug/little-women-review/{stem}.pdf-line-counts.json`\n  pseudo: `target/pagination-debug/little-women-review/{stem}.pseudo-pdf.txt`\n",
+            "- `{stem}` pages {start}-{end}: lines_per_page={lines}, total={total}, wrong_page={wrong_page}, wrong_fragment={wrong_fragment}, missing={missing}, unexpected={unexpected}\n  canonical: `{fixture}`\n  actual: `target/pagination-debug/little-women-review/{stem}.actual.page-breaks.json`\n  report: `target/pagination-debug/little-women-review/{stem}.comparison-report.json`\n  endings: `target/pagination-debug/little-women-review/{stem}.page-endings.json`\n  pdf: `target/pagination-debug/little-women-review/{stem}.pdf-line-counts.json`\n  pseudo: `target/pagination-debug/little-women-review/{stem}.pseudo-pdf.txt`\n",
             stem = summary.stem,
             start = summary.page_range.first().copied().unwrap_or_default(),
             end = summary.page_range.last().copied().unwrap_or_default(),
@@ -1605,7 +1847,8 @@ Read files in this order:\n\n\
 2. `target/pagination-debug/little-women-full-script/comparison-report.json`\n\
 3. `tests/fixtures/corpus/public/little-women/canonical/page-breaks.json`\n\
 4. `target/pagination-debug/little-women-full-script/actual.page-breaks.json`\n\
-5. `target/pagination-debug/little-women-full-script/pseudo-pdf.txt`\n\n\
+5. `target/pagination-debug/little-women-full-script/page-endings.json`\n\
+6. `target/pagination-debug/little-women-full-script/pseudo-pdf.txt`\n\n\
 Current full-script summary:\n\n\
 - pages: {page_count}\n\
 - lines_per_page: {lines_per_page}\n\
@@ -1617,6 +1860,7 @@ Current full-script summary:\n\n\
 Notes:\n\n\
 - `comparison-report.json` is the quickest way to see where page assignments diverge.\n\
 - `actual.page-breaks.json` is the current engine output in canonical fixture shape.\n\
+- `page-endings.json` compares our last meaningful line on each page against the canonical extracted PDF page ending.\n\
 - `pseudo-pdf.txt` is a plain-text rendering of the current engine's predicted page lines and blank spacing.\n\
 - `tests/fixtures/corpus/public/little-women/source/source.fountain` is the vendored local source text.\n",
         page_count = fixture.pages.len(),
@@ -1646,7 +1890,8 @@ Read files in this order:\n\n\
 2. `target/pagination-debug/big-fish-full-script/comparison-report.json`\n\
 3. `tests/fixtures/corpus/public/big-fish/canonical/page-breaks.json`\n\
 4. `target/pagination-debug/big-fish-full-script/actual.page-breaks.json`\n\
-5. `target/pagination-debug/big-fish-full-script/pseudo-pdf.txt`\n\n\
+5. `target/pagination-debug/big-fish-full-script/page-endings.json`\n\
+6. `target/pagination-debug/big-fish-full-script/pseudo-pdf.txt`\n\n\
 Current full-script summary:\n\n\
 - pages: {pages}\n\
 - lines_per_page: {lines_per_page}\n\
@@ -1658,6 +1903,7 @@ Current full-script summary:\n\n\
 Notes:\n\n\
 - `comparison-report.json` is the quickest way to see where page assignments diverge.\n\
 - `actual.page-breaks.json` is the current engine output in canonical fixture shape.\n\
+- `page-endings.json` compares our last meaningful line on each page against the canonical extracted PDF page ending.\n\
 - `pseudo-pdf.txt` is a plain-text rendering of the current engine's predicted page lines and blank spacing.\n\
 - `tests/fixtures/corpus/public/big-fish/source/source.fountain` is the vendored local source text.\n",
         pages = fixture.pages.len(),
@@ -1687,7 +1933,8 @@ Read files in this order:\n\n\
 2. `target/pagination-debug/mostly-genius-full-script/comparison-report.json`\n\
 3. `tests/fixtures/corpus/public/mostly-genius/canonical/page-breaks.json`\n\
 4. `target/pagination-debug/mostly-genius-full-script/actual.page-breaks.json`\n\
-5. `target/pagination-debug/mostly-genius-full-script/pseudo-pdf.txt`\n\n\
+5. `target/pagination-debug/mostly-genius-full-script/page-endings.json`\n\
+6. `target/pagination-debug/mostly-genius-full-script/pseudo-pdf.txt`\n\n\
 Current full-script summary:\n\n\
 - pages: {page_count}\n\
 - lines_per_page: {lines_per_page}\n\
@@ -1700,6 +1947,7 @@ Notes:\n\n\
 - This is the sanitized multicam sample, so the main things to inspect first are line-height drift, act-marker handling, and any multicam-specific pacing differences.\n\
 - `comparison-report.json` is the quickest way to see where page assignments diverge.\n\
 - `actual.page-breaks.json` is the current engine output in canonical fixture shape.\n\
+- `page-endings.json` compares our last meaningful line on each page against the canonical extracted PDF page ending.\n\
 - `pseudo-pdf.txt` is a plain-text rendering of the current engine's predicted page lines and blank spacing.\n\
 - `tests/fixtures/corpus/public/mostly-genius/source/source.fountain` is the vendored local source text.\n",
         page_count = fixture.pages.len(),

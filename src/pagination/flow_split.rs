@@ -66,6 +66,9 @@ pub fn choose_flow_split(
         if top_line_count > max_top_lines {
             return None;
         }
+        if has_discouraged_runt_top_line(&top_lines, top_text) {
+            return None;
+        }
 
         Some(FlowSplitScore {
             ends_sentence: policy.prefer_sentence_boundaries
@@ -109,4 +112,14 @@ fn wrap_fragment_lines(text: &str, config: &WrapConfig) -> Vec<String> {
 
 fn balance_score(top_lines: usize, bottom_lines: usize) -> usize {
     usize::MAX - top_lines.abs_diff(bottom_lines)
+}
+
+fn has_discouraged_runt_top_line(top_lines: &[String], _top_text: &str) -> bool {
+    top_lines
+        .last()
+        .is_some_and(|line| visible_line_length(line) <= 12)
+}
+
+fn visible_line_length(line: &str) -> usize {
+    line.trim().chars().count()
 }

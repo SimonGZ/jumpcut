@@ -11,3 +11,9 @@ big-fish-diagnostics:
 mostly-genius-diagnostics:
     cargo run --bin pagination-diagnostics -- mostly-genius-linebreak
     cargo run --bin pagination-diagnostics -- mostly-genius-full-script
+
+fd-probe:
+    cargo test --test pagination_fd_probe_test -- --nocapture
+
+fd-probe-new name source:
+    python3 scripts/new_fd_probe.py "{{name}}" "{{source}}"
