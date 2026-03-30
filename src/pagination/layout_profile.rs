@@ -51,6 +51,8 @@ impl ScreenplayLayoutProfile {
                     profile.styles.character.right_indent = 6.25;
                     profile.styles.parenthetical.left_indent = 2.75;
                     profile.styles.transition.right_indent = 7.25;
+                } else if option.eq_ignore_ascii_case("ssbsh") {
+                    profile.styles.scene_heading.spacing_before = 1.0;
                 } else if option.eq_ignore_ascii_case("dsd") {
                     profile.styles.dialogue.line_spacing = 2.0;
                 } else if let Some(value) = option.strip_prefix("dl-") {
