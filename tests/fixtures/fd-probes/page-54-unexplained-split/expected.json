@@ -1,0 +1,20 @@
+{
+  "probe_id": "page-54-unexplained-split",
+  "description": "Probe for page 54 unexplained split.",
+  "status": "active",
+  "lines_per_page": 54,
+  "target": {
+    "kind": "dialogue",
+    "contains_text": "Probably just as well."
+  },
+  "expected": {
+    "kind": "split",
+    "top_page": 1,
+    "bottom_page": 2,
+    "top_fragment_ends_with": "Probably just as well.",
+    "bottom_fragment_starts_with": "He would have told it wrong anyway."
+  },
+  "final_draft_notes": [
+    "Keep in mind our page numbers don't always match canon, usually off by one"
+  ]
+}
