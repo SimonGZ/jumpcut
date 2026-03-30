@@ -6882,7 +6882,12 @@
           "block_id": "block-00306",
           "dual_dialogue_group": null,
           "dual_dialogue_side": null
-        },
+        }
+      ]
+    },
+    {
+      "number": 52,
+      "items": [
         {
           "element_id": "el-00734",
           "kind": "Character",
@@ -6891,12 +6896,7 @@
           "block_id": "block-00307",
           "dual_dialogue_group": null,
           "dual_dialogue_side": null
-        }
-      ]
-    },
-    {
-      "number": 52,
-      "items": [
+        },
         {
           "element_id": "el-00735",
           "kind": "Dialogue",
