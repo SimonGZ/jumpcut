@@ -1,0 +1,22 @@
+{
+  "probe_id": "page-54-plus-one-line",
+  "description": "Page 54 control probe with one additional rendered line before the target dialogue block.",
+  "status": "active",
+  "lines_per_page": 54,
+  "target": {
+    "kind": "dialogue",
+    "speaker": "EDWARD",
+    "contains_text": "Probably just as well."
+  },
+  "expected": {
+    "kind": "split",
+    "top_page": 1,
+    "bottom_page": 2,
+    "top_fragment_ends_with": "Probably just as well.",
+    "bottom_fragment_starts_with": "He would have told it wrong anyway."
+  },
+  "final_draft_notes": [
+      "Question: if one earlier action line is added without changing the dialogue shape, does Final Draft move the split earlier or push the whole EDWARD block?",
+      "Answer: The split stayed the same. There is a visible (MORE) at the bottom of the first page and the normal repeated character cue."
+  ]
+}

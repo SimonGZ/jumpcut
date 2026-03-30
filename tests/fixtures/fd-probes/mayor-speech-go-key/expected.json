@@ -1,0 +1,22 @@
+{
+  "probe_id": "mayor-speech-go-key",
+  "description": "Big Fish mayor send-off speech, extracted from the canonical page 34/35 window, to check whether Final Draft splits after 'go.' or keeps more text above the page break.",
+  "status": "active",
+  "lines_per_page": 54,
+  "target": {
+    "kind": "dialogue",
+    "speaker": "MAYOR",
+    "contains_text": "first son of Ashton"
+  },
+  "expected": {
+    "kind": "split",
+    "top_page": 1,
+    "bottom_page": 2,
+    "top_fragment_ends_with": "go.",
+    "bottom_fragment_starts_with": "But take with you this Key"
+  },
+  "final_draft_notes": [
+      "Question: in Final Draft, does the split happen after 'go.' with '(MORE)' at the bottom, or does Final Draft keep more of the sentence on page 1?",
+      "Answer: Yes, split after go with MORE."
+  ]
+}

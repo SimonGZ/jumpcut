@@ -1,0 +1,22 @@
+{
+  "probe_id": "page-54-no-parenthetical",
+  "description": "Page 54 control probe with the in-dialogue parenthetical removed.",
+  "status": "active",
+  "lines_per_page": 54,
+  "target": {
+    "kind": "dialogue",
+    "speaker": "EDWARD",
+    "contains_text": "Probably just as well."
+  },
+  "expected": {
+    "kind": "push-whole",
+    "absent_from_page": 2,
+    "whole_on_page": 1,
+    "starts_with": "Will never told you that?"
+
+  },
+  "final_draft_notes": [
+    "Question: does removing '(she shakes her head)' change the split boundary, implying the parenthetical is participating in widow/orphan counting or fit budgeting?",
+      "Answer: It pulls the dialogue block up to stay on one page. Note that there's a hard return within the dialogue which is unusual for a screenplay. It's just an artifact of how the fountain was edited for this test."
+  ]
+}

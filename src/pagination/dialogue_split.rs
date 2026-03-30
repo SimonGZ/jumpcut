@@ -111,6 +111,7 @@ pub fn choose_dialogue_split(
         Some(SplitScore {
             ends_sentence: policy.prefer_sentence_boundaries
                 && line_ends_sentence(&lines[top_line_count - 1]),
+            substantial_bottom: substantial_bottom(bottom_dialogue_lines),
             fuller_top_fragment: policy
                 .prefer_fuller_top_fragment
                 .then_some(top_line_count + more_line_cost())
@@ -172,6 +173,7 @@ pub fn plan_dialogue_split_parts(
 
         Some(SplitScore {
             ends_sentence: policy.prefer_sentence_boundaries && candidate.ends_sentence,
+            substantial_bottom: substantial_bottom(candidate.bottom_dialogue_lines),
             fuller_top_fragment: policy
                 .prefer_fuller_top_fragment
                 .then_some(candidate.plan.top_page_line_count())
@@ -329,6 +331,7 @@ fn element_type_for_part_kind(kind: DialoguePartKind) -> ElementType {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 struct SplitScore {
     ends_sentence: bool,
+    substantial_bottom: bool,
     fuller_top_fragment: usize,
     balance_score: usize,
     top_content_bytes: usize,
@@ -346,6 +349,10 @@ fn line_ends_sentence(line: &DialogueLine) -> bool {
 
 fn balance_score(top_dialogue_lines: usize, bottom_dialogue_lines: usize) -> usize {
     usize::MAX - top_dialogue_lines.abs_diff(bottom_dialogue_lines)
+}
+
+fn substantial_bottom(bottom_dialogue_lines: usize) -> bool {
+    bottom_dialogue_lines >= 3
 }
 
 fn more_line_cost() -> usize {

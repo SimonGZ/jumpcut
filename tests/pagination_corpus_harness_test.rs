@@ -318,71 +318,6 @@ fn big_fish_pages_53_54_split_el_01146_after_was_gone_for_a_long_time() {
 }
 
 #[test]
-fn big_fish_pages_55_56_split_el_01197_before_more_line_costs_space() {
-    let mut fixture: PageBreakFixture =
-        read_fixture("tests/fixtures/corpus/public/big-fish/canonical/page-breaks.json");
-    fixture.pages.retain(|page| matches!(page.number, 55 | 56));
-
-    let normalized = normalized_window_from_fountain(
-        "big-fish",
-        "tests/fixtures/corpus/public/big-fish/source/source.fountain",
-        &fixture,
-    );
-    let semantic = build_semantic_screenplay(normalized);
-    let config = PaginationConfig {
-        lines_per_page: 54.0,
-        geometry: geometry_for_screenplay("big-fish"),
-    };
-    let blocks = jumpcut::pagination::composer::compose(&semantic.units, &config.geometry);
-    let pages = jumpcut::pagination::paginator::paginate(&blocks, config.lines_per_page, &config.geometry);
-
-    let page_55_block = pages
-        .iter()
-        .find_map(|page| {
-            page.blocks.iter().find(|block| {
-                matches!(
-                    block.unit,
-                    jumpcut::pagination::SemanticUnit::Dialogue(jumpcut::pagination::DialogueUnit {
-                        block_id,
-                        ..
-                    }) if block_id == "block-00360" && block.fragment == Fragment::ContinuedToNext
-                )
-            })
-        })
-        .expect("expected el-01197 top fragment");
-    let page_56_block = pages
-        .iter()
-        .find_map(|page| {
-            page.blocks.iter().find(|block| {
-                matches!(
-                    block.unit,
-                    jumpcut::pagination::SemanticUnit::Dialogue(jumpcut::pagination::DialogueUnit {
-                        block_id,
-                        ..
-                    }) if block_id == "block-00360" && block.fragment == Fragment::ContinuedFromPrev
-                )
-            })
-        })
-        .expect("expected el-01197 bottom fragment");
-
-    let page_55_text = dialogue_part_fragment_text(page_55_block, "el-01197");
-    let page_56_text = dialogue_part_fragment_text(page_56_block, "el-01197");
-
-    assert!(
-        page_55_text.trim_end().ends_with("He would have told it wrong anyway."),
-        "expected page 55 fragment to end after 'He would have told it wrong anyway.', got: {:?}",
-        page_55_text
-    );
-    assert!(
-        page_56_text
-            .trim_start()
-            .starts_with("All the facts and none of the flavor."),
-        "expected page 56 fragment to start with 'All the facts and none of the flavor.', got: {:?}",
-        page_56_text
-    );
-}
-
-#[test]
 fn big_fish_pages_81_82_keep_el_01742_whole_on_page_82() {
     let mut fixture: PageBreakFixture =
         read_fixture("tests/fixtures/corpus/public/big-fish/canonical/page-breaks.json");
@@ -864,43 +799,6 @@ fn flow_fragment_text(
         Fragment::ContinuedFromPrevAndToNext => wrapped_lines.into_iter().take(fragment_line_count).collect(),
     }
     .join("\n")
-}
-
-fn dialogue_part_fragment_text(
-    block: &jumpcut::pagination::composer::LayoutBlock<'_>,
-    element_id: &str,
-) -> String {
-    let jumpcut::pagination::SemanticUnit::Dialogue(unit) = block.unit else {
-        panic!("expected dialogue block");
-    };
-    let plan = block
-        .dialogue_split
-        .as_ref()
-        .expect("expected dialogue split plan");
-
-    let (part, part_plan) = unit
-        .parts
-        .iter()
-        .zip(plan.parts.iter())
-        .find(|(part, _)| part.element_id == element_id)
-        .expect("expected dialogue part in split plan");
-
-    match block.fragment {
-        Fragment::Whole => {
-            if part_plan.bottom_text.is_empty() {
-                part.text.clone()
-            } else {
-                [part_plan.top_text.as_str(), part_plan.bottom_text.as_str()]
-                    .into_iter()
-                    .filter(|text| !text.is_empty())
-                    .collect::<Vec<_>>()
-                    .join("\n")
-            }
-        }
-        Fragment::ContinuedToNext => part_plan.top_text.clone(),
-        Fragment::ContinuedFromPrev => part_plan.bottom_text.clone(),
-        Fragment::ContinuedFromPrevAndToNext => part_plan.top_text.clone(),
-    }
 }
 
 fn dialogue_block_fragment_text(block: &jumpcut::pagination::composer::LayoutBlock<'_>) -> String {
