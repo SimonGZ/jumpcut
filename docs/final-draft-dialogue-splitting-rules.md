@@ -47,10 +47,12 @@ applied to mid-part boundaries discovered inside long dialogue/lyric text.
 When multiple legal split candidates exist, the "best" split is chosen using the following priority:
 
 1.  **Sentence Boundaries**: Prefer splitting at the end of a sentence.
-2.  **Substantial Bottom Continuation**: Prefer a split that leaves a fuller
-    continuation block on the next page.
-3.  **Page Fullness**: Among otherwise equal candidates, prefer the split that
-    leaves more material on the top page.
+2.  **Substantial Bottom Continuation**: Prefer candidates whose continuation
+    block on the next page is substantial enough to avoid looking stranded. In
+    the current implementation, this is a threshold rule, not a continuous
+    "more bottom is always better" preference.
+3.  **Page Fullness**: Once candidates are equal on the substantial-bottom
+    check, prefer the split that leaves more material on the top page.
 4.  **Balance**: Prefer splits that result in roughly equal-sized fragments.
 5.  **Content Tiebreaker**: If all else is equal, prefer the split that keeps
     more characters/bytes on the top page.

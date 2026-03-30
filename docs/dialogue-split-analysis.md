@@ -87,10 +87,12 @@ cleanup pass.
 When multiple legal split candidates exist, the "best" split is chosen using a strict priority:
 
 1.  **Sentence Boundaries**: Candidates that split at the end of a sentence are heavily preferred.
-2.  **Substantial Bottom Continuation**: Among legal candidates, prefer a
-    continuation that leaves a fuller fragment on the next page.
-3.  **Page Fullness**: Among equal candidates, prefer the one that leaves more
-    lines on the top page.
+2.  **Substantial Bottom Continuation**: Among legal candidates, prefer ones
+    whose continuation block is substantial enough to avoid looking stranded.
+    This is currently implemented as a threshold check, not a continuous
+    "bigger bottom always wins" rule.
+3.  **Page Fullness**: Once candidates are equal on that substantial-bottom
+    check, prefer the one that leaves more lines on the top page.
 4.  **Balance**: Prefer splits that result in roughly equal-sized fragments.
 5.  **Content Tiebreaker**: As a final tie-break, the split that keeps more raw
     text characters on the top page wins.
