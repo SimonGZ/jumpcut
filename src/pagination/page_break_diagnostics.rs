@@ -10,7 +10,8 @@ use crate::pagination::{
     build_semantic_screenplay, compare_paginated_to_fixture, normalize_screenplay,
     ComparisonIssueKind, DialoguePartKind, FlowKind, Fragment, LayoutGeometry, LineRange,
     NormalizedElement, NormalizedScreenplay, PageBreakFixture, PageBreakFixtureSourceRefs,
-    PaginatedScreenplay, PaginationConfig, SemanticUnit, wrapping::ElementType,
+    PaginatedScreenplay, PaginationConfig, SemanticUnit, margin::line_height_for_element_type,
+    wrapping::ElementType,
 };
 
 pub fn write_big_fish_public_slice_json(debug_dir: &Path) {
@@ -1248,6 +1249,12 @@ struct DiagnosticRenderedLine {
     counted: bool,
 }
 
+#[derive(Clone)]
+struct RenderedElementLine {
+    text: String,
+    element_type: ElementType,
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "kebab-case")]
 enum ProbeStatus {
@@ -1366,28 +1373,31 @@ fn render_layout_block_lines(
                 Fragment::ContinuedFromPrevAndToNext => plan.top_text.clone(),
                 Fragment::Whole => flow.text.clone(),
             };
+            let element_type = ElementType::from_flow_kind(&flow.kind);
 
             return counted_rendered_lines(
-                render_indented_lines(&text, ElementType::from_flow_kind(&flow.kind), geometry),
+                render_indented_lines(&text, element_type, geometry)
+                    .into_iter()
+                    .map(|text| RenderedElementLine { text, element_type })
+                    .collect(),
                 geometry,
             );
         }
     }
 
     let all_lines = render_semantic_unit_lines(block.unit, geometry);
-    let target_line_count = (block.content_lines / geometry.line_height).round() as usize;
 
     let lines = match block.fragment {
         Fragment::Whole => all_lines,
-        Fragment::ContinuedToNext => all_lines.into_iter().take(target_line_count).collect(),
-        Fragment::ContinuedFromPrev => {
-            let len = all_lines.len();
-            all_lines
-                .into_iter()
-                .skip(len.saturating_sub(target_line_count))
-                .collect()
+        Fragment::ContinuedToNext => {
+            take_rendered_lines_from_top_by_height(&all_lines, block.content_lines, geometry)
         }
-        Fragment::ContinuedFromPrevAndToNext => all_lines.into_iter().take(target_line_count).collect(),
+        Fragment::ContinuedFromPrev => {
+            take_rendered_lines_from_bottom_by_height(&all_lines, block.content_lines, geometry)
+        }
+        Fragment::ContinuedFromPrevAndToNext => {
+            take_rendered_lines_from_top_by_height(&all_lines, block.content_lines, geometry)
+        }
     };
 
     counted_rendered_lines(lines, geometry)
@@ -1505,17 +1515,22 @@ fn render_dialogue_fragment_lines(
     if let Some(plan) = split_plan {
         match fragment {
             Fragment::ContinuedToNext => {
-                let lines = plan
+                let mut lines = plan
                     .parts
                     .iter()
                     .zip(dialogue.parts.iter())
                     .flat_map(|(part, dialogue_part)| {
                         let element_type =
                             ElementType::from_dialogue_part_kind(&dialogue_part.kind);
-                        render_indented_lines(&part.top_text, element_type, geometry)
+                        counted_rendered_lines(
+                            render_indented_lines(&part.top_text, element_type, geometry)
+                                .into_iter()
+                                .map(|text| RenderedElementLine { text, element_type })
+                                .collect(),
+                            geometry,
+                        )
                     })
                     .collect::<Vec<_>>();
-                let mut lines = counted_rendered_lines(lines, geometry);
                 lines.push(render_more_marker_line(geometry));
                 return lines;
             }
@@ -1536,6 +1551,8 @@ fn render_dialogue_fragment_lines(
                             let element_type =
                                 ElementType::from_dialogue_part_kind(&dialogue_part.kind);
                             render_indented_lines(&part.bottom_text, element_type, geometry)
+                                .into_iter()
+                                .map(move |text| RenderedElementLine { text, element_type })
                         })
                         .collect::<Vec<_>>(),
                     geometry,
@@ -1548,21 +1565,16 @@ fn render_dialogue_fragment_lines(
 
     let all_lines = render_semantic_unit_lines(&SemanticUnit::Dialogue(dialogue.clone()), geometry);
     let continuation_prefix = render_dialogue_continuation_prefix(dialogue, geometry);
-    let target_line_count = (content_lines / geometry.line_height).round() as usize;
 
     match fragment {
         Fragment::Whole => counted_rendered_lines(all_lines, geometry),
         Fragment::ContinuedToNext => {
-            let lines = all_lines
-                .into_iter()
-                .take(target_line_count.saturating_sub(1))
-                .collect::<Vec<_>>();
+            let lines = take_rendered_lines_from_top_by_height(&all_lines, content_lines, geometry);
             let mut lines = counted_rendered_lines(lines, geometry);
             lines.push(render_more_marker_line(geometry));
             lines
         }
         Fragment::ContinuedFromPrev => {
-            let len = all_lines.len();
             continuation_prefix
                 .into_iter()
                 .map(|text| DiagnosticRenderedLine {
@@ -1571,10 +1583,7 @@ fn render_dialogue_fragment_lines(
                 })
                 .chain(
                     counted_rendered_lines(
-                        all_lines
-                            .into_iter()
-                            .skip(len.saturating_sub(target_line_count))
-                            .collect::<Vec<_>>(),
+                        take_rendered_lines_from_bottom_by_height(&all_lines, content_lines, geometry),
                         geometry,
                     ),
                 )
@@ -1589,10 +1598,7 @@ fn render_dialogue_fragment_lines(
                 })
                 .chain(
                     counted_rendered_lines(
-                        all_lines
-                            .into_iter()
-                            .take(target_line_count.saturating_sub(1))
-                            .collect::<Vec<_>>(),
+                        take_rendered_lines_from_top_by_height(&all_lines, content_lines, geometry),
                         geometry,
                     ),
                 )
@@ -1642,20 +1648,31 @@ fn render_more_marker_line(geometry: &LayoutGeometry) -> DiagnosticRenderedLine 
     }
 }
 
-fn render_semantic_unit_lines(unit: &SemanticUnit, geometry: &LayoutGeometry) -> Vec<String> {
+fn render_semantic_unit_lines(unit: &SemanticUnit, geometry: &LayoutGeometry) -> Vec<RenderedElementLine> {
     match unit {
         SemanticUnit::PageStart(_) => Vec::new(),
         SemanticUnit::Flow(flow) => {
             let element_type = ElementType::from_flow_kind(&flow.kind);
             render_indented_lines(&flow.text, element_type, geometry)
+                .into_iter()
+                .map(|text| RenderedElementLine { text, element_type })
+                .collect()
         }
-        SemanticUnit::Lyric(lyric) => render_indented_lines(&lyric.text, ElementType::Lyric, geometry),
+        SemanticUnit::Lyric(lyric) => render_indented_lines(&lyric.text, ElementType::Lyric, geometry)
+            .into_iter()
+            .map(|text| RenderedElementLine {
+                text,
+                element_type: ElementType::Lyric,
+            })
+            .collect(),
         SemanticUnit::Dialogue(dialogue) => dialogue
             .parts
             .iter()
             .flat_map(|part| {
                 let element_type = ElementType::from_dialogue_part_kind(&part.kind);
                 render_indented_lines(&part.text, element_type, geometry)
+                    .into_iter()
+                    .map(move |text| RenderedElementLine { text, element_type })
             })
             .collect(),
         SemanticUnit::DualDialogue(dual) => {
@@ -1691,11 +1708,20 @@ fn render_semantic_unit_lines(unit: &SemanticUnit, geometry: &LayoutGeometry) ->
                 let right = right_lines.get(index).cloned().unwrap_or_default();
 
                 if right.is_empty() {
-                    lines.push(left);
+                    lines.push(RenderedElementLine {
+                        text: left,
+                        element_type: ElementType::Dialogue,
+                    });
                 } else if left.is_empty() {
-                    lines.push(format!("{:width$}{}", "", right, width = right_indent));
+                    lines.push(RenderedElementLine {
+                        text: format!("{:width$}{}", "", right, width = right_indent),
+                        element_type: ElementType::Dialogue,
+                    });
                 } else {
-                    lines.push(format!("{left:width$}{right}", width = right_indent));
+                    lines.push(RenderedElementLine {
+                        text: format!("{left:width$}{right}", width = right_indent),
+                        element_type: ElementType::Dialogue,
+                    });
                 }
             }
             lines
@@ -1725,16 +1751,18 @@ fn render_indented_lines(text: &str, element_type: ElementType, geometry: &Layou
         .collect()
 }
 
-fn counted_rendered_lines(lines: Vec<String>, geometry: &LayoutGeometry) -> Vec<DiagnosticRenderedLine> {
+fn counted_rendered_lines(
+    lines: Vec<RenderedElementLine>,
+    geometry: &LayoutGeometry,
+) -> Vec<DiagnosticRenderedLine> {
     let mut rendered = Vec::new();
-    let uses_double_spacing = pseudo_pdf_uses_double_spaced_rows(geometry);
 
     for line in lines {
         rendered.push(DiagnosticRenderedLine {
-            text: line,
+            text: line.text,
             counted: true,
         });
-        if uses_double_spacing {
+        if pseudo_pdf_uses_double_spaced_rows(line.element_type, geometry) {
             rendered.push(DiagnosticRenderedLine {
                 text: String::new(),
                 counted: true,
@@ -1745,8 +1773,51 @@ fn counted_rendered_lines(lines: Vec<String>, geometry: &LayoutGeometry) -> Vec<
     rendered
 }
 
-fn pseudo_pdf_uses_double_spaced_rows(geometry: &LayoutGeometry) -> bool {
-    (geometry.line_height - 2.0).abs() < f32::EPSILON
+fn pseudo_pdf_uses_double_spaced_rows(
+    element_type: ElementType,
+    geometry: &LayoutGeometry,
+) -> bool {
+    (line_height_for_element_type(geometry, element_type) - 2.0).abs() < f32::EPSILON
+}
+
+fn take_rendered_lines_from_top_by_height(
+    lines: &[RenderedElementLine],
+    visible_height: f32,
+    geometry: &LayoutGeometry,
+) -> Vec<RenderedElementLine> {
+    let mut used_height = 0.0;
+    let mut visible = Vec::new();
+
+    for line in lines {
+        let line_height = line_height_for_element_type(geometry, line.element_type);
+        if used_height + line_height > visible_height + f32::EPSILON {
+            break;
+        }
+        visible.push(line.clone());
+        used_height += line_height;
+    }
+
+    visible
+}
+
+fn take_rendered_lines_from_bottom_by_height(
+    lines: &[RenderedElementLine],
+    visible_height: f32,
+    geometry: &LayoutGeometry,
+) -> Vec<RenderedElementLine> {
+    let mut used_height = 0.0;
+    let mut start_index = lines.len();
+
+    for (index, line) in lines.iter().enumerate().rev() {
+        let line_height = line_height_for_element_type(geometry, line.element_type);
+        if used_height + line_height > visible_height + f32::EPSILON {
+            break;
+        }
+        used_height += line_height;
+        start_index = index;
+    }
+
+    lines[start_index..].to_vec()
 }
 
 fn indent_spaces_for_element_type(element_type: ElementType, geometry: &LayoutGeometry) -> usize {
@@ -1784,12 +1855,48 @@ mod tests {
     #[test]
     fn counted_rendered_lines_expand_for_double_spaced_geometry() {
         let mut geometry = LayoutGeometry::default();
-        geometry.line_height = 2.0;
+        geometry.dialogue_line_height = 2.0;
 
-        let rendered = counted_rendered_lines(vec!["Hello".into(), "World".into()], &geometry);
+        let rendered = counted_rendered_lines(
+            vec![
+                RenderedElementLine {
+                    text: "Hello".into(),
+                    element_type: ElementType::Dialogue,
+                },
+                RenderedElementLine {
+                    text: "World".into(),
+                    element_type: ElementType::Dialogue,
+                },
+            ],
+            &geometry,
+        );
         let texts = rendered.into_iter().map(|line| line.text).collect::<Vec<_>>();
 
         assert_eq!(texts, vec!["Hello", "", "World", ""]);
+    }
+
+    #[test]
+    fn counted_rendered_lines_only_expand_the_element_types_with_double_spacing() {
+        let mut geometry = LayoutGeometry::default();
+        geometry.action_line_height = 1.0;
+        geometry.dialogue_line_height = 2.0;
+
+        let rendered = counted_rendered_lines(
+            vec![
+                RenderedElementLine {
+                    text: "Action".into(),
+                    element_type: ElementType::Action,
+                },
+                RenderedElementLine {
+                    text: "Dialogue".into(),
+                    element_type: ElementType::Dialogue,
+                },
+            ],
+            &geometry,
+        );
+        let texts = rendered.into_iter().map(|line| line.text).collect::<Vec<_>>();
+
+        assert_eq!(texts, vec!["Action", "Dialogue", ""]);
     }
 }
 
@@ -2329,7 +2436,8 @@ fn measured_lines_for_item(
         None => element.text.clone(),
     };
     let wrapped_lines = crate::pagination::wrapping::wrap_text_for_element(&text, &config);
-    let content_lines = wrapped_lines.len() as f32 * geometry.line_height;
+    let content_lines =
+        wrapped_lines.len() as f32 * line_height_for_element_type(geometry, element_type);
 
     let spacing_above = match element_type {
         ElementType::Action => geometry.action_spacing_before,
@@ -2367,7 +2475,8 @@ fn measure_visual_item(
         None => element.text.clone(),
     };
     let wrapped_lines = crate::pagination::wrapping::wrap_text_for_element(&text, &config);
-    let content_lines = wrapped_lines.len() as f32 * geometry.line_height;
+    let content_lines =
+        wrapped_lines.len() as f32 * line_height_for_element_type(geometry, element_type);
     let spacing_above = match element_type {
         ElementType::Action => geometry.action_spacing_before,
         ElementType::SceneHeading => geometry.scene_heading_spacing_before,

@@ -1,6 +1,6 @@
 use jumpcut::pagination::{
     build_semantic_screenplay, compare_paginated_to_fixture,
-    normalize_screenplay, wrapping::ElementType, ComparisonIssueKind,
+    margin::line_height_for_element_type, normalize_screenplay, wrapping::ElementType, ComparisonIssueKind,
     DialoguePartKind, FlowKind, Fragment, LayoutGeometry, LineRange, NormalizedElement,
     NormalizedScreenplay, PageBreakFixture, PaginatedScreenplay, PaginationConfig,
 };
@@ -784,7 +784,9 @@ fn flow_fragment_text(
     let element_type = ElementType::from_flow_kind(&flow.kind);
     let config = jumpcut::pagination::wrapping::WrapConfig::from_geometry(geometry, element_type);
     let wrapped_lines = jumpcut::pagination::wrapping::wrap_text_for_element(&flow.text, &config);
-    let fragment_line_count = (block.content_lines / geometry.line_height).round() as usize;
+    let fragment_line_count =
+        (block.content_lines / line_height_for_element_type(geometry, element_type)).round()
+            as usize;
 
     match block.fragment {
         Fragment::Whole => wrapped_lines,

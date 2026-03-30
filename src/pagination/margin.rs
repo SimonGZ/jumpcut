@@ -77,6 +77,16 @@ pub struct LayoutGeometry {
     pub widow_limit: usize,
 
     // Spacing
+    pub action_line_height: f32,
+    pub cold_opening_line_height: f32,
+    pub new_act_line_height: f32,
+    pub end_of_act_line_height: f32,
+    pub scene_heading_line_height: f32,
+    pub character_line_height: f32,
+    pub dialogue_line_height: f32,
+    pub parenthetical_line_height: f32,
+    pub transition_line_height: f32,
+    pub lyric_line_height: f32,
     pub line_height: f32,
 }
 
@@ -129,6 +139,16 @@ impl Default for LayoutGeometry {
 
             orphan_limit: 2,
             widow_limit: 2,
+            action_line_height: 1.0,
+            cold_opening_line_height: 1.0,
+            new_act_line_height: 1.0,
+            end_of_act_line_height: 1.0,
+            scene_heading_line_height: 1.0,
+            character_line_height: 1.0,
+            dialogue_line_height: 1.0,
+            parenthetical_line_height: 1.0,
+            transition_line_height: 1.0,
+            lyric_line_height: 1.0,
             line_height: 1.0,
         }
     }
@@ -145,58 +165,69 @@ impl LayoutGeometry {
             geometry.action_right = style.right_indent;
             geometry.action_spacing_before = spacing_lines_from_points(style.space_before, lpi);
             geometry.action_alignment = style.alignment;
+            geometry.action_line_height = style.spacing;
         }
         if let Some(style) = settings.paragraph_styles.get("Cold Opening") {
             geometry.cold_opening_left = style.left_indent;
             geometry.cold_opening_right = style.right_indent;
             geometry.cold_opening_spacing_before = spacing_lines_from_points(style.space_before, lpi);
             geometry.cold_opening_alignment = style.alignment;
+            geometry.cold_opening_line_height = style.spacing;
         }
         if let Some(style) = settings.paragraph_styles.get("New Act") {
             geometry.new_act_left = style.left_indent;
             geometry.new_act_right = style.right_indent;
             geometry.new_act_spacing_before = spacing_lines_from_points(style.space_before, lpi);
             geometry.new_act_alignment = style.alignment;
+            geometry.new_act_line_height = style.spacing;
         }
         if let Some(style) = settings.paragraph_styles.get("End of Act") {
             geometry.end_of_act_left = style.left_indent;
             geometry.end_of_act_right = style.right_indent;
             geometry.end_of_act_spacing_before = spacing_lines_from_points(style.space_before, lpi);
             geometry.end_of_act_alignment = style.alignment;
+            geometry.end_of_act_line_height = style.spacing;
         }
         if let Some(style) = settings.paragraph_styles.get("Scene Heading") {
             geometry.scene_heading_spacing_before = spacing_lines_from_points(style.space_before, lpi);
             geometry.scene_heading_alignment = style.alignment;
+            geometry.scene_heading_line_height = style.spacing;
         }
         if let Some(style) = settings.paragraph_styles.get("Dialogue") {
             geometry.dialogue_left = style.left_indent;
             geometry.dialogue_right = style.right_indent;
             geometry.dialogue_alignment = style.alignment;
+            geometry.dialogue_line_height = style.spacing;
         }
         if let Some(style) = settings.paragraph_styles.get("Character") {
             geometry.character_left = style.left_indent;
             geometry.character_right = style.right_indent;
             geometry.character_spacing_before = spacing_lines_from_points(style.space_before, lpi);
             geometry.character_alignment = style.alignment;
+            geometry.character_line_height = style.spacing;
         }
         if let Some(style) = settings.paragraph_styles.get("Parenthetical") {
             geometry.parenthetical_left = style.left_indent;
             geometry.parenthetical_right = style.right_indent;
             geometry.parenthetical_alignment = style.alignment;
+            geometry.parenthetical_line_height = style.spacing;
         }
         if let Some(style) = settings.paragraph_styles.get("Lyric") {
             geometry.lyric_left = style.left_indent;
             geometry.lyric_right = style.right_indent;
             geometry.lyric_spacing_before = spacing_lines_from_points(style.space_before, lpi);
             geometry.lyric_alignment = style.alignment;
+            geometry.lyric_line_height = style.spacing;
         }
         if let Some(style) = settings.paragraph_styles.get("Transition") {
             geometry.transition_left = style.left_indent;
             geometry.transition_right = style.right_indent;
             geometry.transition_spacing_before = spacing_lines_from_points(style.space_before, lpi);
             geometry.transition_alignment = style.alignment;
+            geometry.transition_line_height = style.spacing;
         }
 
+        geometry.line_height = geometry.dialogue_line_height;
         geometry
     }
 }
@@ -249,6 +280,22 @@ pub fn calculate_element_width(geometry: &LayoutGeometry, element_type: ElementT
     }
     
     chars
+}
+
+pub fn line_height_for_element_type(geometry: &LayoutGeometry, element_type: ElementType) -> f32 {
+    match element_type {
+        ElementType::Action => geometry.action_line_height,
+        ElementType::ColdOpening => geometry.cold_opening_line_height,
+        ElementType::NewAct => geometry.new_act_line_height,
+        ElementType::EndOfAct => geometry.end_of_act_line_height,
+        ElementType::SceneHeading => geometry.scene_heading_line_height,
+        ElementType::Character => geometry.character_line_height,
+        ElementType::Dialogue => geometry.dialogue_line_height,
+        ElementType::Parenthetical => geometry.parenthetical_line_height,
+        ElementType::Transition => geometry.transition_line_height,
+        ElementType::Lyric => geometry.lyric_line_height,
+        ElementType::DualDialogueLeft | ElementType::DualDialogueRight => geometry.dialogue_line_height,
+    }
 }
 
 fn default_alignment() -> Alignment {

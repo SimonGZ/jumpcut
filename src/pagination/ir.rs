@@ -3,6 +3,7 @@ use crate::pagination::fixtures::{
     Fragment, NormalizedElement, NormalizedScreenplay, PageBreakFixture,
     PageBreakFixtureSourceRefs, PaginationScope,
 };
+use crate::pagination::margin::line_height_for_element_type;
 use crate::pagination::normalize_screenplay;
 use crate::pagination::ScreenplayLayoutProfile;
 use crate::pagination::semantic::{
@@ -386,7 +387,7 @@ fn dialogue_items_for_fragment(
     }
 
     let line_counts = dialogue_part_line_counts(unit, dual_side, geometry);
-    let visible_lines = (visible_content_lines / geometry.line_height).round() as usize;
+    let line_heights = dialogue_part_line_heights(unit, dual_side, geometry);
     let total_lines: usize = line_counts.iter().sum();
 
     match fragment {
@@ -395,22 +396,30 @@ fn dialogue_items_for_fragment(
             dual_group,
             dual_side,
             &line_counts,
-            visible_lines,
+            visible_prefix_dialogue_lines(&line_counts, &line_heights, visible_content_lines),
         ),
         Fragment::ContinuedFromPrev => dialogue_bottom_fragment_items(
             unit,
             dual_group,
             dual_side,
             &line_counts,
-            total_lines.saturating_sub(visible_lines),
+            skipped_prefix_dialogue_lines_for_bottom_fragment(
+                &line_counts,
+                &line_heights,
+                visible_content_lines,
+            ),
         ),
         Fragment::ContinuedFromPrevAndToNext => dialogue_middle_fragment_items(
             unit,
             dual_group,
             dual_side,
             &line_counts,
-            total_lines.saturating_sub(visible_lines),
-            visible_lines,
+            total_lines.saturating_sub(visible_prefix_dialogue_lines(
+                &line_counts,
+                &line_heights,
+                visible_content_lines,
+            )),
+            visible_prefix_dialogue_lines(&line_counts, &line_heights, visible_content_lines),
         ),
         Fragment::Whole => unreachable!(),
     }
@@ -543,6 +552,72 @@ fn dialogue_part_line_counts(
             wrap_text_for_element(&part.text, &config).len()
         })
         .collect()
+}
+
+fn dialogue_part_line_heights(
+    unit: &DialogueUnit,
+    dual_side: Option<u8>,
+    geometry: &LayoutGeometry,
+) -> Vec<f32> {
+    unit.parts
+        .iter()
+        .map(|part| {
+            let element_type = match dual_side {
+                Some(1) => ElementType::DualDialogueLeft,
+                Some(_) => ElementType::DualDialogueRight,
+                None => match part.kind {
+                    DialoguePartKind::Character => ElementType::Character,
+                    DialoguePartKind::Parenthetical => ElementType::Parenthetical,
+                    DialoguePartKind::Dialogue => ElementType::Dialogue,
+                    DialoguePartKind::Lyric => ElementType::Lyric,
+                },
+            };
+            line_height_for_element_type(geometry, element_type)
+        })
+        .collect()
+}
+
+fn visible_prefix_dialogue_lines(
+    line_counts: &[usize],
+    line_heights: &[f32],
+    visible_content_height: f32,
+) -> usize {
+    let mut visible_lines = 0;
+    let mut used_height = 0.0;
+
+    for (&line_count, &line_height) in line_counts.iter().zip(line_heights.iter()) {
+        for _ in 0..line_count {
+            if used_height + line_height > visible_content_height + f32::EPSILON {
+                return visible_lines;
+            }
+            used_height += line_height;
+            visible_lines += 1;
+        }
+    }
+
+    visible_lines
+}
+
+fn skipped_prefix_dialogue_lines_for_bottom_fragment(
+    line_counts: &[usize],
+    line_heights: &[f32],
+    visible_content_height: f32,
+) -> usize {
+    let mut visible_suffix_lines = 0;
+    let mut used_height = 0.0;
+
+    for (&line_count, &line_height) in line_counts.iter().zip(line_heights.iter()).rev() {
+        for _ in 0..line_count {
+            if used_height + line_height > visible_content_height + f32::EPSILON {
+                let total_lines: usize = line_counts.iter().sum();
+                return total_lines.saturating_sub(visible_suffix_lines);
+            }
+            used_height += line_height;
+            visible_suffix_lines += 1;
+        }
+    }
+
+    line_counts.iter().sum::<usize>().saturating_sub(visible_suffix_lines)
 }
 
 fn dialogue_top_fragment_items(

@@ -1,6 +1,7 @@
 use std::cmp::Ordering;
 use std::collections::BTreeMap;
 
+use crate::pagination::margin::line_height_for_element_type;
 use crate::pagination::split_scoring::choose_best_scored_split;
 use crate::pagination::sentence_boundary::sentence_boundary_offsets;
 use crate::pagination::wrapping::{
@@ -16,10 +17,12 @@ pub struct DialoguePartSplitLines {
     pub bottom_lines: Vec<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct DialogueSplitPlan {
     pub top_line_count: usize,
     pub bottom_line_count: usize,
+    pub top_height: f32,
+    pub bottom_height: f32,
     pub ends_sentence: bool,
     pub parts: Vec<DialoguePartSplitLines>,
 }
@@ -43,7 +46,7 @@ struct DialogueSplitBoundary {
     ends_sentence: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 struct DialogueSplitCandidate {
     plan: DialogueSplitPlan,
     top_dialogue_lines: usize,
@@ -64,7 +67,7 @@ impl Default for DialogueSplitPolicy {
 pub fn plan_dialogue_split(
     dialogue: &DialogueUnit,
     geometry: &LayoutGeometry,
-    max_top_lines: usize,
+    max_top_height: f32,
     min_top_content_lines: usize,
     min_bottom_content_lines: usize,
 ) -> Option<DialogueSplitPlan> {
@@ -80,7 +83,7 @@ pub fn plan_dialogue_split(
         dialogue,
         &parts,
         geometry,
-        max_top_lines,
+        max_top_height,
         min_top_content_lines,
         min_bottom_content_lines,
     )
@@ -90,7 +93,7 @@ pub fn plan_dialogue_split_parts(
     _dialogue: &DialogueUnit,
     parts: &[DialogueTextPart],
     geometry: &LayoutGeometry,
-    max_top_lines: usize,
+    max_top_height: f32,
     min_top_content_lines: usize,
     min_bottom_content_lines: usize,
 ) -> Option<DialogueSplitPlan> {
@@ -99,7 +102,7 @@ pub fn plan_dialogue_split_parts(
 
     let winner = choose_best_scored_split(0..candidates.len(), |candidate_index| {
         let candidate = &candidates[candidate_index];
-        if candidate.plan.top_line_count > max_top_lines {
+        if candidate.plan.top_height > max_top_height {
             return None;
         }
 
@@ -190,6 +193,8 @@ fn build_candidate(
 ) -> Option<DialogueSplitCandidate> {
     let mut top_line_count = 0;
     let mut bottom_line_count = 0;
+    let mut top_height = 0.0;
+    let mut bottom_height = 0.0;
     let mut top_dialogue_lines = 0;
     let mut bottom_dialogue_lines = 0;
     let mut split_parts = Vec::with_capacity(parts.len());
@@ -200,9 +205,12 @@ fn build_candidate(
             WrapConfig::from_geometry(geometry, element_type_for_part_kind(part.kind.clone()));
         let top_lines = wrap_fragment_lines(top_text, &config);
         let bottom_lines = wrap_fragment_lines(bottom_text, &config);
+        let line_height = line_height_for_part_kind(part.kind.clone(), geometry);
 
         top_line_count += top_lines.len();
         bottom_line_count += bottom_lines.len();
+        top_height += top_lines.len() as f32 * line_height;
+        bottom_height += bottom_lines.len() as f32 * line_height;
 
         if matches!(part.kind, DialoguePartKind::Dialogue | DialoguePartKind::Lyric | DialoguePartKind::Parenthetical) {
             top_dialogue_lines += top_lines.len();
@@ -227,6 +235,8 @@ fn build_candidate(
         plan: DialogueSplitPlan {
             top_line_count,
             bottom_line_count,
+            top_height,
+            bottom_height,
             ends_sentence: boundary.ends_sentence,
             parts: split_parts,
         },
@@ -268,6 +278,10 @@ fn element_type_for_part_kind(kind: DialoguePartKind) -> ElementType {
         DialoguePartKind::Dialogue => ElementType::Dialogue,
         DialoguePartKind::Lyric => ElementType::Lyric,
     }
+}
+
+fn line_height_for_part_kind(kind: DialoguePartKind, geometry: &LayoutGeometry) -> f32 {
+    line_height_for_element_type(geometry, element_type_for_part_kind(kind))
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

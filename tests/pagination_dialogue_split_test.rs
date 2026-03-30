@@ -31,7 +31,7 @@ fn dialogue_split_prefers_a_sentence_boundary_for_the_mayor_case() {
         },
     };
 
-    let plan = plan_dialogue_split(&dialogue, &LayoutGeometry::default(), 5, 2, 2).unwrap();
+    let plan = plan_dialogue_split(&dialogue, &LayoutGeometry::default(), 5.0, 2, 2).unwrap();
 
     assert!(plan.ends_sentence);
     assert_eq!(
@@ -64,7 +64,7 @@ fn dialogue_split_pushes_the_whole_block_when_only_a_too_short_top_fragment_fits
     ]);
 
     let plan =
-        plan_dialogue_split_parts(&stub_dialogue_unit(), &parts, &LayoutGeometry::default(), 2, 2, 2);
+        plan_dialogue_split_parts(&stub_dialogue_unit(), &parts, &LayoutGeometry::default(), 2.0, 2, 2);
 
     assert_eq!(plan, None);
 }
@@ -100,7 +100,7 @@ fn dialogue_split_can_start_the_continuation_with_a_parenthetical() {
     ]);
 
     let plan =
-        plan_dialogue_split_parts(&stub_dialogue_unit(), &parts, &LayoutGeometry::default(), 6, 2, 2)
+        plan_dialogue_split_parts(&stub_dialogue_unit(), &parts, &LayoutGeometry::default(), 6.0, 2, 2)
             .unwrap();
 
     assert_eq!(plan.top_line_count, 5);
@@ -156,7 +156,7 @@ fn dialogue_split_prefers_the_sentence_boundary_that_also_fills_the_page() {
     );
 
     let plan =
-        plan_dialogue_split_parts(&stub_dialogue_unit(), &parts, &LayoutGeometry::default(), 19, 2, 2)
+        plan_dialogue_split_parts(&stub_dialogue_unit(), &parts, &LayoutGeometry::default(), 19.0, 2, 2)
             .unwrap();
 
     assert_eq!(plan.top_line_count, 18);
@@ -190,7 +190,7 @@ fn dialogue_split_plan_can_split_at_a_sentence_boundary_inside_a_wrapped_line() 
         },
     };
 
-    let plan = plan_dialogue_split(&dialogue, &LayoutGeometry::default(), 14, 2, 2).unwrap();
+    let plan = plan_dialogue_split(&dialogue, &LayoutGeometry::default(), 14.0, 2, 2).unwrap();
 
     assert_eq!(plan.top_line_count, 13);
     assert_eq!(plan.bottom_line_count, 6);

@@ -2,7 +2,7 @@
 use jumpcut::pagination::composer::compose;
 use jumpcut::pagination::{
     Cohesion, DialoguePart, DialoguePartKind, DialogueUnit, DualDialogueSide, DualDialogueUnit,
-    FlowKind, FlowUnit, LayoutGeometry, SemanticUnit,
+    FlowKind, FlowUnit, LayoutGeometry, PaginationConfig, SemanticUnit,
 };
 use jumpcut::pagination::{build_semantic_screenplay, normalize_screenplay};
 use jumpcut::parse;
@@ -207,8 +207,8 @@ fn composer_respects_custom_vertical_spacing() {
 #[test]
 fn composer_respects_custom_line_height() {
     let mut geometry = LayoutGeometry::default();
-    // Default leading is 1.0. Let's make it 2.0 (Double Spaced).
-    geometry.line_height = 2.0;
+    // Default action leading is 1.0. Let's make action specifically 2.0.
+    geometry.action_line_height = 2.0;
     
     // An action line that usually takes 2 lines of text.
     let text = "This is a sentence that is long enough to wrap onto a second line in the standard 6.0 inch action width.";
@@ -217,7 +217,7 @@ fn composer_respects_custom_line_height() {
     let baseline_blocks = compose(&baseline_units, &LayoutGeometry::default());
     assert_eq!(baseline_blocks[0].content_lines, 2.0, "Baseline should be 2 lines");
 
-    // Check custom leading (2.0 leading)
+    // Check custom action leading (2.0 leading)
     let units = vec![mock_action("el-1", text)];
     let blocks = compose(&units, &geometry);
     
@@ -231,7 +231,7 @@ fn composer_respects_custom_line_height() {
 #[test]
 fn composer_respects_1_5_line_height() {
     let mut geometry = LayoutGeometry::default();
-    geometry.line_height = 1.5;
+    geometry.action_line_height = 1.5;
     
     // 1 text line -> 1.5 visual lines (NO MORE CEIL)
     let units_1 = vec![mock_action("el-1", "Short.")];
@@ -250,7 +250,7 @@ fn composer_respects_1_5_line_height() {
     
     // Baseline check for narrow geometry @ 1.0 leading
     let mut narrow_1_0 = geometry_narrow.clone();
-    narrow_1_0.line_height = 1.0;
+    narrow_1_0.action_line_height = 1.0;
     let units_baseline = vec![mock_action("el-baseline", text_2)];
     let blocks_baseline = compose(&units_baseline, &narrow_1_0);
     let baseline_lines = blocks_baseline[0].content_lines;
@@ -323,5 +323,39 @@ fn composer_uses_explicit_multicam_flow_geometry_instead_of_action_fallbacks() {
     assert_eq!(
         blocks[1].spacing_above, 2.0,
         "End of Act should use its own spacing instead of Action fallback."
+    );
+}
+
+#[test]
+fn composer_multicam_keeps_action_single_spaced() {
+    let screenplay = parse("Fmt: multicam\n\nA short action line.\n");
+    let normalized = normalize_screenplay("multicam-action", &screenplay);
+    let semantic = build_semantic_screenplay(normalized);
+    let config = PaginationConfig::from_screenplay(&screenplay, 54.0);
+
+    let blocks = compose(&semantic.units, &config.geometry);
+
+    assert_eq!(blocks.len(), 1);
+    assert!(matches!(blocks[0].unit, SemanticUnit::Flow(_)));
+    assert_eq!(
+        blocks[0].content_lines, 1.0,
+        "Multicam should not double-space action lines."
+    );
+}
+
+#[test]
+fn composer_multicam_only_doubles_dialogue_lines_inside_dialogue_blocks() {
+    let screenplay = parse("Fmt: multicam\n\nALICE\nHello there.\n");
+    let normalized = normalize_screenplay("multicam-dialogue", &screenplay);
+    let semantic = build_semantic_screenplay(normalized);
+    let config = PaginationConfig::from_screenplay(&screenplay, 54.0);
+
+    let blocks = compose(&semantic.units, &config.geometry);
+
+    assert_eq!(blocks.len(), 1);
+    assert!(matches!(blocks[0].unit, SemanticUnit::Dialogue(_)));
+    assert_eq!(
+        blocks[0].content_lines, 3.0,
+        "A one-line character cue plus one double-spaced dialogue line should measure as 3.0 visual lines, not 4.0."
     );
 }

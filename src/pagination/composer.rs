@@ -1,5 +1,6 @@
 use crate::pagination::dialogue_split::DialogueSplitPlan;
 use crate::pagination::flow_split::FlowSplitPlan;
+use crate::pagination::margin::line_height_for_element_type;
 use crate::pagination::semantic::{DialoguePartKind, FlowKind, SemanticUnit};
 use crate::pagination::wrapping::{wrap_text_for_element, WrapConfig, ElementType};
 use crate::pagination::LayoutGeometry;
@@ -49,10 +50,13 @@ pub fn compose<'a>(units: &'a [SemanticUnit], geometry: &LayoutGeometry) -> Vec<
                     _ => 1.0,
                 };
                 
-                (lines.len(), sp_above)
+                (
+                    measured_height_for_wrapped_lines(lines.len(), el_type, geometry),
+                    sp_above,
+                )
             },
             SemanticUnit::Dialogue(dialogue) => {
-                let lines = measure_dialogue_lines(dialogue.parts.iter(), geometry, |part| {
+                let lines = measure_dialogue_height(dialogue.parts.iter(), geometry, |part| {
                     match part.kind {
                         DialoguePartKind::Character => ElementType::Character,
                         DialoguePartKind::Parenthetical => ElementType::Parenthetical,
@@ -63,14 +67,14 @@ pub fn compose<'a>(units: &'a [SemanticUnit], geometry: &LayoutGeometry) -> Vec<
                 (lines, geometry.character_spacing_before)
             },
             SemanticUnit::DualDialogue(dual) => {
-                let mut max_lines = 0;
+                let mut max_lines = 0.0;
                 for side in &dual.sides {
                     let side_element_type = match side.side {
                         1 => ElementType::DualDialogueLeft,
                         _ => ElementType::DualDialogueRight,
                     };
                     let side_lines =
-                        measure_dialogue_lines(side.dialogue.parts.iter(), geometry, |_| {
+                        measure_dialogue_height(side.dialogue.parts.iter(), geometry, |_| {
                             side_element_type
                         });
                     if side_lines > max_lines { max_lines = side_lines; }
@@ -80,16 +84,19 @@ pub fn compose<'a>(units: &'a [SemanticUnit], geometry: &LayoutGeometry) -> Vec<
             SemanticUnit::Lyric(lyric) => {
                 let config = WrapConfig::from_geometry(geometry, ElementType::Lyric);
                 let lines = wrap_text_for_element(&lyric.text, &config).len();
-                (lines, geometry.lyric_spacing_before)
+                (
+                    measured_height_for_wrapped_lines(lines, ElementType::Lyric, geometry),
+                    geometry.lyric_spacing_before,
+                )
             },
-            SemanticUnit::PageStart(_) => (0, 0.0),
+            SemanticUnit::PageStart(_) => (0.0, 0.0),
         };
 
         measured.push(LayoutBlock {
             unit,
             fragment: Fragment::Whole,
             spacing_above,
-            content_lines: content_lines as f32 * geometry.line_height,
+            content_lines,
             dialogue_split: None,
             flow_split: None,
             keep_with_next: match unit {
@@ -108,17 +115,30 @@ pub fn compose<'a>(units: &'a [SemanticUnit], geometry: &LayoutGeometry) -> Vec<
     measured
 }
 
-fn measure_dialogue_lines<'a>(
+fn measure_dialogue_height<'a>(
     parts: impl Iterator<Item = &'a crate::pagination::semantic::DialoguePart>,
     geometry: &LayoutGeometry,
     element_type_for_part: impl Fn(&crate::pagination::semantic::DialoguePart) -> ElementType,
-) -> usize {
-    let mut lines = 0;
+) -> f32 {
+    let mut lines = 0.0;
 
     for part in parts {
-        let config = WrapConfig::from_geometry(geometry, element_type_for_part(part));
-        lines += wrap_text_for_element(&part.text, &config).len();
+        let element_type = element_type_for_part(part);
+        let config = WrapConfig::from_geometry(geometry, element_type);
+        lines += measured_height_for_wrapped_lines(
+            wrap_text_for_element(&part.text, &config).len(),
+            element_type,
+            geometry,
+        );
     }
 
     lines
+}
+
+fn measured_height_for_wrapped_lines(
+    wrapped_line_count: usize,
+    element_type: ElementType,
+    geometry: &LayoutGeometry,
+) -> f32 {
+    wrapped_line_count as f32 * line_height_for_element_type(geometry, element_type)
 }

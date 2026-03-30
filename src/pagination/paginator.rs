@@ -4,6 +4,7 @@ use crate::pagination::dialogue_split::{
 };
 use crate::pagination::flow_split::{choose_flow_split, FlowSplitPlan};
 use crate::pagination::fixtures::Fragment;
+use crate::pagination::margin::line_height_for_element_type;
 use crate::pagination::wrapping::{wrap_text_for_element, ElementType, WrapConfig};
 use crate::pagination::SemanticUnit;
 use crate::pagination::LayoutGeometry;
@@ -262,8 +263,7 @@ fn choose_split_lines(
 
     let decision = match block.unit {
         SemanticUnit::Dialogue(dialogue) => {
-            let max_top_lines =
-                max_top_content_lines(available_lines, effective_spacing, geometry);
+            let max_top_height = available_lines - effective_spacing;
 
             let plan = match (&block.fragment, block.dialogue_split.as_ref()) {
                 (Fragment::ContinuedFromPrev, Some(previous_plan)) => {
@@ -281,7 +281,7 @@ fn choose_split_lines(
                         dialogue,
                         &current_parts,
                         geometry,
-                        max_top_lines,
+                        max_top_height,
                         geometry.orphan_limit,
                         geometry.widow_limit,
                     )?
@@ -289,13 +289,13 @@ fn choose_split_lines(
                 _ => plan_dialogue_split(
                     dialogue,
                     geometry,
-                    max_top_lines,
+                    max_top_height,
                     geometry.orphan_limit,
                     geometry.widow_limit,
                     )?,
             };
-            let top_lines = plan.top_line_count as f32 * geometry.line_height;
-            let bottom_lines = plan.bottom_line_count as f32 * geometry.line_height;
+            let top_lines = plan.top_height;
+            let bottom_lines = plan.bottom_height;
             Some(SplitDecision {
                 top_lines,
                 bottom_lines,
@@ -307,9 +307,6 @@ fn choose_split_lines(
             let SemanticUnit::Flow(flow) = block.unit else {
                 return None;
             };
-            let target_line_count = (block.content_lines / geometry.line_height).round() as usize;
-            let max_top_lines =
-                max_top_content_lines(available_lines, effective_spacing, geometry);
             let element_type = match flow.kind {
                 crate::pagination::FlowKind::Action => ElementType::Action,
                 crate::pagination::FlowKind::SceneHeading => ElementType::SceneHeading,
@@ -320,13 +317,17 @@ fn choose_split_lines(
                 crate::pagination::FlowKind::Section => ElementType::Action,
                 crate::pagination::FlowKind::Synopsis => ElementType::Action,
             };
+            let element_line_height = line_height_for_element_type(geometry, element_type);
+            let target_line_count = (block.content_lines / element_line_height).round() as usize;
+            let max_top_lines =
+                max_top_wrapped_lines(available_lines, effective_spacing, element_line_height);
             let config = WrapConfig::from_geometry(geometry, element_type);
             let wrapped_lines = wrap_text_for_element(&flow.text, &config);
             if wrapped_lines.len() != target_line_count {
                 let lines_that_fit = available_lines - effective_spacing;
                 let lines_remaining = block.content_lines - lines_that_fit;
 
-                if lines_remaining >= geometry.widow_limit as f32 {
+                if lines_remaining >= geometry.widow_limit as f32 * element_line_height {
                     return Some(SplitDecision {
                         top_lines: lines_that_fit,
                         bottom_lines: lines_remaining,
@@ -344,8 +345,8 @@ fn choose_split_lines(
                 geometry.orphan_limit,
                 geometry.widow_limit,
             )?;
-            let top_lines = plan.top_line_count as f32 * geometry.line_height;
-            let bottom_lines = plan.bottom_line_count as f32 * geometry.line_height;
+            let top_lines = plan.top_line_count as f32 * element_line_height;
+            let bottom_lines = plan.bottom_line_count as f32 * element_line_height;
             Some(SplitDecision {
                 top_lines,
                 bottom_lines,
@@ -368,12 +369,12 @@ fn has_room_for_minimum_top_fragment(
     available_lines >= effective_spacing + geometry.orphan_limit as f32
 }
 
-fn max_top_content_lines(
+fn max_top_wrapped_lines(
     available_lines: f32,
     effective_spacing: f32,
-    geometry: &LayoutGeometry,
+    line_height: f32,
 ) -> usize {
-    ((available_lines - effective_spacing) / geometry.line_height).floor() as usize
+    ((available_lines - effective_spacing) / line_height).floor() as usize
 }
 
 fn chunk_starts_with_transition(chunk: &Chunk<'_>) -> bool {
