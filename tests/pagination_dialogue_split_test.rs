@@ -1,100 +1,168 @@
 use jumpcut::pagination::dialogue_split::{
-    choose_dialogue_split, plan_dialogue_split, DialogueLine, DialogueLineRole,
-    DialogueSplitDecision,
+    plan_dialogue_split, plan_dialogue_split_parts, DialogueTextPart,
 };
 use jumpcut::pagination::{Cohesion, DialoguePart, DialoguePartKind, DialogueUnit, LayoutGeometry};
 
 #[test]
 fn dialogue_split_prefers_a_sentence_boundary_for_the_mayor_case() {
-    let lines = vec![
-        DialogueLine { role: DialogueLineRole::Character, text: "MAYOR".into() },
-        DialogueLine { role: DialogueLineRole::Parenthetical, text: "(loudly, for the crowd)".into() },
-        DialogueLine { role: DialogueLineRole::Dialogue, text: "Edward Bloom, first son of Ashton,".into() },
-        DialogueLine { role: DialogueLineRole::Dialogue, text: "it's with a heavy heart we see you go.".into() },
-        DialogueLine { role: DialogueLineRole::Dialogue, text: "But take with you this Key to the City,".into() },
-        DialogueLine { role: DialogueLineRole::Dialogue, text: "and know that any time you want to come".into() },
-        DialogueLine { role: DialogueLineRole::Dialogue, text: "back, all our doors are open to you.".into() },
-    ];
+    let dialogue = DialogueUnit {
+        block_id: "block-mayor".into(),
+        parts: vec![
+            DialoguePart {
+                element_id: "el-mayor-character".into(),
+                kind: DialoguePartKind::Character,
+                text: "MAYOR".into(),
+            },
+            DialoguePart {
+                element_id: "el-mayor-parenthetical".into(),
+                kind: DialoguePartKind::Parenthetical,
+                text: "(loudly, for the crowd)".into(),
+            },
+            DialoguePart {
+                element_id: "el-mayor-dialogue".into(),
+                kind: DialoguePartKind::Dialogue,
+                text: "Edward Bloom, first son of Ashton, it's with a heavy heart we see you go. But take with you this Key to the City, and know that any time you want to come back, all our doors are open to you.".into(),
+            },
+        ],
+        cohesion: Cohesion {
+            keep_together: false,
+            keep_with_next: false,
+            can_split: true,
+        },
+    };
 
-    let split = choose_dialogue_split(&lines, 5, 2, 2);
+    let plan = plan_dialogue_split(&dialogue, &LayoutGeometry::default(), 5, 2, 2).unwrap();
 
-    assert_eq!(split, Some(DialogueSplitDecision { top_line_count: 4 }));
+    assert!(plan.ends_sentence);
+    assert_eq!(
+        plan.parts[2].top_text.trim_end(),
+        "Edward Bloom, first son of Ashton, it's with a heavy heart we see you go."
+    );
+    assert_eq!(
+        plan.parts[2].bottom_text.trim_start(),
+        "But take with you this Key to the City, and know that any time you want to come back, all our doors are open to you."
+    );
 }
 
 #[test]
 fn dialogue_split_pushes_the_whole_block_when_only_a_too_short_top_fragment_fits() {
-    let lines = vec![
-        DialogueLine { role: DialogueLineRole::Character, text: "MAYOR".into() },
-        DialogueLine { role: DialogueLineRole::Dialogue, text: "Go.".into() },
-        DialogueLine { role: DialogueLineRole::Dialogue, text: "This farewell speech continues for several more lines".into() },
-        DialogueLine { role: DialogueLineRole::Dialogue, text: "so that the block has room to split in more than".into() },
-        DialogueLine { role: DialogueLineRole::Dialogue, text: "one possible place when the page boundary hits.".into() },
-    ];
+    let parts = dialogue_parts(&[
+        (DialoguePartKind::Character, "MAYOR"),
+        (DialoguePartKind::Dialogue, "Go."),
+        (
+            DialoguePartKind::Dialogue,
+            "This farewell speech continues for several more lines",
+        ),
+        (
+            DialoguePartKind::Dialogue,
+            "so that the block has room to split in more than",
+        ),
+        (
+            DialoguePartKind::Dialogue,
+            "one possible place when the page boundary hits.",
+        ),
+    ]);
 
-    let split = choose_dialogue_split(&lines, 2, 2, 2);
+    let plan =
+        plan_dialogue_split_parts(&stub_dialogue_unit(), &parts, &LayoutGeometry::default(), 2, 2, 2);
 
-    assert_eq!(split, None);
+    assert_eq!(plan, None);
 }
 
 #[test]
 fn dialogue_split_can_start_the_continuation_with_a_parenthetical() {
-    let lines = vec![
-        DialogueLine { role: DialogueLineRole::Character, text: "MAYOR".into() },
-        DialogueLine { role: DialogueLineRole::Dialogue, text: "Edward Bloom, first son of Ashton,".into() },
-        DialogueLine { role: DialogueLineRole::Dialogue, text: "you have always been too big for this town,".into() },
-        DialogueLine { role: DialogueLineRole::Dialogue, text: "and everyone here knows it.".into() },
-        DialogueLine { role: DialogueLineRole::Dialogue, text: "Horses don't like to dance much, Daniel.".into() },
-        DialogueLine { role: DialogueLineRole::Parenthetical, text: "(quietly)".into() },
-        DialogueLine { role: DialogueLineRole::Dialogue, text: "But if you ever do come back, you will find".into() },
-        DialogueLine { role: DialogueLineRole::Dialogue, text: "every porch light burning, every front door open,".into() },
-        DialogueLine { role: DialogueLineRole::Dialogue, text: "and every one of us waiting to see what story".into() },
-        DialogueLine { role: DialogueLineRole::Dialogue, text: "you bring home next.".into() },
-    ];
+    let parts = dialogue_parts(&[
+        (DialoguePartKind::Character, "MAYOR"),
+        (DialoguePartKind::Dialogue, "Edward Bloom, first son of Ashton,"),
+        (
+            DialoguePartKind::Dialogue,
+            "you have always been too big for this town,",
+        ),
+        (DialoguePartKind::Dialogue, "and everyone here knows it."),
+        (
+            DialoguePartKind::Dialogue,
+            "Horses don't like to dance much, Daniel.",
+        ),
+        (DialoguePartKind::Parenthetical, "(quietly)"),
+        (
+            DialoguePartKind::Dialogue,
+            "But if you ever do come back, you will find",
+        ),
+        (
+            DialoguePartKind::Dialogue,
+            "every porch light burning, every front door open,",
+        ),
+        (
+            DialoguePartKind::Dialogue,
+            "and every one of us waiting to see what story",
+        ),
+        (DialoguePartKind::Dialogue, "you bring home next."),
+    ]);
 
-    let split = choose_dialogue_split(&lines, 6, 2, 2);
+    let plan =
+        plan_dialogue_split_parts(&stub_dialogue_unit(), &parts, &LayoutGeometry::default(), 6, 2, 2)
+            .unwrap();
 
-    assert_eq!(split, Some(DialogueSplitDecision { top_line_count: 5 }));
+    assert_eq!(plan.top_line_count, 5);
 }
 
 #[test]
 fn dialogue_split_prefers_the_sentence_boundary_that_also_fills_the_page() {
-    let mut lines = vec![
-        DialogueLine { role: DialogueLineRole::Character, text: "EDWARD (CONT'D)".into() },
-        DialogueLine { role: DialogueLineRole::Dialogue, text: "For the next couple weeks, I didn't".into() },
-        DialogueLine { role: DialogueLineRole::Dialogue, text: "have another dream.  Until one".into() },
-        DialogueLine { role: DialogueLineRole::Dialogue, text: "night the crow came back and said,".into() },
-        DialogueLine { role: DialogueLineRole::Dialogue, text: "\"Your Daddy is going to die.\"".into() },
-        DialogueLine { role: DialogueLineRole::Parenthetical, text: "(beat)".into() },
-    ];
-    lines.extend([
-        "Well, I didn't know what to do.",
-        "But finally I told my father.  And",
-        "he said not to worry, but I could",
-        "tell he was rattled.  That next",
-        "day, he wasn't himself, always",
-        "looking around, waiting for",
-        "something to drop on his head.",
-        "Because the crow didn't tell how it",
-        "was going to happen, just those",
-        "words:  your Daddy is going to die.",
-        "Well, he went into town early and",
-        "was gone for a long time.",
-        "And when he finally came back, he looked",
-        "terrible, like he was waiting for",
-        "the axe to fall all day.  He said",
-        "to my mother, \"Good God.  I just",
-        "had the worst day of my life.\"",
-    ]
-    .into_iter()
-    .map(|text| DialogueLine { role: DialogueLineRole::Dialogue, text: text.into() }));
+    let mut parts = dialogue_parts(&[
+        (DialoguePartKind::Character, "EDWARD (CONT'D)"),
+        (
+            DialoguePartKind::Dialogue,
+            "For the next couple weeks, I didn't",
+        ),
+        (
+            DialoguePartKind::Dialogue,
+            "have another dream.  Until one",
+        ),
+        (
+            DialoguePartKind::Dialogue,
+            "night the crow came back and said,",
+        ),
+        (
+            DialoguePartKind::Dialogue,
+            "\"Your Daddy is going to die.\"",
+        ),
+        (DialoguePartKind::Parenthetical, "(beat)"),
+    ]);
+    parts.extend(
+        [
+            "Well, I didn't know what to do.",
+            "But finally I told my father.  And",
+            "he said not to worry, but I could",
+            "tell he was rattled.  That next",
+            "day, he wasn't himself, always",
+            "looking around, waiting for",
+            "something to drop on his head.",
+            "Because the crow didn't tell how it",
+            "was going to happen, just those",
+            "words:  your Daddy is going to die.",
+            "Well, he went into town early and",
+            "was gone for a long time.",
+            "And when he finally came back, he looked",
+            "terrible, like he was waiting for",
+            "the axe to fall all day.  He said",
+            "to my mother, \"Good God.  I just",
+            "had the worst day of my life.\"",
+        ]
+        .into_iter()
+        .map(|text| DialogueTextPart {
+            kind: DialoguePartKind::Dialogue,
+            text: text.into(),
+        }),
+    );
 
-    let split = choose_dialogue_split(&lines, 19, 2, 2);
+    let plan =
+        plan_dialogue_split_parts(&stub_dialogue_unit(), &parts, &LayoutGeometry::default(), 19, 2, 2)
+            .unwrap();
 
-    let decision = split.unwrap();
-    assert_eq!(decision, DialogueSplitDecision { top_line_count: 18 });
-    assert_eq!(lines[decision.top_line_count - 1].text, "was gone for a long time.");
+    assert_eq!(plan.top_line_count, 18);
+    assert_eq!(parts[plan.top_line_count - 1].text, "was gone for a long time.");
     assert_eq!(
-        lines[decision.top_line_count].text,
+        parts[plan.top_line_count].text,
         "And when he finally came back, he looked"
     );
 }
@@ -140,4 +208,26 @@ fn dialogue_split_plan_can_split_at_a_sentence_boundary_inside_a_wrapped_line() 
         "expected continuation text to start at the next sentence boundary, got: {:?}",
         plan.parts[1].bottom_text
     );
+}
+
+fn dialogue_parts(parts: &[(DialoguePartKind, &str)]) -> Vec<DialogueTextPart> {
+    parts
+        .iter()
+        .map(|(kind, text)| DialogueTextPart {
+            kind: kind.clone(),
+            text: (*text).into(),
+        })
+        .collect()
+}
+
+fn stub_dialogue_unit() -> DialogueUnit {
+    DialogueUnit {
+        block_id: "stub-block".into(),
+        parts: Vec::new(),
+        cohesion: Cohesion {
+            keep_together: false,
+            keep_with_next: false,
+            can_split: true,
+        },
+    }
 }

@@ -88,7 +88,11 @@ Pages are filled until visual height is exhausted, prompting a hard pagination m
 
 - **Scene Headings**: Must _never_ sit alone at the bottom of the page. It must be paired with at least a small portion of subsequent action or dialogue.
 - **Transitions**: Allowed to be placed as a single isolated line at the end of a page, but they _should avoid_ being placed as the first element of a page with no content above them.
-- **Orphan and Widow Thresholds**: Action or dialogue splits require a minimum of **2 visual lines** on the terminating page, and **2 visual lines** on the sequential next page. _(Note: This is a working hypothesis and has not been fully confirmed.)_
+- **Orphan and Widow Thresholds**:
+  - Flow/action splits require a minimum of **2 visual lines** on the
+    terminating page and **2 visual lines** on the next page.
+  - Dialogue splits use **2 content lines** on each side by default, counting
+    dialogue, lyric, and parenthetical lines but not character cues.
 - **Splitting Logic**: Programs avoid ungainly "stranding." When splitting action or dialogue near the bottom of a page, splits should favor a sentence boundary where possible. The algorithm would rather push an entire element block onto the next page or slice at an earlier junction for a more elegant partition rather than stranding small bits of content at the top of the next page.
 
 ### 6.2 Configurable Elements
@@ -96,6 +100,8 @@ Pages are filled until visual height is exhausted, prompting a hard pagination m
 - **Dialogue Continuation**: Programs optionally allow for continuing split dialogue pages with automatic markers.
   - _(MORE)_ inserted at the bottom flap of the first page.
   - Character name repeated at the top of the next page with a _(CONT'D)_ tag.
+  - In JumpCut's current model, these continuation markers do not consume the
+    formal page-height budget.
 
 ### 6.3 Forced Page Breaks
 

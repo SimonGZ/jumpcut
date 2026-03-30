@@ -1,14 +1,26 @@
 # Final Draft Dialogue Splitting Rules
 
-This document outlines the specific rules JumpCut uses to match Final Draft's dialogue pagination behavior, as established through probe testing.
+This document outlines the current dialogue-splitting rules JumpCut uses to
+match Final Draft behavior, based on the active fd-probe set and the corpus
+checks that still serve as parity guards.
 
 ## Core Rules
 
 ### 1. The (MORE) Overflow
-The `(MORE)` marker is budget-neutral. It does not count against the maximum number of lines allowed on a page. This allows a dialogue fragment to "fit" on a page even if adding the `(MORE)` line would technically exceed the bottom margin.
+JumpCut currently treats `(MORE)` as budget-neutral for fit and charged page
+height. A split is allowed to fit on the page based on the raw top fragment,
+and the paginator charges only the raw top fragment height.
+
+Important nuance:
+
+- The current probes suggest the remaining Final Draft behavior is better
+  explained by split ranking than by a global "always charge `(MORE)` as a
+  line" rule.
 
 ### 2. Content Counting (Orphans & Widows)
-When checking if a split is legal (i.e., satisfies the 2-line orphan/widow limit), both **Dialogue** and **Parenthetical** lines count as valid content. 
+When checking if a split is legal, both **Dialogue** and **Parenthetical**
+lines count as valid content.
+
 - **Character Name**: Does not count toward the orphan limit.
 - **Example**: A split that leaves a Character name, one line of dialogue, and a parenthetical on the top page is valid (2 content lines).
 
@@ -20,7 +32,13 @@ A single part (a continuous block of dialogue text or a parenthetical) will only
 Dialogue text is never split at arbitrary wrapped-line breaks. Splits inside a text part occur **only at sentence boundaries**. If a sentence is too long to fit the remaining page space, Final Draft will push the entire block (or the entire next sentence) to the next page.
 
 ### 5. Part-Boundary Splits
-Splits are always allowed between parts (e.g., between a Character name and Dialogue, or between a Parenthetical and Dialogue), provided the orphan/widow limits are met. However, these boundaries do not receive the "sentence boundary" scoring bonus unless the preceding text actually ends a sentence.
+Splits are always allowed between parts (e.g., between a Character name and
+Dialogue, or between a Parenthetical and Dialogue), provided the orphan/widow
+limits are met.
+
+In the current implementation, part-boundary splits are legal candidates but do
+not receive the sentence-boundary bonus. Sentence-boundary preference is only
+applied to mid-part boundaries discovered inside long dialogue/lyric text.
 
 ---
 
@@ -29,6 +47,10 @@ Splits are always allowed between parts (e.g., between a Character name and Dial
 When multiple legal split candidates exist, the "best" split is chosen using the following priority:
 
 1.  **Sentence Boundaries**: Prefer splitting at the end of a sentence.
-2.  **Page Fullness**: Prefer the split that leaves more lines on the top page (filling the page).
-3.  **Balance**: Prefer splits that result in roughly equal-sized fragments.
-4.  **Content Tiebreaker**: If all else is equal, prefer the split that keeps more characters/bytes on the top page.
+2.  **Substantial Bottom Continuation**: Prefer a split that leaves a fuller
+    continuation block on the next page.
+3.  **Page Fullness**: Among otherwise equal candidates, prefer the split that
+    leaves more material on the top page.
+4.  **Balance**: Prefer splits that result in roughly equal-sized fragments.
+5.  **Content Tiebreaker**: If all else is equal, prefer the split that keeps
+    more characters/bytes on the top page.

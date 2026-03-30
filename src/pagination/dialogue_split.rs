@@ -1,29 +1,12 @@
+use std::cmp::Ordering;
 use std::collections::BTreeMap;
 
 use crate::pagination::split_scoring::choose_best_scored_split;
-use crate::pagination::sentence_boundary::{sentence_boundary_offsets, text_ends_sentence};
+use crate::pagination::sentence_boundary::sentence_boundary_offsets;
 use crate::pagination::wrapping::{
     wrap_text_for_element, ElementType, WrapConfig,
 };
 use crate::pagination::{DialoguePartKind, DialogueUnit, LayoutGeometry};
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum DialogueLineRole {
-    Character,
-    Parenthetical,
-    Dialogue,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct DialogueLine {
-    pub role: DialogueLineRole,
-    pub text: String,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct DialogueSplitDecision {
-    pub top_line_count: usize,
-}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DialoguePartSplitLines {
@@ -39,12 +22,6 @@ pub struct DialogueSplitPlan {
     pub bottom_line_count: usize,
     pub ends_sentence: bool,
     pub parts: Vec<DialoguePartSplitLines>,
-}
-
-impl DialogueSplitPlan {
-    pub fn top_page_line_count(&self) -> usize {
-        self.top_line_count + more_line_cost()
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -84,51 +61,12 @@ impl Default for DialogueSplitPolicy {
     }
 }
 
-pub fn choose_dialogue_split(
-    lines: &[DialogueLine],
-    max_top_lines: usize,
-    min_top_dialogue_lines: usize,
-    min_bottom_dialogue_lines: usize,
-) -> Option<DialogueSplitDecision> {
-    let policy = DialogueSplitPolicy::default();
-
-    choose_best_scored_split(1..lines.len(), |top_line_count| {
-        if top_line_count > max_top_lines {
-            return None;
-        }
-
-        let top = &lines[..top_line_count];
-        let bottom = &lines[top_line_count..];
-        let top_dialogue_lines = count_dialogue_lines(top);
-        let bottom_dialogue_lines = count_dialogue_lines(bottom);
-
-        if top_dialogue_lines < min_top_dialogue_lines
-            || bottom_dialogue_lines < min_bottom_dialogue_lines
-        {
-            return None;
-        }
-
-        Some(SplitScore {
-            ends_sentence: policy.prefer_sentence_boundaries
-                && line_ends_sentence(&lines[top_line_count - 1]),
-            substantial_bottom: substantial_bottom(bottom_dialogue_lines),
-            fuller_top_fragment: policy
-                .prefer_fuller_top_fragment
-                .then_some(top_line_count + more_line_cost())
-                .unwrap_or(0),
-            balance_score: balance_score(top_dialogue_lines, bottom_dialogue_lines),
-            top_content_bytes: 0,
-        })
-    })
-    .map(|top_line_count| DialogueSplitDecision { top_line_count })
-}
-
 pub fn plan_dialogue_split(
     dialogue: &DialogueUnit,
     geometry: &LayoutGeometry,
     max_top_lines: usize,
-    min_top_dialogue_lines: usize,
-    min_bottom_dialogue_lines: usize,
+    min_top_content_lines: usize,
+    min_bottom_content_lines: usize,
 ) -> Option<DialogueSplitPlan> {
     let parts = dialogue
         .parts
@@ -143,8 +81,8 @@ pub fn plan_dialogue_split(
         &parts,
         geometry,
         max_top_lines,
-        min_top_dialogue_lines,
-        min_bottom_dialogue_lines,
+        min_top_content_lines,
+        min_bottom_content_lines,
     )
 }
 
@@ -153,8 +91,8 @@ pub fn plan_dialogue_split_parts(
     parts: &[DialogueTextPart],
     geometry: &LayoutGeometry,
     max_top_lines: usize,
-    min_top_dialogue_lines: usize,
-    min_bottom_dialogue_lines: usize,
+    min_top_content_lines: usize,
+    min_bottom_content_lines: usize,
 ) -> Option<DialogueSplitPlan> {
     let policy = DialogueSplitPolicy::default();
     let candidates = generate_dialogue_split_candidates(parts, geometry);
@@ -165,8 +103,12 @@ pub fn plan_dialogue_split_parts(
             return None;
         }
 
-        if candidate.top_dialogue_lines < min_top_dialogue_lines
-            || candidate.bottom_dialogue_lines < min_bottom_dialogue_lines
+        // The planner enforces semantic minima in content-line units:
+        // wrapped dialogue, lyric, and parenthetical lines only. The paginator
+        // separately handles whether the page has enough physical space to host
+        // any split at all.
+        if candidate.top_dialogue_lines < min_top_content_lines
+            || candidate.bottom_dialogue_lines < min_bottom_content_lines
         {
             return None;
         }
@@ -176,7 +118,7 @@ pub fn plan_dialogue_split_parts(
             substantial_bottom: substantial_bottom(candidate.bottom_dialogue_lines),
             fuller_top_fragment: policy
                 .prefer_fuller_top_fragment
-                .then_some(candidate.plan.top_page_line_count())
+                .then_some(candidate.plan.top_line_count)
                 .unwrap_or(0),
             balance_score: balance_score(
                 candidate.top_dialogue_lines,
@@ -328,7 +270,7 @@ fn element_type_for_part_kind(kind: DialoguePartKind) -> ElementType {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct SplitScore {
     ends_sentence: bool,
     substantial_bottom: bool,
@@ -337,14 +279,34 @@ struct SplitScore {
     top_content_bytes: usize,
 }
 
-fn count_dialogue_lines(lines: &[DialogueLine]) -> usize {
-    lines.iter()
-        .filter(|line| matches!(line.role, DialogueLineRole::Dialogue | DialogueLineRole::Parenthetical))
-        .count()
+impl SplitScore {
+    fn priority_tuple(&self) -> (bool, bool, usize, usize, usize) {
+        (
+            // Final Draft-like split ranking is applied in this order:
+            // 1. end on a sentence boundary when possible
+            // 2. prefer a substantial continuation fragment
+            // 3. prefer the fuller top fragment
+            // 4. prefer the more balanced split
+            // 5. prefer keeping more raw content on the top page
+            self.ends_sentence,
+            self.substantial_bottom,
+            self.fuller_top_fragment,
+            self.balance_score,
+            self.top_content_bytes,
+        )
+    }
 }
 
-fn line_ends_sentence(line: &DialogueLine) -> bool {
-    matches!(line.role, DialogueLineRole::Dialogue) && text_ends_sentence(&line.text)
+impl PartialOrd for SplitScore {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for SplitScore {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.priority_tuple().cmp(&other.priority_tuple())
+    }
 }
 
 fn balance_score(top_dialogue_lines: usize, bottom_dialogue_lines: usize) -> usize {
@@ -353,8 +315,4 @@ fn balance_score(top_dialogue_lines: usize, bottom_dialogue_lines: usize) -> usi
 
 fn substantial_bottom(bottom_dialogue_lines: usize) -> bool {
     bottom_dialogue_lines >= 3
-}
-
-fn more_line_cost() -> usize {
-    1
 }
