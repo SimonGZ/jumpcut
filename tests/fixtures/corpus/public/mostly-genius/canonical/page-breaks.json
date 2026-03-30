@@ -4,7 +4,7 @@
   "source": {
     "fountain": "source/source.fountain",
     "fdx": "source/source.fdx",
-    "pdf": "source/source.pdf"
+    "pdf": "source/sanitized-source.pdf"
   },
   "scope": {
     "title_page_count": 1,

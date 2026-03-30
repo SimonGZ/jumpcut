@@ -33,12 +33,12 @@
     },
     "Character": {
       "left_indent": 3.5,
-      "right_indent": 7.25,
+      "right_indent": 6.25,
       "space_before": 12.0,
       "spacing": 1.0
     },
     "Parenthetical": {
-      "left_indent": 3.0,
+      "left_indent": 2.75,
       "right_indent": 5.5,
       "space_before": 0.0,
       "spacing": 1.0
@@ -51,7 +51,7 @@
     },
     "Transition": {
       "left_indent": 5.5,
-      "right_indent": 7.1,
+      "right_indent": 7.25,
       "space_before": 12.0,
       "spacing": 1.0
     },
@@ -88,7 +88,7 @@
     "Lyric": {
       "left_indent": 2.5,
       "right_indent": 7.38,
-      "space_before": 0.0,
+      "space_before": 12.0,
       "spacing": 1.0
     }
   },
