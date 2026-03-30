@@ -13,6 +13,13 @@ fn action_margin_calculation_adds_inclusive_character_quirk() {
 }
 
 #[test]
+fn scene_heading_margin_calculation_matches_action_width_quirk() {
+    let geometry = LayoutGeometry::default();
+    // Scene heading shares the full-width 1.5 to 7.5 margin family.
+    assert_eq!(calculate_element_width(&geometry, ElementType::SceneHeading), 61);
+}
+
+#[test]
 fn dialogue_margin_calculation_is_exact_math() {
     let geometry = LayoutGeometry::default();
     // 2.5 to 6.0 at 10 CPI is mathematically 35 (3.5 * 10).
@@ -24,20 +31,20 @@ fn dialogue_margin_calculation_is_exact_math() {
 fn character_margin_calculation() {
     let geometry = LayoutGeometry::default();
     // 3.5 to 7.25 at 10 CPI is mathematically 37.5.
-    // Final Draft implicitly requires a floor() round to reach the exact 37 character fit.
-    assert_eq!(calculate_element_width(&geometry, ElementType::Character), 37);
+    // General policy uses ordinary rounding, with no special +1 quirk here.
+    assert_eq!(calculate_element_width(&geometry, ElementType::Character), 38);
 }
 
 #[test]
 fn lyric_margin_calculation() {
     let geometry = LayoutGeometry::default();
     // 2.5 to 7.375 at 10 CPI is mathematically 48.75.
-    // Floored, we expect 48.
-    assert_eq!(calculate_element_width(&geometry, ElementType::Lyric), 48);
+    // General policy uses ordinary rounding, with no special +1 quirk here.
+    assert_eq!(calculate_element_width(&geometry, ElementType::Lyric), 49);
 }
 
 #[test]
-fn dual_dialogue_margin_calculation_uses_special_29_character_width() {
+fn dual_dialogue_margin_calculation_uses_normal_rounding_without_a_special_quirk() {
     let geometry = LayoutGeometry::default();
 
     assert_eq!(

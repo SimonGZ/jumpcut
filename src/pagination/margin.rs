@@ -262,19 +262,17 @@ pub fn calculate_element_width(geometry: &LayoutGeometry, element_type: ElementT
     };
 
     let width_inches = right_indent - left_indent;
-    let mut chars = (width_inches * geometry.cpi).floor() as usize;
+    let mut chars = (width_inches * geometry.cpi).round() as usize;
 
-    // Apply the Final Draft specific quirk where the Action and Parenthetical grids explicitly 
-    // hold an N+1 amount of characters compared to pure mathematical bounds.
+    // Apply the Final Draft specific quirk for the confirmed full-width family
+    // and parentheticals, which render one character wider than normal rounding.
     if matches!(
         element_type,
         ElementType::Action
-            | ElementType::ColdOpening
+            | ElementType::SceneHeading
             | ElementType::NewAct
             | ElementType::EndOfAct
             | ElementType::Parenthetical
-            | ElementType::DualDialogueLeft
-            | ElementType::DualDialogueRight
     ) {
         chars += 1;
     }
