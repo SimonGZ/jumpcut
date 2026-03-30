@@ -1367,14 +1367,10 @@ fn render_layout_block_lines(
                 Fragment::Whole => flow.text.clone(),
             };
 
-            return render_indented_lines(
-                &text,
-                ElementType::from_flow_kind(&flow.kind),
+            return counted_rendered_lines(
+                render_indented_lines(&text, ElementType::from_flow_kind(&flow.kind), geometry),
                 geometry,
-            )
-            .into_iter()
-            .map(|text| DiagnosticRenderedLine { text, counted: true })
-            .collect();
+            );
         }
     }
 
@@ -1394,10 +1390,7 @@ fn render_layout_block_lines(
         Fragment::ContinuedFromPrevAndToNext => all_lines.into_iter().take(target_line_count).collect(),
     };
 
-    lines
-        .into_iter()
-        .map(|text| DiagnosticRenderedLine { text, counted: true })
-        .collect()
+    counted_rendered_lines(lines, geometry)
 }
 
 fn collect_fd_probe_matches(
@@ -1512,7 +1505,7 @@ fn render_dialogue_fragment_lines(
     if let Some(plan) = split_plan {
         match fragment {
             Fragment::ContinuedToNext => {
-                let mut lines = plan
+                let lines = plan
                     .parts
                     .iter()
                     .zip(dialogue.parts.iter())
@@ -1521,32 +1514,33 @@ fn render_dialogue_fragment_lines(
                             ElementType::from_dialogue_part_kind(&dialogue_part.kind);
                         render_indented_lines(&part.top_text, element_type, geometry)
                     })
-                    .map(|text| DiagnosticRenderedLine { text, counted: true })
                     .collect::<Vec<_>>();
-                lines.push(render_more_marker_line());
+                let mut lines = counted_rendered_lines(lines, geometry);
+                lines.push(render_more_marker_line(geometry));
                 return lines;
             }
             Fragment::ContinuedFromPrev => {
                 let continuation_prefix = render_dialogue_continuation_prefix(dialogue, geometry);
-                return continuation_prefix
+                let mut lines = continuation_prefix
                     .into_iter()
                     .map(|text| DiagnosticRenderedLine {
                         text,
                         counted: false,
                     })
-                    .chain(
-                        plan.parts
-                            .iter()
-                            .zip(dialogue.parts.iter())
-                            .flat_map(|(part, dialogue_part)| {
-                                let element_type =
-                                    ElementType::from_dialogue_part_kind(&dialogue_part.kind);
-                                render_indented_lines(&part.bottom_text, element_type, geometry)
-                            })
-                            .map(|text| DiagnosticRenderedLine { text, counted: true })
-                            .collect::<Vec<_>>(),
-                    )
-                    .collect();
+                    .collect::<Vec<_>>();
+                lines.extend(counted_rendered_lines(
+                    plan.parts
+                        .iter()
+                        .zip(dialogue.parts.iter())
+                        .flat_map(|(part, dialogue_part)| {
+                            let element_type =
+                                ElementType::from_dialogue_part_kind(&dialogue_part.kind);
+                            render_indented_lines(&part.bottom_text, element_type, geometry)
+                        })
+                        .collect::<Vec<_>>(),
+                    geometry,
+                ));
+                return lines;
             }
             Fragment::Whole | Fragment::ContinuedFromPrevAndToNext => {}
         }
@@ -1557,17 +1551,14 @@ fn render_dialogue_fragment_lines(
     let target_line_count = (content_lines / geometry.line_height).round() as usize;
 
     match fragment {
-        Fragment::Whole => all_lines
-            .into_iter()
-            .map(|text| DiagnosticRenderedLine { text, counted: true })
-            .collect(),
+        Fragment::Whole => counted_rendered_lines(all_lines, geometry),
         Fragment::ContinuedToNext => {
-            let mut lines = all_lines
+            let lines = all_lines
                 .into_iter()
                 .take(target_line_count.saturating_sub(1))
-                .map(|text| DiagnosticRenderedLine { text, counted: true })
                 .collect::<Vec<_>>();
-            lines.push(render_more_marker_line());
+            let mut lines = counted_rendered_lines(lines, geometry);
+            lines.push(render_more_marker_line(geometry));
             lines
         }
         Fragment::ContinuedFromPrev => {
@@ -1579,10 +1570,13 @@ fn render_dialogue_fragment_lines(
                     counted: false,
                 })
                 .chain(
-                    all_lines
-                        .into_iter()
-                        .skip(len.saturating_sub(target_line_count))
-                        .map(|text| DiagnosticRenderedLine { text, counted: true }),
+                    counted_rendered_lines(
+                        all_lines
+                            .into_iter()
+                            .skip(len.saturating_sub(target_line_count))
+                            .collect::<Vec<_>>(),
+                        geometry,
+                    ),
                 )
                 .collect()
         }
@@ -1594,13 +1588,16 @@ fn render_dialogue_fragment_lines(
                     counted: false,
                 })
                 .chain(
-                    all_lines
-                        .into_iter()
-                        .take(target_line_count.saturating_sub(1))
-                        .map(|text| DiagnosticRenderedLine { text, counted: true }),
+                    counted_rendered_lines(
+                        all_lines
+                            .into_iter()
+                            .take(target_line_count.saturating_sub(1))
+                            .collect::<Vec<_>>(),
+                        geometry,
+                    ),
                 )
                 .collect::<Vec<_>>();
-            lines.push(render_more_marker_line());
+            lines.push(render_more_marker_line(geometry));
             lines
         }
     }
@@ -1635,9 +1632,12 @@ fn continued_character_cue_text(text: &str) -> String {
     }
 }
 
-fn render_more_marker_line() -> DiagnosticRenderedLine {
+fn render_more_marker_line(geometry: &LayoutGeometry) -> DiagnosticRenderedLine {
     DiagnosticRenderedLine {
-        text: "(MORE)".to_string(),
+        text: render_indented_lines("(MORE)", ElementType::Character, geometry)
+            .into_iter()
+            .next()
+            .unwrap_or_else(|| "(MORE)".to_string()),
         counted: true,
     }
 }
@@ -1725,6 +1725,30 @@ fn render_indented_lines(text: &str, element_type: ElementType, geometry: &Layou
         .collect()
 }
 
+fn counted_rendered_lines(lines: Vec<String>, geometry: &LayoutGeometry) -> Vec<DiagnosticRenderedLine> {
+    let mut rendered = Vec::new();
+    let uses_double_spacing = pseudo_pdf_uses_double_spaced_rows(geometry);
+
+    for line in lines {
+        rendered.push(DiagnosticRenderedLine {
+            text: line,
+            counted: true,
+        });
+        if uses_double_spacing {
+            rendered.push(DiagnosticRenderedLine {
+                text: String::new(),
+                counted: true,
+            });
+        }
+    }
+
+    rendered
+}
+
+fn pseudo_pdf_uses_double_spaced_rows(geometry: &LayoutGeometry) -> bool {
+    (geometry.line_height - 2.0).abs() < f32::EPSILON
+}
+
 fn indent_spaces_for_element_type(element_type: ElementType, geometry: &LayoutGeometry) -> usize {
     let left_indent_in = match element_type {
         ElementType::Action | ElementType::SceneHeading => geometry.action_left,
@@ -1741,6 +1765,32 @@ fn indent_spaces_for_element_type(element_type: ElementType, geometry: &LayoutGe
     };
 
     ((left_indent_in - geometry.action_left) * geometry.cpi).floor() as usize
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::pagination::LayoutGeometry;
+
+    #[test]
+    fn more_marker_uses_character_indent_in_pseudo_pdf() {
+        let geometry = LayoutGeometry::default();
+        let marker = render_more_marker_line(&geometry);
+
+        assert!(marker.text.starts_with("                "));
+        assert!(marker.text.trim_start().starts_with("(MORE)"));
+    }
+
+    #[test]
+    fn counted_rendered_lines_expand_for_double_spaced_geometry() {
+        let mut geometry = LayoutGeometry::default();
+        geometry.line_height = 2.0;
+
+        let rendered = counted_rendered_lines(vec!["Hello".into(), "World".into()], &geometry);
+        let texts = rendered.into_iter().map(|line| line.text).collect::<Vec<_>>();
+
+        assert_eq!(texts, vec!["Hello", "", "World", ""]);
+    }
 }
 
 fn normalized_element_map(normalized: &NormalizedScreenplay) -> HashMap<String, NormalizedElement> {
