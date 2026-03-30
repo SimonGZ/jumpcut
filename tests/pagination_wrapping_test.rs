@@ -5,6 +5,9 @@
 
 // We hypothesize an ideal API that takes raw text, an exact width limit, and applies a configuration
 // for space-preservation specific to screenplay pagination needs.
+use std::fs;
+
+use jumpcut::pagination::{FdxExtractedSettings, LayoutGeometry};
 use jumpcut::pagination::wrapping::{wrap_text_for_element, ElementType, WrapConfig};
 
 #[test]
@@ -166,6 +169,29 @@ fn final_draft_allows_hyphenated_compounds_to_break_after_a_trailing_hyphen() {
             "like this of his own?  This lady",
             "fish and I, well, we had the same",
             "destiny.",
+        ]
+    );
+}
+
+#[test]
+fn mostly_genius_action_wrap_allows_the_final_draft_hyphen_split_for_el_00363() {
+    let settings: FdxExtractedSettings = serde_json::from_str(
+        &fs::read_to_string("tests/fixtures/corpus/public/mostly-genius/extracted/fdx-settings.json")
+            .unwrap(),
+    )
+    .unwrap();
+    let geometry = LayoutGeometry::from_fdx_settings(&settings);
+    let config = WrapConfig::from_geometry(&geometry, ElementType::Action);
+
+    let text = "EWYKO GYJYG WYSOHA, AWUBY. RUS ROGO OV KUQYPAXYDA QAGAGO--YZOVAPYPY REVOQU EQOQ, WUDAWEPAW AKUR HOG GERAB, UKEROJA OSOPOWU YVY. YSUREZU YPUJEJ.";
+    let lines = wrap_text_for_element(text, &config);
+
+    assert_eq!(
+        lines,
+        vec![
+            "EWYKO GYJYG WYSOHA, AWUBY. RUS ROGO OV KUQYPAXYDA QAGAGO--",
+            "YZOVAPYPY REVOQU EQOQ, WUDAWEPAW AKUR HOG GERAB, UKEROJA",
+            "OSOPOWU YVY. YSUREZU YPUJEJ.",
         ]
     );
 }

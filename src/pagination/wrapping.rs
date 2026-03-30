@@ -218,35 +218,43 @@ fn split_breakable_hyphen_chunks(word: &str, start_offset: usize) -> Vec<WrapChu
     let chars: Vec<char> = word.chars().collect();
     let mut chunks = Vec::new();
     let mut current = String::new();
-    let mut current_start_offset = start_offset;
     let mut consumed_bytes = 0;
+    let mut index = 0;
 
-    for index in 0..chars.len() {
+    while index < chars.len() {
         let ch = chars[index];
         current.push(ch);
         consumed_bytes += ch.len_utf8();
 
-        if ch == '-'
-            && index > 0
-            && index + 1 < chars.len()
-            && chars[index - 1].is_alphanumeric()
-            && chars[index + 1].is_alphanumeric()
-            && chars[index - 1] != '-'
-            && chars[index + 1] != '-'
-        {
-            chunks.push(WrapChunk {
-                text: std::mem::take(&mut current),
-                end_offset: start_offset + consumed_bytes,
-            });
-            current_start_offset = start_offset + consumed_bytes;
+        if ch == '-' {
+            let run_start = index;
+            while index + 1 < chars.len() && chars[index + 1] == '-' {
+                index += 1;
+                current.push(chars[index]);
+                consumed_bytes += chars[index].len_utf8();
+            }
+
+            let run_end = index;
+            let has_alnum_neighbors = run_start > 0
+                && run_end + 1 < chars.len()
+                && chars[run_start - 1].is_alphanumeric()
+                && chars[run_end + 1].is_alphanumeric();
+
+            if has_alnum_neighbors {
+                chunks.push(WrapChunk {
+                    text: std::mem::take(&mut current),
+                    end_offset: start_offset + consumed_bytes,
+                });
+            }
         }
+
+        index += 1;
     }
 
     if !current.is_empty() {
-        let current_len = current.len();
         chunks.push(WrapChunk {
             text: current,
-            end_offset: current_start_offset + current_len,
+            end_offset: start_offset + consumed_bytes,
         });
     }
 
