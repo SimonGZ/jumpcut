@@ -132,6 +132,11 @@ When converting your screenplay to **Final Draft (FDX)** format, you can specify
 
 To use these options, add a `fmt` key to your screenplay's metadata (optional `key: value` statements placed at the top of a document), followed by a space-separated list of options.
 
+JumpCut treats `fmt` options in two layers:
+
+- template options such as `multicam` establish a base layout/style profile
+- explicit geometry knobs such as `ssbsh`, `dsd`, `dl-*`, and `dr-*` then override that base, regardless of where they appear in the `fmt` string
+
 **Example:**
 
 ```
@@ -142,6 +147,7 @@ Fmt: bsh ush acat dsd dl-1.5 dr-7.0
 
 ### Available `fmt` Options
 
+  * **`multicam`**: **Multicam Base Template**. Applies JumpCut's shared multicam layout profile as a starting point for pagination/FDX formatting.
   * **`bsh`**: **Bold Scene Headings**. Makes all scene headings bold.
   * **`ush`**: **Underlined Scene Headings**. Underlines all scene headings.
       * Note: `bsh` and `ush` can be combined (e.g., `bsh ush` for bold and underlined scene headings).
@@ -154,10 +160,10 @@ Fmt: bsh ush acat dsd dl-1.5 dr-7.0
 
 ### Combined Example
 
-To have bold and underlined scene headings, all caps action text, double-spaced dialogue, and custom dialogue margins:
+To start from the multicam template, keep its double-spaced dialogue, and then override the dialogue margins explicitly:
 
 ```
-Fmt: bsh ush acat dsd dl-2.0 dr-5.5
+Fmt: multicam bsh ush acat dsd dl-2.0 dr-5.5
 ```
 
 ## Prepending Metadata

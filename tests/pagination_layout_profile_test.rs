@@ -78,6 +78,26 @@ fn geometry_affecting_fmt_options_all_map_into_layout_geometry() {
 }
 
 #[test]
+fn explicit_fmt_geometry_knobs_override_multicam_even_if_they_appear_first() {
+    let mut metadata: Metadata = HashMap::new();
+    metadata.insert(
+        "fmt".into(),
+        vec!["dr-5.75 dl-3.0 ssbsh multicam".into()],
+    );
+
+    let profile = ScreenplayLayoutProfile::from_metadata(&metadata);
+    let geometry = profile.to_pagination_geometry();
+
+    assert_eq!(profile.style_profile, StyleProfile::Multicam);
+    assert_eq!(geometry.dialogue_left, 3.0);
+    assert_eq!(geometry.dialogue_right, 5.75);
+    assert_eq!(geometry.scene_heading_spacing_before, 1.0);
+    assert_eq!(geometry.character_right, 6.25);
+    assert_eq!(geometry.parenthetical_left, 2.75);
+    assert_eq!(geometry.transition_right, 7.25);
+}
+
+#[test]
 fn render_only_fmt_options_do_not_change_pagination_geometry() {
     let mut metadata: Metadata = HashMap::new();
     metadata.insert("fmt".into(), vec!["bsh ush acat cfd".into()]);

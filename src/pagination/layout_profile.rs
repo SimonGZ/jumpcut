@@ -43,27 +43,15 @@ impl ScreenplayLayoutProfile {
         let mut profile = Self::default_screenplay();
 
         if let Some(options) = metadata.get("fmt").and_then(|values| values.first()) {
-            for option in options.split_whitespace() {
-                if option.eq_ignore_ascii_case("multicam") {
-                    profile.style_profile = StyleProfile::Multicam;
-                    profile.styles.dialogue.line_spacing = 2.0;
-                    profile.styles.dialogue.left_indent = 2.25;
-                    profile.styles.character.right_indent = 6.25;
-                    profile.styles.parenthetical.left_indent = 2.75;
-                    profile.styles.transition.right_indent = 7.25;
-                } else if option.eq_ignore_ascii_case("ssbsh") {
-                    profile.styles.scene_heading.spacing_before = 1.0;
-                } else if option.eq_ignore_ascii_case("dsd") {
-                    profile.styles.dialogue.line_spacing = 2.0;
-                } else if let Some(value) = option.strip_prefix("dl-") {
-                    if let Ok(indent) = value.parse::<f32>() {
-                        profile.styles.dialogue.left_indent = indent;
-                    }
-                } else if let Some(value) = option.strip_prefix("dr-") {
-                    if let Ok(indent) = value.parse::<f32>() {
-                        profile.styles.dialogue.right_indent = indent;
-                    }
-                }
+            let tokens = options.split_whitespace().collect::<Vec<_>>();
+
+            // Apply base templates first, then explicit geometry knobs so
+            // author-supplied overrides win regardless of token order.
+            for option in &tokens {
+                apply_fmt_template_option(&mut profile, option);
+            }
+            for option in &tokens {
+                apply_fmt_geometry_override_option(&mut profile, option);
             }
         }
 
@@ -219,6 +207,33 @@ impl ScreenplayLayoutProfile {
                     starts_new_page: false,
                 },
             },
+        }
+    }
+}
+
+fn apply_fmt_template_option(profile: &mut ScreenplayLayoutProfile, option: &str) {
+    if option.eq_ignore_ascii_case("multicam") {
+        profile.style_profile = StyleProfile::Multicam;
+        profile.styles.dialogue.line_spacing = 2.0;
+        profile.styles.dialogue.left_indent = 2.25;
+        profile.styles.character.right_indent = 6.25;
+        profile.styles.parenthetical.left_indent = 2.75;
+        profile.styles.transition.right_indent = 7.25;
+    }
+}
+
+fn apply_fmt_geometry_override_option(profile: &mut ScreenplayLayoutProfile, option: &str) {
+    if option.eq_ignore_ascii_case("ssbsh") {
+        profile.styles.scene_heading.spacing_before = 1.0;
+    } else if option.eq_ignore_ascii_case("dsd") {
+        profile.styles.dialogue.line_spacing = 2.0;
+    } else if let Some(value) = option.strip_prefix("dl-") {
+        if let Ok(indent) = value.parse::<f32>() {
+            profile.styles.dialogue.left_indent = indent;
+        }
+    } else if let Some(value) = option.strip_prefix("dr-") {
+        if let Ok(indent) = value.parse::<f32>() {
+            profile.styles.dialogue.right_indent = indent;
         }
     }
 }
