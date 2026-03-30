@@ -1758,16 +1758,16 @@ fn counted_rendered_lines(
     let mut rendered = Vec::new();
 
     for line in lines {
-        rendered.push(DiagnosticRenderedLine {
-            text: line.text,
-            counted: true,
-        });
         if pseudo_pdf_uses_double_spaced_rows(line.element_type, geometry) {
             rendered.push(DiagnosticRenderedLine {
                 text: String::new(),
                 counted: true,
             });
         }
+        rendered.push(DiagnosticRenderedLine {
+            text: line.text,
+            counted: true,
+        });
     }
 
     rendered
@@ -1872,7 +1872,7 @@ mod tests {
         );
         let texts = rendered.into_iter().map(|line| line.text).collect::<Vec<_>>();
 
-        assert_eq!(texts, vec!["Hello", "", "World", ""]);
+        assert_eq!(texts, vec!["", "Hello", "", "World"]);
     }
 
     #[test]
@@ -1896,7 +1896,7 @@ mod tests {
         );
         let texts = rendered.into_iter().map(|line| line.text).collect::<Vec<_>>();
 
-        assert_eq!(texts, vec!["Action", "Dialogue", ""]);
+        assert_eq!(texts, vec!["Action", "", "Dialogue"]);
     }
 }
 
