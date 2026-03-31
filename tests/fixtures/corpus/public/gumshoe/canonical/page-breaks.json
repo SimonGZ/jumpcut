@@ -3639,7 +3639,12 @@
           "block_id": null,
           "dual_dialogue_group": null,
           "dual_dialogue_side": null
-        },
+        }
+      ]
+    },
+    {
+      "number": 19,
+      "items": [
         {
           "element_id": "el-00393",
           "kind": "Action",
@@ -3648,12 +3653,7 @@
           "block_id": null,
           "dual_dialogue_group": null,
           "dual_dialogue_side": null
-        }
-      ]
-    },
-    {
-      "number": 19,
-      "items": [
+        },
         {
           "element_id": "el-00394",
           "kind": "Scene Heading",
