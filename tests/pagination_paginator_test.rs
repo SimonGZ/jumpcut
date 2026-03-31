@@ -181,6 +181,57 @@ fn paginator_prevents_stranding_blocks_that_require_keep_with_next() {
 }
 
 #[test]
+fn paginator_keeps_scene_heading_and_splits_splittable_following_block() {
+    let geometry = LayoutGeometry::default();
+    let page_limit = 54.0;
+    let filler = visible_unit("filler");
+    let scene_heading = SemanticUnit::Flow(FlowUnit {
+        element_id: "scene-heading".into(),
+        kind: FlowKind::SceneHeading,
+        text: "INT. ROOM - DAY".into(),
+        line_range: None,
+        scene_number: None,
+        cohesion: Cohesion {
+            keep_together: true,
+            keep_with_next: true,
+            can_split: false,
+        },
+    });
+    let action = SemanticUnit::Flow(FlowUnit {
+        element_id: "action".into(),
+        kind: FlowKind::Action,
+        text: "Z ygeb ujazopoda ovepaj kequgarajar yvy uk ok uje Eroryheg ozejy. Udaxek, eb eky raxusore asazypo, useb ys z habu udybyzu rezas yvy uk OVEHO'U UJUQY RYGYVAKY. Hoz ryxu wyde qesy yvy zo rus ebeba qe qaryhyj: Ok uwokeby, qaba gywusyw, yzyv qoso, kud z kyvup qabex apokakeh.".into(),
+        line_range: None,
+        scene_number: None,
+        cohesion: Cohesion {
+            keep_together: false,
+            keep_with_next: false,
+            can_split: true,
+        },
+    });
+
+    let blocks = vec![
+        mock_block(&filler, 46.0, 0.0, false, false, 0.0),
+        mock_block(&scene_heading, 1.0, 2.0, true, false, 0.0),
+        mock_block(&action, 5.0, 1.0, false, true, 0.0),
+    ];
+
+    let pages = paginate(&blocks, page_limit, &geometry);
+
+    assert_eq!(pages.len(), 2);
+    assert_eq!(pages[0].blocks.len(), 3);
+    assert_eq!(pages[0].blocks[1].spacing_above, 2.0);
+    assert_eq!(pages[0].blocks[1].content_lines, 1.0);
+    assert_eq!(pages[0].blocks[2].fragment, Fragment::ContinuedToNext);
+    assert_eq!(pages[0].blocks[2].content_lines, 3.0);
+
+    assert_eq!(pages[1].blocks.len(), 1);
+    assert_eq!(pages[1].blocks[0].fragment, Fragment::ContinuedFromPrev);
+    assert_eq!(pages[1].blocks[0].spacing_above, 0.0);
+    assert_eq!(pages[1].blocks[0].content_lines, 2.0);
+}
+
+#[test]
 fn paginator_pulls_a_transition_off_the_top_of_the_next_page() {
     let geometry = LayoutGeometry::default();
     let page_limit = 54.0;

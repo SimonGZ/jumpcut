@@ -317,7 +317,7 @@ fn rendered_block_text(
                 .parts
                 .iter()
                 .zip(plan.parts.iter())
-                .map(|(part, part_plan)| match block.fragment {
+                .map(|(_part, part_plan)| match block.fragment {
                     Fragment::Whole => unreachable!(),
                     Fragment::ContinuedToNext => part_plan.top_text.clone(),
                     Fragment::ContinuedFromPrev => part_plan.bottom_text.clone(),

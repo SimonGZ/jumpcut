@@ -20,6 +20,13 @@ struct SplitDecision {
     flow_split: Option<FlowSplitPlan>,
 }
 
+struct KeepWithNextSplitDecision<'a> {
+    lead_block: &'a LayoutBlock<'a>,
+    lead_spacing: f32,
+    split_block: &'a LayoutBlock<'a>,
+    split: SplitDecision,
+}
+
 /// An atomic group of blocks that absolutely cannot be split across a page boundary.
 struct Chunk<'a> {
     blocks: Vec<&'a LayoutBlock<'a>>,
@@ -84,6 +91,56 @@ pub fn paginate<'a>(blocks: &'a [LayoutBlock<'a>], page_limit_lines: f32, geomet
         }
 
         if current_page_lines + chunk_height > page_limit_lines {
+            if chunk.blocks.len() == 2 {
+                if let Some(split) = choose_keep_with_next_split(
+                    chunk.blocks[0],
+                    chunk.blocks[1],
+                    current_page_blocks.iter().any(block_has_visible_content),
+                    current_page_lines,
+                    page_limit_lines,
+                    geometry,
+                ) {
+                current_page_blocks.push(LayoutBlock {
+                    unit: split.lead_block.unit,
+                    fragment: split.lead_block.fragment.clone(),
+                    spacing_above: split.lead_spacing,
+                    content_lines: split.lead_block.content_lines,
+                    dialogue_split: split.lead_block.dialogue_split.clone(),
+                    flow_split: split.lead_block.flow_split.clone(),
+                    keep_with_next: false,
+                    can_split: false,
+                    widow_penalty: split.lead_block.widow_penalty,
+                });
+                current_page_blocks.push(LayoutBlock {
+                    unit: split.split_block.unit,
+                    fragment: Fragment::ContinuedToNext,
+                    spacing_above: split.split_block.spacing_above,
+                    content_lines: split.split.top_lines,
+                    dialogue_split: split.split.dialogue_split.clone(),
+                    flow_split: split.split.flow_split.clone(),
+                    keep_with_next: false,
+                    can_split: false,
+                    widow_penalty: 0.0,
+                });
+
+                pages.push(Page { blocks: current_page_blocks });
+
+                current_page_blocks = vec![LayoutBlock {
+                    unit: split.split_block.unit,
+                    fragment: Fragment::ContinuedFromPrev,
+                    spacing_above: 0.0,
+                    content_lines: split.split.bottom_lines + split.split_block.widow_penalty,
+                    dialogue_split: split.split.dialogue_split,
+                    flow_split: split.split.flow_split,
+                    keep_with_next: split.split_block.keep_with_next,
+                    can_split: split.split_block.can_split,
+                    widow_penalty: 0.0,
+                }];
+                current_page_lines = current_page_blocks[0].content_lines;
+                continue;
+                }
+            }
+
             if chunk.blocks.len() == 1 && chunk.blocks[0].can_split {
                 let block = chunk.blocks[0];
                 let effective_spacing = if current_page_blocks.iter().any(block_has_visible_content) {
@@ -356,6 +413,50 @@ fn choose_split_lines(
         }
     };
     decision
+}
+
+fn choose_keep_with_next_split<'a>(
+    lead_block: &'a LayoutBlock<'a>,
+    split_block: &'a LayoutBlock<'a>,
+    page_has_visible_content: bool,
+    current_page_lines: f32,
+    page_limit_lines: f32,
+    geometry: &LayoutGeometry,
+) -> Option<KeepWithNextSplitDecision<'a>> {
+    if !lead_block.keep_with_next || !split_block.can_split {
+        return None;
+    }
+
+    if !matches!(
+        lead_block.unit,
+        SemanticUnit::Flow(crate::pagination::FlowUnit {
+            kind: crate::pagination::FlowKind::SceneHeading,
+            ..
+        })
+    ) {
+        return None;
+    }
+
+    let lead_spacing = if page_has_visible_content && block_has_visible_content(lead_block) {
+        lead_block.spacing_above
+    } else {
+        0.0
+    };
+    let lead_height = lead_spacing + lead_block.content_lines;
+
+    if current_page_lines + lead_height > page_limit_lines {
+        return None;
+    }
+
+    let available_lines = (page_limit_lines - current_page_lines - lead_height).max(0.0);
+    let split = choose_split_lines(split_block, available_lines, split_block.spacing_above, geometry)?;
+
+    Some(KeepWithNextSplitDecision {
+        lead_block,
+        lead_spacing,
+        split_block,
+        split,
+    })
 }
 
 fn has_room_for_minimum_top_fragment(

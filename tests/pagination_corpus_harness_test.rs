@@ -727,6 +727,59 @@ fn gumshoe_exact_part_boundary_dialogue_split_keeps_whole_parts_whole() {
 }
 
 #[test]
+fn gumshoe_pages_15_16_keep_el_00321_on_page_15_and_split_el_00322() {
+    let mut fixture: PageBreakFixture =
+        read_fixture("tests/fixtures/corpus/public/gumshoe/canonical/page-breaks.json");
+    fixture.pages.retain(|page| matches!(page.number, 15 | 16));
+    for page in &mut fixture.pages {
+        page.items.retain(|item| {
+            matches!(
+                item.element_id.as_str(),
+                "el-00299"
+                    | "el-00300"
+                    | "el-00301"
+                    | "el-00302"
+                    | "el-00303"
+                    | "el-00304"
+                    | "el-00305"
+                    | "el-00306"
+                    | "el-00307"
+                    | "el-00308"
+                    | "el-00309"
+                    | "el-00310"
+                    | "el-00311"
+                    | "el-00312"
+                    | "el-00313"
+                    | "el-00314"
+                    | "el-00315"
+                    | "el-00316"
+                    | "el-00317"
+                    | "el-00318"
+                    | "el-00319"
+                    | "el-00320"
+                    | "el-00321"
+                    | "el-00322"
+                    | "el-00323"
+            )
+        });
+    }
+
+    let normalized = normalized_window_from_fountain(
+        "gumshoe",
+        "tests/fixtures/corpus/public/gumshoe/source/source.fountain",
+        &fixture,
+    );
+    let semantic = build_semantic_screenplay(normalized);
+    let report = run_window_parity_check(&fixture, &semantic, geometry_for_screenplay("gumshoe"));
+
+    assert!(
+        report.issues.is_empty(),
+        "expected pages 15-16 to keep el-00321 on page 15 and split el-00322 there, got {:?}",
+        report.issues
+    );
+}
+
+#[test]
 // #[ignore = "Temporarily disabled"]
 fn big_fish_macro_parity_holds_baseline() {
     let report = build_line_break_parity_report(
