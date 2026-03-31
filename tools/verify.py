@@ -17,6 +17,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shutil
 import subprocess
 import sys
 import time
@@ -89,6 +90,77 @@ def build_steps(mode: str) -> list[tuple[str, list[str]]]:
             )
         )
     return steps
+
+
+def check_diagnostics(repo: Path, log_handle) -> int:
+    """Scan diagnostic outputs for reported issues/regressions and copy fixtures for easier review."""
+    debug_dir = repo / "target" / "pagination-debug"
+    if not debug_dir.is_dir():
+        return 0
+
+    header = "\n=== Checking diagnostic reports for issues ===\n"
+    sys.stdout.write(header)
+    log_handle.write(header)
+
+    issues_found = 0
+
+    # Check comparison-report.json files (Page Break Parity)
+    for report_path in sorted(debug_dir.glob("**/comparison-report.json")):
+        try:
+            data = json.loads(report_path.read_text(encoding="utf-8"))
+            
+            # Copy the canonical fixture into the same folder for easy review
+            fixture_rel_path = data.get("fixture_path")
+            if fixture_rel_path:
+                fixture_src = (repo / fixture_rel_path).resolve()
+                if fixture_src.is_file():
+                    fixture_dst = (report_path.parent / "canonical.page-breaks.json").resolve()
+                    # Only copy if source and destination are different
+                    if fixture_src != fixture_dst:
+                        shutil.copy2(fixture_src, fixture_dst)
+                        msg = f"info: copied canonical fixture to {fixture_dst.relative_to(repo.resolve())}\n"
+                        log_handle.write(msg)
+
+            total_issues = data.get("total_issues", 0)
+            if total_issues > 0:
+                rel_path = report_path.relative_to(repo)
+                msg = f"FAIL: {rel_path} reports {total_issues} issues\n"
+                sys.stdout.write(msg)
+                log_handle.write(msg)
+                issues_found += 1
+        except Exception as e:
+            msg = f"ERROR: failed to parse/process {report_path}: {e}\n"
+            sys.stdout.write(msg)
+            log_handle.write(msg)
+            issues_found += 1
+
+    # Check parity.json files (Line Break Parity)
+    for parity_path in sorted(debug_dir.glob("**/parity.json")):
+        try:
+            data = json.loads(parity_path.read_text(encoding="utf-8"))
+            disagreements = data.get("disagreement_count", 0)
+            if disagreements > 0:
+                rel_path = parity_path.relative_to(repo)
+                msg = f"FAIL: {rel_path} reports {disagreements} line-break disagreements\n"
+                sys.stdout.write(msg)
+                log_handle.write(msg)
+                issues_found += 1
+        except Exception as e:
+            msg = f"ERROR: failed to parse {parity_path}: {e}\n"
+            sys.stdout.write(msg)
+            log_handle.write(msg)
+            issues_found += 1
+
+    if issues_found == 0:
+        msg = "SUCCESS: No issues found in diagnostic reports.\n"
+        sys.stdout.write(msg)
+        log_handle.write(msg)
+        return 0
+    else:
+        msg = f"FAIL: Found issues in {issues_found} diagnostic reports.\n"
+        sys.stdout.write(msg)
+        log_handle.write(msg)
+        return 1
 
 
 def make_log_paths(repo: Path) -> tuple[Path, Path, Path]:
@@ -301,14 +373,25 @@ def main() -> int:
     write_json(state_path, state_payload)
 
     with log_path.open("w", encoding="utf-8") as log_handle:
+        # Run standard steps (Tests, Generation)
         for name, command in steps:
             result = run_step(name, command, repo, log_handle)
             results.append(result)
-            if result.exit_code != 0:
-                break
+        
+        # Run Diagnostic check step if we are in a mode that generates them
+        if args.mode in {"full", "diagnostics"}:
+            diag_exit_code = check_diagnostics(repo, log_handle)
+            results.append(StepResult(
+                name="check-diagnostics",
+                command=["internal-check"],
+                exit_code=diag_exit_code,
+                duration_seconds=0.0
+            ))
 
     total_duration = time.monotonic() - overall_started
-    success = all(result.exit_code == 0 for result in results) and len(results) == len(steps)
+    # Success is defined as ALL steps having an exit code of 0
+    success = all(result.exit_code == 0 for result in results)
+    
     summary = {
         "repo": str(repo),
         "mode": args.mode,
