@@ -591,6 +591,21 @@ fn vikings_macro_parity_holds_baseline() {
 }
 
 #[test]
+// #[ignore = "Temporarily disabled"]
+fn gumshoe_macro_parity_holds_baseline() {
+    let report = build_line_break_parity_report(
+        "gumshoe",
+        "tests/fixtures/corpus/public/gumshoe/source/source.fountain",
+        "tests/fixtures/corpus/public/gumshoe/canonical/page-breaks.json",
+    );
+
+    assert_eq!(
+        report.disagreement_count, 0,
+        "Expected Gumshoe line-break parity against the Final Draft PDF to have 0 disagreements. If this fails, inspect the report and decide which pagination assumptions are wrong."
+    );
+}
+
+#[test]
 fn mostly_genius_line_break_diagnostic_report_includes_multicam_act_markers() {
     let report = build_line_break_parity_report(
         "mostly-genius",
