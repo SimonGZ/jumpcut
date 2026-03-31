@@ -1,6 +1,6 @@
 [package]
 name = "jumpcut"
-version = "0.8.1"
+version = "1.0.0-alpha.1"
 edition = "2021"
 license = "MIT"
 description = "JumpCut is a library and CLI for converting Fountain-formatted text files into FDX and HTML formats."
