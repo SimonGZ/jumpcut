@@ -91,6 +91,14 @@ When multiple legal split candidates exist, the "best" split is chosen using a s
     whose continuation block is substantial enough to avoid looking stranded.
     This is currently implemented as a threshold check, not a continuous
     "bigger bottom always wins" rule.
+    As of the `gumshoe` / `two-short-sentences-plus-one-liner` comparison,
+    this "substantial bottom" signal is based on spoken continuation lines
+    only (`Dialogue` / `Lyric`), not parenthetical lines. Treat that as a
+    tentative Final Draft parity rule, not a proven universal screenplay rule:
+    it currently explains why FD can still strand a parenthetical when the
+    next-page spoken continuation is substantial, while rejecting the
+    `gumshoe` split where the continuation was only a one-line spoken fragment
+    before another parenthetical.
 3.  **Page Fullness**: Once candidates are equal on that substantial-bottom
     check, prefer the one that leaves more lines on the top page.
 4.  **Balance**: Prefer splits that result in roughly equal-sized fragments.

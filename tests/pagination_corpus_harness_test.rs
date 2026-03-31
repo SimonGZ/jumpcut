@@ -631,6 +631,102 @@ fn gumshoe_pages_11_13_keep_el_00242_and_el_00243_together() {
 }
 
 #[test]
+fn gumshoe_exact_part_boundary_dialogue_split_keeps_whole_parts_whole() {
+    let mut fixture: PageBreakFixture =
+        read_fixture("tests/fixtures/corpus/public/gumshoe/canonical/page-breaks.json");
+    fixture.pages.retain(|page| matches!(page.number, 11 | 12 | 13));
+    for page in &mut fixture.pages {
+        page.items.retain(|item| {
+            matches!(
+                item.element_id.as_str(),
+                "el-00198"
+                    | "el-00199"
+                    | "el-00200"
+                    | "el-00201"
+                    | "el-00202"
+                    | "el-00203"
+                    | "el-00204"
+                    | "el-00205"
+                    | "el-00206"
+                    | "el-00207"
+                    | "el-00208"
+                    | "el-00209"
+                    | "el-00210"
+                    | "el-00211"
+                    | "el-00212"
+                    | "el-00213"
+                    | "el-00214"
+                    | "el-00215"
+                    | "el-00216"
+                    | "el-00217"
+                    | "el-00218"
+                    | "el-00219"
+                    | "el-00220"
+                    | "el-00221"
+                    | "el-00222"
+                    | "el-00223"
+                    | "el-00224"
+                    | "el-00225"
+                    | "el-00226"
+                    | "el-00227"
+                    | "el-00228"
+                    | "el-00229"
+                    | "el-00230"
+                    | "el-00231"
+                    | "el-00232"
+                    | "el-00233"
+                    | "el-00234"
+                    | "el-00235"
+                    | "el-00236"
+                    | "el-00237"
+                    | "el-00238"
+                    | "el-00239"
+                    | "el-00240"
+                    | "el-00241"
+                    | "el-00242"
+                    | "el-00243"
+                    | "el-00244"
+                    | "el-00245"
+            )
+        });
+    }
+
+    let normalized = normalized_window_from_fountain(
+        "gumshoe",
+        "tests/fixtures/corpus/public/gumshoe/source/source.fountain",
+        &fixture,
+    );
+    let semantic = build_semantic_screenplay(normalized);
+    let config = PaginationConfig {
+        lines_per_page: 54.0,
+        geometry: geometry_for_screenplay("gumshoe"),
+    };
+    let full_actual = PaginatedScreenplay::paginate(
+        semantic,
+        config,
+        fixture.style_profile.clone(),
+        fixture.scope.clone(),
+    );
+    let page_numbers: Vec<u32> = fixture.pages.iter().map(|page| page.number).collect();
+    let actual = slice_paginated_to_fixture_window(&full_actual, &page_numbers);
+
+    let page_12 = actual.pages.iter().find(|page| page.metadata.number == 12).unwrap();
+    let page_13 = actual.pages.iter().find(|page| page.metadata.number == 13).unwrap();
+
+    for element_id in ["el-00242", "el-00243"] {
+        let item = page_12.items.iter().find(|item| item.element_id == element_id).unwrap();
+        assert_eq!(item.fragment, Fragment::Whole, "{element_id} should stay whole on page 12");
+        assert_eq!(item.line_range, None, "{element_id} should not carry a partial line range");
+    }
+
+    for element_id in ["el-00244", "el-00245"] {
+        let item = page_13.items.iter().find(|item| item.element_id == element_id).unwrap();
+        assert_eq!(item.fragment, Fragment::Whole, "{element_id} should stay whole on page 13");
+        assert_eq!(item.line_range, None, "{element_id} should not carry a partial line range");
+    }
+}
+
+#[test]
 // #[ignore = "Temporarily disabled"]
 fn big_fish_macro_parity_holds_baseline() {
     let report = build_line_break_parity_report(
