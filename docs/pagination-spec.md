@@ -102,6 +102,14 @@ Pages are filled until visual height is exhausted, prompting a hard pagination m
     exact-fit sentence-ending top fragment even if that top fragment ends on a
     short final line. This is intentionally scoped to the scene-heading case
     rather than ordinary action blocks.
+  - **Minimum block size for scene-heading splits**: This keep-with-next split
+    is only attempted when the following action block has at least
+    `orphan_limit + widow_limit + 1` content lines (5 lines with default
+    geometry). Shorter blocks are too thin to split meaningfully — sentence-boundary
+    re-wrapping can inflate each fragment's apparent line count just enough to
+    satisfy orphan/widow checks, but the resulting split is not defensible. Final
+    Draft pushes the entire scene heading + action together to the next page
+    instead.
   - Explicitly empty **Action** paragraphs render as **one blank visual line**,
     not zero lines. They still follow the normal spacing-above rules, so they
     affect page budget like any other one-line action beat.

@@ -465,6 +465,16 @@ fn choose_keep_with_next_split<'a>(
         return None;
     }
 
+    // The split block must have enough content that both fragments are substantial.
+    // With fewer than orphan_limit + widow_limit + 1 lines, sentence-boundary
+    // re-wrapping can inflate the fragment count just enough to pass orphan/widow
+    // checks, but the result is too thin — Final Draft pushes the entire scene to
+    // the next page instead of splitting.
+    let min_splittable_lines = (geometry.orphan_limit + geometry.widow_limit + 1) as f32;
+    if split_block.content_lines < min_splittable_lines {
+        return None;
+    }
+
     let available_lines = (page_limit_lines - current_page_lines - lead_height).max(0.0);
     let split = choose_split_lines(
         split_block,
