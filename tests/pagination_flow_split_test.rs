@@ -12,3 +12,16 @@ fn flow_split_prefers_a_sentence_boundary_when_a_legal_split_exists() {
     assert_eq!(decision.top_text.trim_end(), "A forty-year old man named BEAMEN comes out of the seed store to greet Edward.");
     assert!(decision.bottom_text.trim_start().starts_with("Friendly but a little drunk"));
 }
+
+#[test]
+fn flow_split_rejects_non_sentence_split_when_no_sentence_boundary_fits() {
+    let text = "Rus okuqagozu arev hurur abewyge gewuzad ys Udaxek, oge’u qajoqas eb rus howo raxa uk ok kuqysogoq godaqug qe YZEPYPAX YWES EWODEJO (wygaba-waqu, ohaxu, usuwobozyke). Udaxek’u erodevu ok yxobuhu qe eky qega, kud ok ZAQ ojo z ogusek eb eky ryb, gyzaqav eky asaxy. Udaxek zypuj zagazak.";
+    let config = WrapConfig::with_exact_width_chars(61);
+
+    let decision = choose_flow_split(text, &config, 2, 2, 2);
+
+    assert!(
+        decision.is_none(),
+        "expected no flow split when the first legal sentence boundary needs more top lines than the page can fit"
+    );
+}

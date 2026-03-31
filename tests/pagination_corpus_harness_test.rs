@@ -529,6 +529,32 @@ fn big_fish_line_break_parity_recovers_el_00533_hyphenated_pdf_match() {
 }
 
 #[test]
+fn gumshoe_pages_4_5_keep_el_00064_whole_on_page_5() {
+    let mut fixture: PageBreakFixture =
+        read_fixture("tests/fixtures/corpus/public/gumshoe/canonical/page-breaks.json");
+    fixture.pages.retain(|page| matches!(page.number, 4 | 5));
+    for page in &mut fixture.pages {
+        if page.number == 5 {
+            page.items.retain(|item| item.element_id == "el-00064");
+        }
+    }
+
+    let normalized = normalized_window_from_fountain(
+        "gumshoe",
+        "tests/fixtures/corpus/public/gumshoe/source/source.fountain",
+        &fixture,
+    );
+    let semantic = build_semantic_screenplay(normalized);
+    let report = run_window_parity_check(&fixture, &semantic, geometry_for_screenplay("gumshoe"));
+
+    assert!(
+        report.issues.is_empty(),
+        "expected pages 4-5 to keep el-00064 whole on page 5, got {:?}",
+        report.issues
+    );
+}
+
+#[test]
 // #[ignore = "Temporarily disabled"]
 fn big_fish_macro_parity_holds_baseline() {
     let report = build_line_break_parity_report(
