@@ -576,6 +576,21 @@ fn little_women_macro_parity_holds_baseline() {
 }
 
 #[test]
+// #[ignore = "Temporarily disabled"]
+fn vikings_macro_parity_holds_baseline() {
+    let report = build_line_break_parity_report(
+        "vikings",
+        "tests/fixtures/corpus/public/vikings/source/source.fountain",
+        "tests/fixtures/corpus/public/vikings/canonical/page-breaks.json",
+    );
+
+    assert_eq!(
+        report.disagreement_count, 0,
+        "Expected Vikings line-break parity against the Final Draft PDF to have 0 disagreements. If this fails, inspect the report and decide which pagination assumptions are wrong."
+    );
+}
+
+#[test]
 fn mostly_genius_line_break_diagnostic_report_includes_multicam_act_markers() {
     let report = build_line_break_parity_report(
         "mostly-genius",
@@ -648,7 +663,6 @@ fn little_women_full_script_page_break_parity_holds_baseline() {
         "Expected Little Women full-script page-break parity against the Final Draft canonical fixture to have 0 issues. If this fails, inspect the report and decide which pagination assumptions are wrong."
     );
 }
-
 
 #[test]
 fn dual_dialogue_parity_items_use_dual_dialogue_width_and_surface_dual_metadata() {
