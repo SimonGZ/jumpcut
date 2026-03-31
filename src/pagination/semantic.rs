@@ -100,6 +100,10 @@ pub fn build_semantic_screenplay(normalized: NormalizedScreenplay) -> SemanticSc
 
     while index < normalized.elements.len() {
         let element = &normalized.elements[index];
+        if is_non_visual_element_kind(&element.kind) {
+            index += 1;
+            continue;
+        }
         if element.starts_new_page {
             units.push(SemanticUnit::PageStart(PageStartUnit {
                 source_element_id: element.element_id.clone(),
@@ -154,6 +158,10 @@ pub fn build_semantic_screenplay(normalized: NormalizedScreenplay) -> SemanticSc
         starting_page_number: normalized.starting_page_number,
         units,
     }
+}
+
+fn is_non_visual_element_kind(kind: &str) -> bool {
+    matches!(kind, "Section" | "Synopsis")
 }
 
 fn build_dual_dialogue_unit(group_id: &str, elements: &[NormalizedElement]) -> DualDialogueUnit {

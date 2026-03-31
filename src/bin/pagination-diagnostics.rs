@@ -48,6 +48,10 @@ const DIAGNOSTIC_COMMANDS: &[DiagnosticCommand] = &[
         action: DiagnosticAction::Direct(write_mostly_genius_full_script_review),
     },
     DiagnosticCommand {
+        name: "vikings-full-script",
+        action: DiagnosticAction::Direct(write_vikings_full_script_review),
+    },
+    DiagnosticCommand {
         name: "fd-probes",
         action: DiagnosticAction::Direct(write_fd_probes),
     },
@@ -175,6 +179,12 @@ fn write_little_women_full_script_review(repo_root: &Path) {
 fn write_mostly_genius_full_script_review(repo_root: &Path) {
     let debug_dir = repo_root.join("target/pagination-debug/mostly-genius-full-script");
     page_break_diagnostics::write_mostly_genius_full_script_page_break_packet(&debug_dir);
+    println!("wrote {}", debug_dir.join("REVIEW.md").display());
+}
+
+fn write_vikings_full_script_review(repo_root: &Path) {
+    let debug_dir = repo_root.join("target/pagination-debug/vikings-full-script");
+    page_break_diagnostics::write_vikings_full_script_page_break_packet(&debug_dir);
     println!("wrote {}", debug_dir.join("REVIEW.md").display());
 }
 

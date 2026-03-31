@@ -160,6 +160,9 @@ impl PaginatedScreenplay {
         let mut current_items: Vec<PageItem> = Vec::new();
 
         for element in normalized.elements {
+            if is_non_visual_element_kind(&element.kind) {
+                continue;
+            }
             if element.starts_new_page && !current_items.is_empty() {
                 let rolled_block_items =
                     take_trailing_block_items_for_page_start(&mut current_items, &element);
@@ -768,6 +771,10 @@ fn page_item_from_normalized(element: NormalizedElement) -> PageItem {
         dual_dialogue_group: element.dual_dialogue_group,
         dual_dialogue_side: element.dual_dialogue_side,
     }
+}
+
+fn is_non_visual_element_kind(kind: &str) -> bool {
+    matches!(kind, "Section" | "Synopsis")
 }
 
 fn take_trailing_block_items_for_page_start(

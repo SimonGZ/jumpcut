@@ -245,6 +245,39 @@ fn paginated_ir_from_normalized_honors_explicit_page_starts() {
 }
 
 #[test]
+fn paginated_ir_from_normalized_omits_non_visual_sections_and_synopses() {
+    let normalized = NormalizedScreenplay {
+        screenplay: "sample".into(),
+        starting_page_number: None,
+        elements: vec![
+            normalized_element("el-00001", "Action", false, None, None, None),
+            normalized_element("el-00002", "Section", false, None, None, None),
+            normalized_element("el-00003", "Synopsis", false, None, None, None),
+            normalized_element("el-00004", "Action", false, None, None, None),
+        ],
+    };
+
+    let actual = PaginatedScreenplay::from_normalized(
+        normalized,
+        "standard",
+        PaginationScope {
+            title_page_count: Some(1),
+            body_start_page: Some(2),
+        },
+    );
+
+    assert_eq!(actual.pages.len(), 1);
+    assert_eq!(
+        actual.pages[0]
+            .items
+            .iter()
+            .map(|item| item.element_id.as_str())
+            .collect::<Vec<_>>(),
+        vec!["el-00001", "el-00004"],
+    );
+}
+
+#[test]
 // #[ignore = "Temporarily disabled"]
 fn paginated_ir_from_normalized_respects_explicit_starting_page_number() {
     let normalized = NormalizedScreenplay {
