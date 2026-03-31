@@ -780,6 +780,74 @@ fn gumshoe_pages_15_16_keep_el_00321_on_page_15_and_split_el_00322() {
 }
 
 #[test]
+fn big_fish_pages_115_116_keep_el_02473_and_el_02474_whole_on_page_116() {
+    let mut fixture: PageBreakFixture =
+        read_fixture("tests/fixtures/corpus/public/big-fish/canonical/page-breaks.json");
+    fixture.pages.retain(|page| matches!(page.number, 115 | 116));
+
+    let normalized = normalized_window_from_fountain(
+        "big-fish",
+        "tests/fixtures/corpus/public/big-fish/source/source.fountain",
+        &fixture,
+    );
+    let semantic = build_semantic_screenplay(normalized);
+    let config = PaginationConfig {
+        lines_per_page: 54.0,
+        geometry: geometry_for_screenplay("big-fish"),
+    };
+    let actual = PaginatedScreenplay::paginate(
+        semantic,
+        config,
+        fixture.style_profile.clone(),
+        fixture.scope.clone(),
+    );
+
+    // el-02473 is a scene heading ("INT. HOSPITAL ROOM - NIGHT") that must NOT be
+    // pulled onto page 115 by keep-with-next split logic.  Both it and the following
+    // action block el-02474 should remain whole on page 116.
+    let page_115_scene = actual
+        .pages
+        .iter()
+        .find(|page| page.metadata.number == 115)
+        .and_then(|page| page.items.iter().find(|item| item.element_id == "el-02473"));
+    let page_116_scene = actual
+        .pages
+        .iter()
+        .find(|page| page.metadata.number == 116)
+        .and_then(|page| page.items.iter().find(|item| item.element_id == "el-02473"));
+
+    assert!(
+        page_115_scene.is_none(),
+        "scene heading el-02473 should not appear on page 115 (keep-with-next split regression), got: {:?}",
+        page_115_scene
+    );
+    assert!(
+        page_116_scene.is_some(),
+        "scene heading el-02473 should be on page 116 as a whole block"
+    );
+    assert_eq!(
+        page_116_scene.unwrap().fragment,
+        Fragment::Whole,
+        "scene heading el-02473 should be whole on page 116"
+    );
+
+    let page_116_action = actual
+        .pages
+        .iter()
+        .find(|page| page.metadata.number == 116)
+        .and_then(|page| page.items.iter().find(|item| item.element_id == "el-02474"));
+    assert!(
+        page_116_action.is_some(),
+        "action el-02474 should be on page 116 as a whole block, not split across pages"
+    );
+    assert_eq!(
+        page_116_action.unwrap().fragment,
+        Fragment::Whole,
+        "action el-02474 should be whole on page 116, not split by keep-with-next logic"
+    );
+}
+
+#[test]
 // #[ignore = "Temporarily disabled"]
 fn big_fish_macro_parity_holds_baseline() {
     let report = build_line_break_parity_report(
