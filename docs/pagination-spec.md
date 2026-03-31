@@ -94,6 +94,17 @@ Pages are filled until visual height is exhausted, prompting a hard pagination m
   - Dialogue splits use **2 content lines** on each side by default, counting
     dialogue, lyric, and parenthetical lines but not character cues.
 - **Splitting Logic**: Programs avoid ungainly "stranding." When splitting action or dialogue near the bottom of a page, splits should favor a sentence boundary where possible. The algorithm would rather push an entire element block onto the next page or slice at an earlier junction for a more elegant partition rather than stranding small bits of content at the top of the next page.
+  - In JumpCut's current parity model, ordinary action splits still reject a
+    short runt final top line by default.
+  - There is one narrower exception: when a **scene heading** would otherwise
+    be forced onto the next page with no scene content, JumpCut allows the
+    following action to split under the normal action rules, including an
+    exact-fit sentence-ending top fragment even if that top fragment ends on a
+    short final line. This is intentionally scoped to the scene-heading case
+    rather than ordinary action blocks.
+  - Explicitly empty **Action** paragraphs render as **one blank visual line**,
+    not zero lines. They still follow the normal spacing-above rules, so they
+    affect page budget like any other one-line action beat.
 
 ### 6.2 Configurable Elements
 

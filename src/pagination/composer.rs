@@ -38,7 +38,7 @@ pub fn compose<'a>(units: &'a [SemanticUnit], geometry: &LayoutGeometry) -> Vec<
                 };
                 
                 let config = WrapConfig::from_geometry(geometry, el_type);
-                let lines = wrap_text_for_element(&flow.text, &config);
+                let lines = wrapped_flow_lines(flow, &config);
                 
                 let sp_above = match flow.kind {
                     FlowKind::SceneHeading => geometry.scene_heading_spacing_before,
@@ -113,6 +113,17 @@ pub fn compose<'a>(units: &'a [SemanticUnit], geometry: &LayoutGeometry) -> Vec<
     }
 
     measured
+}
+
+fn wrapped_flow_lines(
+    flow: &crate::pagination::semantic::FlowUnit,
+    config: &WrapConfig,
+) -> Vec<String> {
+    if matches!(flow.kind, FlowKind::Action) && flow.text.is_empty() {
+        return vec![String::new()];
+    }
+
+    wrap_text_for_element(&flow.text, config)
 }
 
 fn measure_dialogue_height<'a>(

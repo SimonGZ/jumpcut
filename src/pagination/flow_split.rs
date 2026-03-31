@@ -20,6 +20,7 @@ pub struct FlowSplitPlan {
 struct FlowSplitPolicy {
     prefer_sentence_boundaries: bool,
     prefer_fuller_top_fragment: bool,
+    allow_exact_fit_sentence_runt: bool,
 }
 
 impl Default for FlowSplitPolicy {
@@ -27,6 +28,7 @@ impl Default for FlowSplitPolicy {
         Self {
             prefer_sentence_boundaries: true,
             prefer_fuller_top_fragment: true,
+            allow_exact_fit_sentence_runt: false,
         }
     }
 }
@@ -38,7 +40,44 @@ pub fn choose_flow_split(
     min_top_lines: usize,
     min_bottom_lines: usize,
 ) -> Option<FlowSplitPlan> {
-    let policy = FlowSplitPolicy::default();
+    choose_flow_split_with_policy(
+        text,
+        config,
+        max_top_lines,
+        min_top_lines,
+        min_bottom_lines,
+        FlowSplitPolicy::default(),
+    )
+}
+
+pub fn choose_flow_split_allow_exact_fit_sentence_runt(
+    text: &str,
+    config: &WrapConfig,
+    max_top_lines: usize,
+    min_top_lines: usize,
+    min_bottom_lines: usize,
+) -> Option<FlowSplitPlan> {
+    choose_flow_split_with_policy(
+        text,
+        config,
+        max_top_lines,
+        min_top_lines,
+        min_bottom_lines,
+        FlowSplitPolicy {
+            allow_exact_fit_sentence_runt: true,
+            ..FlowSplitPolicy::default()
+        },
+    )
+}
+
+fn choose_flow_split_with_policy(
+    text: &str,
+    config: &WrapConfig,
+    max_top_lines: usize,
+    min_top_lines: usize,
+    min_bottom_lines: usize,
+    policy: FlowSplitPolicy,
+) -> Option<FlowSplitPlan> {
     let candidate_offsets = sentence_boundary_offsets(text);
 
     choose_best_scored_split(candidate_offsets.into_iter(), |offset| {
@@ -51,6 +90,7 @@ pub fn choose_flow_split(
         let bottom_lines = wrap_fragment_lines(bottom_text, config);
         let top_line_count = top_lines.len();
         let bottom_line_count = bottom_lines.len();
+        let ends_sentence = policy.prefer_sentence_boundaries && text_ends_sentence(top_text);
 
         if top_line_count < min_top_lines || bottom_line_count < min_bottom_lines {
             return None;
@@ -58,13 +98,18 @@ pub fn choose_flow_split(
         if top_line_count > max_top_lines {
             return None;
         }
-        if has_discouraged_runt_top_line(&top_lines, top_text) {
+        if has_discouraged_runt_top_line(&top_lines, top_text)
+            && !(
+                policy.allow_exact_fit_sentence_runt
+                    && ends_sentence
+                    && top_line_count == max_top_lines
+            )
+        {
             return None;
         }
 
         Some(FlowSplitScore {
-            ends_sentence: policy.prefer_sentence_boundaries
-                && text_ends_sentence(top_text),
+            ends_sentence,
             fuller_top_fragment: if policy.prefer_fuller_top_fragment {
                 top_line_count
             } else {

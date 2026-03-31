@@ -865,7 +865,8 @@ pub fn write_visual_comparison_data(debug_dir: &Path) {
                 };
                 let element_type = ElementType::from_item_kind(&item.kind, item.dual_dialogue_side);
                 let config = crate::pagination::wrapping::WrapConfig::from_geometry(&run.geometry, element_type);
-                let wrapped_lines = crate::pagination::wrapping::wrap_text_for_element(&wrap_text, &config);
+                let wrapped_lines =
+                    wrapped_visual_lines(element_type, &wrap_text, &config);
                 let width_chars = config.exact_width_chars;
 
                 let (content_lines, spacing_before) = measure_visual_item(
@@ -2712,7 +2713,7 @@ fn measured_lines_for_item(
         Some((start, end)) => slice_explicit_lines(&element.text, start, end),
         None => element.text.clone(),
     };
-    let wrapped_lines = crate::pagination::wrapping::wrap_text_for_element(&text, &config);
+    let wrapped_lines = wrapped_visual_lines(element_type, &text, &config);
     let content_lines =
         wrapped_lines.len() as f32 * line_height_for_element_type(geometry, element_type);
 
@@ -2751,7 +2752,7 @@ fn measure_visual_item(
         Some((start, end)) => slice_explicit_lines(&element.text, start, end),
         None => element.text.clone(),
     };
-    let wrapped_lines = crate::pagination::wrapping::wrap_text_for_element(&text, &config);
+    let wrapped_lines = wrapped_visual_lines(element_type, &text, &config);
     let content_lines =
         wrapped_lines.len() as f32 * line_height_for_element_type(geometry, element_type);
     let spacing_above = match element_type {
@@ -2764,6 +2765,18 @@ fn measure_visual_item(
     };
 
     (content_lines, spacing_above)
+}
+
+fn wrapped_visual_lines(
+    element_type: ElementType,
+    text: &str,
+    config: &crate::pagination::wrapping::WrapConfig,
+) -> Vec<String> {
+    if matches!(element_type, ElementType::Action) && text.is_empty() {
+        return vec![String::new()];
+    }
+
+    crate::pagination::wrapping::wrap_text_for_element(text, config)
 }
 
 #[derive(Serialize)]

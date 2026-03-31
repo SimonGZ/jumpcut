@@ -2,7 +2,9 @@ use crate::pagination::composer::LayoutBlock;
 use crate::pagination::dialogue_split::{
     plan_dialogue_split, plan_dialogue_split_parts, DialogueSplitPlan, DialogueTextPart,
 };
-use crate::pagination::flow_split::{choose_flow_split, FlowSplitPlan};
+use crate::pagination::flow_split::{
+    choose_flow_split, choose_flow_split_allow_exact_fit_sentence_runt, FlowSplitPlan,
+};
 use crate::pagination::fixtures::Fragment;
 use crate::pagination::margin::line_height_for_element_type;
 use crate::pagination::wrapping::{wrap_text_for_element, ElementType, WrapConfig};
@@ -150,9 +152,13 @@ pub fn paginate<'a>(blocks: &'a [LayoutBlock<'a>], page_limit_lines: f32, geomet
                 };
                 let available_lines = (page_limit_lines - current_page_lines).max(0.0);
 
-                if let Some(split) =
-                    choose_split_lines(block, available_lines, effective_spacing, geometry)
-                {
+                if let Some(split) = choose_split_lines(
+                    block,
+                    available_lines,
+                    effective_spacing,
+                    geometry,
+                    false,
+                ) {
                     current_page_blocks.push(LayoutBlock {
                         unit: block.unit,
                         fragment: Fragment::ContinuedToNext,
@@ -313,6 +319,7 @@ fn choose_split_lines(
     available_lines: f32,
     effective_spacing: f32,
     geometry: &LayoutGeometry,
+    allow_exact_fit_sentence_runt: bool,
 ) -> Option<SplitDecision> {
     if !has_room_for_minimum_top_fragment(available_lines, effective_spacing, geometry) {
         return None;
@@ -395,13 +402,23 @@ fn choose_split_lines(
                 return None;
             }
 
-            let plan = choose_flow_split(
-                &flow.text,
-                &config,
-                max_top_lines,
-                geometry.orphan_limit,
-                geometry.widow_limit,
-            )?;
+            let plan = if allow_exact_fit_sentence_runt {
+                choose_flow_split_allow_exact_fit_sentence_runt(
+                    &flow.text,
+                    &config,
+                    max_top_lines,
+                    geometry.orphan_limit,
+                    geometry.widow_limit,
+                )?
+            } else {
+                choose_flow_split(
+                    &flow.text,
+                    &config,
+                    max_top_lines,
+                    geometry.orphan_limit,
+                    geometry.widow_limit,
+                )?
+            };
             let top_lines = plan.top_line_count as f32 * element_line_height;
             let bottom_lines = plan.bottom_line_count as f32 * element_line_height;
             Some(SplitDecision {
@@ -449,7 +466,13 @@ fn choose_keep_with_next_split<'a>(
     }
 
     let available_lines = (page_limit_lines - current_page_lines - lead_height).max(0.0);
-    let split = choose_split_lines(split_block, available_lines, split_block.spacing_above, geometry)?;
+    let split = choose_split_lines(
+        split_block,
+        available_lines,
+        split_block.spacing_above,
+        geometry,
+        true,
+    )?;
 
     Some(KeepWithNextSplitDecision {
         lead_block,

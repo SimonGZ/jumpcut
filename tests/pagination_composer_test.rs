@@ -145,6 +145,20 @@ fn composer_determines_correct_non_additive_spacing_between_action_blocks() {
 }
 
 #[test]
+fn composer_counts_empty_action_as_a_single_blank_line() {
+    let geometry = LayoutGeometry::default();
+    let units = vec![mock_action("el-empty", "")];
+
+    let blocks = compose(&units, &geometry);
+
+    assert_eq!(blocks.len(), 1);
+    assert_eq!(
+        blocks[0].content_lines, 1.0,
+        "an empty action element should still occupy one rendered blank line"
+    );
+}
+
+#[test]
 fn composer_handles_scene_heading_spacing_rules() {
     let geometry = LayoutGeometry::default();
     let units = vec![
