@@ -120,7 +120,10 @@ pub fn write_selected_public_windows_json(debug_dir: &Path) {
             debug_dir.join(format!("{stem}.comparison-report.json")),
             serde_json::to_string_pretty(&FixtureProbeDebugOutput {
                 fixture_path: path.to_string(),
-                page_numbers: fixture.pages.iter().map(|page| page.number).collect(),
+                page_numbers: diagnostic_display_page_numbers(
+                    fixture.pages.iter().map(|page| page.number),
+                    &fixture.scope,
+                ),
                 lines_per_page: run.lines_per_page,
                 score: run.score,
                 total_issues: report.total_issues(),
@@ -244,7 +247,10 @@ pub fn write_little_women_full_script_page_break_packet(debug_dir: &Path) {
         debug_dir.join("comparison-report.json"),
         serde_json::to_string_pretty(&FixtureProbeDebugOutput {
             fixture_path: fixture_path.to_string(),
-            page_numbers: fixture.pages.iter().map(|page| page.number).collect(),
+            page_numbers: diagnostic_display_page_numbers(
+                fixture.pages.iter().map(|page| page.number),
+                &fixture.scope,
+            ),
             lines_per_page: 54.0,
             score,
             total_issues: report.total_issues(),
@@ -252,7 +258,7 @@ pub fn write_little_women_full_script_page_break_packet(debug_dir: &Path) {
             wrong_fragment: report.issue_count(ComparisonIssueKind::WrongFragment),
             missing: report.issue_count(ComparisonIssueKind::MissingOccurrence),
             unexpected: report.issue_count(ComparisonIssueKind::UnexpectedOccurrence),
-            report: report.clone(),
+            report: diagnostic_display_report(&report, &fixture.scope),
         })
         .unwrap(),
     )
@@ -324,7 +330,10 @@ pub fn write_big_fish_full_script_page_break_packet(debug_dir: &Path) {
         debug_dir.join("comparison-report.json"),
         serde_json::to_string_pretty(&FixtureProbeDebugOutput {
             fixture_path: fixture_path.to_string(),
-            page_numbers: fixture.pages.iter().map(|page| page.number).collect(),
+            page_numbers: diagnostic_display_page_numbers(
+                fixture.pages.iter().map(|page| page.number),
+                &fixture.scope,
+            ),
             lines_per_page: 54.0,
             score,
             total_issues: report.total_issues(),
@@ -332,7 +341,7 @@ pub fn write_big_fish_full_script_page_break_packet(debug_dir: &Path) {
             wrong_fragment: report.issue_count(ComparisonIssueKind::WrongFragment),
             missing: report.issue_count(ComparisonIssueKind::MissingOccurrence),
             unexpected: report.issue_count(ComparisonIssueKind::UnexpectedOccurrence),
-            report: report.clone(),
+            report: diagnostic_display_report(&report, &fixture.scope),
         })
         .unwrap(),
     )
@@ -413,7 +422,10 @@ pub fn write_mostly_genius_full_script_page_break_packet(debug_dir: &Path) {
         debug_dir.join("comparison-report.json"),
         serde_json::to_string_pretty(&FixtureProbeDebugOutput {
             fixture_path: fixture_path.to_string(),
-            page_numbers: fixture.pages.iter().map(|page| page.number).collect(),
+            page_numbers: diagnostic_display_page_numbers(
+                fixture.pages.iter().map(|page| page.number),
+                &fixture.scope,
+            ),
             lines_per_page: 54.0,
             score,
             total_issues: report.total_issues(),
@@ -421,7 +433,7 @@ pub fn write_mostly_genius_full_script_page_break_packet(debug_dir: &Path) {
             wrong_fragment: report.issue_count(ComparisonIssueKind::WrongFragment),
             missing: report.issue_count(ComparisonIssueKind::MissingOccurrence),
             unexpected: report.issue_count(ComparisonIssueKind::UnexpectedOccurrence),
-            report: report.clone(),
+            report: diagnostic_display_report(&report, &fixture.scope),
         })
         .unwrap(),
     )
@@ -488,7 +500,10 @@ pub fn write_vikings_full_script_page_break_packet(debug_dir: &Path) {
         debug_dir.join("comparison-report.json"),
         serde_json::to_string_pretty(&FixtureProbeDebugOutput {
             fixture_path: fixture_path.to_string(),
-            page_numbers: fixture.pages.iter().map(|page| page.number).collect(),
+            page_numbers: diagnostic_display_page_numbers(
+                fixture.pages.iter().map(|page| page.number),
+                &fixture.scope,
+            ),
             lines_per_page: 54.0,
             score,
             total_issues: report.total_issues(),
@@ -496,7 +511,7 @@ pub fn write_vikings_full_script_page_break_packet(debug_dir: &Path) {
             wrong_fragment: report.issue_count(ComparisonIssueKind::WrongFragment),
             missing: report.issue_count(ComparisonIssueKind::MissingOccurrence),
             unexpected: report.issue_count(ComparisonIssueKind::UnexpectedOccurrence),
-            report: report.clone(),
+            report: diagnostic_display_report(&report, &fixture.scope),
         })
         .unwrap(),
     )
@@ -563,7 +578,10 @@ pub fn write_gumshoe_full_script_page_break_packet(debug_dir: &Path) {
         debug_dir.join("comparison-report.json"),
         serde_json::to_string_pretty(&FixtureProbeDebugOutput {
             fixture_path: fixture_path.to_string(),
-            page_numbers: fixture.pages.iter().map(|page| page.number).collect(),
+            page_numbers: diagnostic_display_page_numbers(
+                fixture.pages.iter().map(|page| page.number),
+                &fixture.scope,
+            ),
             lines_per_page: 54.0,
             score,
             total_issues: report.total_issues(),
@@ -571,7 +589,7 @@ pub fn write_gumshoe_full_script_page_break_packet(debug_dir: &Path) {
             wrong_fragment: report.issue_count(ComparisonIssueKind::WrongFragment),
             missing: report.issue_count(ComparisonIssueKind::MissingOccurrence),
             unexpected: report.issue_count(ComparisonIssueKind::UnexpectedOccurrence),
-            report: report.clone(),
+            report: diagnostic_display_report(&report, &fixture.scope),
         })
         .unwrap(),
     )
@@ -698,7 +716,10 @@ fn write_window_review_packet(
             debug_dir.join(format!("{stem}.comparison-report.json")),
             serde_json::to_string_pretty(&FixtureProbeDebugOutput {
                 fixture_path: (*fixture_path).to_string(),
-                page_numbers: fixture.pages.iter().map(|page| page.number).collect(),
+                page_numbers: diagnostic_display_page_numbers(
+                    fixture.pages.iter().map(|page| page.number),
+                    &fixture.scope,
+                ),
                 lines_per_page: run.lines_per_page,
                 score: run.score,
                 total_issues: report.total_issues(),
@@ -706,7 +727,7 @@ fn write_window_review_packet(
                 wrong_fragment: report.issue_count(ComparisonIssueKind::WrongFragment),
                 missing: report.issue_count(ComparisonIssueKind::MissingOccurrence),
                 unexpected: report.issue_count(ComparisonIssueKind::UnexpectedOccurrence),
-                report: report.clone(),
+                report: diagnostic_display_report(&report, &fixture.scope),
             })
             .unwrap(),
         )
@@ -739,7 +760,10 @@ fn write_window_review_packet(
         summaries.push(ReviewSummary {
             stem: (*stem).into(),
             fixture_path: (*fixture_path).into(),
-            page_range: fixture.pages.iter().map(|page| page.number).collect(),
+            page_range: diagnostic_display_page_numbers(
+                fixture.pages.iter().map(|page| page.number),
+                &fixture.scope,
+            ),
             lines_per_page: run.lines_per_page,
             total_issues: run.report.total_issues(),
             wrong_page: run.report.issue_count(ComparisonIssueKind::WrongPage),
@@ -1121,7 +1145,14 @@ fn paginated_to_debug_fixture(
             .iter()
             .zip(paged_layout_totals)
             .map(|(page, block_total_lines)| {
-                debug_page(page, &elements, geometry, previews, block_total_lines)
+                debug_page(
+                    page,
+                    &elements,
+                    geometry,
+                    previews,
+                    block_total_lines,
+                    &actual.scope,
+                )
             })
             .collect(),
     }
@@ -1180,6 +1211,7 @@ fn debug_page(
     geometry: &LayoutGeometry,
     previews: &HashMap<String, String>,
     block_total_lines: f32,
+    scope: &crate::pagination::PaginationScope,
 ) -> DebugPageBreakFixturePage {
     let mut items = Vec::with_capacity(page.items.len());
     for item in &page.items {
@@ -1201,7 +1233,7 @@ fn debug_page(
     }
 
     DebugPageBreakFixturePage {
-        number: page.metadata.number,
+        number: diagnostic_display_page_number(page.metadata.number, scope),
         block_total_lines,
         item_count: page.items.len(),
         block_count: page.blocks.len(),
@@ -1245,7 +1277,9 @@ fn render_pseudo_pdf_output(
 
     let mut out = String::new();
     for (page, layout_page) in actual.pages.iter().zip(layout_pages) {
-        out.push_str(&format!("=== PAGE {} START ===\n", page.metadata.number));
+        let display_page_number =
+            diagnostic_display_page_number(page.metadata.number, &actual.scope);
+        out.push_str(&format!("=== PAGE {} START ===\n", display_page_number));
         let mut line_no: u32 = 1;
 
         for block in &layout_page.blocks {
@@ -1264,7 +1298,7 @@ fn render_pseudo_pdf_output(
             }
         }
 
-        out.push_str(&format!("=== PAGE {} END ===\n\n", page.metadata.number));
+        out.push_str(&format!("=== PAGE {} END ===\n\n", display_page_number));
     }
 
     out
@@ -1303,7 +1337,7 @@ fn build_page_endings_report(
             let actual_last = last_meaningful_line(&actual_lines);
 
             PageEndingItem {
-                page_number,
+                page_number: diagnostic_display_page_number(page_number, &actual.scope),
                 matches: canonical_last == actual_last,
                 canonical_last_line: canonical_last,
                 actual_last_line: actual_last,
@@ -1985,7 +2019,7 @@ fn indent_spaces_for_element_type(element_type: ElementType, geometry: &LayoutGe
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::pagination::LayoutGeometry;
+    use crate::pagination::{LayoutGeometry, PaginationScope};
 
     #[test]
     fn more_marker_uses_character_indent_in_pseudo_pdf() {
@@ -2041,6 +2075,18 @@ mod tests {
         let texts = rendered.into_iter().map(|line| line.text).collect::<Vec<_>>();
 
         assert_eq!(texts, vec!["Action", "", "Dialogue"]);
+    }
+
+    #[test]
+    fn diagnostic_display_page_number_uses_body_page_numbers_for_body_pages() {
+        let scope = PaginationScope {
+            title_page_count: Some(1),
+            body_start_page: Some(2),
+        };
+
+        assert_eq!(diagnostic_display_page_number(1, &scope), 0);
+        assert_eq!(diagnostic_display_page_number(2, &scope), 1);
+        assert_eq!(diagnostic_display_page_number(15, &scope), 14);
     }
 }
 
@@ -2764,6 +2810,43 @@ struct PaginatedWindowRun {
     actual: PaginatedScreenplay,
     geometry: LayoutGeometry,
     report: crate::pagination::ComparisonReport,
+}
+
+fn diagnostic_display_page_number(
+    page_number: u32,
+    scope: &crate::pagination::PaginationScope,
+) -> u32 {
+    match scope.body_start_page {
+        Some(body_start) if page_number >= body_start => page_number - body_start + 1,
+        Some(_) => 0,
+        None => page_number,
+    }
+}
+
+fn diagnostic_display_page_numbers(
+    page_numbers: impl IntoIterator<Item = u32>,
+    scope: &crate::pagination::PaginationScope,
+) -> Vec<u32> {
+    page_numbers
+        .into_iter()
+        .map(|page_number| diagnostic_display_page_number(page_number, scope))
+        .collect()
+}
+
+fn diagnostic_display_report(
+    report: &crate::pagination::ComparisonReport,
+    scope: &crate::pagination::PaginationScope,
+) -> crate::pagination::ComparisonReport {
+    let mut rendered = report.clone();
+    for issue in &mut rendered.issues {
+        issue.expected_page = issue
+            .expected_page
+            .map(|page_number| diagnostic_display_page_number(page_number, scope));
+        issue.actual_page = issue
+            .actual_page
+            .map(|page_number| diagnostic_display_page_number(page_number, scope));
+    }
+    rendered
 }
 
 #[derive(Serialize)]
