@@ -555,6 +555,82 @@ fn gumshoe_pages_4_5_keep_el_00064_whole_on_page_5() {
 }
 
 #[test]
+fn gumshoe_pages_11_13_keep_el_00242_and_el_00243_together() {
+    let mut fixture: PageBreakFixture =
+        read_fixture("tests/fixtures/corpus/public/gumshoe/canonical/page-breaks.json");
+    fixture.pages.retain(|page| matches!(page.number, 11 | 12 | 13));
+    for page in &mut fixture.pages {
+        page.items.retain(|item| {
+            matches!(
+                item.element_id.as_str(),
+                "el-00198"
+                    | "el-00199"
+                    | "el-00200"
+                    | "el-00201"
+                    | "el-00202"
+                    | "el-00203"
+                    | "el-00204"
+                    | "el-00205"
+                    | "el-00206"
+                    | "el-00207"
+                    | "el-00208"
+                    | "el-00209"
+                    | "el-00210"
+                    | "el-00211"
+                    | "el-00212"
+                    | "el-00213"
+                    | "el-00214"
+                    | "el-00215"
+                    | "el-00216"
+                    | "el-00217"
+                    | "el-00218"
+                    | "el-00219"
+                    | "el-00220"
+                    | "el-00221"
+                    | "el-00222"
+                    | "el-00223"
+                    | "el-00224"
+                    | "el-00225"
+                    | "el-00226"
+                    | "el-00227"
+                    | "el-00228"
+                    | "el-00229"
+                    | "el-00230"
+                    | "el-00231"
+                    | "el-00232"
+                    | "el-00233"
+                    | "el-00234"
+                    | "el-00235"
+                    | "el-00236"
+                    | "el-00237"
+                    | "el-00238"
+                    | "el-00239"
+                    | "el-00240"
+                    | "el-00241"
+                    | "el-00242"
+                    | "el-00243"
+                    | "el-00244"
+                    | "el-00245"
+            )
+        });
+    }
+
+    let normalized = normalized_window_from_fountain(
+        "gumshoe",
+        "tests/fixtures/corpus/public/gumshoe/source/source.fountain",
+        &fixture,
+    );
+    let semantic = build_semantic_screenplay(normalized);
+    let report = run_window_parity_check(&fixture, &semantic, geometry_for_screenplay("gumshoe"));
+
+    assert!(
+        report.issues.is_empty(),
+        "expected pages 11-13 to keep el-00242/el-00243 together on page 12, got {:?}",
+        report.issues
+    );
+}
+
+#[test]
 // #[ignore = "Temporarily disabled"]
 fn big_fish_macro_parity_holds_baseline() {
     let report = build_line_break_parity_report(

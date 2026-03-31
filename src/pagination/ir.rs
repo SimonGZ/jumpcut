@@ -478,14 +478,20 @@ fn dialogue_fragment_items_from_plan(
     match fragment {
         Fragment::ContinuedToNext => {
             if let Some(last) = items.last_mut() {
-                last.fragment = merge_fragment(&last.fragment, &Fragment::ContinuedToNext);
-                last.continuation_markers = continuation_markers_for_fragment(&last.fragment);
+                if last.line_range.is_some() {
+                    last.fragment = merge_fragment(&last.fragment, &Fragment::ContinuedToNext);
+                    last.continuation_markers =
+                        continuation_markers_for_fragment(&last.fragment);
+                }
             }
         }
         Fragment::ContinuedFromPrev => {
             if let Some(first) = items.first_mut() {
-                first.fragment = merge_fragment(&first.fragment, &Fragment::ContinuedFromPrev);
-                first.continuation_markers = continuation_markers_for_fragment(&first.fragment);
+                if first.line_range.is_some() {
+                    first.fragment = merge_fragment(&first.fragment, &Fragment::ContinuedFromPrev);
+                    first.continuation_markers =
+                        continuation_markers_for_fragment(&first.fragment);
+                }
             }
         }
         Fragment::Whole | Fragment::ContinuedFromPrevAndToNext => {}

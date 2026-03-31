@@ -51,6 +51,8 @@ struct DialogueSplitCandidate {
     plan: DialogueSplitPlan,
     top_dialogue_lines: usize,
     bottom_dialogue_lines: usize,
+    top_spoken_lines: usize,
+    bottom_spoken_lines: usize,
     ends_sentence: bool,
     top_content_bytes: usize,
 }
@@ -118,7 +120,7 @@ pub fn plan_dialogue_split_parts(
 
         Some(SplitScore {
             ends_sentence: policy.prefer_sentence_boundaries && candidate.ends_sentence,
-            substantial_bottom: substantial_bottom(candidate.bottom_dialogue_lines),
+            substantial_bottom: substantial_bottom(candidate.bottom_spoken_lines),
             fuller_top_fragment: policy
                 .prefer_fuller_top_fragment
                 .then_some(candidate.plan.top_line_count)
@@ -197,6 +199,8 @@ fn build_candidate(
     let mut bottom_height = 0.0;
     let mut top_dialogue_lines = 0;
     let mut bottom_dialogue_lines = 0;
+    let mut top_spoken_lines = 0;
+    let mut bottom_spoken_lines = 0;
     let mut split_parts = Vec::with_capacity(parts.len());
 
     for (part_index, part) in parts.iter().enumerate() {
@@ -215,6 +219,11 @@ fn build_candidate(
         if matches!(part.kind, DialoguePartKind::Dialogue | DialoguePartKind::Lyric | DialoguePartKind::Parenthetical) {
             top_dialogue_lines += top_lines.len();
             bottom_dialogue_lines += bottom_lines.len();
+        }
+
+        if matches!(part.kind, DialoguePartKind::Dialogue | DialoguePartKind::Lyric) {
+            top_spoken_lines += top_lines.len();
+            bottom_spoken_lines += bottom_lines.len();
         }
 
         split_parts.push(DialoguePartSplitLines {
@@ -242,6 +251,8 @@ fn build_candidate(
         },
         top_dialogue_lines,
         bottom_dialogue_lines,
+        top_spoken_lines,
+        bottom_spoken_lines,
         ends_sentence: boundary.ends_sentence,
         top_content_bytes,
     })
