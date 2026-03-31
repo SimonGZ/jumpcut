@@ -1924,7 +1924,7 @@ fn render_dual_dialogue_side_lines(
 fn render_indented_lines(text: &str, element_type: ElementType, geometry: &LayoutGeometry) -> Vec<String> {
     let config = crate::pagination::wrapping::WrapConfig::from_geometry(geometry, element_type);
     let indent = " ".repeat(indent_spaces_for_element_type(element_type, geometry));
-    crate::pagination::wrapping::wrap_text_for_element(text, &config)
+    wrapped_visual_lines(element_type, text, &config)
         .into_iter()
         .map(|line| format!("{indent}{line}"))
         .collect()
@@ -2020,7 +2020,7 @@ fn indent_spaces_for_element_type(element_type: ElementType, geometry: &LayoutGe
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::pagination::{LayoutGeometry, PaginationScope};
+    use crate::pagination::{FlowUnit, LayoutGeometry, PaginationScope};
 
     #[test]
     fn more_marker_uses_character_indent_in_pseudo_pdf() {
@@ -2076,6 +2076,30 @@ mod tests {
         let texts = rendered.into_iter().map(|line| line.text).collect::<Vec<_>>();
 
         assert_eq!(texts, vec!["Action", "", "Dialogue"]);
+    }
+
+    #[test]
+    fn render_semantic_unit_lines_keeps_empty_action_as_one_blank_line() {
+        let geometry = LayoutGeometry::default();
+        let lines = render_semantic_unit_lines(
+            &SemanticUnit::Flow(FlowUnit {
+                element_id: "el-empty".into(),
+                kind: FlowKind::Action,
+                text: String::new(),
+                line_range: None,
+                scene_number: None,
+                cohesion: crate::pagination::Cohesion {
+                    keep_together: false,
+                    keep_with_next: false,
+                    can_split: true,
+                },
+            }),
+            &geometry,
+        );
+
+        assert_eq!(lines.len(), 1);
+        assert_eq!(lines[0].text, "");
+        assert!(matches!(lines[0].element_type, ElementType::Action));
     }
 
     #[test]
