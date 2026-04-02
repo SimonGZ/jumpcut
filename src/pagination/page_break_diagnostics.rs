@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::fs;
 use std::os::unix::fs::symlink;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
@@ -23,6 +23,7 @@ pub fn write_big_fish_public_slice_json(debug_dir: &Path) {
         &fixture,
     );
     let semantic = build_semantic_screenplay(normalized.clone());
+    let page_mappings = read_page_mappings("tests/fixtures/pagination/big-fish.split-page-breaks.json");
     let run = run_window_diagnostics(&fixture, &semantic, geometry_for_screenplay("big-fish"));
     let previews = preview_map(&normalized);
     let report = enrich_report_previews(run.report, &previews);
@@ -33,6 +34,7 @@ pub fn write_big_fish_public_slice_json(debug_dir: &Path) {
         run.lines_per_page,
         &run.geometry,
         &previews,
+        &page_mappings,
     );
 
     fs::create_dir_all(debug_dir).unwrap();
@@ -65,12 +67,7 @@ pub fn write_big_fish_public_slice_json(debug_dir: &Path) {
     .unwrap();
     let page_numbers: Vec<u32> = fixture.pages.iter().map(|page| page.number).collect();
     let page_endings = build_page_endings_report(
-        "big-fish",
-        &run.actual,
-        &normalized,
-        54.0,
-        &run.geometry,
-        Some(&page_numbers),
+        "big-fish", &run.actual, &normalized, 54.0, &run.geometry, Some(&page_numbers), &page_mappings,
     );
     fs::write(
         debug_dir.join("big-fish.p18-19.page-endings.json"),
@@ -97,9 +94,10 @@ pub fn write_selected_public_windows_json(debug_dir: &Path) {
         ),
     ] {
         let fixture: PageBreakFixture = read_fixture(path);
+        let page_mappings = read_page_mappings(path);
         let normalized = normalized_window_from_fountain(screenplay_id, fountain_path, &fixture);
         let semantic = build_semantic_screenplay(normalized.clone());
-        let run = run_window_diagnostics(&fixture, &semantic, geometry_for_screenplay(screenplay_id));
+    let run = run_window_diagnostics(&fixture, &semantic, geometry_for_screenplay(screenplay_id));
         let previews = preview_map(&normalized);
         let report = enrich_report_previews(run.report, &previews);
         let debug_fixture = paginated_to_debug_fixture(
@@ -109,6 +107,7 @@ pub fn write_selected_public_windows_json(debug_dir: &Path) {
             run.lines_per_page,
             &run.geometry,
             &previews,
+            &page_mappings,
         );
 
         fs::write(
@@ -118,11 +117,12 @@ pub fn write_selected_public_windows_json(debug_dir: &Path) {
         .unwrap();
         fs::write(
             debug_dir.join(format!("{stem}.comparison-report.json")),
-            serde_json::to_string_pretty(&FixtureProbeDebugOutput {
-                fixture_path: path.to_string(),
-                page_numbers: diagnostic_display_page_numbers(
-                    fixture.pages.iter().map(|page| page.number),
-                    &fixture.scope,
+        serde_json::to_string_pretty(&FixtureProbeDebugOutput {
+            fixture_path: path.to_string(),
+            page_numbers: fixture.pages.iter().map(|page| page.number).collect(),
+            page_labels: diagnostic_page_labels(
+                fixture.pages.iter().map(|page| page.number),
+                &page_mappings,
                 ),
                 lines_per_page: run.lines_per_page,
                 score: run.score,
@@ -145,12 +145,7 @@ pub fn write_selected_public_windows_json(debug_dir: &Path) {
         .unwrap();
         let page_numbers: Vec<u32> = fixture.pages.iter().map(|page| page.number).collect();
         let page_endings = build_page_endings_report(
-            screenplay_id,
-            &run.actual,
-            &normalized,
-            run.lines_per_page,
-            &run.geometry,
-            Some(&page_numbers),
+            screenplay_id, &run.actual, &normalized, run.lines_per_page, &run.geometry, Some(&page_numbers), &page_mappings,
         );
         fs::write(
             debug_dir.join(format!("{stem}.page-endings.json")),
@@ -209,6 +204,7 @@ pub fn write_little_women_review_packet(debug_dir: &Path) {
 pub fn write_little_women_full_script_page_break_packet(debug_dir: &Path) {
     let fixture_path = "tests/fixtures/corpus/public/little-women/canonical/page-breaks.json";
     let fixture: PageBreakFixture = read_fixture(fixture_path);
+        let page_mappings = read_page_mappings(fixture_path);
     let fountain = fs::read_to_string("tests/fixtures/corpus/public/little-women/source/source.fountain")
         .unwrap();
     let screenplay = parse(&fountain);
@@ -235,6 +231,7 @@ pub fn write_little_women_full_script_page_break_packet(debug_dir: &Path) {
         54.0,
         &config.geometry,
         &previews,
+        &page_mappings,
     );
 
     fs::create_dir_all(debug_dir).unwrap();
@@ -247,9 +244,10 @@ pub fn write_little_women_full_script_page_break_packet(debug_dir: &Path) {
         debug_dir.join("comparison-report.json"),
         serde_json::to_string_pretty(&FixtureProbeDebugOutput {
             fixture_path: fixture_path.to_string(),
-            page_numbers: diagnostic_display_page_numbers(
+            page_numbers: fixture.pages.iter().map(|page| page.number).collect(),
+            page_labels: diagnostic_page_labels(
                 fixture.pages.iter().map(|page| page.number),
-                &fixture.scope,
+                &page_mappings,
             ),
             lines_per_page: 54.0,
             score,
@@ -258,14 +256,14 @@ pub fn write_little_women_full_script_page_break_packet(debug_dir: &Path) {
             wrong_fragment: report.issue_count(ComparisonIssueKind::WrongFragment),
             missing: report.issue_count(ComparisonIssueKind::MissingOccurrence),
             unexpected: report.issue_count(ComparisonIssueKind::UnexpectedOccurrence),
-            report: diagnostic_display_report(&report, &fixture.scope),
+            report: diagnostic_display_report(&report, &page_mappings),
         })
         .unwrap(),
     )
     .unwrap();
     fs::write(
         debug_dir.join("pseudo-pdf.txt"),
-        render_pseudo_pdf_output(&actual, &normalized, 54.0, &config.geometry),
+        render_pseudo_pdf_output(&actual, &normalized, 54.0, &config.geometry, &page_mappings),
     )
     .unwrap();
     let page_endings = build_page_endings_report(
@@ -275,6 +273,7 @@ pub fn write_little_women_full_script_page_break_packet(debug_dir: &Path) {
         54.0,
         &config.geometry,
         None,
+        &page_mappings,
     );
     fs::write(
         debug_dir.join("page-endings.json"),
@@ -291,6 +290,7 @@ pub fn write_little_women_full_script_page_break_packet(debug_dir: &Path) {
 pub fn write_big_fish_full_script_page_break_packet(debug_dir: &Path) {
     let fixture_path = "tests/fixtures/corpus/public/big-fish/canonical/page-breaks.json";
     let fixture: PageBreakFixture = read_fixture(fixture_path);
+        let page_mappings = read_page_mappings(fixture_path);
     let fountain = fs::read_to_string("tests/fixtures/corpus/public/big-fish/source/source.fountain")
         .unwrap();
     let screenplay = parse(&fountain);
@@ -317,6 +317,7 @@ pub fn write_big_fish_full_script_page_break_packet(debug_dir: &Path) {
         54.0,
         &config.geometry,
         &previews,
+        &page_mappings,
     );
 
     fs::create_dir_all(debug_dir).unwrap();
@@ -330,9 +331,10 @@ pub fn write_big_fish_full_script_page_break_packet(debug_dir: &Path) {
         debug_dir.join("comparison-report.json"),
         serde_json::to_string_pretty(&FixtureProbeDebugOutput {
             fixture_path: fixture_path.to_string(),
-            page_numbers: diagnostic_display_page_numbers(
+            page_numbers: fixture.pages.iter().map(|page| page.number).collect(),
+            page_labels: diagnostic_page_labels(
                 fixture.pages.iter().map(|page| page.number),
-                &fixture.scope,
+                &page_mappings,
             ),
             lines_per_page: 54.0,
             score,
@@ -341,14 +343,14 @@ pub fn write_big_fish_full_script_page_break_packet(debug_dir: &Path) {
             wrong_fragment: report.issue_count(ComparisonIssueKind::WrongFragment),
             missing: report.issue_count(ComparisonIssueKind::MissingOccurrence),
             unexpected: report.issue_count(ComparisonIssueKind::UnexpectedOccurrence),
-            report: diagnostic_display_report(&report, &fixture.scope),
+            report: diagnostic_display_report(&report, &page_mappings),
         })
         .unwrap(),
     )
     .unwrap();
     fs::write(
         debug_dir.join("pseudo-pdf.txt"),
-        render_pseudo_pdf_output(&actual, &normalized, 54.0, &config.geometry),
+        render_pseudo_pdf_output(&actual, &normalized, 54.0, &config.geometry, &page_mappings),
     )
     .unwrap();
     let page_endings = build_page_endings_report(
@@ -358,6 +360,7 @@ pub fn write_big_fish_full_script_page_break_packet(debug_dir: &Path) {
         54.0,
         &config.geometry,
         None,
+        &page_mappings,
     );
     fs::write(
         debug_dir.join("page-endings.json"),
@@ -384,6 +387,7 @@ fn write_fixture_symlink(debug_dir: &Path, fixture_path: &str) {
 pub fn write_mostly_genius_full_script_page_break_packet(debug_dir: &Path) {
     let fixture_path = "tests/fixtures/corpus/public/mostly-genius/canonical/page-breaks.json";
     let fixture: PageBreakFixture = read_fixture(fixture_path);
+        let page_mappings = read_page_mappings(fixture_path);
     let fountain = fs::read_to_string("tests/fixtures/corpus/public/mostly-genius/source/source.fountain")
         .unwrap();
     let screenplay = parse(&fountain);
@@ -410,6 +414,7 @@ pub fn write_mostly_genius_full_script_page_break_packet(debug_dir: &Path) {
         54.0,
         &config.geometry,
         &previews,
+        &page_mappings,
     );
 
     fs::create_dir_all(debug_dir).unwrap();
@@ -422,9 +427,10 @@ pub fn write_mostly_genius_full_script_page_break_packet(debug_dir: &Path) {
         debug_dir.join("comparison-report.json"),
         serde_json::to_string_pretty(&FixtureProbeDebugOutput {
             fixture_path: fixture_path.to_string(),
-            page_numbers: diagnostic_display_page_numbers(
+            page_numbers: fixture.pages.iter().map(|page| page.number).collect(),
+            page_labels: diagnostic_page_labels(
                 fixture.pages.iter().map(|page| page.number),
-                &fixture.scope,
+                &page_mappings,
             ),
             lines_per_page: 54.0,
             score,
@@ -433,14 +439,14 @@ pub fn write_mostly_genius_full_script_page_break_packet(debug_dir: &Path) {
             wrong_fragment: report.issue_count(ComparisonIssueKind::WrongFragment),
             missing: report.issue_count(ComparisonIssueKind::MissingOccurrence),
             unexpected: report.issue_count(ComparisonIssueKind::UnexpectedOccurrence),
-            report: diagnostic_display_report(&report, &fixture.scope),
+            report: diagnostic_display_report(&report, &page_mappings),
         })
         .unwrap(),
     )
     .unwrap();
     fs::write(
         debug_dir.join("pseudo-pdf.txt"),
-        render_pseudo_pdf_output(&actual, &normalized, 54.0, &config.geometry),
+        render_pseudo_pdf_output(&actual, &normalized, 54.0, &config.geometry, &page_mappings),
     )
     .unwrap();
     let page_endings = build_page_endings_report(
@@ -450,6 +456,7 @@ pub fn write_mostly_genius_full_script_page_break_packet(debug_dir: &Path) {
         54.0,
         &config.geometry,
         None,
+        &page_mappings,
     );
     fs::write(
         debug_dir.join("page-endings.json"),
@@ -466,6 +473,7 @@ pub fn write_mostly_genius_full_script_page_break_packet(debug_dir: &Path) {
 pub fn write_vikings_full_script_page_break_packet(debug_dir: &Path) {
     let fixture_path = "tests/fixtures/corpus/public/vikings/canonical/page-breaks.json";
     let fixture: PageBreakFixture = read_fixture(fixture_path);
+        let page_mappings = read_page_mappings(fixture_path);
     let fountain = fs::read_to_string("tests/fixtures/corpus/public/vikings/source/source.fountain")
         .unwrap();
     let screenplay = parse(&fountain);
@@ -488,6 +496,7 @@ pub fn write_vikings_full_script_page_break_packet(debug_dir: &Path) {
         54.0,
         &config.geometry,
         &previews,
+        &page_mappings,
     );
 
     fs::create_dir_all(debug_dir).unwrap();
@@ -500,9 +509,10 @@ pub fn write_vikings_full_script_page_break_packet(debug_dir: &Path) {
         debug_dir.join("comparison-report.json"),
         serde_json::to_string_pretty(&FixtureProbeDebugOutput {
             fixture_path: fixture_path.to_string(),
-            page_numbers: diagnostic_display_page_numbers(
+            page_numbers: fixture.pages.iter().map(|page| page.number).collect(),
+            page_labels: diagnostic_page_labels(
                 fixture.pages.iter().map(|page| page.number),
-                &fixture.scope,
+                &page_mappings,
             ),
             lines_per_page: 54.0,
             score,
@@ -511,14 +521,14 @@ pub fn write_vikings_full_script_page_break_packet(debug_dir: &Path) {
             wrong_fragment: report.issue_count(ComparisonIssueKind::WrongFragment),
             missing: report.issue_count(ComparisonIssueKind::MissingOccurrence),
             unexpected: report.issue_count(ComparisonIssueKind::UnexpectedOccurrence),
-            report: diagnostic_display_report(&report, &fixture.scope),
+            report: diagnostic_display_report(&report, &page_mappings),
         })
         .unwrap(),
     )
     .unwrap();
     fs::write(
         debug_dir.join("pseudo-pdf.txt"),
-        render_pseudo_pdf_output(&actual, &normalized, 54.0, &config.geometry),
+        render_pseudo_pdf_output(&actual, &normalized, 54.0, &config.geometry, &page_mappings),
     )
     .unwrap();
     let page_endings = build_page_endings_report(
@@ -528,6 +538,7 @@ pub fn write_vikings_full_script_page_break_packet(debug_dir: &Path) {
         54.0,
         &config.geometry,
         None,
+        &page_mappings,
     );
     fs::write(
         debug_dir.join("page-endings.json"),
@@ -544,6 +555,7 @@ pub fn write_vikings_full_script_page_break_packet(debug_dir: &Path) {
 pub fn write_gumshoe_full_script_page_break_packet(debug_dir: &Path) {
     let fixture_path = "tests/fixtures/corpus/public/gumshoe/canonical/page-breaks.json";
     let fixture: PageBreakFixture = read_fixture(fixture_path);
+        let page_mappings = read_page_mappings(fixture_path);
     let fountain = fs::read_to_string("tests/fixtures/corpus/public/gumshoe/source/source.fountain")
         .unwrap();
     let screenplay = parse(&fountain);
@@ -566,6 +578,7 @@ pub fn write_gumshoe_full_script_page_break_packet(debug_dir: &Path) {
         54.0,
         &config.geometry,
         &previews,
+        &page_mappings,
     );
 
     fs::create_dir_all(debug_dir).unwrap();
@@ -578,9 +591,10 @@ pub fn write_gumshoe_full_script_page_break_packet(debug_dir: &Path) {
         debug_dir.join("comparison-report.json"),
         serde_json::to_string_pretty(&FixtureProbeDebugOutput {
             fixture_path: fixture_path.to_string(),
-            page_numbers: diagnostic_display_page_numbers(
+            page_numbers: fixture.pages.iter().map(|page| page.number).collect(),
+            page_labels: diagnostic_page_labels(
                 fixture.pages.iter().map(|page| page.number),
-                &fixture.scope,
+                &page_mappings,
             ),
             lines_per_page: 54.0,
             score,
@@ -589,18 +603,18 @@ pub fn write_gumshoe_full_script_page_break_packet(debug_dir: &Path) {
             wrong_fragment: report.issue_count(ComparisonIssueKind::WrongFragment),
             missing: report.issue_count(ComparisonIssueKind::MissingOccurrence),
             unexpected: report.issue_count(ComparisonIssueKind::UnexpectedOccurrence),
-            report: diagnostic_display_report(&report, &fixture.scope),
+            report: diagnostic_display_report(&report, &page_mappings),
         })
         .unwrap(),
     )
     .unwrap();
     fs::write(
         debug_dir.join("pseudo-pdf.txt"),
-        render_pseudo_pdf_output(&actual, &normalized, 54.0, &config.geometry),
+        render_pseudo_pdf_output(&actual, &normalized, 54.0, &config.geometry, &page_mappings),
     )
     .unwrap();
     let page_endings =
-        build_page_endings_report("gumshoe", &actual, &normalized, 54.0, &config.geometry, None);
+        build_page_endings_report("gumshoe", &actual, &normalized, 54.0, &config.geometry, None, &page_mappings);
     fs::write(
         debug_dir.join("page-endings.json"),
         serde_json::to_string_pretty(&page_endings).unwrap(),
@@ -648,11 +662,12 @@ pub fn write_fd_probe_packets(debug_dir: &Path) {
             crate::pagination::paginator::paginate(&composed, spec.lines_per_page, &config.geometry);
         let actual_matches = collect_fd_probe_matches(&spec, &actual, &layout_pages);
 
+        let page_mappings = read_page_mappings(probe_dir.to_str().unwrap());
         let probe_debug_dir = debug_dir.join(probe_dir.file_name().unwrap());
         fs::create_dir_all(&probe_debug_dir).unwrap();
         fs::write(
             probe_debug_dir.join("pseudo-pdf.txt"),
-            render_pseudo_pdf_output(&actual, &normalized, spec.lines_per_page, &config.geometry),
+            render_pseudo_pdf_output(&actual, &normalized, spec.lines_per_page, &config.geometry, &page_mappings),
         )
         .unwrap();
         fs::write(
@@ -692,9 +707,10 @@ fn write_window_review_packet(
     let mut summaries = Vec::new();
     for (fixture_path, stem) in fixtures {
         let fixture: PageBreakFixture = read_fixture(fixture_path);
+        let page_mappings = read_page_mappings(fixture_path);
         let normalized = normalized_window_from_fountain(screenplay_id, fountain_path, &fixture);
         let semantic = build_semantic_screenplay(normalized.clone());
-        let run = run_window_diagnostics(&fixture, &semantic, geometry_for_screenplay(screenplay_id));
+    let run = run_window_diagnostics(&fixture, &semantic, geometry_for_screenplay(screenplay_id));
         let previews = preview_map(&normalized);
         let report = enrich_report_previews(run.report.clone(), &previews);
         let debug_fixture = paginated_to_debug_fixture(
@@ -704,6 +720,7 @@ fn write_window_review_packet(
             run.lines_per_page,
             &run.geometry,
             &previews,
+            &page_mappings,
         );
         let pdf_line_counts = canonical_pdf_line_count_debug(screenplay_id, &fixture, &normalized);
 
@@ -716,9 +733,10 @@ fn write_window_review_packet(
             debug_dir.join(format!("{stem}.comparison-report.json")),
             serde_json::to_string_pretty(&FixtureProbeDebugOutput {
                 fixture_path: (*fixture_path).to_string(),
-                page_numbers: diagnostic_display_page_numbers(
+                page_numbers: fixture.pages.iter().map(|page| page.number).collect(),
+                page_labels: diagnostic_page_labels(
                     fixture.pages.iter().map(|page| page.number),
-                    &fixture.scope,
+                    &page_mappings,
                 ),
                 lines_per_page: run.lines_per_page,
                 score: run.score,
@@ -727,7 +745,7 @@ fn write_window_review_packet(
                 wrong_fragment: report.issue_count(ComparisonIssueKind::WrongFragment),
                 missing: report.issue_count(ComparisonIssueKind::MissingOccurrence),
                 unexpected: report.issue_count(ComparisonIssueKind::UnexpectedOccurrence),
-                report: diagnostic_display_report(&report, &fixture.scope),
+                report: diagnostic_display_report(&report, &page_mappings),
             })
             .unwrap(),
         )
@@ -739,17 +757,12 @@ fn write_window_review_packet(
         .unwrap();
         fs::write(
             debug_dir.join(format!("{stem}.pseudo-pdf.txt")),
-            render_pseudo_pdf_output(&run.actual, &normalized, run.lines_per_page, &run.geometry),
+            render_pseudo_pdf_output(&run.actual, &normalized, run.lines_per_page, &run.geometry, &page_mappings),
         )
         .unwrap();
         let page_numbers: Vec<u32> = fixture.pages.iter().map(|page| page.number).collect();
         let page_endings = build_page_endings_report(
-            screenplay_id,
-            &run.actual,
-            &normalized,
-            run.lines_per_page,
-            &run.geometry,
-            Some(&page_numbers),
+            screenplay_id, &run.actual, &normalized, run.lines_per_page, &run.geometry, Some(&page_numbers), &page_mappings,
         );
         fs::write(
             debug_dir.join(format!("{stem}.page-endings.json")),
@@ -760,9 +773,9 @@ fn write_window_review_packet(
         summaries.push(ReviewSummary {
             stem: (*stem).into(),
             fixture_path: (*fixture_path).into(),
-            page_range: diagnostic_display_page_numbers(
+            page_range: diagnostic_page_labels(
                 fixture.pages.iter().map(|page| page.number),
-                &fixture.scope,
+                &page_mappings,
             ),
             lines_per_page: run.lines_per_page,
             total_issues: run.report.total_issues(),
@@ -1081,6 +1094,49 @@ fn read_fixture<T: DeserializeOwned>(path: &str) -> T {
     serde_json::from_str(&content).unwrap()
 }
 
+pub type PageLabelMap = HashMap<String, String>;
+
+fn read_page_mappings(fixture_path: &str) -> PageLabelMap {
+    for mapping_path in page_mapping_candidates(fixture_path) {
+        if let Ok(content) = fs::read_to_string(&mapping_path) {
+            return serde_json::from_str(&content).unwrap_or_default();
+        }
+    }
+    HashMap::new()
+}
+
+fn page_mapping_candidates(fixture_path: &str) -> Vec<PathBuf> {
+    let mut candidates = Vec::new();
+    if fixture_path.ends_with("page-breaks.json") {
+        candidates.push(PathBuf::from(
+            fixture_path.replace("page-breaks.json", "page-mappings.json"),
+        ));
+    }
+
+    if let Some(canonical_path) = canonical_page_mapping_path_from_fixture(fixture_path) {
+        if !candidates.contains(&canonical_path) {
+            candidates.push(canonical_path);
+        }
+    }
+
+    candidates
+}
+
+fn canonical_page_mapping_path_from_fixture(fixture_path: &str) -> Option<PathBuf> {
+    let file_name = Path::new(fixture_path).file_name()?.to_str()?;
+    let screenplay_id = file_name
+        .strip_suffix(".split-page-breaks.json")
+        .or_else(|| file_name.strip_suffix(".page-breaks.json"))?
+        .split('.')
+        .next()?;
+
+    Some(
+        Path::new("tests/fixtures/corpus/public")
+            .join(screenplay_id)
+            .join("canonical/page-mappings.json"),
+    )
+}
+
 fn preview_map(normalized: &NormalizedScreenplay) -> HashMap<String, String> {
     normalized
         .elements
@@ -1108,6 +1164,7 @@ fn paginated_to_debug_fixture(
     lines_per_page: f32,
     geometry: &LayoutGeometry,
     previews: &HashMap<String, String>,
+    page_mappings: &PageLabelMap,
 ) -> DebugPageBreakFixture {
     let elements = normalized_element_map(normalized);
     let paged_layout_totals = paged_layout_page_totals(normalized, lines_per_page, geometry);
@@ -1152,7 +1209,7 @@ fn paginated_to_debug_fixture(
                     geometry,
                     previews,
                     block_total_lines,
-                    &actual.scope,
+                    page_mappings,
                 )
             })
             .collect(),
@@ -1212,7 +1269,7 @@ fn debug_page(
     geometry: &LayoutGeometry,
     previews: &HashMap<String, String>,
     block_total_lines: f32,
-    scope: &crate::pagination::PaginationScope,
+    page_mappings: &PageLabelMap,
 ) -> DebugPageBreakFixturePage {
     let mut items = Vec::with_capacity(page.items.len());
     for item in &page.items {
@@ -1234,7 +1291,8 @@ fn debug_page(
     }
 
     DebugPageBreakFixturePage {
-        number: diagnostic_display_page_number(page.metadata.number, scope),
+        number: page.metadata.number,
+        label: diagnostic_page_label(page.metadata.number, &page_mappings),
         block_total_lines,
         item_count: page.items.len(),
         block_count: page.blocks.len(),
@@ -1265,6 +1323,7 @@ fn render_pseudo_pdf_output(
     normalized: &NormalizedScreenplay,
     lines_per_page: f32,
     geometry: &LayoutGeometry,
+    page_mappings: &PageLabelMap,
 ) -> String {
     let semantic = build_semantic_screenplay(normalized.clone());
     let blocks = crate::pagination::composer::compose(&semantic.units, geometry);
@@ -1279,7 +1338,7 @@ fn render_pseudo_pdf_output(
     let mut out = String::new();
     for (page, layout_page) in actual.pages.iter().zip(layout_pages) {
         let display_page_number =
-            diagnostic_display_page_number(page.metadata.number, &actual.scope);
+            diagnostic_page_label(page.metadata.number, page_mappings);
         out.push_str(&format!("=== PAGE {} START ===\n", display_page_number));
         let mut line_no: u32 = 1;
 
@@ -1312,6 +1371,7 @@ fn build_page_endings_report(
     lines_per_page: f32,
     geometry: &LayoutGeometry,
     page_numbers: Option<&[u32]>,
+    page_mappings: &PageLabelMap,
 ) -> PageEndingReport {
     let canonical_pages = public_pdf_pages(screenplay_id);
     let actual_pages = rendered_actual_page_lines(actual, normalized, lines_per_page, geometry);
@@ -1338,7 +1398,8 @@ fn build_page_endings_report(
             let actual_last = last_meaningful_line(&actual_lines);
 
             PageEndingItem {
-                page_number: diagnostic_display_page_number(page_number, &actual.scope),
+                page_number,
+                page_label: diagnostic_page_label(page_number, page_mappings),
                 matches: canonical_last == actual_last,
                 canonical_last_line: canonical_last,
                 actual_last_line: actual_last,
@@ -1519,6 +1580,7 @@ struct PageEndingReport {
 #[derive(Serialize)]
 struct PageEndingItem {
     page_number: u32,
+    page_label: String,
     matches: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     canonical_last_line: Option<String>,
@@ -2020,7 +2082,7 @@ fn indent_spaces_for_element_type(element_type: ElementType, geometry: &LayoutGe
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::pagination::{FlowUnit, LayoutGeometry, PaginationScope};
+    use crate::pagination::{FlowUnit, LayoutGeometry};
 
     #[test]
     fn more_marker_uses_character_indent_in_pseudo_pdf() {
@@ -2103,16 +2165,13 @@ mod tests {
     }
 
     #[test]
-    fn diagnostic_display_page_number_uses_body_page_numbers_for_body_pages() {
-        let scope = PaginationScope {
-            title_page_count: Some(1),
-            body_start_page: Some(2),
-        };
+    fn read_page_mappings_falls_back_to_canonical_window_mapping() {
+        let mappings = read_page_mappings("tests/fixtures/pagination/big-fish.split-page-breaks.json");
 
-        assert_eq!(diagnostic_display_page_number(1, &scope), 0);
-        assert_eq!(diagnostic_display_page_number(2, &scope), 1);
-        assert_eq!(diagnostic_display_page_number(15, &scope), 14);
+        assert_eq!(mappings.get("19").map(String::as_str), Some("18"));
     }
+
+
 }
 
 fn normalized_element_map(normalized: &NormalizedScreenplay) -> HashMap<String, NormalizedElement> {
@@ -2349,8 +2408,8 @@ Current window summary:\n\n",
         review.push_str(&format!(
             "- `{stem}` pages {start}-{end}: lines_per_page={lines}, total={total}, wrong_page={wrong_page}, wrong_fragment={wrong_fragment}, missing={missing}, unexpected={unexpected}\n  canonical: `{fixture}`\n  actual: `target/pagination-debug/big-fish-review/{stem}.actual.page-breaks.json`\n  report: `target/pagination-debug/big-fish-review/{stem}.comparison-report.json`\n  endings: `target/pagination-debug/big-fish-review/{stem}.page-endings.json`\n  pdf: `target/pagination-debug/big-fish-review/{stem}.pdf-line-counts.json`\n",
             stem = summary.stem,
-            start = summary.page_range.first().copied().unwrap_or_default(),
-            end = summary.page_range.last().copied().unwrap_or_default(),
+            start = summary.page_range.first().cloned().unwrap_or_default(),
+            end = summary.page_range.last().cloned().unwrap_or_default(),
             lines = summary.lines_per_page,
             total = summary.total_issues,
             wrong_page = summary.wrong_page,
@@ -2421,8 +2480,8 @@ Current window summary:\n\n",
         review.push_str(&format!(
             "- `{stem}` pages {start}-{end}: lines_per_page={lines}, total={total}, wrong_page={wrong_page}, wrong_fragment={wrong_fragment}, missing={missing}, unexpected={unexpected}\n  canonical: `{fixture}`\n  actual: `target/pagination-debug/little-women-review/{stem}.actual.page-breaks.json`\n  report: `target/pagination-debug/little-women-review/{stem}.comparison-report.json`\n  endings: `target/pagination-debug/little-women-review/{stem}.page-endings.json`\n  pdf: `target/pagination-debug/little-women-review/{stem}.pdf-line-counts.json`\n  pseudo: `target/pagination-debug/little-women-review/{stem}.pseudo-pdf.txt`\n",
             stem = summary.stem,
-            start = summary.page_range.first().copied().unwrap_or_default(),
-            end = summary.page_range.last().copied().unwrap_or_default(),
+            start = summary.page_range.first().cloned().unwrap_or_default(),
+            end = summary.page_range.last().cloned().unwrap_or_default(),
             lines = summary.lines_per_page,
             total = summary.total_issues,
             wrong_page = summary.wrong_page,
@@ -2819,6 +2878,7 @@ struct ProbeDebugOutput {
 struct FixtureProbeDebugOutput {
     fixture_path: String,
     page_numbers: Vec<u32>,
+    page_labels: Vec<String>,
     lines_per_page: f32,
     score: (usize, usize, usize),
     total_issues: usize,
@@ -2832,7 +2892,7 @@ struct FixtureProbeDebugOutput {
 struct ReviewSummary {
     stem: String,
     fixture_path: String,
-    page_range: Vec<u32>,
+    page_range: Vec<String>,
     lines_per_page: f32,
     total_issues: usize,
     wrong_page: usize,
@@ -2849,39 +2909,38 @@ struct PaginatedWindowRun {
     report: crate::pagination::ComparisonReport,
 }
 
-fn diagnostic_display_page_number(
+fn diagnostic_page_label(
     page_number: u32,
-    scope: &crate::pagination::PaginationScope,
-) -> u32 {
-    match scope.body_start_page {
-        Some(body_start) if page_number >= body_start => page_number - body_start + 1,
-        Some(_) => 0,
-        None => page_number,
-    }
+    page_mappings: &PageLabelMap,
+) -> String {
+    page_mappings
+        .get(&page_number.to_string())
+        .cloned()
+        .unwrap_or_else(|| page_number.to_string())
 }
 
-fn diagnostic_display_page_numbers(
+fn diagnostic_page_labels(
     page_numbers: impl IntoIterator<Item = u32>,
-    scope: &crate::pagination::PaginationScope,
-) -> Vec<u32> {
+    page_mappings: &PageLabelMap,
+) -> Vec<String> {
     page_numbers
         .into_iter()
-        .map(|page_number| diagnostic_display_page_number(page_number, scope))
+        .map(|page_number| diagnostic_page_label(page_number, page_mappings))
         .collect()
 }
 
 fn diagnostic_display_report(
     report: &crate::pagination::ComparisonReport,
-    scope: &crate::pagination::PaginationScope,
+    page_mappings: &PageLabelMap,
 ) -> crate::pagination::ComparisonReport {
     let mut rendered = report.clone();
     for issue in &mut rendered.issues {
-        issue.expected_page = issue
+        issue.expected_page_label = issue
             .expected_page
-            .map(|page_number| diagnostic_display_page_number(page_number, scope));
-        issue.actual_page = issue
+            .map(|page_number| diagnostic_page_label(page_number, page_mappings));
+        issue.actual_page_label = issue
             .actual_page
-            .map(|page_number| diagnostic_display_page_number(page_number, scope));
+            .map(|page_number| diagnostic_page_label(page_number, page_mappings));
     }
     rendered
 }
@@ -2900,6 +2959,7 @@ struct DebugPageBreakFixture {
 #[derive(Serialize)]
 struct DebugPageBreakFixturePage {
     number: u32,
+    label: String,
     block_total_lines: f32,
     item_count: usize,
     block_count: usize,

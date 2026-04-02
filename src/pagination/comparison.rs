@@ -21,7 +21,11 @@ pub struct ComparisonIssue {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub text_preview: Option<String>,
     pub expected_page: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expected_page_label: Option<String>,
     pub actual_page: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub actual_page_label: Option<String>,
     pub expected_fragment: Option<Fragment>,
     pub actual_fragment: Option<Fragment>,
 }
@@ -66,7 +70,9 @@ pub fn compare_paginated_to_fixture(
                         occurrence: expected_item.occurrence,
                         text_preview: expected_item.text_preview.clone(),
                         expected_page: Some(expected_item.page),
+                        expected_page_label: None,
                         actual_page: Some(actual_item.page),
+                        actual_page_label: None,
                         expected_fragment: Some(expected_item.fragment.clone()),
                         actual_fragment: Some(actual_item.fragment.clone()),
                     });
@@ -79,7 +85,9 @@ pub fn compare_paginated_to_fixture(
                         occurrence: expected_item.occurrence,
                         text_preview: expected_item.text_preview.clone(),
                         expected_page: Some(expected_item.page),
+                        expected_page_label: None,
                         actual_page: Some(actual_item.page),
+                        actual_page_label: None,
                         expected_fragment: Some(expected_item.fragment.clone()),
                         actual_fragment: Some(actual_item.fragment.clone()),
                     });
@@ -92,7 +100,9 @@ pub fn compare_paginated_to_fixture(
                     occurrence: expected_item.occurrence,
                     text_preview: expected_item.text_preview.clone(),
                     expected_page: Some(expected_item.page),
+                    expected_page_label: None,
                     actual_page: None,
+                    actual_page_label: None,
                     expected_fragment: Some(expected_item.fragment.clone()),
                     actual_fragment: None,
                 });
@@ -102,7 +112,9 @@ pub fn compare_paginated_to_fixture(
                     occurrence: actual_item.occurrence,
                     text_preview: expected_preview_for(&expected_previews, actual_item),
                     expected_page: None,
+                    expected_page_label: None,
                     actual_page: Some(actual_item.page),
+                    actual_page_label: None,
                     expected_fragment: None,
                     actual_fragment: Some(actual_item.fragment.clone()),
                 });
@@ -113,7 +125,9 @@ pub fn compare_paginated_to_fixture(
                 occurrence: expected_item.occurrence,
                 text_preview: expected_item.text_preview.clone(),
                 expected_page: Some(expected_item.page),
+                expected_page_label: None,
                 actual_page: None,
+                actual_page_label: None,
                 expected_fragment: Some(expected_item.fragment.clone()),
                 actual_fragment: None,
             }),
@@ -123,7 +137,9 @@ pub fn compare_paginated_to_fixture(
                 occurrence: actual_item.occurrence,
                 text_preview: expected_preview_for(&expected_previews, actual_item),
                 expected_page: None,
+                expected_page_label: None,
                 actual_page: Some(actual_item.page),
+                actual_page_label: None,
                 expected_fragment: None,
                 actual_fragment: Some(actual_item.fragment.clone()),
             }),
