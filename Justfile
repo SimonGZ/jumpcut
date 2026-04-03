@@ -1,5 +1,8 @@
 set shell := ["bash", "-cu"]
 
+verify:
+    uv run ./tools/verify.py
+
 pagination-diagnostics:
     cargo run --bin pagination-diagnostics -- all
 
