@@ -10,6 +10,18 @@ use crate::{Attributes, Element, ElementText, Screenplay};
 use std::fmt::Write;
 
 const HTML_STYLE: &str = include_str!("../templates/html_style.css");
+#[cfg(not(target_arch = "wasm32"))]
+const COURIER_PRIME_REGULAR_TTF: &[u8] =
+    include_bytes!("../templates/fonts/CourierPrime-Regular.ttf");
+#[cfg(not(target_arch = "wasm32"))]
+const COURIER_PRIME_ITALIC_TTF: &[u8] =
+    include_bytes!("../templates/fonts/CourierPrime-Italic.ttf");
+#[cfg(not(target_arch = "wasm32"))]
+const COURIER_PRIME_BOLD_TTF: &[u8] =
+    include_bytes!("../templates/fonts/CourierPrime-Bold.ttf");
+#[cfg(not(target_arch = "wasm32"))]
+const COURIER_PRIME_BOLD_ITALIC_TTF: &[u8] =
+    include_bytes!("../templates/fonts/CourierPrime-BoldItalic.ttf");
 
 pub(crate) fn render_document(screenplay: &Screenplay, options: HtmlRenderOptions) -> String {
     let layout_profile = ScreenplayLayoutProfile::from_metadata(&screenplay.metadata);
@@ -22,6 +34,10 @@ pub(crate) fn render_document(screenplay: &Screenplay, options: HtmlRenderOption
             " ",
         )));
         out.push_str("</title>\n\n  <style type=\"text/css\" media=\"screen\">\n   ");
+        if let Some(font_css) = embedded_courier_prime_font_css(&options) {
+            out.push_str(&font_css);
+            out.push('\n');
+        }
         out.push_str(HTML_STYLE);
         out.push_str("\n  </style>\n</head>\n\n<body");
         if options.paginated {
@@ -30,8 +46,13 @@ pub(crate) fn render_document(screenplay: &Screenplay, options: HtmlRenderOption
         out.push_str(">\n");
     }
 
-    write!(out, "<section class=\"{}\">\n", root_class_name(&layout_profile, options)).unwrap();
-    render_body(&mut out, screenplay, options, &layout_profile);
+    write!(
+        out,
+        "<section class=\"{}\">\n",
+        root_class_name(&layout_profile, &options)
+    )
+    .unwrap();
+    render_body(&mut out, screenplay, &options, &layout_profile);
     out.push_str("</section>\n");
 
     if options.head {
@@ -41,7 +62,7 @@ pub(crate) fn render_document(screenplay: &Screenplay, options: HtmlRenderOption
     out
 }
 
-fn root_class_name(layout_profile: &ScreenplayLayoutProfile, options: HtmlRenderOptions) -> String {
+fn root_class_name(layout_profile: &ScreenplayLayoutProfile, options: &HtmlRenderOptions) -> String {
     let mut classes = match layout_profile.style_profile {
         StyleProfile::Screenplay => vec!["screenplay"],
         StyleProfile::Multicam => vec!["screenplay", "multicam"],
@@ -60,7 +81,7 @@ fn root_class_name(layout_profile: &ScreenplayLayoutProfile, options: HtmlRender
 fn render_body(
     out: &mut String,
     screenplay: &Screenplay,
-    options: HtmlRenderOptions,
+    options: &HtmlRenderOptions,
     layout_profile: &ScreenplayLayoutProfile,
 ) {
     if let Some(title_page) = TitlePage::from_metadata(&screenplay.metadata) {
@@ -291,6 +312,46 @@ fn default_underlines_for_element_type(
     }
 }
 
+fn embedded_courier_prime_font_css(options: &HtmlRenderOptions) -> Option<String> {
+    if let Some(css) = &options.embedded_courier_prime_css {
+        return Some(css.clone());
+    }
+
+    if options.embed_courier_prime {
+        return bundled_embedded_courier_prime_font_faces();
+    }
+
+    None
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn bundled_embedded_courier_prime_font_faces() -> Option<String> {
+    Some(
+        [
+            embedded_font_face("Courier Prime", 400, "normal", COURIER_PRIME_REGULAR_TTF),
+            embedded_font_face("Courier Prime", 400, "italic", COURIER_PRIME_ITALIC_TTF),
+            embedded_font_face("Courier Prime", 700, "normal", COURIER_PRIME_BOLD_TTF),
+            embedded_font_face("Courier Prime", 700, "italic", COURIER_PRIME_BOLD_ITALIC_TTF),
+        ]
+        .join("\n"),
+    )
+}
+
+#[cfg(target_arch = "wasm32")]
+fn bundled_embedded_courier_prime_font_faces() -> Option<String> {
+    None
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn embedded_font_face(font_family: &str, font_weight: u16, font_style: &str, bytes: &[u8]) -> String {
+    use base64::{engine::general_purpose::STANDARD, Engine as _};
+
+    format!(
+        "@font-face {{\n  font-family: \"{font_family}\";\n  src: url(data:font/ttf;base64,{}) format(\"truetype\");\n  font-weight: {font_weight};\n  font-style: {font_style};\n}}\n",
+        STANDARD.encode(bytes)
+    )
+}
+
 fn render_title_page(out: &mut String, title_page: &TitlePage, paginated: bool) {
     write!(
         out,
@@ -388,6 +449,16 @@ mod tests {
     use super::*;
     use crate::{blank_attributes, p, tr, Attributes, Element, ElementText, Metadata};
 
+    fn html_options(head: bool, exact_wraps: bool, paginated: bool) -> HtmlRenderOptions {
+        HtmlRenderOptions {
+            head,
+            exact_wraps,
+            paginated,
+            embed_courier_prime: false,
+            embedded_courier_prime_css: None,
+        }
+    }
+
     #[test]
     fn exact_wrap_html_renders_visual_lines() {
         let screenplay = Screenplay {
@@ -398,14 +469,7 @@ mod tests {
             )],
         };
 
-        let output = render_document(
-            &screenplay,
-            HtmlRenderOptions {
-                head: false,
-                exact_wraps: true,
-                paginated: false,
-            },
-        );
+        let output = render_document(&screenplay, html_options(false, true, false));
 
         assert!(output.contains("exactWraps"));
         assert!(output.contains("visualLine"));
@@ -414,7 +478,22 @@ mod tests {
     }
 
     #[test]
-    fn html_head_includes_local_courier_prime_font_face() {
+    fn html_head_includes_local_courier_prime_font_face_by_default() {
+        let screenplay = Screenplay {
+            metadata: Metadata::new(),
+            elements: vec![],
+        };
+
+        let output = render_document(&screenplay, html_options(true, false, false));
+
+        assert!(output.contains("@font-face"));
+        assert!(output.contains("CourierPrime-Regular"));
+        assert!(!output.contains("data:font/ttf;base64,"));
+        assert!(!output.contains("fonts.googleapis.com"));
+    }
+
+    #[test]
+    fn html_can_embed_courier_prime_font_data() {
         let screenplay = Screenplay {
             metadata: Metadata::new(),
             elements: vec![],
@@ -423,15 +502,41 @@ mod tests {
         let output = render_document(
             &screenplay,
             HtmlRenderOptions {
-                head: true,
-                exact_wraps: false,
-                paginated: false,
+                embed_courier_prime: true,
+                ..html_options(true, false, false)
             },
         );
 
-        assert!(output.contains("@font-face"));
-        assert!(output.contains("CourierPrime-Regular"));
-        assert!(!output.contains("fonts.googleapis.com"));
+        assert!(output.contains("data:font/ttf;base64,"));
+        assert!(output.contains("font-family: \"Courier Prime\";"));
+    }
+
+    #[test]
+    fn html_can_use_runtime_supplied_embedded_courier_prime_css() {
+        let screenplay = Screenplay {
+            metadata: Metadata::new(),
+            elements: vec![],
+        };
+
+        let output = render_document(
+            &screenplay,
+            HtmlRenderOptions {
+                embedded_courier_prime_css: Some(
+                    crate::html_output::embedded_courier_prime_css_from_base64(
+                        "regular",
+                        "italic",
+                        "bold",
+                        "bolditalic",
+                    ),
+                ),
+                ..html_options(true, false, false)
+            },
+        );
+
+        assert!(output.contains("data:font/ttf;base64,regular"));
+        assert!(output.contains("data:font/ttf;base64,italic"));
+        assert!(output.contains("data:font/ttf;base64,bold"));
+        assert!(output.contains("data:font/ttf;base64,bolditalic"));
     }
 
     #[test]
@@ -448,14 +553,7 @@ mod tests {
             )],
         };
 
-        let output = render_document(
-            &screenplay,
-            HtmlRenderOptions {
-                head: false,
-                exact_wraps: true,
-                paginated: false,
-            },
-        );
+        let output = render_document(&screenplay, html_options(false, true, false));
 
         assert!(output.contains("<span class=\"bold\">BOLD</span> plain<span class=\"italic\"> ITALIC</span>"));
     }
@@ -473,14 +571,7 @@ mod tests {
             )],
         };
 
-        let output = render_document(
-            &screenplay,
-            HtmlRenderOptions {
-                head: false,
-                exact_wraps: true,
-                paginated: false,
-            },
-        );
+        let output = render_document(&screenplay, html_options(false, true, false));
 
         assert!(output.contains("visualLine"));
         assert!(output.contains("centeredLine"));
@@ -501,14 +592,7 @@ mod tests {
             )],
         };
 
-        let output = render_document(
-            &screenplay,
-            HtmlRenderOptions {
-                head: false,
-                exact_wraps: true,
-                paginated: false,
-            },
-        );
+        let output = render_document(&screenplay, html_options(false, true, false));
 
         assert!(output.contains("visualLine newAct underline centeredLine"));
     }
@@ -527,14 +611,7 @@ mod tests {
             )],
         };
 
-        let output = render_document(
-            &screenplay,
-            HtmlRenderOptions {
-                head: false,
-                exact_wraps: true,
-                paginated: false,
-            },
-        );
+        let output = render_document(&screenplay, html_options(false, true, false));
 
         assert!(output.contains("visualLine newAct underline centeredLine"));
     }
@@ -552,14 +629,7 @@ mod tests {
             )],
         };
 
-        let output = render_document(
-            &screenplay,
-            HtmlRenderOptions {
-                head: false,
-                exact_wraps: true,
-                paginated: false,
-            },
-        );
+        let output = render_document(&screenplay, html_options(false, true, false));
 
         assert!(output.contains("visualLine coldOpening underline centeredLine"));
     }
@@ -580,14 +650,7 @@ mod tests {
             )],
         };
 
-        let output = render_document(
-            &screenplay,
-            HtmlRenderOptions {
-                head: false,
-                exact_wraps: true,
-                paginated: false,
-            },
-        );
+        let output = render_document(&screenplay, html_options(false, true, false));
 
         assert!(output.contains("visualLine newAct centeredLine"));
         assert!(!output.contains("visualLine newAct underline centeredLine"));
@@ -618,14 +681,7 @@ mod tests {
             elements: vec![],
         };
 
-        let output = render_document(
-            &screenplay,
-            HtmlRenderOptions {
-                head: false,
-                exact_wraps: false,
-                paginated: false,
-            },
-        );
+        let output = render_document(&screenplay, html_options(false, false, false));
 
         assert!(output.contains("<section class=\"title-page unpaginatedTitlePage\">"));
         assert!(output.contains("<span class=\"bold underline\">BRICK &amp; STEEL</span><br><span class=\"bold underline\">FULL RETIRED</span>"));
@@ -650,11 +706,7 @@ mod tests {
                 metadata: plain_metadata,
                 elements: vec![],
             },
-            HtmlRenderOptions {
-                head: false,
-                exact_wraps: false,
-                paginated: false,
-            },
+            html_options(false, false, false),
         );
 
         assert!(plain_output.contains("<h1 class=\"defaultTitleText\">Big Fish</h1>"));
@@ -670,11 +722,7 @@ mod tests {
                 metadata: styled_metadata,
                 elements: vec![],
             },
-            HtmlRenderOptions {
-                head: false,
-                exact_wraps: false,
-                paginated: false,
-            },
+            html_options(false, false, false),
         );
 
         assert!(styled_output.contains("<h1><span class=\"italic\">Big Fish</span></h1>"));
@@ -691,11 +739,7 @@ mod tests {
                 metadata,
                 elements: vec![],
             },
-            HtmlRenderOptions {
-                head: false,
-                exact_wraps: false,
-                paginated: true,
-            },
+            html_options(false, false, true),
         );
 
         assert!(output.contains("<section class=\"title-page paginatedTitlePage\">"));
@@ -718,14 +762,7 @@ mod tests {
             ],
         };
 
-        let output = render_document(
-            &screenplay,
-            HtmlRenderOptions {
-                head: false,
-                exact_wraps: false,
-                paginated: true,
-            },
-        );
+        let output = render_document(&screenplay, html_options(false, false, true));
 
         assert!(output.contains("paginatedHtml"));
         assert!(output.contains("class=\"page firstPage\""));
@@ -744,14 +781,7 @@ mod tests {
             )],
         };
 
-        let output = render_document(
-            &screenplay,
-            HtmlRenderOptions {
-                head: false,
-                exact_wraps: false,
-                paginated: true,
-            },
-        );
+        let output = render_document(&screenplay, html_options(false, false, true));
 
         let second_page = output
             .split("data-page-number=\"2\"")
@@ -789,14 +819,7 @@ mod tests {
             ])],
         };
 
-        let output = render_document(
-            &screenplay,
-            HtmlRenderOptions {
-                head: false,
-                exact_wraps: false,
-                paginated: true,
-            },
-        );
+        let output = render_document(&screenplay, html_options(false, false, true));
 
         assert!(output.contains("<span class=\"bold\">BRICK</span>"));
         assert!(output.contains("<span class=\"italic\">Left side.</span>"));

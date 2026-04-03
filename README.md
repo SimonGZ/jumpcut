@@ -4,6 +4,8 @@ JumpCut is a Rust utility designed to convert the [Fountain screenwriting markup
 
 JumpCut can be used as a command-line utility, a Rust library, or as a WASM package. Because of this, the project utilizes cargo [features][] so that different parts like the command-line utility can be turned off to save binary size.
 
+Embedded Courier Prime HTML export is documented in [docs/html-embedded-fonts.md](docs/html-embedded-fonts.md).
+
 ## Installation
 
 If you want to use JumpCut as a command-line utility, you can install it via Cargo.
@@ -24,6 +26,8 @@ That wrapper exposes three JS-facing functions:
 
 - `parse_to_json_string(text)`
 - `parse_to_html_string(text, include_head)`
+- `parse_to_html_string_with_options(text, include_head, exact_wraps, paginated)`
+- `parse_to_html_string_with_embedded_courier_prime(text, include_head, exact_wraps, paginated, regular_ttf_base64, italic_ttf_base64, bold_ttf_base64, bold_italic_ttf_base64)`
 - `parse_to_fdx_string(text)`
 
 ### Build The WASM Wrapper

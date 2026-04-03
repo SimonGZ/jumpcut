@@ -32,6 +32,10 @@ struct Args {
     #[arg(long)]
     exact_wraps: bool,
 
+    /// Embed Courier Prime font files directly into HTML CSS
+    #[arg(long)]
+    embed_courier_prime: bool,
+
     /// Show line numbers in text output
     #[arg(long)]
     line_numbers: bool,
@@ -141,6 +145,8 @@ fn main() {
                 head: true,
                 exact_wraps: opt.exact_wraps || opt.paginate,
                 paginated: opt.paginate,
+                embed_courier_prime: opt.embed_courier_prime,
+                embedded_courier_prime_css: None,
             });
         }
         "text" => {

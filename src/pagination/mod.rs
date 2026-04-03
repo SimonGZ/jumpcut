@@ -5,6 +5,7 @@ mod fixtures;
 mod ir;
 pub mod line_break_diagnostics;
 pub mod layout_profile;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod page_break_diagnostics;
 mod normalized;
 mod semantic;
