@@ -1,14 +1,16 @@
 use super::shared::{escape_html, join_metadata, sorted_style_names};
+use crate::html_output::HtmlRenderOptions;
+use crate::visual_lines::{display_page_number, render_paginated_visual_pages, render_unpaginated_visual_lines, VisualLine};
 use crate::pagination::{ScreenplayLayoutProfile, StyleProfile};
 use crate::{Attributes, Element, ElementText, Screenplay};
 use std::fmt::Write;
 
 const HTML_STYLE: &str = include_str!("../templates/html_style.css");
 
-pub(crate) fn render_document(screenplay: &Screenplay, head: bool) -> String {
+pub(crate) fn render_document(screenplay: &Screenplay, options: HtmlRenderOptions) -> String {
     let layout_profile = ScreenplayLayoutProfile::from_metadata(&screenplay.metadata);
     let mut out = String::with_capacity(32 * 1024);
-    if head {
+    if options.head {
         out.push_str("<!doctype html>\n\n<html>\n<head>\n  <meta charset=\"utf-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n\n  <title>");
         out.push_str(&escape_html(&join_metadata(
             &screenplay.metadata,
@@ -17,33 +19,41 @@ pub(crate) fn render_document(screenplay: &Screenplay, head: bool) -> String {
         )));
         out.push_str("</title>\n\n  <style type=\"text/css\" media=\"screen\">\n   ");
         out.push_str(HTML_STYLE);
-        out.push_str("\n  </style>\n</head>\n\n<body>\n");
+        out.push_str("\n  </style>\n</head>\n\n<body");
+        if options.paginated {
+            out.push_str(" class=\"paginatedHtmlView\"");
+        }
+        out.push_str(">\n");
     }
 
-    write!(
-        out,
-        "<section class=\"{}\">\n",
-        root_class_name(&layout_profile)
-    )
-    .unwrap();
-    render_body(&mut out, screenplay);
+    write!(out, "<section class=\"{}\">\n", root_class_name(&layout_profile, options)).unwrap();
+    render_body(&mut out, screenplay, options);
     out.push_str("</section>\n");
 
-    if head {
+    if options.head {
         out.push_str("</body>\n</html>\n");
     }
 
     out
 }
 
-fn root_class_name(layout_profile: &ScreenplayLayoutProfile) -> &'static str {
-    match layout_profile.style_profile {
-        StyleProfile::Screenplay => "screenplay",
-        StyleProfile::Multicam => "screenplay multicam",
+fn root_class_name(layout_profile: &ScreenplayLayoutProfile, options: HtmlRenderOptions) -> String {
+    let mut classes = match layout_profile.style_profile {
+        StyleProfile::Screenplay => vec!["screenplay"],
+        StyleProfile::Multicam => vec!["screenplay", "multicam"],
+    };
+
+    if options.exact_wraps || options.paginated {
+        classes.push("exactWraps");
     }
+    if options.paginated {
+        classes.push("paginatedHtml");
+    }
+
+    classes.join(" ")
 }
 
-fn render_body(out: &mut String, screenplay: &Screenplay) {
+fn render_body(out: &mut String, screenplay: &Screenplay, options: HtmlRenderOptions) {
     if screenplay.metadata.get("title").is_some() {
         out.push_str(
             "    <section class=\"title-page\">\n        <div class=\"title\">\n            <h1>",
@@ -73,6 +83,16 @@ fn render_body(out: &mut String, screenplay: &Screenplay) {
         out.push_str("</p>\n        </div>\n    </section>\n");
     }
 
+    if options.paginated {
+        render_paginated_body(out, screenplay);
+        return;
+    }
+
+    if options.exact_wraps {
+        render_exact_wrap_body(out, screenplay);
+        return;
+    }
+
     out.push_str("        <section class=\"body\">\n");
     for element in &screenplay.elements {
         match element {
@@ -100,6 +120,64 @@ fn render_body(out: &mut String, screenplay: &Screenplay) {
         }
     }
     out.push_str("        </section>\n");
+}
+
+fn render_exact_wrap_body(out: &mut String, screenplay: &Screenplay) {
+    out.push_str("        <section class=\"body exactWrapBody\">\n");
+    for line in render_unpaginated_visual_lines(screenplay) {
+        render_visual_line(out, &line);
+    }
+    out.push_str("        </section>\n");
+}
+
+fn render_paginated_body(out: &mut String, screenplay: &Screenplay) {
+    out.push_str("        <section class=\"body paginatedBody\">\n");
+
+    for page in render_paginated_visual_pages(screenplay) {
+        write!(
+            out,
+            "            <section class=\"page{}\" data-page-number=\"{}\">\n",
+            if page.page.metadata.index == 0 {
+                " firstPage"
+            } else {
+                ""
+            },
+            page.page.metadata.number
+        )
+        .unwrap();
+
+        out.push_str("                <div class=\"pageHeader\">");
+        if let Some(display_number) = display_page_number(&page.page) {
+            write!(out, "<span class=\"pageNumber\">{}.</span>", display_number).unwrap();
+        }
+        out.push_str("</div>\n");
+        out.push_str("                <div class=\"pageBody\">\n");
+        for line in page.lines {
+            render_visual_line(out, &line);
+        }
+        out.push_str("                </div>\n");
+        out.push_str("            </section>\n");
+    }
+
+    out.push_str("        </section>\n");
+}
+
+fn render_visual_line(out: &mut String, line: &VisualLine) {
+    let mut classes = vec!["visualLine"];
+    if line.text.is_empty() {
+        classes.push("blankLine");
+    }
+    if !line.counted {
+        classes.push("uncountedLine");
+    }
+
+    write!(out, "                    <div class=\"{}\">", classes.join(" ")).unwrap();
+    if line.text.is_empty() {
+        out.push_str("&nbsp;");
+    } else {
+        out.push_str(&escape_html(&line.text));
+    }
+    out.push_str("</div>\n");
 }
 
 fn render_paragraph(out: &mut String, element: &Element) {
@@ -168,5 +246,68 @@ fn class_name(type_name: &str) -> &'static str {
         "New Act" => "newAct",
         "End of Act" => "endOfAct",
         _ => "unknown",
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{blank_attributes, p, Attributes, Element, Metadata};
+
+    #[test]
+    fn exact_wrap_html_renders_visual_lines() {
+        let screenplay = Screenplay {
+            metadata: Metadata::new(),
+            elements: vec![Element::Action(
+                p("THIS IS A LONG ACTION LINE THAT SHOULD WRAP WHEN EXACT HTML WRAPS ARE ENABLED"),
+                blank_attributes(),
+            )],
+        };
+
+        let output = render_document(
+            &screenplay,
+            HtmlRenderOptions {
+                head: false,
+                exact_wraps: true,
+                paginated: false,
+            },
+        );
+
+        assert!(output.contains("exactWraps"));
+        assert!(output.contains("visualLine"));
+        assert!(output.contains("exactWrapBody"));
+        assert!(!output.contains("<p class=\"action"));
+    }
+
+    #[test]
+    fn paginated_html_renders_page_containers_and_hides_first_page_number() {
+        let screenplay = Screenplay {
+            metadata: Metadata::new(),
+            elements: vec![
+                Element::Action(p("FIRST PAGE"), blank_attributes()),
+                Element::Action(
+                    p("SECOND PAGE"),
+                    Attributes {
+                        starts_new_page: true,
+                        ..blank_attributes()
+                    },
+                ),
+            ],
+        };
+
+        let output = render_document(
+            &screenplay,
+            HtmlRenderOptions {
+                head: false,
+                exact_wraps: false,
+                paginated: true,
+            },
+        );
+
+        assert!(output.contains("paginatedHtml"));
+        assert!(output.contains("class=\"page firstPage\""));
+        assert!(output.contains("data-page-number=\"2\""));
+        assert!(output.contains("<span class=\"pageNumber\">2.</span>"));
+        assert!(!output.contains("<span class=\"pageNumber\">1.</span>"));
     }
 }

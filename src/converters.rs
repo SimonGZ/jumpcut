@@ -10,7 +10,18 @@ impl Screenplay {
 
     #[cfg(feature = "html")]
     pub fn to_html(&mut self, head: bool) -> String {
-        crate::rendering::html::render_document(self, head)
+        crate::rendering::html::render_document(
+            self,
+            crate::html_output::HtmlRenderOptions {
+                head,
+                ..Default::default()
+            },
+        )
+    }
+
+    #[cfg(feature = "html")]
+    pub fn to_html_with_options(&mut self, options: crate::html_output::HtmlRenderOptions) -> String {
+        crate::rendering::html::render_document(self, options)
     }
 
     pub fn to_text(&self, options: &crate::text_output::TextRenderOptions) -> String {
@@ -198,8 +209,9 @@ mod tests {
     #[test]
     fn test_html_renderer_matches_template_output() {
         let mut screenplay = sample_screenplay();
-        let actual = normalize_markup(&screenplay.to_html(true));
-        let expected = normalize_markup(&render_html_with_handlebars(&sample_screenplay(), true));
+        let actual = normalize_markup_without_style(&screenplay.to_html(true));
+        let expected =
+            normalize_markup_without_style(&render_html_with_handlebars(&sample_screenplay(), true));
         assert_eq!(actual, expected);
     }
 
@@ -284,6 +296,20 @@ mod tests {
 
     fn normalize_markup(input: &str) -> String {
         input.chars().filter(|c| !c.is_whitespace()).collect()
+    }
+
+    fn normalize_markup_without_style(input: &str) -> String {
+        let without_style = if let (Some(style_start), Some(style_end)) =
+            (input.find("<style"), input.find("</style>"))
+        {
+            let mut stripped = String::new();
+            stripped.push_str(&input[..style_start]);
+            stripped.push_str(&input[style_end + "</style>".len()..]);
+            stripped
+        } else {
+            input.to_string()
+        };
+        normalize_markup(&without_style)
     }
 
     fn render_html_with_handlebars(screenplay: &Screenplay, head: bool) -> String {

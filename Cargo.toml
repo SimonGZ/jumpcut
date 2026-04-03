@@ -17,11 +17,13 @@ include = [
     "README.md",
     "src/bin/main.rs",
     "src/converters.rs",
+    "src/html_output.rs",
     "src/lib.rs",
     "src/rendering/*.rs",
     "src/templates/html_style.css",
     "src/text_output.rs",
     "src/text_style_parser.rs",
+    "src/visual_lines.rs",
 ]
 
 [workspace]

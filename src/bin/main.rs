@@ -28,6 +28,10 @@ struct Args {
     #[arg(long)]
     paginate: bool,
 
+    /// Render HTML output with exact Final Draft-style wraps
+    #[arg(long)]
+    exact_wraps: bool,
+
     /// Show line numbers in text output
     #[arg(long)]
     line_numbers: bool,
@@ -104,8 +108,18 @@ fn main() {
     let mut screenplay = parse(&content);
     let format = opt.format.to_lowercase();
 
-    if format != "text" && (opt.paginate || opt.line_numbers) {
-        eprintln!("Error: --paginate and --line-numbers are only supported with --format text.");
+    if format != "text" && format != "html" && opt.paginate {
+        eprintln!("Error: --paginate is only supported with --format text or --format html.");
+        std::process::exit(2);
+    }
+
+    if format != "text" && opt.line_numbers {
+        eprintln!("Error: --line-numbers is only supported with --format text.");
+        std::process::exit(2);
+    }
+
+    if format != "html" && opt.exact_wraps {
+        eprintln!("Error: --exact-wraps is only supported with --format html.");
         std::process::exit(2);
     }
 
@@ -123,7 +137,11 @@ fn main() {
             output_text = screenplay.to_final_draft();
         }
         "html" => {
-            output_text = screenplay.to_html(true);
+            output_text = screenplay.to_html_with_options(jumpcut::html_output::HtmlRenderOptions {
+                head: true,
+                exact_wraps: opt.exact_wraps || opt.paginate,
+                paginated: opt.paginate,
+            });
         }
         "text" => {
             output_text = screenplay.to_text(&jumpcut::text_output::TextRenderOptions {

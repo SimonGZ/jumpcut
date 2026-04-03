@@ -10,10 +10,12 @@ use std::str::Lines;
 use Element::PageBreak;
 
 mod converters;
+pub mod html_output;
 pub mod pagination;
 mod rendering;
 pub mod text_output;
 mod text_style_parser;
+mod visual_lines;
 
 use ElementText::*;
 
