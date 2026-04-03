@@ -409,4 +409,47 @@ mod tests {
 
         assert!(second_page.contains("<span class=\"bold\">"));
     }
+
+    #[test]
+    fn paginated_html_preserves_styled_spans_for_dual_dialogue() {
+        let screenplay = Screenplay {
+            metadata: Metadata::new(),
+            elements: vec![Element::DualDialogueBlock(vec![
+                Element::DialogueBlock(vec![
+                    Element::Character(
+                        ElementText::Styled(vec![tr("BRICK", vec!["Bold"])]),
+                        blank_attributes(),
+                    ),
+                    Element::Dialogue(
+                        ElementText::Styled(vec![tr("Left side.", vec!["Italic"])]),
+                        blank_attributes(),
+                    ),
+                ]),
+                Element::DialogueBlock(vec![
+                    Element::Character(
+                        ElementText::Styled(vec![tr("STEEL", vec!["Underline"])]),
+                        blank_attributes(),
+                    ),
+                    Element::Dialogue(
+                        ElementText::Styled(vec![tr("Right side.", vec!["Bold"])]),
+                        blank_attributes(),
+                    ),
+                ]),
+            ])],
+        };
+
+        let output = render_document(
+            &screenplay,
+            HtmlRenderOptions {
+                head: false,
+                exact_wraps: false,
+                paginated: true,
+            },
+        );
+
+        assert!(output.contains("<span class=\"bold\">BRICK</span>"));
+        assert!(output.contains("<span class=\"italic\">Left side.</span>"));
+        assert!(output.contains("<span class=\"underline\">STEEL</span>"));
+        assert!(output.contains("<span class=\"bold\">Right side.</span>"));
+    }
 }

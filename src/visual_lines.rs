@@ -517,7 +517,7 @@ fn render_semantic_unit_lines(
                 .iter()
                 .find(|side| side.side == 1)
                 .map(|side| {
-                    render_dual_dialogue_side_lines(
+                    render_dual_dialogue_side_rendered_lines(
                         &side.dialogue,
                         ElementType::DualDialogueLeft,
                         geometry,
@@ -529,7 +529,7 @@ fn render_semantic_unit_lines(
                 .iter()
                 .find(|side| side.side == 2)
                 .map(|side| {
-                    render_dual_dialogue_side_lines(
+                    render_dual_dialogue_side_rendered_lines(
                         &side.dialogue,
                         ElementType::DualDialogueRight,
                         geometry,
@@ -540,35 +540,44 @@ fn render_semantic_unit_lines(
             let right_indent = indent_spaces_for_element_type(ElementType::DualDialogueRight, geometry);
             let mut lines = Vec::new();
             for index in 0..left_lines.len().max(right_lines.len()) {
-                let left = left_lines.get(index).cloned().unwrap_or_default();
-                let right = right_lines.get(index).cloned().unwrap_or_default();
+                let left = left_lines.get(index).cloned().unwrap_or_else(empty_rendered_styled_line);
+                let right = right_lines
+                    .get(index)
+                    .cloned()
+                    .unwrap_or_else(empty_rendered_styled_line);
 
-                if right.is_empty() {
+                if right.text.is_empty() {
                     lines.push(RenderedElementLine {
-                        fragments: vec![plain_fragment_for_text(&left)],
-                        text: left,
+                        fragments: left.fragments,
+                        text: left.text,
                         element_type: ElementType::Dialogue,
                         centered: false,
                     });
-                } else if left.is_empty() {
+                } else if left.text.is_empty() {
+                    let gutter = " ".repeat(right_indent);
+                    let text = format!("{gutter}{}", right.text);
+                    let fragments = std::iter::once(plain_fragment_for_text(&gutter))
+                        .chain(right.fragments.into_iter())
+                        .collect();
                     lines.push(RenderedElementLine {
-                        fragments: vec![plain_fragment_for_text(&format!(
-                            "{:width$}{}",
-                            "",
-                            right,
-                            width = right_indent
-                        ))],
-                        text: format!("{:width$}{}", "", right, width = right_indent),
+                        fragments,
+                        text,
                         element_type: ElementType::Dialogue,
                         centered: false,
                     });
                 } else {
+                    let gutter_width = right_indent.saturating_sub(left.text.chars().count());
+                    let gutter = " ".repeat(gutter_width);
+                    let text = format!("{}{}{}", left.text, gutter, right.text);
+                    let fragments = left
+                        .fragments
+                        .into_iter()
+                        .chain(std::iter::once(plain_fragment_for_text(&gutter)))
+                        .chain(right.fragments.into_iter())
+                        .collect();
                     lines.push(RenderedElementLine {
-                        fragments: vec![plain_fragment_for_text(&format!(
-                            "{left:width$}{right}",
-                            width = right_indent
-                        ))],
-                        text: format!("{left:width$}{right}", width = right_indent),
+                        fragments,
+                        text,
                         element_type: ElementType::Dialogue,
                         centered: false,
                     });
@@ -579,16 +588,38 @@ fn render_semantic_unit_lines(
     }
 }
 
-fn render_dual_dialogue_side_lines(
+fn render_dual_dialogue_side_rendered_lines(
     dialogue: &crate::pagination::DialogueUnit,
     element_type: ElementType,
     geometry: &LayoutGeometry,
-) -> Vec<String> {
+) -> Vec<RenderedStyledLine> {
     let config = wrapping::WrapConfig::from_geometry(geometry, element_type);
     dialogue
         .parts
         .iter()
-        .flat_map(|part| wrapping::wrap_text_for_element(&part.text, &config))
+        .flat_map(|part| {
+            if let Some(inline_text) = &part.inline_text {
+                wrapping::wrap_styled_text_for_element(inline_text, &config)
+                    .into_iter()
+                    .map(|line| RenderedStyledLine {
+                        text: line.text,
+                        fragments: line
+                            .fragments
+                            .into_iter()
+                            .map(styled_fragment_to_visual_fragment)
+                            .collect(),
+                    })
+                    .collect::<Vec<_>>()
+            } else {
+                wrapping::wrap_text_for_element(&part.text, &config)
+                    .into_iter()
+                    .map(|text| RenderedStyledLine {
+                        fragments: vec![plain_fragment_for_text(&text)],
+                        text,
+                    })
+                    .collect::<Vec<_>>()
+            }
+        })
         .collect()
 }
 
@@ -756,6 +787,13 @@ struct RenderedElementLine {
 struct RenderedStyledLine {
     text: String,
     fragments: Vec<VisualFragment>,
+}
+
+fn empty_rendered_styled_line() -> RenderedStyledLine {
+    RenderedStyledLine {
+        text: String::new(),
+        fragments: Vec::new(),
+    }
 }
 
 pub(crate) fn display_page_number(page: &Page) -> Option<u32> {
