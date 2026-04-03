@@ -8,6 +8,7 @@ use std::convert::TryInto;
 use std::default::Default;
 use std::str::Lines;
 use Element::PageBreak;
+use crate::pagination::ScreenplayLayoutProfile;
 
 mod converters;
 pub mod html_output;
@@ -262,7 +263,29 @@ pub fn parse(text: &str) -> Screenplay {
     for element in elements.iter_mut() {
         element.parse_and_convert_markup();
     }
+    apply_structural_act_break_policy(&mut elements, &metadata);
     Screenplay { elements, metadata }
+}
+
+fn apply_structural_act_break_policy(elements: &mut [Element], metadata: &Metadata) {
+    let mut saw_prior_opener = false;
+    let auto_new_act_page_breaks =
+        ScreenplayLayoutProfile::from_metadata(metadata).styles.new_act.starts_new_page;
+
+    for element in elements {
+        match element {
+            Element::ColdOpening(_, _) => {
+                saw_prior_opener = true;
+            }
+            Element::NewAct(_, attributes) => {
+                if auto_new_act_page_breaks && saw_prior_opener && !attributes.starts_new_page {
+                    attributes.starts_new_page = true;
+                }
+                saw_prior_opener = true;
+            }
+            _ => {}
+        }
+    }
 }
 
 fn has_key_value(txt: &str) -> bool {
@@ -577,6 +600,14 @@ fn make_single_line_element(line: &str) -> Element {
                         ..attributes
                     },
                 )
+            } else if is_cold_opening(&final_text) {
+                Element::ColdOpening(
+                    Plain(final_text),
+                    Attributes {
+                        centered: true,
+                        ..attributes
+                    },
+                )
             } else if is_new_act(&final_text) {
                 Element::NewAct(
                     Plain(final_text),
@@ -728,6 +759,12 @@ fn is_new_act(line: &str) -> bool {
     is_act_marker(&tokens)
 }
 
+fn is_cold_opening(line: &str) -> bool {
+    let owned = line.to_lowercase();
+    let tokens = split_lowercase_tokens(&owned);
+    matches!(tokens.as_slice(), ["cold", "open", ..] | ["cold", "opening", ..])
+}
+
 fn split_lowercase_tokens<'a>(line: &'a str) -> Vec<&'a str> {
     line.split(|ch: char| !ch.is_ascii_alphanumeric())
         .filter(|token| !token.is_empty())
@@ -738,6 +775,7 @@ fn is_act_marker(tokens: &[&str]) -> bool {
     match tokens {
         ["teaser", ..] => true,
         ["cold", "open", ..] => true,
+        ["cold", "opening", ..] => true,
         ["act", label, ..] => is_supported_act_label(label),
         _ => false,
     }

@@ -228,6 +228,8 @@ fn apply_fmt_geometry_override_option(profile: &mut ScreenplayLayoutProfile, opt
         profile.styles.scene_heading.spacing_before = 1.0;
     } else if option.eq_ignore_ascii_case("dsd") {
         profile.styles.dialogue.line_spacing = 2.0;
+    } else if option.eq_ignore_ascii_case("no-auto-act-breaks") {
+        profile.styles.new_act.starts_new_page = false;
     } else if let Some(value) = option.strip_prefix("dl-") {
         if let Ok(indent) = value.parse::<f32>() {
             profile.styles.dialogue.left_indent = indent;

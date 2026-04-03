@@ -109,3 +109,18 @@ fn render_only_fmt_options_do_not_change_pagination_geometry() {
     assert_eq!(geometry.scene_heading_spacing_before, 2.0);
     assert_eq!(geometry.line_height, 1.0);
 }
+
+#[test]
+fn no_auto_act_breaks_fmt_disables_new_act_page_starts_without_changing_geometry() {
+    let mut metadata: Metadata = HashMap::new();
+    metadata.insert("fmt".into(), vec!["no-auto-act-breaks".into()]);
+
+    let profile = ScreenplayLayoutProfile::from_metadata(&metadata);
+    let geometry = profile.to_pagination_geometry();
+
+    assert!(!profile.styles.new_act.starts_new_page);
+    assert_eq!(geometry.dialogue_left, 2.5);
+    assert_eq!(geometry.dialogue_right, 6.0);
+    assert_eq!(geometry.scene_heading_spacing_before, 2.0);
+    assert_eq!(geometry.line_height, 1.0);
+}
