@@ -196,9 +196,20 @@ fn render_layout_block_lines(block: &LayoutBlock<'_>, geometry: &LayoutGeometry)
                     crate::pagination::Fragment::Whole => inline_text.clone(),
                 };
 
-                render_indented_styled_lines(&fragment_text, element_type, geometry, flow.centered)
+                render_indented_styled_lines(
+                    &fragment_text,
+                    element_type,
+                    geometry,
+                    flow.render_attributes.centered,
+                )
                     .into_iter()
-                    .map(|line| rendered_element_line_from_styled(line, element_type, flow.centered))
+                    .map(|line| {
+                        rendered_element_line_from_styled(
+                            line,
+                            element_type,
+                            flow.render_attributes.centered,
+                        )
+                    })
                     .collect()
             } else {
                 let text = match block.fragment {
@@ -208,13 +219,18 @@ fn render_layout_block_lines(block: &LayoutBlock<'_>, geometry: &LayoutGeometry)
                     crate::pagination::Fragment::Whole => flow.text.clone(),
                 };
 
-                render_indented_lines(&text, element_type, geometry, flow.centered)
+                render_indented_lines(
+                    &text,
+                    element_type,
+                    geometry,
+                    flow.render_attributes.centered,
+                )
                     .into_iter()
                     .map(|text| RenderedElementLine {
                         fragments: vec![plain_fragment_for_text(&text)],
                         text,
                         element_type,
-                        centered: flow.centered,
+                        centered: flow.render_attributes.centered,
                     })
                     .collect()
             };
@@ -368,20 +384,31 @@ fn render_split_dialogue_part_lines(
             &inline_text.slice(start_offset, end_offset),
             element_type,
             geometry,
-            dialogue_part.centered,
+            dialogue_part.render_attributes.centered,
         )
         .into_iter()
-        .map(|line| rendered_element_line_from_styled(line, element_type, dialogue_part.centered))
+        .map(|line| {
+            rendered_element_line_from_styled(
+                line,
+                element_type,
+                dialogue_part.render_attributes.centered,
+            )
+        })
         .collect();
     }
 
-    render_indented_lines(plain_text, element_type, geometry, dialogue_part.centered)
+    render_indented_lines(
+        plain_text,
+        element_type,
+        geometry,
+        dialogue_part.render_attributes.centered,
+    )
         .into_iter()
         .map(|text| RenderedElementLine {
             fragments: vec![plain_fragment_for_text(&text)],
             text,
             element_type,
-            centered: dialogue_part.centered,
+            centered: dialogue_part.render_attributes.centered,
         })
         .collect()
 }
@@ -446,19 +473,19 @@ fn render_semantic_unit_lines(
                     inline_text,
                     element_type,
                     geometry,
-                    flow.centered,
+                    flow.render_attributes.centered,
                 )
                     .into_iter()
-                    .map(|line| rendered_element_line_from_styled(line, element_type, flow.centered))
+                    .map(|line| rendered_element_line_from_styled(line, element_type, flow.render_attributes.centered))
                     .collect();
             }
-            render_indented_lines(&flow.text, element_type, geometry, flow.centered)
+            render_indented_lines(&flow.text, element_type, geometry, flow.render_attributes.centered)
                 .into_iter()
                 .map(|text| RenderedElementLine {
                     fragments: vec![plain_fragment_for_text(&text)],
                     text,
                     element_type,
-                    centered: flow.centered,
+                    centered: flow.render_attributes.centered,
                 })
                 .collect()
         }
@@ -468,19 +495,19 @@ fn render_semantic_unit_lines(
                     inline_text,
                     ElementType::Lyric,
                     geometry,
-                    lyric.centered,
+                    lyric.render_attributes.centered,
                 )
                     .into_iter()
-                    .map(|line| rendered_element_line_from_styled(line, ElementType::Lyric, lyric.centered))
+                    .map(|line| rendered_element_line_from_styled(line, ElementType::Lyric, lyric.render_attributes.centered))
                     .collect();
             }
-            render_indented_lines(&lyric.text, ElementType::Lyric, geometry, lyric.centered)
+            render_indented_lines(&lyric.text, ElementType::Lyric, geometry, lyric.render_attributes.centered)
                 .into_iter()
                 .map(|text| RenderedElementLine {
                     fragments: vec![plain_fragment_for_text(&text)],
                     text,
                     element_type: ElementType::Lyric,
-                    centered: lyric.centered,
+                    centered: lyric.render_attributes.centered,
                 })
                 .collect()
         }
@@ -494,19 +521,19 @@ fn render_semantic_unit_lines(
                         inline_text,
                         element_type,
                         geometry,
-                        part.centered,
+                        part.render_attributes.centered,
                     )
                         .into_iter()
-                        .map(move |line| rendered_element_line_from_styled(line, element_type, part.centered))
+                        .map(move |line| rendered_element_line_from_styled(line, element_type, part.render_attributes.centered))
                         .collect::<Vec<_>>();
                 }
-                render_indented_lines(&part.text, element_type, geometry, part.centered)
+                render_indented_lines(&part.text, element_type, geometry, part.render_attributes.centered)
                     .into_iter()
                     .map(move |text| RenderedElementLine {
                         fragments: vec![plain_fragment_for_text(&text)],
                         text,
                         element_type,
-                        centered: part.centered,
+                        centered: part.render_attributes.centered,
                     })
                     .collect::<Vec<_>>()
             })

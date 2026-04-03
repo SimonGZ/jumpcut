@@ -1,4 +1,4 @@
-use crate::{styled_text::StyledText, Element, ElementText, Screenplay};
+use crate::{render_attributes::RenderAttributes, styled_text::StyledText, Element, ElementText, Screenplay};
 
 use super::fixtures::{NormalizedElement, NormalizedScreenplay};
 
@@ -125,10 +125,12 @@ impl NormalizedCollector {
             kind,
             text,
             inline_text,
+            render_attributes: RenderAttributes {
+                centered,
+                starts_new_page,
+                scene_number: scene_number.clone(),
+            },
             fragment: None,
-            centered,
-            starts_new_page,
-            scene_number,
             block_kind: block_kind.map(str::to_string),
             block_id: block_id.map(str::to_string),
             dual_dialogue_group: dual_dialogue_group.map(str::to_string),

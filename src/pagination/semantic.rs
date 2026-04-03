@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 
+use crate::render_attributes::RenderAttributes;
 use crate::styled_text::StyledText;
 use super::fixtures::{NormalizedElement, NormalizedScreenplay};
 
@@ -49,9 +50,8 @@ pub struct FlowUnit {
     pub kind: FlowKind,
     pub text: String,
     pub inline_text: Option<StyledText>,
-    pub centered: bool,
+    pub render_attributes: RenderAttributes,
     pub line_range: Option<(u32, u32)>,
-    pub scene_number: Option<String>,
     pub cohesion: Cohesion,
 }
 
@@ -69,7 +69,7 @@ pub struct DialoguePart {
     pub kind: DialoguePartKind,
     pub text: String,
     pub inline_text: Option<StyledText>,
-    pub centered: bool,
+    pub render_attributes: RenderAttributes,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -97,7 +97,7 @@ pub struct LyricUnit {
     pub element_id: String,
     pub text: String,
     pub inline_text: Option<StyledText>,
-    pub centered: bool,
+    pub render_attributes: RenderAttributes,
     pub cohesion: Cohesion,
 }
 
@@ -111,7 +111,7 @@ pub fn build_semantic_screenplay(normalized: NormalizedScreenplay) -> SemanticSc
             index += 1;
             continue;
         }
-        if element.starts_new_page {
+        if element.render_attributes.starts_new_page {
             units.push(SemanticUnit::PageStart(PageStartUnit {
                 source_element_id: element.element_id.clone(),
             }));
@@ -211,7 +211,7 @@ fn build_dialogue_unit(block_id: &str, elements: &[NormalizedElement]) -> Dialog
                 kind: dialogue_part_kind(&element.kind),
                 text: element.text.clone(),
                 inline_text: element.inline_text.clone(),
-                centered: element.centered,
+                render_attributes: element.render_attributes.clone(),
             })
             .collect(),
         cohesion: dialogue_like_cohesion(),
@@ -223,7 +223,7 @@ fn build_lyric_unit(element: &NormalizedElement) -> LyricUnit {
         element_id: element.element_id.clone(),
         text: element.text.clone(),
         inline_text: element.inline_text.clone(),
-        centered: element.centered,
+        render_attributes: element.render_attributes.clone(),
         cohesion: Cohesion {
             keep_together: false,
             keep_with_next: false,
@@ -238,9 +238,8 @@ fn build_flow_unit(element: &NormalizedElement) -> FlowUnit {
         kind: flow_kind(&element.kind),
         text: element.text.clone(),
         inline_text: element.inline_text.clone(),
-        centered: element.centered,
+        render_attributes: element.render_attributes.clone(),
         line_range: None,
-        scene_number: element.scene_number.clone(),
         cohesion: match element.kind.as_str() {
             "Scene Heading" => Cohesion {
                 keep_together: true,

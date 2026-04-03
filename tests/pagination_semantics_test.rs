@@ -2,6 +2,7 @@ use jumpcut::pagination::{
     build_semantic_screenplay, normalize_screenplay, Cohesion, DialoguePartKind, FlowKind,
     NormalizedElement, NormalizedScreenplay, SemanticUnit,
 };
+use jumpcut::render_attributes::RenderAttributes;
 use jumpcut::styled_text::{StyledRun, StyledText};
 use jumpcut::{blank_attributes, p, parse, tr, Attributes, Element, ElementText, Screenplay};
 use pretty_assertions::assert_eq;
@@ -258,11 +259,52 @@ fn centered_flag_survives_normalization_and_semantic_building() {
     };
 
     let normalized = normalize_screenplay("centered", &screenplay);
-    assert!(normalized.elements[0].centered);
+    assert!(normalized.elements[0].render_attributes.centered);
 
     let semantic = build_semantic_screenplay(normalized);
     match &semantic.units[0] {
-        SemanticUnit::Flow(unit) => assert!(unit.centered),
+        SemanticUnit::Flow(unit) => assert!(unit.render_attributes.centered),
+        other => panic!("expected flow unit, got {other:?}"),
+    }
+}
+
+#[test]
+fn render_attributes_survive_normalization_and_semantic_building() {
+    let screenplay = Screenplay {
+        metadata: Default::default(),
+        elements: vec![Element::SceneHeading(
+            p("INT. OFFICE - DAY"),
+            Attributes {
+                centered: true,
+                starts_new_page: true,
+                scene_number: Some("12".into()),
+                ..blank_attributes()
+            },
+        )],
+    };
+
+    let normalized = normalize_screenplay("render-attrs", &screenplay);
+    assert_eq!(
+        normalized.elements[0].render_attributes,
+        RenderAttributes {
+            centered: true,
+            starts_new_page: true,
+            scene_number: Some("12".into()),
+        }
+    );
+
+    let semantic = build_semantic_screenplay(normalized);
+    match &semantic.units[1] {
+        SemanticUnit::Flow(unit) => {
+            assert_eq!(
+                unit.render_attributes,
+                RenderAttributes {
+                    centered: true,
+                    starts_new_page: true,
+                    scene_number: Some("12".into()),
+                }
+            );
+        }
         other => panic!("expected flow unit, got {other:?}"),
     }
 }
@@ -273,10 +315,8 @@ fn normalized_element(element_id: &str, kind: &str, text: &str) -> NormalizedEle
         kind: kind.into(),
         text: text.into(),
         inline_text: None,
+        render_attributes: RenderAttributes::default(),
         fragment: None,
-        centered: false,
-        starts_new_page: false,
-        scene_number: None,
         block_kind: None,
         block_id: None,
         dual_dialogue_group: None,
@@ -329,7 +369,7 @@ trait NormalizedElementExt {
 
 impl NormalizedElementExt for NormalizedElement {
     fn with_starts_new_page(mut self, starts_new_page: bool) -> Self {
-        self.starts_new_page = starts_new_page;
+        self.render_attributes.starts_new_page = starts_new_page;
         self
     }
 

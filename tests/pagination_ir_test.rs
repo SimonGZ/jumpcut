@@ -477,15 +477,18 @@ fn normalized_element(
     dual_dialogue_group: Option<&str>,
     dual_dialogue_side: Option<u8>,
 ) -> NormalizedElement {
+    let render_attributes = jumpcut::render_attributes::RenderAttributes {
+        starts_new_page,
+        ..Default::default()
+    };
+
     NormalizedElement {
         element_id: element_id.into(),
         kind: kind.into(),
         text: String::new(),
         inline_text: None,
+        render_attributes,
         fragment: None,
-        centered: false,
-        starts_new_page,
-        scene_number: None,
         block_kind: block_id.map(|_| "DialogueBlock".into()),
         block_id: block_id.map(str::to_string),
         dual_dialogue_group: dual_dialogue_group.map(str::to_string),
@@ -498,15 +501,17 @@ fn normalized_from_fixture_slice(fixture: &PageBreakFixture) -> NormalizedScreen
 
     for (page_index, page) in fixture.pages.iter().enumerate() {
         for (item_index, item) in page.items.iter().enumerate() {
+            let starts_new_page = page_index > 0 && item_index == 0;
             elements.push(NormalizedElement {
                 element_id: item.element_id.clone(),
                 kind: item.kind.clone(),
                 text: String::new(),
                 inline_text: None,
+                render_attributes: jumpcut::render_attributes::RenderAttributes {
+                    starts_new_page,
+                    ..Default::default()
+                },
                 fragment: Some(item.fragment.clone()),
-                centered: false,
-                starts_new_page: page_index > 0 && item_index == 0,
-                scene_number: None,
                 block_kind: item.block_id.as_ref().map(|_| "DialogueBlock".into()),
                 block_id: item.block_id.clone(),
                 dual_dialogue_group: item.dual_dialogue_group.clone(),

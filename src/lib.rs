@@ -12,6 +12,7 @@ use Element::PageBreak;
 mod converters;
 pub mod html_output;
 pub mod pagination;
+pub mod render_attributes;
 mod rendering;
 pub mod styled_text;
 pub mod text_output;

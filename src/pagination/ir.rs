@@ -163,7 +163,7 @@ impl PaginatedScreenplay {
             if is_non_visual_element_kind(&element.kind) {
                 continue;
             }
-            if element.starts_new_page && !current_items.is_empty() {
+            if element.render_attributes.starts_new_page && !current_items.is_empty() {
                 let rolled_block_items =
                     take_trailing_block_items_for_page_start(&mut current_items, &element);
                 if !current_items.is_empty() {

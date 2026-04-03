@@ -25,9 +25,8 @@ fn visible_unit(id: &str) -> SemanticUnit {
         kind: FlowKind::Action,
         text: format!("dummy-{id}"),
         inline_text: None,
-        centered: false,
+        render_attributes: jumpcut::render_attributes::RenderAttributes::default(),
         line_range: None,
-        scene_number: None,
         cohesion: Cohesion {
             keep_together: false,
             keep_with_next: false,
@@ -42,9 +41,8 @@ fn transition_unit(id: &str) -> SemanticUnit {
         kind: FlowKind::Transition,
         text: format!("CUT TO: {id}"),
         inline_text: None,
-        centered: false,
+        render_attributes: jumpcut::render_attributes::RenderAttributes::default(),
         line_range: None,
-        scene_number: None,
         cohesion: Cohesion {
             keep_together: false,
             keep_with_next: false,
@@ -194,9 +192,8 @@ fn paginator_keeps_scene_heading_and_splits_splittable_following_block() {
         kind: FlowKind::SceneHeading,
         text: "INT. ROOM - DAY".into(),
         inline_text: None,
-        centered: false,
+        render_attributes: jumpcut::render_attributes::RenderAttributes::default(),
         line_range: None,
-        scene_number: None,
         cohesion: Cohesion {
             keep_together: true,
             keep_with_next: true,
@@ -208,9 +205,8 @@ fn paginator_keeps_scene_heading_and_splits_splittable_following_block() {
         kind: FlowKind::Action,
         text: "Z ygeb ujazopoda ovepaj kequgarajar yvy uk ok uje Eroryheg ozejy. Udaxek, eb eky raxusore asazypo, useb ys z habu udybyzu rezas yvy uk OVEHO'U UJUQY RYGYVAKY. Hoz ryxu wyde qesy yvy zo rus ebeba qe qaryhyj: Ok uwokeby, qaba gywusyw, yzyv qoso, kud z kyvup qabex apokakeh.".into(),
         inline_text: None,
-        centered: false,
+        render_attributes: jumpcut::render_attributes::RenderAttributes::default(),
         line_range: None,
-        scene_number: None,
         cohesion: Cohesion {
             keep_together: false,
             keep_with_next: false,

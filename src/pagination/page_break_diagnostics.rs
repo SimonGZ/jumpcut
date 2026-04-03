@@ -2149,9 +2149,8 @@ mod tests {
                 kind: FlowKind::Action,
                 text: String::new(),
                 inline_text: None,
-                centered: false,
+                render_attributes: crate::render_attributes::RenderAttributes::default(),
                 line_range: None,
-                scene_number: None,
                 cohesion: crate::pagination::Cohesion {
                     keep_together: false,
                     keep_with_next: false,
