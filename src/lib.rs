@@ -17,6 +17,7 @@ mod rendering;
 pub mod styled_text;
 pub mod text_output;
 mod text_style_parser;
+pub mod title_page;
 mod visual_lines;
 
 use ElementText::*;
@@ -40,7 +41,7 @@ const SCENE_LOCATORS: [&str; 16] = [
     "EXT/INT ",
 ];
 
-pub type Metadata = HashMap<String, Vec<String>>;
+pub type Metadata = HashMap<String, Vec<ElementText>>;
 
 #[derive(Debug, PartialEq, Serialize)]
 pub struct Screenplay {
@@ -166,6 +167,33 @@ pub enum ElementText {
     Styled(Vec<TextRun>),
 }
 
+impl ElementText {
+    pub fn plain_text(&self) -> String {
+        match self {
+            ElementText::Plain(text) => text.clone(),
+            ElementText::Styled(runs) => runs.iter().map(|run| run.content.as_str()).collect(),
+        }
+    }
+}
+
+impl Default for ElementText {
+    fn default() -> Self {
+        ElementText::Plain(String::new())
+    }
+}
+
+impl From<&str> for ElementText {
+    fn from(value: &str) -> Self {
+        ElementText::Plain(value.to_string())
+    }
+}
+
+impl From<String> for ElementText {
+    fn from(value: String) -> Self {
+        ElementText::Plain(value)
+    }
+}
+
 // Convenience function
 pub fn p(p: &str) -> ElementText {
     ElementText::Plain(p.to_string())
@@ -252,16 +280,21 @@ fn process_metadata(metadata: &mut Metadata, text: &str) {
             } else {
                 metadata.insert(
                     current_key.to_string(),
-                    vec![current_value.trim().to_string()],
+                    vec![parse_metadata_value(current_value.trim())],
                 );
             }
         } else {
             // Means we have a line without a key and thus an additional value to push
             if let Some(values) = metadata.get_mut(&current_key) {
-                values.push(line.trim().to_string());
+                values.push(parse_metadata_value(line.trim()));
             }
         }
     }
+}
+
+fn parse_metadata_value(value: &str) -> ElementText {
+    let mut text = value.to_string();
+    text_style_parser::parse_plain_text_markup(&mut text)
 }
 
 fn split_metadata_line(line: &str) -> Option<(&str, &str)> {
@@ -1037,11 +1070,26 @@ mod tests {
         let screenplay = parse(fountain);
         assert_eq!(
             screenplay.metadata.get("title"),
-            Some(&vec!["Example Script".to_string()])
+            Some(&vec![p("Example Script")])
         );
         assert_eq!(
             screenplay.metadata.get("author"),
-            Some(&vec!["Test Writer".to_string()])
+            Some(&vec![p("Test Writer")])
+        );
+    }
+
+    #[test]
+    fn test_parse_preserves_styled_title_page_metadata() {
+        let fountain = "Title: _**BRICK & STEEL**_\nCredit: Written by\nAuthor: *Stu Maschwitz*\n";
+        let screenplay = parse(fountain);
+
+        assert_eq!(
+            screenplay.metadata.get("title"),
+            Some(&vec![Styled(vec![tr("BRICK & STEEL", vec!["Bold", "Underline"])])])
+        );
+        assert_eq!(
+            screenplay.metadata.get("author"),
+            Some(&vec![Styled(vec![tr("Stu Maschwitz", vec!["Italic"])])])
         );
     }
 

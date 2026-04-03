@@ -36,12 +36,12 @@ impl Element {
 
 fn convert_plain_to_styled(plain: &mut ElementText) -> ElementText {
     match plain {
-        Plain(txt) => create_styled_from_string(txt),
+        Plain(txt) => parse_plain_text_markup(txt),
         _ => unreachable!(),
     }
 }
 
-fn create_styled_from_string(txt: &mut String) -> ElementText {
+pub(crate) fn parse_plain_text_markup(txt: &mut String) -> ElementText {
     lazy_static! {
         static ref RE_BOLD_ITALIC: Regex = Regex::new(r"\*{3}([^*\n]*[^ \\])\*{3}").unwrap();
         static ref RE_BOLD: Regex = Regex::new(r"\*{2}([^*\n]*[^ \\])\*{2}").unwrap();

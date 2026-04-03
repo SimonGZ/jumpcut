@@ -1,7 +1,10 @@
 use super::shared::{escape_html, join_metadata, sorted_style_names};
 use crate::html_output::HtmlRenderOptions;
-use crate::visual_lines::{display_page_number, render_paginated_visual_pages, render_unpaginated_visual_lines, VisualLine};
 use crate::pagination::{ScreenplayLayoutProfile, StyleProfile};
+use crate::title_page::{TitlePage, TitlePageBlockKind};
+use crate::visual_lines::{
+    display_page_number, render_paginated_visual_pages, render_unpaginated_visual_lines, VisualLine,
+};
 use crate::{Attributes, Element, ElementText, Screenplay};
 use std::fmt::Write;
 
@@ -54,33 +57,8 @@ fn root_class_name(layout_profile: &ScreenplayLayoutProfile, options: HtmlRender
 }
 
 fn render_body(out: &mut String, screenplay: &Screenplay, options: HtmlRenderOptions) {
-    if screenplay.metadata.get("title").is_some() {
-        out.push_str(
-            "    <section class=\"title-page\">\n        <div class=\"title\">\n            <h1>",
-        );
-        out.push_str(&escape_html(&join_metadata(
-            &screenplay.metadata,
-            "title",
-            "",
-        )));
-        out.push_str("</h1>\n            <p>");
-        out.push_str(&escape_html(&join_metadata(
-            &screenplay.metadata,
-            "credit",
-            "",
-        )));
-        out.push_str("</p>\n            <p>");
-        out.push_str(&escape_html(&join_metadata(
-            &screenplay.metadata,
-            "author",
-            "",
-        )));
-        out.push_str(&escape_html(&join_metadata(
-            &screenplay.metadata,
-            "authors",
-            "",
-        )));
-        out.push_str("</p>\n        </div>\n    </section>\n");
+    if let Some(title_page) = TitlePage::from_metadata(&screenplay.metadata) {
+        render_title_page(out, &title_page);
     }
 
     if options.paginated {
@@ -251,6 +229,71 @@ fn render_text(out: &mut String, text: &ElementText) {
     }
 }
 
+fn render_title_page(out: &mut String, title_page: &TitlePage) {
+    out.push_str("    <section class=\"title-page\">\n");
+
+    if let Some(block) = title_page.block(TitlePageBlockKind::Title) {
+        let default_title_styling = !title_lines_have_explicit_styles(&block.lines);
+        out.push_str("        <div class=\"titlePageBlock titlePageTitle\">\n            <h1");
+        if default_title_styling {
+            out.push_str(" class=\"defaultTitleText\"");
+        }
+        out.push('>');
+        render_title_page_lines(out, &block.lines);
+        out.push_str("</h1>\n        </div>\n");
+    }
+
+    out.push_str("        <div class=\"titlePageBlock titlePageCenterMeta\">\n");
+    for kind in [
+        TitlePageBlockKind::Credit,
+        TitlePageBlockKind::Author,
+        TitlePageBlockKind::Source,
+    ] {
+        if let Some(block) = title_page.block(kind) {
+            out.push_str("            <p>");
+            render_title_page_lines(out, &block.lines);
+            out.push_str("</p>\n");
+        }
+    }
+    out.push_str("        </div>\n");
+
+    out.push_str("        <div class=\"titlePageBlock titlePageBottom titlePageBottomLeft\">\n");
+    if let Some(block) = title_page.block(TitlePageBlockKind::Contact) {
+        out.push_str("            <p>");
+        render_title_page_lines(out, &block.lines);
+        out.push_str("</p>\n");
+    }
+    out.push_str("        </div>\n");
+
+    out.push_str("        <div class=\"titlePageBlock titlePageBottom titlePageBottomRight\">\n");
+    for kind in [TitlePageBlockKind::Draft, TitlePageBlockKind::DraftDate] {
+        if let Some(block) = title_page.block(kind) {
+            out.push_str("            <p>");
+            render_title_page_lines(out, &block.lines);
+            out.push_str("</p>\n");
+        }
+    }
+    out.push_str("        </div>\n");
+
+    out.push_str("    </section>\n");
+}
+
+fn render_title_page_lines(out: &mut String, lines: &[ElementText]) {
+    for (index, line) in lines.iter().enumerate() {
+        if index > 0 {
+            out.push_str("<br>");
+        }
+        render_text(out, line);
+    }
+}
+
+fn title_lines_have_explicit_styles(lines: &[ElementText]) -> bool {
+    lines.iter().any(|line| match line {
+        ElementText::Plain(_) => false,
+        ElementText::Styled(runs) => runs.iter().any(|run| !run.text_style.is_empty()),
+    })
+}
+
 fn class_name(type_name: &str) -> &'static str {
     match type_name {
         "Scene Heading" => "sceneHeading",
@@ -349,6 +392,93 @@ mod tests {
 
         assert!(output.contains("visualLine centeredLine"));
         assert!(output.contains(">THE END</div>"));
+    }
+
+    #[test]
+    fn title_page_html_preserves_styled_metadata_and_line_breaks() {
+        let mut metadata = Metadata::new();
+        metadata.insert(
+            "title".into(),
+            vec![
+                ElementText::Styled(vec![tr("BRICK & STEEL", vec!["Bold", "Underline"])]),
+                ElementText::Styled(vec![tr("FULL RETIRED", vec!["Bold", "Underline"])]),
+            ],
+        );
+        metadata.insert("credit".into(), vec!["Written by".into()]);
+        metadata.insert(
+            "author".into(),
+            vec![ElementText::Styled(vec![tr("Stu Maschwitz", vec!["Italic"])])],
+        );
+        metadata.insert("source".into(), vec!["Based on a true story".into()]);
+        metadata.insert("contact".into(), vec!["CAA".into(), "Los Angeles".into()]);
+        metadata.insert("draft".into(), vec!["Blue Draft".into()]);
+        metadata.insert("draft date".into(), vec!["1/27/2012".into()]);
+
+        let screenplay = Screenplay {
+            metadata,
+            elements: vec![],
+        };
+
+        let output = render_document(
+            &screenplay,
+            HtmlRenderOptions {
+                head: false,
+                exact_wraps: false,
+                paginated: false,
+            },
+        );
+
+        assert!(output.contains("<span class=\"bold underline\">BRICK &amp; STEEL</span><br><span class=\"bold underline\">FULL RETIRED</span>"));
+        assert!(output.contains("<p>Written by</p>"));
+        assert!(output.contains("<p><span class=\"italic\">Stu Maschwitz</span></p>"));
+        assert!(output.contains("titlePageCenterMeta"));
+        assert!(output.contains("<p>Based on a true story</p>"));
+        assert!(output.contains("titlePageBottomLeft"));
+        assert!(output.contains("<p>CAA<br>Los Angeles</p>"));
+        assert!(output.contains("titlePageBottomRight"));
+        assert!(output.contains("<p>Blue Draft</p>"));
+        assert!(output.contains("<p>1/27/2012</p>"));
+    }
+
+    #[test]
+    fn title_page_plain_title_uses_default_emphasis_but_styled_title_does_not() {
+        let mut plain_metadata = Metadata::new();
+        plain_metadata.insert("title".into(), vec!["Big Fish".into()]);
+
+        let plain_output = render_document(
+            &Screenplay {
+                metadata: plain_metadata,
+                elements: vec![],
+            },
+            HtmlRenderOptions {
+                head: false,
+                exact_wraps: false,
+                paginated: false,
+            },
+        );
+
+        assert!(plain_output.contains("<h1 class=\"defaultTitleText\">Big Fish</h1>"));
+
+        let mut styled_metadata = Metadata::new();
+        styled_metadata.insert(
+            "title".into(),
+            vec![ElementText::Styled(vec![tr("Big Fish", vec!["Italic"])])],
+        );
+
+        let styled_output = render_document(
+            &Screenplay {
+                metadata: styled_metadata,
+                elements: vec![],
+            },
+            HtmlRenderOptions {
+                head: false,
+                exact_wraps: false,
+                paginated: false,
+            },
+        );
+
+        assert!(styled_output.contains("<h1><span class=\"italic\">Big Fish</span></h1>"));
+        assert!(!styled_output.contains("defaultTitleText"));
     }
 
     #[test]

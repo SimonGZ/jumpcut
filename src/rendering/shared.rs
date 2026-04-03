@@ -16,7 +16,13 @@ pub(crate) fn sorted_style_names(run: &TextRun, preserve_case: bool) -> Vec<Stri
 pub(crate) fn join_metadata(metadata: &Metadata, key: &str, separator: &str) -> String {
     metadata
         .get(key)
-        .map(|values| values.join(separator))
+        .map(|values| {
+            values
+                .iter()
+                .map(|value| value.plain_text())
+                .collect::<Vec<_>>()
+                .join(separator)
+        })
         .unwrap_or_default()
 }
 

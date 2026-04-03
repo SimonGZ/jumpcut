@@ -47,6 +47,7 @@ mod tests {
     use crate::{blank_attributes, p, tr, Element, ElementText, Metadata};
     use handlebars::{Handlebars, JsonRender};
     use pretty_assertions::assert_eq;
+    use serde_json::{json, Map, Value};
     use std::collections::HashMap;
 
     #[test]
@@ -209,9 +210,11 @@ mod tests {
     #[test]
     fn test_html_renderer_matches_template_output() {
         let mut screenplay = sample_screenplay();
+        screenplay
+            .metadata
+            .retain(|key, _| key == "fmt");
         let actual = normalize_markup_without_style(&screenplay.to_html(true));
-        let expected =
-            normalize_markup_without_style(&render_html_with_handlebars(&sample_screenplay(), true));
+        let expected = normalize_markup_without_style(&render_html_with_handlebars(&screenplay, true));
         assert_eq!(actual, expected);
     }
 
@@ -317,7 +320,12 @@ mod tests {
             .metadata
             .get("fmt")
             .and_then(|values| values.first())
-            .map(|value| value.split_whitespace().any(|option| option.eq_ignore_ascii_case("multicam")))
+            .map(|value| {
+                value
+                    .plain_text()
+                    .split_whitespace()
+                    .any(|option| option.eq_ignore_ascii_case("multicam"))
+            })
         {
             Some(true) => "screenplay multicam",
             _ => "screenplay",
@@ -389,6 +397,31 @@ mod tests {
         handlebars
             .register_template_string("html", template)
             .expect("Expect template to load.");
-        handlebars.render("html", screenplay).unwrap()
+        handlebars
+            .render("html", &legacy_html_context(screenplay))
+            .unwrap()
+    }
+
+    fn legacy_html_context(screenplay: &Screenplay) -> Value {
+        let metadata = screenplay
+            .metadata
+            .iter()
+            .map(|(key, values)| {
+                (
+                    key.clone(),
+                    Value::Array(
+                        values
+                            .iter()
+                            .map(|value| Value::String(value.plain_text()))
+                            .collect(),
+                    ),
+                )
+            })
+            .collect::<Map<String, Value>>();
+
+        json!({
+            "metadata": metadata,
+            "elements": screenplay.elements,
+        })
     }
 }

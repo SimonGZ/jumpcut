@@ -7,24 +7,13 @@ use crate::pagination::{
     Page, PageKind, PaginatedScreenplay, PaginationConfig, PaginationScope, ScreenplayLayoutProfile,
     SemanticUnit, StyleProfile,
 };
+use crate::title_page::TitlePage;
 use crate::Screenplay;
 
 const DEFAULT_LINES_PER_PAGE: f32 = 54.0;
 const PAGE_NUMBER_OFFSET_FROM_ACTION_EDGE: usize = 5;
 const PAGE_NUMBER_GAP_WIDTH: usize = 4;
 const PAGE_DELIMITER_LEADING_SPACE_WIDTH: usize = 4;
-const TITLE_PAGE_METADATA_KEYS: &[&str] = &[
-    "title",
-    "credit",
-    "author",
-    "authors",
-    "source",
-    "draft",
-    "draft date",
-    "contact",
-    "copyright",
-];
-
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TextRenderOptions {
     pub paginated: bool,
@@ -85,9 +74,7 @@ fn default_pagination_scope(screenplay: &Screenplay) -> PaginationScope {
 }
 
 fn has_title_page_metadata(screenplay: &Screenplay) -> bool {
-    TITLE_PAGE_METADATA_KEYS
-        .iter()
-        .any(|key| screenplay.metadata.contains_key(*key))
+    TitlePage::from_metadata(&screenplay.metadata).is_some()
 }
 
 fn nonempty_layout_pages<'a>(

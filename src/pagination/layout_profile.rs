@@ -43,6 +43,7 @@ impl ScreenplayLayoutProfile {
         let mut profile = Self::default_screenplay();
 
         if let Some(options) = metadata.get("fmt").and_then(|values| values.first()) {
+            let options = options.plain_text();
             let tokens = options.split_whitespace().collect::<Vec<_>>();
 
             // Apply base templates first, then explicit geometry knobs so

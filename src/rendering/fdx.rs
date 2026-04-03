@@ -1,7 +1,6 @@
 use super::shared::{escape_xml_attr, escape_xml_text, join_metadata, sorted_style_names};
 use crate::pagination::{Alignment, ScreenplayLayoutProfile, ScreenplayElementStyle};
 use crate::{Element, ElementText, Metadata, Screenplay};
-use std::collections::HashMap;
 use std::fmt::Write;
 
 pub(crate) fn prepare_screenplay(screenplay: &mut Screenplay) {
@@ -28,7 +27,7 @@ pub(crate) fn render_document(screenplay: &Screenplay) -> String {
     write!(
         out,
         "    <FontSpec AdornmentStyle=\"0\" Background=\"#FFFFFFFFFFFF\" Color=\"#000000000000\" Font=\"{}\" RevisionID=\"0\" Size=\"12\" Style=\"\"/>\n",
-        escape_xml_attr(font_choice(&screenplay.metadata))
+        escape_xml_attr(&font_choice(&screenplay.metadata))
     )
     .unwrap();
     out.push_str("    <DialogueBreaks AutomaticCharacterContinueds=\"Yes\" BottomOfPage=\"Yes\" DialogueBottom=\"(MORE)\" DialogueTop=\"(CONT'D)\" TopOfNext=\"Yes\"/>\n    <SceneBreaks ContinuedNumber=\"No\" SceneBottom=\"(CONTINUED)\" SceneBottomOfPage=\"No\" SceneTop=\"CONTINUED:\" SceneTopOfNext=\"No\"/>\n  </MoresAndContinueds>\n\n</FinalDraft>\n");
@@ -44,6 +43,7 @@ pub(crate) fn add_fdx_formatting(metadata: &mut Metadata) {
 
     if let Some(opts_vec) = metadata.get_mut("fmt") {
         if let Some(opts_string) = opts_vec.first() {
+            let opts_string = opts_string.plain_text();
             for option in opts_string.split_whitespace() {
                 if option.eq_ignore_ascii_case("multicam") {
                     style_profile = Some("multicam".to_string());
@@ -112,11 +112,11 @@ pub(crate) fn add_fdx_formatting(metadata: &mut Metadata) {
 }
 
 pub(crate) fn insert_metadata_value(
-    metadata: &mut HashMap<String, Vec<String>>,
+    metadata: &mut Metadata,
     key: &str,
     value: &str,
 ) {
-    metadata.insert(key.to_string(), vec![value.to_owned()]);
+    metadata.insert(key.to_string(), vec![value.into()]);
 }
 
 fn render_content(out: &mut String, screenplay: &Screenplay) {
@@ -198,7 +198,7 @@ fn render_text(out: &mut String, text: &ElementText) {
 }
 
 fn render_header_and_footer(out: &mut String, metadata: &Metadata) {
-    let font = escape_xml_attr(font_choice(metadata));
+    let font = escape_xml_attr(&font_choice(metadata));
     out.push_str("    <HeaderAndFooter FooterFirstPage=\"Yes\" FooterVisible=\"No\" HeaderFirstPage=\"No\" HeaderVisible=\"Yes\" StartingPage=\"1\">\n        <Header>\n            <Paragraph Alignment=\"Left\" FirstIndent=\"0.00\" Leading=\"Regular\" LeftIndent=\"1.25\" RightIndent=\"-1.00\" SpaceBefore=\"0\" Spacing=\"1\" StartsNewPage=\"No\">\n");
     write!(out, "                <Text AdornmentStyle=\"0\" Background=\"#FFFFFFFFFFFF\" Color=\"#000000000000\" Font=\"{}\" RevisionID=\"0\" Size=\"12\" Style=\"\">\t</Text>\n", font).unwrap();
     write!(out, "                <DynamicLabel AdornmentStyle=\"0\" Background=\"#FFFFFFFFFFFF\" Color=\"#000000000000\" Font=\"{}\" RevisionID=\"0\" Size=\"12\" Style=\"\" Type=\"Collated Revisions\"/>\n", font).unwrap();
@@ -217,7 +217,7 @@ fn render_element_settings(
 ) {
     struct ElementSetting<'a> {
         type_name: &'a str,
-        style: &'a str,
+        style: String,
         alignment: String,
         first_indent: &'a str,
         left_indent: String,
@@ -233,7 +233,7 @@ fn render_element_settings(
     let settings = [
         ElementSetting {
             type_name: "General",
-            style: "",
+            style: String::new(),
             alignment: "Left".to_string(),
             first_indent: "0.00",
             left_indent: "1.50".to_string(),
@@ -275,7 +275,7 @@ fn render_element_settings(
         },
         ElementSetting {
             type_name: "Character",
-            style: "AllCaps",
+            style: "AllCaps".to_string(),
             alignment: alignment_name(layout_profile.styles.character.alignment),
             first_indent: "0.00",
             left_indent: format_indent(layout_profile.styles.character.left_indent),
@@ -289,7 +289,7 @@ fn render_element_settings(
         },
         ElementSetting {
             type_name: "Parenthetical",
-            style: "",
+            style: String::new(),
             alignment: alignment_name(layout_profile.styles.parenthetical.alignment),
             first_indent: "-0.10",
             left_indent: format_indent(layout_profile.styles.parenthetical.left_indent),
@@ -303,7 +303,7 @@ fn render_element_settings(
         },
         ElementSetting {
             type_name: "Dialogue",
-            style: "",
+            style: String::new(),
             alignment: alignment_name(layout_profile.styles.dialogue.alignment),
             first_indent: "0.00",
             left_indent: format_indent(layout_profile.styles.dialogue.left_indent),
@@ -317,7 +317,7 @@ fn render_element_settings(
         },
         ElementSetting {
             type_name: "Transition",
-            style: "AllCaps",
+            style: "AllCaps".to_string(),
             alignment: alignment_name(layout_profile.styles.transition.alignment),
             first_indent: "0.00",
             left_indent: format_indent(layout_profile.styles.transition.left_indent),
@@ -331,7 +331,7 @@ fn render_element_settings(
         },
         ElementSetting {
             type_name: "Shot",
-            style: "AllCaps",
+            style: "AllCaps".to_string(),
             alignment: "Left".to_string(),
             first_indent: "0.00",
             left_indent: "1.50".to_string(),
@@ -345,7 +345,7 @@ fn render_element_settings(
         },
         ElementSetting {
             type_name: "Cast List",
-            style: "AllCaps",
+            style: "AllCaps".to_string(),
             alignment: "Left".to_string(),
             first_indent: "0.00",
             left_indent: "1.50".to_string(),
@@ -359,7 +359,7 @@ fn render_element_settings(
         },
         ElementSetting {
             type_name: "New Act",
-            style: "Underline+AllCaps",
+            style: "Underline+AllCaps".to_string(),
             alignment: alignment_name(layout_profile.styles.new_act.alignment),
             first_indent: "0.00",
             left_indent: format_indent(layout_profile.styles.new_act.left_indent),
@@ -373,7 +373,7 @@ fn render_element_settings(
         },
         ElementSetting {
             type_name: "End of Act",
-            style: "Underline+AllCaps",
+            style: "Underline+AllCaps".to_string(),
             alignment: alignment_name(layout_profile.styles.end_of_act.alignment),
             first_indent: "0.00",
             left_indent: format_indent(layout_profile.styles.end_of_act.left_indent),
@@ -387,7 +387,7 @@ fn render_element_settings(
         },
         ElementSetting {
             type_name: "Cold Opening",
-            style: "Underline+AllCaps",
+            style: "Underline+AllCaps".to_string(),
             alignment: alignment_name(layout_profile.styles.cold_opening.alignment),
             first_indent: "0.00",
             left_indent: format_indent(layout_profile.styles.cold_opening.left_indent),
@@ -401,7 +401,7 @@ fn render_element_settings(
         },
         ElementSetting {
             type_name: "Lyric",
-            style: "Italic",
+            style: "Italic".to_string(),
             alignment: alignment_name(layout_profile.styles.lyric.alignment),
             first_indent: "0.00",
             left_indent: format_indent(layout_profile.styles.lyric.left_indent),
@@ -415,14 +415,14 @@ fn render_element_settings(
         },
     ];
 
-    let font = escape_xml_attr(font_choice(metadata));
+    let font = escape_xml_attr(&font_choice(metadata));
     for setting in settings {
         write!(
             out,
             "  <ElementSettings Type=\"{}\">\n    <FontSpec AdornmentStyle=\"0\" Background=\"#FFFFFFFFFFFF\" Color=\"#000000000000\" Font=\"{}\" RevisionID=\"0\" Size=\"12\" Style=\"{}\"/>\n    <ParagraphSpec Alignment=\"{}\" FirstIndent=\"{}\" Leading=\"Regular\" LeftIndent=\"{}\" RightIndent=\"{}\" SpaceBefore=\"{}\" Spacing=\"{}\" StartsNewPage=\"{}\"/>\n    <Behavior PaginateAs=\"{}\" ReturnKey=\"{}\" Shortcut=\"{}\"/>\n  </ElementSettings>\n\n",
             escape_xml_attr(setting.type_name),
             font,
-            escape_xml_attr(setting.style),
+            escape_xml_attr(&setting.style),
             setting.alignment,
             setting.first_indent,
             setting.left_indent,
@@ -476,7 +476,7 @@ fn format_starts_new_page(starts_new_page: bool) -> String {
 }
 
 fn render_title_page(out: &mut String, metadata: &Metadata) {
-    let font = escape_xml_attr(font_choice(metadata));
+    let font = escape_xml_attr(&font_choice(metadata));
     out.push_str("  <TitlePage>\n    <HeaderAndFooter FooterFirstPage=\"Yes\" FooterVisible=\"No\" HeaderFirstPage=\"No\" HeaderVisible=\"Yes\" StartingPage=\"1\">\n      <Header>\n        <Paragraph Alignment=\"Right\" FirstIndent=\"0.00\" Leading=\"Regular\" LeftIndent=\"1.25\" RightIndent=\"-1.25\" SpaceBefore=\"0\" Spacing=\"1\" StartsNewPage=\"No\">\n");
     write!(out, "          <DynamicLabel AdornmentStyle=\"0\" Background=\"#FFFFFFFFFFFF\" Color=\"#000000000000\" Font=\"{}\" RevisionID=\"0\" Size=\"12\" Style=\"\" Type=\"Page #\"/>\n", font).unwrap();
     out.push_str("        </Paragraph>\n      </Header>\n      <Footer>\n        <Paragraph Alignment=\"Right\" FirstIndent=\"0.00\" Leading=\"Regular\" LeftIndent=\"1.25\" RightIndent=\"-1.25\" SpaceBefore=\"0\" Spacing=\"1\" StartsNewPage=\"No\">\n");
@@ -522,7 +522,7 @@ fn render_title_blank_paragraph(out: &mut String, font: &str, alignment: &str) {
 fn render_title_title_paragraph(out: &mut String, metadata: &Metadata, font: &str) {
     start_title_paragraph(out, "Center");
     for value in metadata.get("title").into_iter().flatten() {
-        push_title_text(out, font, "0", "Bold+Underline+AllCaps", value);
+        push_title_text(out, font, "0", "Bold+Underline+AllCaps", &value.plain_text());
     }
     end_title_paragraph(out);
 }
@@ -532,7 +532,7 @@ fn render_title_credit_paragraph(out: &mut String, metadata: &Metadata, font: &s
     let credit = if let Some(values) = metadata.get("credit") {
         let mut credit = String::new();
         for value in values {
-            credit.push_str(value);
+            credit.push_str(&value.plain_text());
             credit.push(' ');
         }
         credit
@@ -547,7 +547,7 @@ fn render_title_author_paragraph(out: &mut String, metadata: &Metadata, font: &s
     start_title_paragraph(out, "Center");
     for key in ["author", "authors"] {
         for value in metadata.get(key).into_iter().flatten() {
-            push_title_text(out, font, "0", "", value);
+            push_title_text(out, font, "0", "", &value.plain_text());
         }
     }
     end_title_paragraph(out);
@@ -556,7 +556,7 @@ fn render_title_author_paragraph(out: &mut String, metadata: &Metadata, font: &s
 fn render_title_source_paragraph(out: &mut String, metadata: &Metadata, font: &str) {
     start_title_paragraph(out, "Center");
     for value in metadata.get("source").into_iter().flatten() {
-        push_title_text(out, font, "-1", "", value);
+        push_title_text(out, font, "-1", "", &value.plain_text());
     }
     end_title_paragraph(out);
 }
@@ -602,18 +602,18 @@ fn metadata_first(metadata: &Metadata, key: &str) -> String {
     metadata
         .get(key)
         .and_then(|values| values.first())
-        .cloned()
+        .map(|value| value.plain_text())
         .unwrap_or_default()
 }
 
-fn font_choice(metadata: &Metadata) -> &str {
+fn font_choice(metadata: &Metadata) -> String {
     metadata_value(metadata, "font-choice")
 }
 
-fn metadata_value<'a>(metadata: &'a Metadata, key: &str) -> &'a str {
+fn metadata_value(metadata: &Metadata, key: &str) -> String {
     metadata
         .get(key)
         .and_then(|values| values.first())
-        .map(String::as_str)
-        .unwrap_or("")
+        .map(|value| value.plain_text())
+        .unwrap_or_default()
 }

@@ -1,4 +1,4 @@
-use jumpcut::{blank_attributes, p, parse, Element, Screenplay};
+use jumpcut::{blank_attributes, p, parse, tr, Element, ElementText::Styled, Screenplay};
 use pretty_assertions::assert_eq;
 use std::collections::HashMap;
 
@@ -9,20 +9,20 @@ fn it_handles_complex_metadata_without_elements() {
     expected_metadata.insert(
         "title".to_string(),
         vec![
-            "_**BRICK & STEEL**_".to_string(),
-            "_**FULL RETIRED**_".to_string(),
+            Styled(vec![tr("BRICK & STEEL", vec!["Bold", "Underline"])]),
+            Styled(vec![tr("FULL RETIRED", vec!["Bold", "Underline"])]),
         ],
     );
-    expected_metadata.insert("credit".to_string(), vec!["Written by".to_string()]);
-    expected_metadata.insert("author".to_string(), vec!["Stu Maschwitz".to_string()]);
-    expected_metadata.insert("source".to_string(), vec!["Story by KTM".to_string()]);
-    expected_metadata.insert("draft date".to_string(), vec!["1/20/2012".to_string()]);
+    expected_metadata.insert("credit".to_string(), vec!["Written by".into()]);
+    expected_metadata.insert("author".to_string(), vec!["Stu Maschwitz".into()]);
+    expected_metadata.insert("source".to_string(), vec!["Story by KTM".into()]);
+    expected_metadata.insert("draft date".to_string(), vec!["1/20/2012".into()]);
     expected_metadata.insert(
         "contact".to_string(),
         vec![
-            "Next Level Productions".to_string(),
-            "1588 Mission Dr.".to_string(),
-            "Solvang, CA 93463".to_string(),
+            "Next Level Productions".into(),
+            "1588 Mission Dr.".into(),
+            "Solvang, CA 93463".into(),
         ],
     );
     let mut expected = Screenplay {
@@ -39,17 +39,17 @@ fn it_handles_complex_metadata_without_elements() {
     expected_metadata = HashMap::new();
     expected_metadata.insert(
         "title".to_string(),
-        vec!["**THE LAST BIRTHDAY CARD**".to_string()],
+        vec![Styled(vec![tr("THE LAST BIRTHDAY CARD", vec!["Bold"])])],
     );
-    expected_metadata.insert("credit".to_string(), vec!["Written by".to_string()]);
-    expected_metadata.insert("author".to_string(), vec!["Stu Maschwitz".to_string()]);
-    expected_metadata.insert("draft date".to_string(), vec!["7/8/1998".to_string()]);
+    expected_metadata.insert("credit".to_string(), vec!["Written by".into()]);
+    expected_metadata.insert("author".to_string(), vec!["Stu Maschwitz".into()]);
+    expected_metadata.insert("draft date".to_string(), vec!["7/8/1998".into()]);
     expected_metadata.insert(
         "contact".to_string(),
         vec![
-            "PO Box 10031".to_string(),
-            "San Rafael CA 94912".to_string(),
-            "Registered WGAw No. 701428".to_string(),
+            "PO Box 10031".into(),
+            "San Rafael CA 94912".into(),
+            "Registered WGAw No. 701428".into(),
         ],
     );
     expected = Screenplay {
@@ -71,20 +71,20 @@ fn it_handles_complex_metadata_with_elements() {
     expected_metadata.insert(
         "title".to_string(),
         vec![
-            "_**BRICK & STEEL**_".to_string(),
-            "_**FULL RETIRED**_".to_string(),
+            Styled(vec![tr("BRICK & STEEL", vec!["Bold", "Underline"])]),
+            Styled(vec![tr("FULL RETIRED", vec!["Bold", "Underline"])]),
         ],
     );
-    expected_metadata.insert("credit".to_string(), vec!["Written by".to_string()]);
-    expected_metadata.insert("author".to_string(), vec!["Stu Maschwitz".to_string()]);
-    expected_metadata.insert("source".to_string(), vec!["Story by KTM".to_string()]);
-    expected_metadata.insert("draft date".to_string(), vec!["1/20/2012".to_string()]);
+    expected_metadata.insert("credit".to_string(), vec!["Written by".into()]);
+    expected_metadata.insert("author".to_string(), vec!["Stu Maschwitz".into()]);
+    expected_metadata.insert("source".to_string(), vec!["Story by KTM".into()]);
+    expected_metadata.insert("draft date".to_string(), vec!["1/20/2012".into()]);
     expected_metadata.insert(
         "contact".to_string(),
         vec![
-            "Next Level Productions".to_string(),
-            "1588 Mission Dr.".to_string(),
-            "Solvang, CA 93463".to_string(),
+            "Next Level Productions".into(),
+            "1588 Mission Dr.".into(),
+            "Solvang, CA 93463".into(),
         ],
     );
     let expected = Screenplay {
@@ -103,8 +103,8 @@ fn it_handles_complex_metadata_with_elements() {
 fn it_handles_unusual_metadata() {
     let text = "format: scd\nrevision color: blue";
     let mut expected_metadata = HashMap::new();
-    expected_metadata.insert("format".to_string(), vec!["scd".to_string()]);
-    expected_metadata.insert("revision color".to_string(), vec!["blue".to_string()]);
+    expected_metadata.insert("format".to_string(), vec!["scd".into()]);
+    expected_metadata.insert("revision color".to_string(), vec!["blue".into()]);
 
     let expected = Screenplay {
         elements: vec![],
