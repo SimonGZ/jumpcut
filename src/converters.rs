@@ -13,6 +13,10 @@ impl Screenplay {
         crate::rendering::html::render_document(self, head)
     }
 
+    pub fn to_text(&self, options: &crate::text_output::TextRenderOptions) -> String {
+        crate::text_output::render(self, options)
+    }
+
     pub fn to_json_string(self) -> String {
         serde_json::to_string(&self)
             .expect("Should be impossible for this JSON serialization to fail.")

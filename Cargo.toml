@@ -20,6 +20,7 @@ include = [
     "src/lib.rs",
     "src/rendering/*.rs",
     "src/templates/html_style.css",
+    "src/text_output.rs",
     "src/text_style_parser.rs",
 ]
 

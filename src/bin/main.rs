@@ -15,14 +15,22 @@ use std::path::PathBuf;
 #[derive(Parser)]
 #[command(
     name = "JumpCut",
-    about = "A tool for converting Fountain screenplay documents into Final Draft (FDX) and HTML formats.",
+    about = "A tool for converting Fountain screenplay documents into Final Draft (FDX), HTML, and text formats.",
     version
 )]
 #[cfg(feature = "cli")]
 struct Args {
-    /// Formats (FDX, HTML, JSON)
+    /// Formats (FDX, HTML, JSON, text)
     #[arg(short, long, default_value = "fdx")]
     format: String,
+
+    /// Render text output with pagination
+    #[arg(long)]
+    paginate: bool,
+
+    /// Show line numbers in text output
+    #[arg(long)]
+    line_numbers: bool,
 
     /// Input file, pass a dash ("-") to receive stdin
     input: PathBuf,
@@ -94,22 +102,34 @@ fn main() {
     }
 
     let mut screenplay = parse(&content);
+    let format = opt.format.to_lowercase();
+
+    if format != "text" && (opt.paginate || opt.line_numbers) {
+        eprintln!("Error: --paginate and --line-numbers are only supported with --format text.");
+        std::process::exit(2);
+    }
 
     let mut output_text = String::new();
 
-    match opt.format {
-        x if x.to_lowercase() == "json" => {
+    match format.as_str() {
+        "json" => {
             let j = serde_json::to_string_pretty(&screenplay);
             match j {
                 Ok(json) => output_text = json,
                 Err(e) => eprintln!("{}", e),
             }
         }
-        x if x.to_lowercase() == "fdx" => {
+        "fdx" => {
             output_text = screenplay.to_final_draft();
         }
-        x if x.to_lowercase() == "html" => {
+        "html" => {
             output_text = screenplay.to_html(true);
+        }
+        "text" => {
+            output_text = screenplay.to_text(&jumpcut::text_output::TextRenderOptions {
+                paginated: opt.paginate,
+                line_numbers: opt.line_numbers,
+            });
         }
         _ => output_text = "nothing".to_string(),
     }
