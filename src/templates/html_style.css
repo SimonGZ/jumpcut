@@ -1,3 +1,31 @@
+@font-face {
+  font-family: "Courier Prime";
+  src: local("Courier Prime"), local("CourierPrime"), local("CourierPrime-Regular");
+  font-weight: 400;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: "Courier Prime";
+  src: local("Courier Prime Italic"), local("CourierPrime-Italic");
+  font-weight: 400;
+  font-style: italic;
+}
+
+@font-face {
+  font-family: "Courier Prime";
+  src: local("Courier Prime Bold"), local("CourierPrime-Bold");
+  font-weight: 700;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: "Courier Prime";
+  src: local("Courier Prime Bold Italic"), local("CourierPrime-BoldItalic");
+  font-weight: 700;
+  font-style: italic;
+}
+
 @page screenplay, screenplay-title {
   size: letter;
   margin-top: 1in;

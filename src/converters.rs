@@ -355,9 +355,9 @@ mod tests {
                         Some(value) if value == "Lyric" => "lyric",
                         Some(value) if value == "Section" => "section",
                         Some(value) if value == "Synopsis" => "synopsis",
-                        Some(value) if value == "Cold Opening" => "coldOpening",
-                        Some(value) if value == "New Act" => "newAct",
-                        Some(value) if value == "End of Act" => "endOfAct",
+                        Some(value) if value == "Cold Opening" => "coldOpening underline",
+                        Some(value) if value == "New Act" => "newAct underline",
+                        Some(value) if value == "End of Act" => "endOfAct underline",
                         _ => "unknown",
                     };
                     out.write(output)?;

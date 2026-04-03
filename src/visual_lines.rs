@@ -17,6 +17,7 @@ pub(crate) struct VisualLine {
     pub text: String,
     pub counted: bool,
     pub centered: bool,
+    pub element_type: Option<ElementType>,
     pub fragments: Vec<VisualFragment>,
 }
 
@@ -127,6 +128,7 @@ fn render_continuous_block_lines(
             text: String::new(),
             counted: true,
             centered: false,
+            element_type: None,
             fragments: Vec::new(),
         });
     }
@@ -146,6 +148,7 @@ fn render_layout_page_lines(
                 text: String::new(),
                 counted: true,
                 centered: false,
+                element_type: None,
                 fragments: Vec::new(),
             });
         }
@@ -285,6 +288,7 @@ fn render_dialogue_fragment_lines(
                         text,
                         counted: false,
                         centered: false,
+                        element_type: Some(ElementType::Character),
                     })
                     .collect::<Vec<_>>();
                 lines.extend(counted_visual_lines(
@@ -332,6 +336,7 @@ fn render_dialogue_fragment_lines(
                 text,
                 counted: false,
                 centered: false,
+                element_type: Some(ElementType::Character),
             })
             .chain(counted_visual_lines(
                 take_rendered_lines_from_bottom_by_height(&all_lines, content_lines, geometry),
@@ -346,6 +351,7 @@ fn render_dialogue_fragment_lines(
                     text,
                     counted: false,
                     centered: false,
+                    element_type: Some(ElementType::Character),
                 })
                 .chain(counted_visual_lines(
                     take_rendered_lines_from_top_by_height(&all_lines, content_lines, geometry),
@@ -438,6 +444,7 @@ fn render_more_marker_line(geometry: &LayoutGeometry) -> VisualLine {
             .unwrap_or_else(|| "(MORE)".to_string()),
         counted: false,
         centered: false,
+        element_type: Some(ElementType::Character),
         fragments: vec![plain_fragment_for_text(
             &render_indented_lines("(MORE)", ElementType::Character, geometry, false)
                 .into_iter()
@@ -713,6 +720,7 @@ fn counted_visual_lines(lines: Vec<RenderedElementLine>, geometry: &LayoutGeomet
                 text: String::new(),
                 counted: true,
                 centered: false,
+                element_type: None,
                 fragments: Vec::new(),
             });
         }
@@ -720,6 +728,7 @@ fn counted_visual_lines(lines: Vec<RenderedElementLine>, geometry: &LayoutGeomet
             text: line.text,
             counted: true,
             centered: line.centered,
+            element_type: Some(line.element_type),
             fragments: line.fragments,
         });
     }
@@ -824,6 +833,23 @@ pub(crate) fn display_page_number(page: &Page) -> Option<u32> {
     }
 
     Some(display_number)
+}
+
+pub(crate) fn visual_line_class_name(element_type: ElementType) -> &'static str {
+    match element_type {
+        ElementType::Action => "action",
+        ElementType::ColdOpening => "coldOpening",
+        ElementType::NewAct => "newAct",
+        ElementType::EndOfAct => "endOfAct",
+        ElementType::SceneHeading => "sceneHeading",
+        ElementType::Character => "character",
+        ElementType::Dialogue => "dialogue",
+        ElementType::Parenthetical => "parenthetical",
+        ElementType::Transition => "transition",
+        ElementType::Lyric => "lyric",
+        ElementType::DualDialogueLeft => "dualDialogueLeft",
+        ElementType::DualDialogueRight => "dualDialogueRight",
+    }
 }
 
 fn styled_fragment_to_visual_fragment(fragment: WrappedStyledFragment) -> VisualFragment {

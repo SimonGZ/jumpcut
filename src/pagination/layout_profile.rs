@@ -16,6 +16,7 @@ pub struct ScreenplayElementStyle {
     pub line_spacing: f32,
     pub alignment: Alignment,
     pub starts_new_page: bool,
+    pub underline: bool,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -134,6 +135,7 @@ impl ScreenplayLayoutProfile {
                     line_spacing: 1.0,
                     alignment: Alignment::Left,
                     starts_new_page: false,
+                    underline: false,
                 },
                 scene_heading: ScreenplayElementStyle {
                     left_indent: 1.5,
@@ -142,6 +144,7 @@ impl ScreenplayLayoutProfile {
                     line_spacing: 1.0,
                     alignment: Alignment::Left,
                     starts_new_page: false,
+                    underline: false,
                 },
                 character: ScreenplayElementStyle {
                     left_indent: 3.5,
@@ -150,6 +153,7 @@ impl ScreenplayLayoutProfile {
                     line_spacing: 1.0,
                     alignment: Alignment::Left,
                     starts_new_page: false,
+                    underline: false,
                 },
                 dialogue: ScreenplayElementStyle {
                     left_indent: 2.5,
@@ -158,6 +162,7 @@ impl ScreenplayLayoutProfile {
                     line_spacing: 1.0,
                     alignment: Alignment::Left,
                     starts_new_page: false,
+                    underline: false,
                 },
                 parenthetical: ScreenplayElementStyle {
                     left_indent: 3.0,
@@ -166,6 +171,7 @@ impl ScreenplayLayoutProfile {
                     line_spacing: 1.0,
                     alignment: Alignment::Left,
                     starts_new_page: false,
+                    underline: false,
                 },
                 transition: ScreenplayElementStyle {
                     left_indent: 5.5,
@@ -174,6 +180,7 @@ impl ScreenplayLayoutProfile {
                     line_spacing: 1.0,
                     alignment: Alignment::Right,
                     starts_new_page: false,
+                    underline: false,
                 },
                 lyric: ScreenplayElementStyle {
                     left_indent: 2.5,
@@ -182,6 +189,7 @@ impl ScreenplayLayoutProfile {
                     line_spacing: 1.0,
                     alignment: Alignment::Left,
                     starts_new_page: false,
+                    underline: false,
                 },
                 cold_opening: ScreenplayElementStyle {
                     left_indent: 1.0,
@@ -190,6 +198,7 @@ impl ScreenplayLayoutProfile {
                     line_spacing: 1.0,
                     alignment: Alignment::Center,
                     starts_new_page: false,
+                    underline: true,
                 },
                 new_act: ScreenplayElementStyle {
                     left_indent: 1.5,
@@ -198,6 +207,7 @@ impl ScreenplayLayoutProfile {
                     line_spacing: 1.0,
                     alignment: Alignment::Center,
                     starts_new_page: true,
+                    underline: true,
                 },
                 end_of_act: ScreenplayElementStyle {
                     left_indent: 1.5,
@@ -206,6 +216,7 @@ impl ScreenplayLayoutProfile {
                     line_spacing: 1.0,
                     alignment: Alignment::Center,
                     starts_new_page: false,
+                    underline: true,
                 },
             },
         }
@@ -230,6 +241,10 @@ fn apply_fmt_geometry_override_option(profile: &mut ScreenplayLayoutProfile, opt
         profile.styles.dialogue.line_spacing = 2.0;
     } else if option.eq_ignore_ascii_case("no-auto-act-breaks") {
         profile.styles.new_act.starts_new_page = false;
+    } else if option.eq_ignore_ascii_case("no-act-underlines") {
+        profile.styles.cold_opening.underline = false;
+        profile.styles.new_act.underline = false;
+        profile.styles.end_of_act.underline = false;
     } else if let Some(value) = option.strip_prefix("dl-") {
         if let Ok(indent) = value.parse::<f32>() {
             profile.styles.dialogue.left_indent = indent;

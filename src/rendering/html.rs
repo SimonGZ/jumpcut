@@ -3,7 +3,8 @@ use crate::html_output::HtmlRenderOptions;
 use crate::pagination::{ScreenplayLayoutProfile, StyleProfile};
 use crate::title_page::{TitlePage, TitlePageBlockKind};
 use crate::visual_lines::{
-    display_page_number, render_paginated_visual_pages, render_unpaginated_visual_lines, VisualLine,
+    display_page_number, render_paginated_visual_pages, render_unpaginated_visual_lines,
+    visual_line_class_name, VisualLine,
 };
 use crate::{Attributes, Element, ElementText, Screenplay};
 use std::fmt::Write;
@@ -30,7 +31,7 @@ pub(crate) fn render_document(screenplay: &Screenplay, options: HtmlRenderOption
     }
 
     write!(out, "<section class=\"{}\">\n", root_class_name(&layout_profile, options)).unwrap();
-    render_body(&mut out, screenplay, options);
+    render_body(&mut out, screenplay, options, &layout_profile);
     out.push_str("</section>\n");
 
     if options.head {
@@ -56,18 +57,23 @@ fn root_class_name(layout_profile: &ScreenplayLayoutProfile, options: HtmlRender
     classes.join(" ")
 }
 
-fn render_body(out: &mut String, screenplay: &Screenplay, options: HtmlRenderOptions) {
+fn render_body(
+    out: &mut String,
+    screenplay: &Screenplay,
+    options: HtmlRenderOptions,
+    layout_profile: &ScreenplayLayoutProfile,
+) {
     if let Some(title_page) = TitlePage::from_metadata(&screenplay.metadata) {
         render_title_page(out, &title_page, options.paginated);
     }
 
     if options.paginated {
-        render_paginated_body(out, screenplay);
+        render_paginated_body(out, screenplay, layout_profile);
         return;
     }
 
     if options.exact_wraps {
-        render_exact_wrap_body(out, screenplay);
+        render_exact_wrap_body(out, screenplay, layout_profile);
         return;
     }
 
@@ -77,7 +83,7 @@ fn render_body(out: &mut String, screenplay: &Screenplay, options: HtmlRenderOpt
             Element::DialogueBlock(block) => {
                 out.push_str("    <div class=\"dialogueBlock\">\n");
                 for child in block {
-                    render_paragraph(out, child);
+                    render_paragraph(out, child, layout_profile);
                 }
                 out.push_str("                </div>\n");
             }
@@ -87,28 +93,36 @@ fn render_body(out: &mut String, screenplay: &Screenplay, options: HtmlRenderOpt
                     out.push_str("                    <div class=\"dialogueBlock\">\n");
                     if let Element::DialogueBlock(dialogue_block) = block {
                         for child in dialogue_block {
-                            render_paragraph(out, child);
+                            render_paragraph(out, child, layout_profile);
                         }
                     }
                     out.push_str("                    </div>\n");
                 }
                 out.push_str("                </div>\n");
             }
-            _ => render_paragraph(out, element),
+            _ => render_paragraph(out, element, layout_profile),
         }
     }
     out.push_str("        </section>\n");
 }
 
-fn render_exact_wrap_body(out: &mut String, screenplay: &Screenplay) {
+fn render_exact_wrap_body(
+    out: &mut String,
+    screenplay: &Screenplay,
+    layout_profile: &ScreenplayLayoutProfile,
+) {
     out.push_str("        <section class=\"body exactWrapBody\">\n");
     for line in render_unpaginated_visual_lines(screenplay) {
-        render_visual_line(out, &line);
+        render_visual_line(out, &line, layout_profile);
     }
     out.push_str("        </section>\n");
 }
 
-fn render_paginated_body(out: &mut String, screenplay: &Screenplay) {
+fn render_paginated_body(
+    out: &mut String,
+    screenplay: &Screenplay,
+    layout_profile: &ScreenplayLayoutProfile,
+) {
     out.push_str("        <section class=\"body paginatedBody\">\n");
 
     for page in render_paginated_visual_pages(screenplay) {
@@ -131,7 +145,7 @@ fn render_paginated_body(out: &mut String, screenplay: &Screenplay) {
         out.push_str("</div>\n");
         out.push_str("                <div class=\"pageBody\">\n");
         for line in page.lines {
-            render_visual_line(out, &line);
+            render_visual_line(out, &line, layout_profile);
         }
         out.push_str("                </div>\n");
         out.push_str("            </section>\n");
@@ -140,10 +154,20 @@ fn render_paginated_body(out: &mut String, screenplay: &Screenplay) {
     out.push_str("        </section>\n");
 }
 
-fn render_visual_line(out: &mut String, line: &VisualLine) {
+fn render_visual_line(
+    out: &mut String,
+    line: &VisualLine,
+    layout_profile: &ScreenplayLayoutProfile,
+) {
     let mut classes = vec!["visualLine"];
     if line.text.is_empty() {
         classes.push("blankLine");
+    }
+    if let Some(element_type) = line.element_type {
+        classes.push(visual_line_class_name(element_type));
+        if default_underlines_for_element_type(element_type, layout_profile) {
+            classes.push("underline");
+        }
     }
     if !line.counted {
         classes.push("uncountedLine");
@@ -178,7 +202,11 @@ fn render_visual_fragments(out: &mut String, fragments: &[crate::visual_lines::V
     }
 }
 
-fn render_paragraph(out: &mut String, element: &Element) {
+fn render_paragraph(
+    out: &mut String,
+    element: &Element,
+    layout_profile: &ScreenplayLayoutProfile,
+) {
     let (type_name, text, attributes) = match element {
         Element::Action(text, attributes)
         | Element::Character(text, attributes)
@@ -197,16 +225,22 @@ fn render_paragraph(out: &mut String, element: &Element) {
 
     write!(
         out,
-        "                <p class=\"{}{}{}\">",
+        "                <p class=\"{}{}",
         class_name(type_name),
         if attributes.starts_new_page {
             " startsNewPage"
         } else {
             ""
-        },
-        if attributes.centered { " centered" } else { "" }
+        }
     )
     .unwrap();
+    if default_underlines_for_type_name(type_name, layout_profile) {
+        out.push_str(" underline");
+    }
+    if attributes.centered {
+        out.push_str(" centered");
+    }
+    out.push_str("\">");
     render_text(out, text);
     out.push_str("</p>\n");
 }
@@ -226,6 +260,34 @@ fn render_text(out: &mut String, text: &ElementText) {
                 }
             }
         }
+    }
+}
+
+fn default_underlines_for_type_name(
+    type_name: &str,
+    layout_profile: &ScreenplayLayoutProfile,
+) -> bool {
+    match type_name {
+        "Cold Opening" => layout_profile.styles.cold_opening.underline,
+        "New Act" => layout_profile.styles.new_act.underline,
+        "End of Act" => layout_profile.styles.end_of_act.underline,
+        _ => false,
+    }
+}
+
+fn default_underlines_for_element_type(
+    element_type: crate::pagination::wrapping::ElementType,
+    layout_profile: &ScreenplayLayoutProfile,
+) -> bool {
+    match element_type {
+        crate::pagination::wrapping::ElementType::ColdOpening => {
+            layout_profile.styles.cold_opening.underline
+        }
+        crate::pagination::wrapping::ElementType::NewAct => layout_profile.styles.new_act.underline,
+        crate::pagination::wrapping::ElementType::EndOfAct => {
+            layout_profile.styles.end_of_act.underline
+        }
+        _ => false,
     }
 }
 
@@ -352,6 +414,27 @@ mod tests {
     }
 
     #[test]
+    fn html_head_includes_local_courier_prime_font_face() {
+        let screenplay = Screenplay {
+            metadata: Metadata::new(),
+            elements: vec![],
+        };
+
+        let output = render_document(
+            &screenplay,
+            HtmlRenderOptions {
+                head: true,
+                exact_wraps: false,
+                paginated: false,
+            },
+        );
+
+        assert!(output.contains("@font-face"));
+        assert!(output.contains("CourierPrime-Regular"));
+        assert!(!output.contains("fonts.googleapis.com"));
+    }
+
+    #[test]
     fn exact_wrap_html_preserves_styled_spans_for_unsplit_lines() {
         let screenplay = Screenplay {
             metadata: Metadata::new(),
@@ -399,8 +482,115 @@ mod tests {
             },
         );
 
-        assert!(output.contains("visualLine centeredLine"));
+        assert!(output.contains("visualLine"));
+        assert!(output.contains("centeredLine"));
         assert!(output.contains(">THE END</div>"));
+    }
+
+    #[test]
+    fn exact_wrap_html_marks_visual_lines_with_element_classes() {
+        let screenplay = Screenplay {
+            metadata: Metadata::new(),
+            elements: vec![Element::NewAct(
+                p("ACT TWO"),
+                Attributes {
+                    centered: true,
+                    starts_new_page: true,
+                    ..Attributes::default()
+                },
+            )],
+        };
+
+        let output = render_document(
+            &screenplay,
+            HtmlRenderOptions {
+                head: false,
+                exact_wraps: true,
+                paginated: false,
+            },
+        );
+
+        assert!(output.contains("visualLine newAct underline centeredLine"));
+    }
+
+    #[test]
+    fn exact_wrap_html_underlines_new_acts_by_default() {
+        let screenplay = Screenplay {
+            metadata: Metadata::new(),
+            elements: vec![Element::NewAct(
+                p("ACT TWO"),
+                Attributes {
+                    centered: true,
+                    starts_new_page: true,
+                    ..Attributes::default()
+                },
+            )],
+        };
+
+        let output = render_document(
+            &screenplay,
+            HtmlRenderOptions {
+                head: false,
+                exact_wraps: true,
+                paginated: false,
+            },
+        );
+
+        assert!(output.contains("visualLine newAct underline centeredLine"));
+    }
+
+    #[test]
+    fn exact_wrap_html_underlines_cold_openings_by_default() {
+        let screenplay = Screenplay {
+            metadata: Metadata::new(),
+            elements: vec![Element::ColdOpening(
+                p("COLD OPENING"),
+                Attributes {
+                    centered: true,
+                    ..Attributes::default()
+                },
+            )],
+        };
+
+        let output = render_document(
+            &screenplay,
+            HtmlRenderOptions {
+                head: false,
+                exact_wraps: true,
+                paginated: false,
+            },
+        );
+
+        assert!(output.contains("visualLine coldOpening underline centeredLine"));
+    }
+
+    #[test]
+    fn fmt_can_disable_default_act_underlines_in_exact_wrap_html() {
+        let mut metadata = Metadata::new();
+        metadata.insert("fmt".into(), vec!["no-act-underlines".into()]);
+        let screenplay = Screenplay {
+            metadata,
+            elements: vec![Element::NewAct(
+                p("ACT TWO"),
+                Attributes {
+                    centered: true,
+                    starts_new_page: true,
+                    ..Attributes::default()
+                },
+            )],
+        };
+
+        let output = render_document(
+            &screenplay,
+            HtmlRenderOptions {
+                head: false,
+                exact_wraps: true,
+                paginated: false,
+            },
+        );
+
+        assert!(output.contains("visualLine newAct centeredLine"));
+        assert!(!output.contains("visualLine newAct underline centeredLine"));
     }
 
     #[test]
