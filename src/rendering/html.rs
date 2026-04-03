@@ -58,7 +58,7 @@ fn root_class_name(layout_profile: &ScreenplayLayoutProfile, options: HtmlRender
 
 fn render_body(out: &mut String, screenplay: &Screenplay, options: HtmlRenderOptions) {
     if let Some(title_page) = TitlePage::from_metadata(&screenplay.metadata) {
-        render_title_page(out, &title_page);
+        render_title_page(out, &title_page, options.paginated);
     }
 
     if options.paginated {
@@ -229,8 +229,17 @@ fn render_text(out: &mut String, text: &ElementText) {
     }
 }
 
-fn render_title_page(out: &mut String, title_page: &TitlePage) {
-    out.push_str("    <section class=\"title-page\">\n");
+fn render_title_page(out: &mut String, title_page: &TitlePage, paginated: bool) {
+    write!(
+        out,
+        "    <section class=\"title-page {}\">\n",
+        if paginated {
+            "paginatedTitlePage"
+        } else {
+            "unpaginatedTitlePage"
+        }
+    )
+    .unwrap();
 
     if let Some(block) = title_page.block(TitlePageBlockKind::Title) {
         let default_title_styling = !title_lines_have_explicit_styles(&block.lines);
@@ -428,6 +437,7 @@ mod tests {
             },
         );
 
+        assert!(output.contains("<section class=\"title-page unpaginatedTitlePage\">"));
         assert!(output.contains("<span class=\"bold underline\">BRICK &amp; STEEL</span><br><span class=\"bold underline\">FULL RETIRED</span>"));
         assert!(output.contains("<p>Written by</p>"));
         assert!(output.contains("<p><span class=\"italic\">Stu Maschwitz</span></p>"));
@@ -479,6 +489,27 @@ mod tests {
 
         assert!(styled_output.contains("<h1><span class=\"italic\">Big Fish</span></h1>"));
         assert!(!styled_output.contains("defaultTitleText"));
+    }
+
+    #[test]
+    fn paginated_title_page_uses_paginated_title_page_class() {
+        let mut metadata = Metadata::new();
+        metadata.insert("title".into(), vec!["Big Fish".into()]);
+
+        let output = render_document(
+            &Screenplay {
+                metadata,
+                elements: vec![],
+            },
+            HtmlRenderOptions {
+                head: false,
+                exact_wraps: false,
+                paginated: true,
+            },
+        );
+
+        assert!(output.contains("<section class=\"title-page paginatedTitlePage\">"));
+        assert!(!output.contains("unpaginatedTitlePage"));
     }
 
     #[test]
