@@ -2,7 +2,8 @@ use jumpcut::pagination::{
     build_semantic_screenplay, normalize_screenplay, Cohesion, DialoguePartKind, FlowKind,
     NormalizedElement, NormalizedScreenplay, SemanticUnit,
 };
-use jumpcut::parse;
+use jumpcut::styled_text::{StyledRun, StyledText};
+use jumpcut::{blank_attributes, p, parse, tr, Attributes, Element, ElementText, Screenplay};
 use pretty_assertions::assert_eq;
 
 #[test]
@@ -174,12 +175,106 @@ fn parsed_dual_dialogue_is_normalized_and_grouped_as_a_dual_dialogue_unit() {
     }
 }
 
+#[test]
+fn styled_runs_survive_normalization_and_semantic_building() {
+    let screenplay = Screenplay {
+        metadata: Default::default(),
+        elements: vec![
+            Element::Action(
+                ElementText::Styled(vec![tr("BOLD", vec!["Bold"]), tr(" plain", vec![])]),
+                blank_attributes(),
+            ),
+            Element::DialogueBlock(vec![
+                Element::Character(
+                    ElementText::Styled(vec![tr("ALICE", vec!["Underline"])]),
+                    blank_attributes(),
+                ),
+                Element::Dialogue(
+                    ElementText::Styled(vec![tr("Hello", vec!["Italic"])]),
+                    blank_attributes(),
+                ),
+            ]),
+        ],
+    };
+
+    let normalized = normalize_screenplay("styled", &screenplay);
+
+    assert_eq!(
+        normalized.elements[0].inline_text,
+        Some(StyledText {
+            plain_text: "BOLD plain".into(),
+            runs: vec![
+                StyledRun {
+                    text: "BOLD".into(),
+                    styles: vec!["Bold".into()],
+                },
+                StyledRun {
+                    text: " plain".into(),
+                    styles: vec![],
+                },
+            ],
+        })
+    );
+    assert_eq!(
+        normalized.elements[2].inline_text,
+        Some(StyledText {
+            plain_text: "Hello".into(),
+            runs: vec![StyledRun {
+                text: "Hello".into(),
+                styles: vec!["Italic".into()],
+            }],
+        })
+    );
+
+    let semantic = build_semantic_screenplay(normalized);
+
+    match &semantic.units[0] {
+        SemanticUnit::Flow(unit) => {
+            assert_eq!(unit.inline_text, normalized_action_inline_text());
+        }
+        other => panic!("expected flow unit, got {other:?}"),
+    }
+
+    match &semantic.units[1] {
+        SemanticUnit::Dialogue(unit) => {
+            assert_eq!(unit.parts[0].inline_text, normalized_character_inline_text());
+            assert_eq!(unit.parts[1].inline_text, normalized_dialogue_inline_text());
+        }
+        other => panic!("expected dialogue unit, got {other:?}"),
+    }
+}
+
+#[test]
+fn centered_flag_survives_normalization_and_semantic_building() {
+    let screenplay = Screenplay {
+        metadata: Default::default(),
+        elements: vec![Element::Action(
+            p("THE END"),
+            Attributes {
+                centered: true,
+                ..blank_attributes()
+            },
+        )],
+    };
+
+    let normalized = normalize_screenplay("centered", &screenplay);
+    assert!(normalized.elements[0].centered);
+
+    let semantic = build_semantic_screenplay(normalized);
+    match &semantic.units[0] {
+        SemanticUnit::Flow(unit) => assert!(unit.centered),
+        other => panic!("expected flow unit, got {other:?}"),
+    }
+}
+
 fn normalized_element(element_id: &str, kind: &str, text: &str) -> NormalizedElement {
     NormalizedElement {
         element_id: element_id.into(),
         kind: kind.into(),
         text: text.into(),
+        inline_text: None,
         fragment: None,
+        centered: false,
         starts_new_page: false,
         scene_number: None,
         block_kind: None,
@@ -187,6 +282,42 @@ fn normalized_element(element_id: &str, kind: &str, text: &str) -> NormalizedEle
         dual_dialogue_group: None,
         dual_dialogue_side: None,
     }
+}
+
+fn normalized_action_inline_text() -> Option<StyledText> {
+    Some(StyledText {
+        plain_text: "BOLD plain".into(),
+        runs: vec![
+            StyledRun {
+                text: "BOLD".into(),
+                styles: vec!["Bold".into()],
+            },
+            StyledRun {
+                text: " plain".into(),
+                styles: vec![],
+            },
+        ],
+    })
+}
+
+fn normalized_character_inline_text() -> Option<StyledText> {
+    Some(StyledText {
+        plain_text: "ALICE".into(),
+        runs: vec![StyledRun {
+            text: "ALICE".into(),
+            styles: vec!["Underline".into()],
+        }],
+    })
+}
+
+fn normalized_dialogue_inline_text() -> Option<StyledText> {
+    Some(StyledText {
+        plain_text: "Hello".into(),
+        runs: vec![StyledRun {
+            text: "Hello".into(),
+            styles: vec!["Italic".into()],
+        }],
+    })
 }
 
 trait NormalizedElementExt {

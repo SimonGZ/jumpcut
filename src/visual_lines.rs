@@ -1,12 +1,13 @@
 use crate::pagination::composer::{self, LayoutBlock};
 use crate::pagination::margin::line_height_for_element_type;
 use crate::pagination::paginator;
-use crate::pagination::wrapping::{self, ElementType};
+use crate::pagination::wrapping::{self, ElementType, WrappedStyledFragment};
 use crate::pagination::{
     build_semantic_screenplay, normalize_screenplay, DialoguePartKind, LayoutGeometry, Page,
     PageKind, PaginatedScreenplay, PaginationConfig, PaginationScope, ScreenplayLayoutProfile,
     SemanticUnit, StyleProfile,
 };
+use crate::styled_text::StyledText;
 use crate::Screenplay;
 
 const DEFAULT_LINES_PER_PAGE: f32 = 54.0;
@@ -26,12 +27,20 @@ const TITLE_PAGE_METADATA_KEYS: &[&str] = &[
 pub(crate) struct VisualLine {
     pub text: String,
     pub counted: bool,
+    pub centered: bool,
+    pub fragments: Vec<VisualFragment>,
 }
 
 #[derive(Clone, Debug)]
 pub(crate) struct VisualPage {
     pub page: Page,
     pub lines: Vec<VisualLine>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct VisualFragment {
+    pub text: String,
+    pub styles: Vec<String>,
 }
 
 pub(crate) fn render_paginated_visual_pages(screenplay: &Screenplay) -> Vec<VisualPage> {
@@ -130,6 +139,8 @@ fn render_continuous_block_lines(
         lines.push(VisualLine {
             text: String::new(),
             counted: true,
+            centered: false,
+            fragments: Vec::new(),
         });
     }
     lines.extend(render_layout_block_lines(block, geometry));
@@ -147,6 +158,8 @@ fn render_layout_page_lines(
             lines.push(VisualLine {
                 text: String::new(),
                 counted: true,
+                centered: false,
+                fragments: Vec::new(),
             });
         }
         lines.extend(render_layout_block_lines(block, geometry));
@@ -168,21 +181,45 @@ fn render_layout_block_lines(block: &LayoutBlock<'_>, geometry: &LayoutGeometry)
 
     if let SemanticUnit::Flow(flow) = block.unit {
         if let Some(plan) = block.flow_split.as_ref() {
-            let text = match block.fragment {
-                crate::pagination::Fragment::ContinuedToNext => plan.top_text.clone(),
-                crate::pagination::Fragment::ContinuedFromPrev => plan.bottom_text.clone(),
-                crate::pagination::Fragment::ContinuedFromPrevAndToNext => plan.top_text.clone(),
-                crate::pagination::Fragment::Whole => flow.text.clone(),
-            };
             let element_type = ElementType::from_flow_kind(&flow.kind);
+            let lines = if let Some(inline_text) = &flow.inline_text {
+                let fragment_text = match block.fragment {
+                    crate::pagination::Fragment::ContinuedToNext => {
+                        inline_text.slice(0, plan.top_end_offset)
+                    }
+                    crate::pagination::Fragment::ContinuedFromPrev => {
+                        inline_text.slice(plan.bottom_start_offset, inline_text.plain_text.len())
+                    }
+                    crate::pagination::Fragment::ContinuedFromPrevAndToNext => {
+                        inline_text.slice(0, plan.top_end_offset)
+                    }
+                    crate::pagination::Fragment::Whole => inline_text.clone(),
+                };
 
-            return counted_visual_lines(
-                render_indented_lines(&text, element_type, geometry)
+                render_indented_styled_lines(&fragment_text, element_type, geometry, flow.centered)
                     .into_iter()
-                    .map(|text| RenderedElementLine { text, element_type })
-                    .collect(),
-                geometry,
-            );
+                    .map(|line| rendered_element_line_from_styled(line, element_type, flow.centered))
+                    .collect()
+            } else {
+                let text = match block.fragment {
+                    crate::pagination::Fragment::ContinuedToNext => plan.top_text.clone(),
+                    crate::pagination::Fragment::ContinuedFromPrev => plan.bottom_text.clone(),
+                    crate::pagination::Fragment::ContinuedFromPrevAndToNext => plan.top_text.clone(),
+                    crate::pagination::Fragment::Whole => flow.text.clone(),
+                };
+
+                render_indented_lines(&text, element_type, geometry, flow.centered)
+                    .into_iter()
+                    .map(|text| RenderedElementLine {
+                        fragments: vec![plain_fragment_for_text(&text)],
+                        text,
+                        element_type,
+                        centered: flow.centered,
+                    })
+                    .collect()
+            };
+
+            return counted_visual_lines(lines, geometry);
         }
     }
 
@@ -221,10 +258,14 @@ fn render_dialogue_fragment_lines(
                         let element_type =
                             ElementType::from_dialogue_part_kind(&dialogue_part.kind);
                         counted_visual_lines(
-                            render_indented_lines(&part.top_text, element_type, geometry)
-                                .into_iter()
-                                .map(|text| RenderedElementLine { text, element_type })
-                                .collect(),
+                            render_split_dialogue_part_lines(
+                                dialogue_part,
+                                part.top_text.as_str(),
+                                0,
+                                part.top_end_offset,
+                                element_type,
+                                geometry,
+                            ),
                             geometry,
                         )
                     })
@@ -237,8 +278,10 @@ fn render_dialogue_fragment_lines(
                 let mut lines = continuation_prefix
                     .into_iter()
                     .map(|text| VisualLine {
+                        fragments: vec![plain_fragment_for_text(&text)],
                         text,
                         counted: false,
+                        centered: false,
                     })
                     .collect::<Vec<_>>();
                 lines.extend(counted_visual_lines(
@@ -248,9 +291,15 @@ fn render_dialogue_fragment_lines(
                         .flat_map(|(part, dialogue_part)| {
                             let element_type =
                                 ElementType::from_dialogue_part_kind(&dialogue_part.kind);
-                            render_indented_lines(&part.bottom_text, element_type, geometry)
+                            render_split_dialogue_part_lines(
+                                dialogue_part,
+                                part.bottom_text.as_str(),
+                                part.bottom_start_offset,
+                                dialogue_part.text.len(),
+                                element_type,
+                                geometry,
+                            )
                                 .into_iter()
-                                .map(move |text| RenderedElementLine { text, element_type })
                         })
                         .collect::<Vec<_>>(),
                     geometry,
@@ -276,8 +325,10 @@ fn render_dialogue_fragment_lines(
         crate::pagination::Fragment::ContinuedFromPrev => continuation_prefix
             .into_iter()
             .map(|text| VisualLine {
+                fragments: vec![plain_fragment_for_text(&text)],
                 text,
                 counted: false,
+                centered: false,
             })
             .chain(counted_visual_lines(
                 take_rendered_lines_from_bottom_by_height(&all_lines, content_lines, geometry),
@@ -288,8 +339,10 @@ fn render_dialogue_fragment_lines(
             let mut lines = continuation_prefix
                 .into_iter()
                 .map(|text| VisualLine {
+                    fragments: vec![plain_fragment_for_text(&text)],
                     text,
                     counted: false,
+                    centered: false,
                 })
                 .chain(counted_visual_lines(
                     take_rendered_lines_from_top_by_height(&all_lines, content_lines, geometry),
@@ -300,6 +353,37 @@ fn render_dialogue_fragment_lines(
             lines
         }
     }
+}
+
+fn render_split_dialogue_part_lines(
+    dialogue_part: &crate::pagination::DialoguePart,
+    plain_text: &str,
+    start_offset: usize,
+    end_offset: usize,
+    element_type: ElementType,
+    geometry: &LayoutGeometry,
+) -> Vec<RenderedElementLine> {
+    if let Some(inline_text) = &dialogue_part.inline_text {
+        return render_indented_styled_lines(
+            &inline_text.slice(start_offset, end_offset),
+            element_type,
+            geometry,
+            dialogue_part.centered,
+        )
+        .into_iter()
+        .map(|line| rendered_element_line_from_styled(line, element_type, dialogue_part.centered))
+        .collect();
+    }
+
+    render_indented_lines(plain_text, element_type, geometry, dialogue_part.centered)
+        .into_iter()
+        .map(|text| RenderedElementLine {
+            fragments: vec![plain_fragment_for_text(&text)],
+            text,
+            element_type,
+            centered: dialogue_part.centered,
+        })
+        .collect()
 }
 
 fn render_dialogue_continuation_prefix(
@@ -315,6 +399,7 @@ fn render_dialogue_continuation_prefix(
                 &continued_character_cue_text(&part.text),
                 ElementType::Character,
                 geometry,
+                false,
             )
         })
         .collect()
@@ -333,11 +418,18 @@ fn continued_character_cue_text(text: &str) -> String {
 
 fn render_more_marker_line(geometry: &LayoutGeometry) -> VisualLine {
     VisualLine {
-        text: render_indented_lines("(MORE)", ElementType::Character, geometry)
+        text: render_indented_lines("(MORE)", ElementType::Character, geometry, false)
             .into_iter()
             .next()
             .unwrap_or_else(|| "(MORE)".to_string()),
         counted: false,
+        centered: false,
+        fragments: vec![plain_fragment_for_text(
+            &render_indented_lines("(MORE)", ElementType::Character, geometry, false)
+                .into_iter()
+                .next()
+                .unwrap_or_else(|| "(MORE)".to_string()),
+        )],
     }
 }
 
@@ -349,26 +441,74 @@ fn render_semantic_unit_lines(
         SemanticUnit::PageStart(_) => Vec::new(),
         SemanticUnit::Flow(flow) => {
             let element_type = ElementType::from_flow_kind(&flow.kind);
-            render_indented_lines(&flow.text, element_type, geometry)
+            if let Some(inline_text) = &flow.inline_text {
+                return render_indented_styled_lines(
+                    inline_text,
+                    element_type,
+                    geometry,
+                    flow.centered,
+                )
+                    .into_iter()
+                    .map(|line| rendered_element_line_from_styled(line, element_type, flow.centered))
+                    .collect();
+            }
+            render_indented_lines(&flow.text, element_type, geometry, flow.centered)
                 .into_iter()
-                .map(|text| RenderedElementLine { text, element_type })
+                .map(|text| RenderedElementLine {
+                    fragments: vec![plain_fragment_for_text(&text)],
+                    text,
+                    element_type,
+                    centered: flow.centered,
+                })
                 .collect()
         }
-        SemanticUnit::Lyric(lyric) => render_indented_lines(&lyric.text, ElementType::Lyric, geometry)
-            .into_iter()
-            .map(|text| RenderedElementLine {
-                text,
-                element_type: ElementType::Lyric,
-            })
-            .collect(),
+        SemanticUnit::Lyric(lyric) => {
+            if let Some(inline_text) = &lyric.inline_text {
+                return render_indented_styled_lines(
+                    inline_text,
+                    ElementType::Lyric,
+                    geometry,
+                    lyric.centered,
+                )
+                    .into_iter()
+                    .map(|line| rendered_element_line_from_styled(line, ElementType::Lyric, lyric.centered))
+                    .collect();
+            }
+            render_indented_lines(&lyric.text, ElementType::Lyric, geometry, lyric.centered)
+                .into_iter()
+                .map(|text| RenderedElementLine {
+                    fragments: vec![plain_fragment_for_text(&text)],
+                    text,
+                    element_type: ElementType::Lyric,
+                    centered: lyric.centered,
+                })
+                .collect()
+        }
         SemanticUnit::Dialogue(dialogue) => dialogue
             .parts
             .iter()
             .flat_map(|part| {
                 let element_type = ElementType::from_dialogue_part_kind(&part.kind);
-                render_indented_lines(&part.text, element_type, geometry)
+                if let Some(inline_text) = &part.inline_text {
+                    return render_indented_styled_lines(
+                        inline_text,
+                        element_type,
+                        geometry,
+                        part.centered,
+                    )
+                        .into_iter()
+                        .map(move |line| rendered_element_line_from_styled(line, element_type, part.centered))
+                        .collect::<Vec<_>>();
+                }
+                render_indented_lines(&part.text, element_type, geometry, part.centered)
                     .into_iter()
-                    .map(move |text| RenderedElementLine { text, element_type })
+                    .map(move |text| RenderedElementLine {
+                        fragments: vec![plain_fragment_for_text(&text)],
+                        text,
+                        element_type,
+                        centered: part.centered,
+                    })
+                    .collect::<Vec<_>>()
             })
             .collect(),
         SemanticUnit::DualDialogue(dual) => {
@@ -405,18 +545,32 @@ fn render_semantic_unit_lines(
 
                 if right.is_empty() {
                     lines.push(RenderedElementLine {
+                        fragments: vec![plain_fragment_for_text(&left)],
                         text: left,
                         element_type: ElementType::Dialogue,
+                        centered: false,
                     });
                 } else if left.is_empty() {
                     lines.push(RenderedElementLine {
+                        fragments: vec![plain_fragment_for_text(&format!(
+                            "{:width$}{}",
+                            "",
+                            right,
+                            width = right_indent
+                        ))],
                         text: format!("{:width$}{}", "", right, width = right_indent),
                         element_type: ElementType::Dialogue,
+                        centered: false,
                     });
                 } else {
                     lines.push(RenderedElementLine {
+                        fragments: vec![plain_fragment_for_text(&format!(
+                            "{left:width$}{right}",
+                            width = right_indent
+                        ))],
                         text: format!("{left:width$}{right}", width = right_indent),
                         element_type: ElementType::Dialogue,
+                        centered: false,
                     });
                 }
             }
@@ -442,12 +596,54 @@ fn render_indented_lines(
     text: &str,
     element_type: ElementType,
     geometry: &LayoutGeometry,
+    centered: bool,
 ) -> Vec<String> {
     let config = wrapping::WrapConfig::from_geometry(geometry, element_type);
-    let indent = " ".repeat(indent_spaces_for_element_type(element_type, geometry));
+    let indent = if centered {
+        String::new()
+    } else {
+        " ".repeat(indent_spaces_for_element_type(element_type, geometry))
+    };
     wrapped_visual_lines(element_type, text, &config)
         .into_iter()
         .map(|line| format!("{indent}{line}"))
+        .collect()
+}
+
+fn render_indented_styled_lines(
+    text: &StyledText,
+    element_type: ElementType,
+    geometry: &LayoutGeometry,
+    centered: bool,
+) -> Vec<RenderedStyledLine> {
+    let config = wrapping::WrapConfig::from_geometry(geometry, element_type);
+    let indent = if centered {
+        String::new()
+    } else {
+        " ".repeat(indent_spaces_for_element_type(element_type, geometry))
+    };
+
+    wrapping::wrap_styled_text_for_element(text, &config)
+        .into_iter()
+        .map(|line| {
+            let mut fragments = Vec::new();
+            if !indent.is_empty() {
+                fragments.push(VisualFragment {
+                    text: indent.clone(),
+                    styles: Vec::new(),
+                });
+            }
+            fragments.extend(
+                line.fragments
+                    .into_iter()
+                    .map(styled_fragment_to_visual_fragment),
+            );
+
+            RenderedStyledLine {
+                text: format!("{indent}{}", line.text),
+                fragments,
+            }
+        })
         .collect()
 }
 
@@ -471,11 +667,15 @@ fn counted_visual_lines(lines: Vec<RenderedElementLine>, geometry: &LayoutGeomet
             rendered.push(VisualLine {
                 text: String::new(),
                 counted: true,
+                centered: false,
+                fragments: Vec::new(),
             });
         }
         rendered.push(VisualLine {
             text: line.text,
             counted: true,
+            centered: line.centered,
+            fragments: line.fragments,
         });
     }
 
@@ -548,6 +748,14 @@ fn indent_spaces_for_element_type(element_type: ElementType, geometry: &LayoutGe
 struct RenderedElementLine {
     text: String,
     element_type: ElementType,
+    fragments: Vec<VisualFragment>,
+    centered: bool,
+}
+
+#[derive(Clone)]
+struct RenderedStyledLine {
+    text: String,
+    fragments: Vec<VisualFragment>,
 }
 
 pub(crate) fn display_page_number(page: &Page) -> Option<u32> {
@@ -564,4 +772,31 @@ pub(crate) fn display_page_number(page: &Page) -> Option<u32> {
     }
 
     Some(display_number)
+}
+
+fn styled_fragment_to_visual_fragment(fragment: WrappedStyledFragment) -> VisualFragment {
+    VisualFragment {
+        text: fragment.text,
+        styles: fragment.styles,
+    }
+}
+
+fn plain_fragment_for_text(text: &str) -> VisualFragment {
+    VisualFragment {
+        text: text.to_string(),
+        styles: Vec::new(),
+    }
+}
+
+fn rendered_element_line_from_styled(
+    line: RenderedStyledLine,
+    element_type: ElementType,
+    centered: bool,
+) -> RenderedElementLine {
+    RenderedElementLine {
+        text: line.text,
+        element_type,
+        fragments: line.fragments,
+        centered,
+    }
 }

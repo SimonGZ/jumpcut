@@ -13,6 +13,8 @@ use crate::pagination::{DialoguePartKind, DialogueUnit, LayoutGeometry};
 pub struct DialoguePartSplitLines {
     pub top_text: String,
     pub bottom_text: String,
+    pub top_end_offset: usize,
+    pub bottom_start_offset: usize,
     pub top_lines: Vec<String>,
     pub bottom_lines: Vec<String>,
 }
@@ -229,6 +231,8 @@ fn build_candidate(
         split_parts.push(DialoguePartSplitLines {
             top_text: top_text.to_string(),
             bottom_text: bottom_text.to_string(),
+            top_end_offset: top_text.len(),
+            bottom_start_offset: part.text.len() - bottom_text.len(),
             top_lines,
             bottom_lines,
         });

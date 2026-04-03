@@ -8,7 +8,11 @@
 use std::fs;
 
 use jumpcut::pagination::{FdxExtractedSettings, LayoutGeometry};
-use jumpcut::pagination::wrapping::{wrap_text_for_element, ElementType, WrapConfig};
+use jumpcut::pagination::wrapping::{
+    wrap_styled_text_for_element, wrap_text_for_element, wrap_text_for_element_with_offsets,
+    ElementType, WrapConfig, WrappedStyledFragment,
+};
+use jumpcut::styled_text::{StyledRun, StyledText};
 
 #[test]
 fn action_width_fits_exactly_61_characters() {
@@ -213,4 +217,108 @@ fn wrap_config_can_be_created_from_custom_geometry() {
     let text = "1234567890123456789012345 6"; // Space at 26th char. "1234567890123456789012345 " is 26 chars, trimmed is 25.
     let lines = wrap_text_for_element(text, &config);
     assert_eq!(lines.len(), 2, "Should wrap at the space after 25 characters");
+}
+
+#[test]
+fn wrapped_lines_report_start_and_end_offsets() {
+    let config = WrapConfig::with_exact_width_chars(10);
+    let text = "One two three";
+
+    let lines = wrap_text_for_element_with_offsets(text, &config);
+
+    assert_eq!(lines.len(), 2);
+    assert_eq!(lines[0].text, "One two");
+    assert_eq!(lines[0].start_offset, 0);
+    assert_eq!(lines[0].end_offset, 8);
+    assert_eq!(lines[1].text, "three");
+    assert_eq!(lines[1].start_offset, 8);
+    assert_eq!(lines[1].end_offset, text.len());
+}
+
+#[test]
+fn wrapped_line_offsets_follow_hyphen_and_space_chunk_boundaries() {
+    let config = WrapConfig::new(ElementType::Dialogue);
+    let text = "Did I want to deprive my soon-to-be-born son";
+
+    let lines = wrap_text_for_element_with_offsets(text, &config);
+
+    assert_eq!(lines[0].text, "Did I want to deprive my soon-to-be-");
+    assert_eq!(lines[0].start_offset, 0);
+    assert_eq!(lines[0].end_offset, 36);
+    assert_eq!(lines[1].text, "born son");
+    assert_eq!(lines[1].start_offset, 36);
+    assert_eq!(lines[1].end_offset, text.len());
+}
+
+#[test]
+fn styled_wrapping_preserves_multiple_style_fragments_on_one_line() {
+    let config = WrapConfig::with_exact_width_chars(20);
+    let text = StyledText {
+        plain_text: "BOLD WORDS".into(),
+        runs: vec![
+            StyledRun {
+                text: "BOLD ".into(),
+                styles: vec!["Bold".into()],
+            },
+            StyledRun {
+                text: "WORDS".into(),
+                styles: vec!["Italic".into()],
+            },
+        ],
+    };
+
+    let lines = wrap_styled_text_for_element(&text, &config);
+
+    assert_eq!(lines.len(), 1);
+    assert_eq!(lines[0].text, "BOLD WORDS");
+    assert_eq!(
+        lines[0].fragments,
+        vec![
+            WrappedStyledFragment {
+                text: "BOLD ".into(),
+                styles: vec!["Bold".into()],
+            },
+            WrappedStyledFragment {
+                text: "WORDS".into(),
+                styles: vec!["Italic".into()],
+            },
+        ]
+    );
+}
+
+#[test]
+fn styled_wrapping_slices_a_single_styled_run_across_wrapped_lines() {
+    let config = WrapConfig::with_exact_width_chars(10);
+    let text = StyledText {
+        plain_text: "Bold words here".into(),
+        runs: vec![StyledRun {
+            text: "Bold words here".into(),
+            styles: vec!["Bold".into()],
+        }],
+    };
+
+    let lines = wrap_styled_text_for_element(&text, &config);
+
+    assert_eq!(lines.len(), 2);
+    assert_eq!(lines[0].text, "Bold words");
+    assert_eq!(lines[0].start_offset, 0);
+    assert_eq!(lines[0].end_offset, 11);
+    assert_eq!(
+        lines[0].fragments,
+        vec![WrappedStyledFragment {
+            text: "Bold words ".into(),
+            styles: vec!["Bold".into()],
+        }]
+    );
+
+    assert_eq!(lines[1].text, "here");
+    assert_eq!(lines[1].start_offset, 11);
+    assert_eq!(lines[1].end_offset, text.plain_text.len());
+    assert_eq!(
+        lines[1].fragments,
+        vec![WrappedStyledFragment {
+            text: "here".into(),
+            styles: vec!["Bold".into()],
+        }]
+    );
 }

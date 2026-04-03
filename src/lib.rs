@@ -13,6 +13,7 @@ mod converters;
 pub mod html_output;
 pub mod pagination;
 mod rendering;
+pub mod styled_text;
 pub mod text_output;
 mod text_style_parser;
 mod visual_lines;

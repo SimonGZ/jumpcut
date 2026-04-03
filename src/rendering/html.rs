@@ -170,14 +170,34 @@ fn render_visual_line(out: &mut String, line: &VisualLine) {
     if !line.counted {
         classes.push("uncountedLine");
     }
+    if line.centered {
+        classes.push("centeredLine");
+    }
 
     write!(out, "                    <div class=\"{}\">", classes.join(" ")).unwrap();
     if line.text.is_empty() {
         out.push_str("&nbsp;");
     } else {
-        out.push_str(&escape_html(&line.text));
+        render_visual_fragments(out, &line.fragments);
     }
     out.push_str("</div>\n");
+}
+
+fn render_visual_fragments(out: &mut String, fragments: &[crate::visual_lines::VisualFragment]) {
+    for fragment in fragments {
+        if fragment.styles.is_empty() {
+            out.push_str(&escape_html(&fragment.text));
+        } else {
+            let classes = fragment
+                .styles
+                .iter()
+                .map(|style| style.to_lowercase())
+                .collect::<Vec<_>>();
+            write!(out, "<span class=\"{}\">", classes.join(" ")).unwrap();
+            out.push_str(&escape_html(&fragment.text));
+            out.push_str("</span>");
+        }
+    }
 }
 
 fn render_paragraph(out: &mut String, element: &Element) {
@@ -252,7 +272,7 @@ fn class_name(type_name: &str) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{blank_attributes, p, Attributes, Element, Metadata};
+    use crate::{blank_attributes, p, tr, Attributes, Element, ElementText, Metadata};
 
     #[test]
     fn exact_wrap_html_renders_visual_lines() {
@@ -277,6 +297,58 @@ mod tests {
         assert!(output.contains("visualLine"));
         assert!(output.contains("exactWrapBody"));
         assert!(!output.contains("<p class=\"action"));
+    }
+
+    #[test]
+    fn exact_wrap_html_preserves_styled_spans_for_unsplit_lines() {
+        let screenplay = Screenplay {
+            metadata: Metadata::new(),
+            elements: vec![Element::Action(
+                ElementText::Styled(vec![
+                    tr("BOLD", vec!["Bold"]),
+                    tr(" plain", vec![]),
+                    tr(" ITALIC", vec!["Italic"]),
+                ]),
+                blank_attributes(),
+            )],
+        };
+
+        let output = render_document(
+            &screenplay,
+            HtmlRenderOptions {
+                head: false,
+                exact_wraps: true,
+                paginated: false,
+            },
+        );
+
+        assert!(output.contains("<span class=\"bold\">BOLD</span> plain<span class=\"italic\"> ITALIC</span>"));
+    }
+
+    #[test]
+    fn exact_wrap_html_marks_centered_lines() {
+        let screenplay = Screenplay {
+            metadata: Metadata::new(),
+            elements: vec![Element::Action(
+                p("THE END"),
+                Attributes {
+                    centered: true,
+                    ..blank_attributes()
+                },
+            )],
+        };
+
+        let output = render_document(
+            &screenplay,
+            HtmlRenderOptions {
+                head: false,
+                exact_wraps: true,
+                paginated: false,
+            },
+        );
+
+        assert!(output.contains("visualLine centeredLine"));
+        assert!(output.contains(">THE END</div>"));
     }
 
     #[test]
@@ -309,5 +381,32 @@ mod tests {
         assert!(output.contains("data-page-number=\"2\""));
         assert!(output.contains("<span class=\"pageNumber\">2.</span>"));
         assert!(!output.contains("<span class=\"pageNumber\">1.</span>"));
+    }
+
+    #[test]
+    fn paginated_html_preserves_styled_spans_for_split_flow_fragments() {
+        let screenplay = Screenplay {
+            metadata: Metadata::new(),
+            elements: vec![Element::Action(
+                ElementText::Styled(vec![tr(&"BOLD SENTENCE. ".repeat(500), vec!["Bold"])]),
+                blank_attributes(),
+            )],
+        };
+
+        let output = render_document(
+            &screenplay,
+            HtmlRenderOptions {
+                head: false,
+                exact_wraps: false,
+                paginated: true,
+            },
+        );
+
+        let second_page = output
+            .split("data-page-number=\"2\"")
+            .nth(1)
+            .expect("expected a second paginated page");
+
+        assert!(second_page.contains("<span class=\"bold\">"));
     }
 }

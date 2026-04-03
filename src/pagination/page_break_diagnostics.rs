@@ -2148,6 +2148,8 @@ mod tests {
                 element_id: "el-empty".into(),
                 kind: FlowKind::Action,
                 text: String::new(),
+                inline_text: None,
+                centered: false,
                 line_range: None,
                 scene_number: None,
                 cohesion: crate::pagination::Cohesion {

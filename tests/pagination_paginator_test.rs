@@ -24,6 +24,8 @@ fn visible_unit(id: &str) -> SemanticUnit {
         element_id: id.into(),
         kind: FlowKind::Action,
         text: format!("dummy-{id}"),
+        inline_text: None,
+        centered: false,
         line_range: None,
         scene_number: None,
         cohesion: Cohesion {
@@ -39,6 +41,8 @@ fn transition_unit(id: &str) -> SemanticUnit {
         element_id: id.into(),
         kind: FlowKind::Transition,
         text: format!("CUT TO: {id}"),
+        inline_text: None,
+        centered: false,
         line_range: None,
         scene_number: None,
         cohesion: Cohesion {
@@ -189,6 +193,8 @@ fn paginator_keeps_scene_heading_and_splits_splittable_following_block() {
         element_id: "scene-heading".into(),
         kind: FlowKind::SceneHeading,
         text: "INT. ROOM - DAY".into(),
+        inline_text: None,
+        centered: false,
         line_range: None,
         scene_number: None,
         cohesion: Cohesion {
@@ -201,6 +207,8 @@ fn paginator_keeps_scene_heading_and_splits_splittable_following_block() {
         element_id: "action".into(),
         kind: FlowKind::Action,
         text: "Z ygeb ujazopoda ovepaj kequgarajar yvy uk ok uje Eroryheg ozejy. Udaxek, eb eky raxusore asazypo, useb ys z habu udybyzu rezas yvy uk OVEHO'U UJUQY RYGYVAKY. Hoz ryxu wyde qesy yvy zo rus ebeba qe qaryhyj: Ok uwokeby, qaba gywusyw, yzyv qoso, kud z kyvup qabex apokakeh.".into(),
+        inline_text: None,
+        centered: false,
         line_range: None,
         scene_number: None,
         cohesion: Cohesion {

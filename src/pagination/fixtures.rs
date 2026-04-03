@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use crate::styled_text::StyledText;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -30,7 +31,11 @@ pub struct NormalizedElement {
     pub element_id: String,
     pub kind: String,
     pub text: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub inline_text: Option<StyledText>,
     pub fragment: Option<Fragment>,
+    #[serde(default)]
+    pub centered: bool,
     pub starts_new_page: bool,
     pub scene_number: Option<String>,
     pub block_kind: Option<String>,

@@ -12,16 +12,22 @@ fn dialogue_split_prefers_a_sentence_boundary_for_the_mayor_case() {
                 element_id: "el-mayor-character".into(),
                 kind: DialoguePartKind::Character,
                 text: "MAYOR".into(),
+                inline_text: None,
+                centered: false,
             },
             DialoguePart {
                 element_id: "el-mayor-parenthetical".into(),
                 kind: DialoguePartKind::Parenthetical,
                 text: "(loudly, for the crowd)".into(),
+                inline_text: None,
+                centered: false,
             },
             DialoguePart {
                 element_id: "el-mayor-dialogue".into(),
                 kind: DialoguePartKind::Dialogue,
                 text: "Edward Bloom, first son of Ashton, it's with a heavy heart we see you go. But take with you this Key to the City, and know that any time you want to come back, all our doors are open to you.".into(),
+                inline_text: None,
+                centered: false,
             },
         ],
         cohesion: Cohesion {
@@ -176,11 +182,15 @@ fn dialogue_split_plan_can_split_at_a_sentence_boundary_inside_a_wrapped_line() 
                 element_id: "el-01145".into(),
                 kind: DialoguePartKind::Character,
                 text: "EDWARD (CONT'D)".into(),
+                inline_text: None,
+                centered: false,
             },
             DialoguePart {
                 element_id: "el-01146".into(),
                 kind: DialoguePartKind::Dialogue,
                 text: "Well, I didn't know what to do.  But finally I told my father.  And he said not to worry, but I could tell he was rattled.  That next day, he wasn't himself, always looking around, waiting for something to drop on his head.  Because the crow didn't tell how it was going to happen, just those words:  your Daddy is going to die.  Well, he went into town early and was gone for a long time.  And when he finally came back, he looked terrible, like he was waiting for the axe to fall all day.  He said to my mother, \"Good God.  I just had the worst day of my life.\"".into(),
+                inline_text: None,
+                centered: false,
             },
         ],
         cohesion: Cohesion {
@@ -196,6 +206,8 @@ fn dialogue_split_plan_can_split_at_a_sentence_boundary_inside_a_wrapped_line() 
     assert_eq!(plan.bottom_line_count, 6);
     assert_eq!(plan.parts[1].top_lines.len(), 12);
     assert_eq!(plan.parts[1].bottom_lines.len(), 6);
+    assert_eq!(plan.parts[1].top_end_offset, plan.parts[1].top_text.len());
+    assert_eq!(plan.parts[1].bottom_start_offset, plan.parts[1].top_end_offset);
     assert_eq!(
         plan.parts[1].top_text.trim_end(),
         "Well, I didn't know what to do.  But finally I told my father.  And he said not to worry, but I could tell he was rattled.  That next day, he wasn't himself, always looking around, waiting for something to drop on his head.  Because the crow didn't tell how it was going to happen, just those words:  your Daddy is going to die.  Well, he went into town early and was gone for a long time."

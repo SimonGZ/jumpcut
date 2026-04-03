@@ -1,4 +1,4 @@
-use crate::{Element, ElementText, Screenplay};
+use crate::{styled_text::StyledText, Element, ElementText, Screenplay};
 
 use super::fixtures::{NormalizedElement, NormalizedScreenplay};
 
@@ -80,7 +80,7 @@ impl NormalizedCollector {
         dual_dialogue_group: Option<&str>,
         dual_dialogue_side: Option<u8>,
     ) {
-        let (kind, text, starts_new_page, scene_number) = match element {
+        let (kind, text, inline_text, centered, starts_new_page, scene_number) = match element {
             Element::Action(text, attributes)
             | Element::Character(text, attributes)
             | Element::SceneHeading(text, attributes)
@@ -93,16 +93,27 @@ impl NormalizedCollector {
             | Element::EndOfAct(text, attributes) => (
                 element.name().to_string(),
                 flatten_text(text),
+                StyledText::from_element_text(text),
+                attributes.centered,
                 attributes.starts_new_page,
                 attributes.scene_number.clone(),
             ),
             Element::Section(text, attributes, _) => (
                 "Section".to_string(),
                 flatten_text(text),
+                StyledText::from_element_text(text),
+                attributes.centered,
                 attributes.starts_new_page,
                 attributes.scene_number.clone(),
             ),
-            Element::Synopsis(text) => ("Synopsis".to_string(), flatten_text(text), false, None),
+            Element::Synopsis(text) => (
+                "Synopsis".to_string(),
+                flatten_text(text),
+                StyledText::from_element_text(text),
+                false,
+                false,
+                None,
+            ),
             Element::DialogueBlock(_) | Element::DualDialogueBlock(_) | Element::PageBreak => {
                 return
             }
@@ -113,7 +124,9 @@ impl NormalizedCollector {
             element_id: format!("el-{:05}", self.next_element_id),
             kind,
             text,
+            inline_text,
             fragment: None,
+            centered,
             starts_new_page,
             scene_number,
             block_kind: block_kind.map(str::to_string),

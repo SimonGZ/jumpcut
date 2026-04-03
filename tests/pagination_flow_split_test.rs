@@ -12,6 +12,8 @@ fn flow_split_prefers_a_sentence_boundary_when_a_legal_split_exists() {
 
     assert_eq!(decision.top_line_count, 2);
     assert_eq!(decision.top_text.trim_end(), "A forty-year old man named BEAMEN comes out of the seed store to greet Edward.");
+    assert_eq!(decision.top_end_offset, decision.top_text.len());
+    assert_eq!(decision.bottom_start_offset, decision.top_end_offset);
     assert!(decision.bottom_text.trim_start().starts_with("Friendly but a little drunk"));
 }
 

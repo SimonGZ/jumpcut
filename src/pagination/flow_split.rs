@@ -12,6 +12,8 @@ pub struct FlowSplitDecision {
 pub struct FlowSplitPlan {
     pub top_text: String,
     pub bottom_text: String,
+    pub top_end_offset: usize,
+    pub bottom_start_offset: usize,
     pub top_line_count: usize,
     pub bottom_line_count: usize,
 }
@@ -126,6 +128,8 @@ fn choose_flow_split_with_policy(
         FlowSplitPlan {
             top_text: top_text.to_string(),
             bottom_text: bottom_text.to_string(),
+            top_end_offset: offset,
+            bottom_start_offset: offset,
             top_line_count,
             bottom_line_count,
         }

@@ -1,5 +1,6 @@
 use crate::pagination::margin::calculate_element_width;
 use crate::pagination::LayoutGeometry;
+use crate::styled_text::{StyledRun, StyledText};
 
 #[derive(Debug, Clone, Copy)]
 pub enum ElementType {
@@ -69,7 +70,22 @@ pub struct WrapConfig {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WrappedLine {
     pub text: String,
+    pub start_offset: usize,
     pub end_offset: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WrappedStyledFragment {
+    pub text: String,
+    pub styles: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WrappedStyledLine {
+    pub text: String,
+    pub start_offset: usize,
+    pub end_offset: usize,
+    pub fragments: Vec<WrappedStyledFragment>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -117,10 +133,12 @@ pub fn wrap_text_for_element_with_offsets(text: &str, config: &WrapConfig) -> Ve
 
     for paragraph in paragraphs {
         let mut current_line = String::new();
+        let mut current_line_start_offset = paragraph_offset;
         let mut current_line_end_offset = paragraph_offset;
         let words = tokenize_wrap_chunks(paragraph, paragraph_offset);
 
         for word in words {
+            let word_start_offset = line_start_offset_for_chunk(&word);
             let combined = format!("{}{}", current_line, word.text);
 
             // Final Draft explicitly discounts trailing whitespace and exactly
@@ -137,6 +155,7 @@ pub fn wrap_text_for_element_with_offsets(text: &str, config: &WrapConfig) -> Ve
             if current_line.is_empty() {
                 // Always push the first word of a line, even if it's too long
                 current_line.push_str(&word.text);
+                current_line_start_offset = word_start_offset;
                 current_line_end_offset = word.end_offset;
             } else if fits {
                 current_line.push_str(&word.text);
@@ -145,9 +164,11 @@ pub fn wrap_text_for_element_with_offsets(text: &str, config: &WrapConfig) -> Ve
                 // Line is full. Trim trailing spaces on the rendered visual line
                 lines.push(WrappedLine {
                     text: current_line.trim_end().to_string(),
+                    start_offset: current_line_start_offset,
                     end_offset: current_line_end_offset,
                 });
                 current_line = word.text;
+                current_line_start_offset = word_start_offset;
                 current_line_end_offset = word.end_offset;
             }
         }
@@ -155,6 +176,7 @@ pub fn wrap_text_for_element_with_offsets(text: &str, config: &WrapConfig) -> Ve
         if !current_line.is_empty() {
             lines.push(WrappedLine {
                 text: current_line.trim_end().to_string(),
+                start_offset: current_line_start_offset,
                 end_offset: current_line_end_offset,
             });
         }
@@ -163,6 +185,64 @@ pub fn wrap_text_for_element_with_offsets(text: &str, config: &WrapConfig) -> Ve
     }
 
     lines
+}
+
+pub fn wrap_styled_text_for_element(
+    text: &StyledText,
+    config: &WrapConfig,
+) -> Vec<WrappedStyledLine> {
+    let wrapped_lines = wrap_text_for_element_with_offsets(&text.plain_text, config);
+    let run_ranges = styled_run_ranges(text);
+
+    wrapped_lines
+        .into_iter()
+        .map(|line| WrappedStyledLine {
+            text: line.text,
+            start_offset: line.start_offset,
+            end_offset: line.end_offset,
+            fragments: styled_fragments_for_range(&run_ranges, line.start_offset, line.end_offset),
+        })
+        .collect()
+}
+
+fn line_start_offset_for_chunk(chunk: &WrapChunk) -> usize {
+    chunk.end_offset.saturating_sub(chunk.text.len())
+}
+
+fn styled_run_ranges(text: &StyledText) -> Vec<(usize, usize, &StyledRun)> {
+    let mut ranges = Vec::with_capacity(text.runs.len());
+    let mut start = 0usize;
+
+    for run in &text.runs {
+        let end = start + run.text.len();
+        ranges.push((start, end, run));
+        start = end;
+    }
+
+    ranges
+}
+
+fn styled_fragments_for_range(
+    run_ranges: &[(usize, usize, &StyledRun)],
+    start_offset: usize,
+    end_offset: usize,
+) -> Vec<WrappedStyledFragment> {
+    run_ranges
+        .iter()
+        .filter_map(|(run_start, run_end, run)| {
+            let slice_start = (*run_start).max(start_offset);
+            let slice_end = (*run_end).min(end_offset);
+
+            if slice_start >= slice_end {
+                return None;
+            }
+
+            Some(WrappedStyledFragment {
+                text: run.text[(slice_start - run_start)..(slice_end - run_start)].to_string(),
+                styles: run.styles.clone(),
+            })
+        })
+        .collect()
 }
 
 fn tokenize_wrap_chunks(paragraph: &str, paragraph_offset: usize) -> Vec<WrapChunk> {

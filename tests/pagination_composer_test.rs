@@ -12,6 +12,8 @@ fn mock_action(id: &str, text: &str) -> SemanticUnit {
         element_id: id.to_string(),
         kind: FlowKind::Action,
         text: text.to_string(),
+        inline_text: None,
+        centered: false,
         line_range: None,
         scene_number: None,
         cohesion: Cohesion {
@@ -27,6 +29,8 @@ fn mock_scene_heading(id: &str, text: &str) -> SemanticUnit {
         element_id: id.to_string(),
         kind: FlowKind::SceneHeading,
         text: text.to_string(),
+        inline_text: None,
+        centered: false,
         line_range: None,
         scene_number: None,
         cohesion: Cohesion {
@@ -42,6 +46,8 @@ fn mock_flow(id: &str, kind: FlowKind, text: &str) -> SemanticUnit {
         element_id: id.to_string(),
         kind,
         text: text.to_string(),
+        inline_text: None,
+        centered: false,
         line_range: None,
         scene_number: None,
         cohesion: Cohesion {
@@ -68,11 +74,15 @@ fn mock_dual_dialogue(
                             element_id: "el-left-char".into(),
                             kind: DialoguePartKind::Character,
                             text: "LEFT".into(),
+                            inline_text: None,
+                            centered: false,
                         },
                         DialoguePart {
                             element_id: "el-left-dialogue".into(),
                             kind: DialoguePartKind::Dialogue,
                             text: left_text.into(),
+                            inline_text: None,
+                            centered: false,
                         },
                     ],
                     cohesion: Cohesion {
@@ -91,11 +101,15 @@ fn mock_dual_dialogue(
                             element_id: "el-right-char".into(),
                             kind: DialoguePartKind::Character,
                             text: "RIGHT".into(),
+                            inline_text: None,
+                            centered: false,
                         },
                         DialoguePart {
                             element_id: "el-right-dialogue".into(),
                             kind: DialoguePartKind::Dialogue,
                             text: right_text.into(),
+                            inline_text: None,
+                            centered: false,
                         },
                     ],
                     cohesion: Cohesion {

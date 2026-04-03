@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 
+use crate::styled_text::StyledText;
 use super::fixtures::{NormalizedElement, NormalizedScreenplay};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -47,6 +48,8 @@ pub struct FlowUnit {
     pub element_id: String,
     pub kind: FlowKind,
     pub text: String,
+    pub inline_text: Option<StyledText>,
+    pub centered: bool,
     pub line_range: Option<(u32, u32)>,
     pub scene_number: Option<String>,
     pub cohesion: Cohesion,
@@ -65,6 +68,8 @@ pub struct DialoguePart {
     pub element_id: String,
     pub kind: DialoguePartKind,
     pub text: String,
+    pub inline_text: Option<StyledText>,
+    pub centered: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -91,6 +96,8 @@ pub struct DualDialogueUnit {
 pub struct LyricUnit {
     pub element_id: String,
     pub text: String,
+    pub inline_text: Option<StyledText>,
+    pub centered: bool,
     pub cohesion: Cohesion,
 }
 
@@ -203,6 +210,8 @@ fn build_dialogue_unit(block_id: &str, elements: &[NormalizedElement]) -> Dialog
                 element_id: element.element_id.clone(),
                 kind: dialogue_part_kind(&element.kind),
                 text: element.text.clone(),
+                inline_text: element.inline_text.clone(),
+                centered: element.centered,
             })
             .collect(),
         cohesion: dialogue_like_cohesion(),
@@ -213,6 +222,8 @@ fn build_lyric_unit(element: &NormalizedElement) -> LyricUnit {
     LyricUnit {
         element_id: element.element_id.clone(),
         text: element.text.clone(),
+        inline_text: element.inline_text.clone(),
+        centered: element.centered,
         cohesion: Cohesion {
             keep_together: false,
             keep_with_next: false,
@@ -226,6 +237,8 @@ fn build_flow_unit(element: &NormalizedElement) -> FlowUnit {
         element_id: element.element_id.clone(),
         kind: flow_kind(&element.kind),
         text: element.text.clone(),
+        inline_text: element.inline_text.clone(),
+        centered: element.centered,
         line_range: None,
         scene_number: element.scene_number.clone(),
         cohesion: match element.kind.as_str() {
