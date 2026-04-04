@@ -140,20 +140,65 @@ fn write_mostly_genius_linebreak(repo_root: &Path) {
 fn write_big_fish_json(repo_root: &Path) {
     let debug_dir = repo_root.join("target/pagination-debug");
     page_break_diagnostics::write_big_fish_public_slice_json(&debug_dir);
-    println!("wrote {}", debug_dir.join("big-fish.p18-19.actual.page-breaks.json").display());
-    println!("wrote {}", debug_dir.join("big-fish.p18-19.comparison-report.json").display());
-    println!("wrote {}", debug_dir.join("big-fish.p18-19.page-endings.json").display());
+    println!(
+        "wrote {}",
+        debug_dir
+            .join("big-fish.p18-19.actual.page-breaks.json")
+            .display()
+    );
+    println!(
+        "wrote {}",
+        debug_dir
+            .join("big-fish.p18-19.comparison-report.json")
+            .display()
+    );
+    println!(
+        "wrote {}",
+        debug_dir
+            .join("big-fish.p18-19.page-endings.json")
+            .display()
+    );
 }
 
 fn write_public_window_json(repo_root: &Path) {
     let debug_dir = repo_root.join("target/pagination-debug");
     page_break_diagnostics::write_selected_public_windows_json(&debug_dir);
-    println!("wrote {}", debug_dir.join("brick-n-steel.p2-4.actual.page-breaks.json").display());
-    println!("wrote {}", debug_dir.join("brick-n-steel.p2-4.comparison-report.json").display());
-    println!("wrote {}", debug_dir.join("brick-n-steel.p2-4.pdf-line-counts.json").display());
-    println!("wrote {}", debug_dir.join("little-women.p4-6.actual.page-breaks.json").display());
-    println!("wrote {}", debug_dir.join("little-women.p4-6.comparison-report.json").display());
-    println!("wrote {}", debug_dir.join("little-women.p4-6.pdf-line-counts.json").display());
+    println!(
+        "wrote {}",
+        debug_dir
+            .join("brick-n-steel.p2-4.actual.page-breaks.json")
+            .display()
+    );
+    println!(
+        "wrote {}",
+        debug_dir
+            .join("brick-n-steel.p2-4.comparison-report.json")
+            .display()
+    );
+    println!(
+        "wrote {}",
+        debug_dir
+            .join("brick-n-steel.p2-4.pdf-line-counts.json")
+            .display()
+    );
+    println!(
+        "wrote {}",
+        debug_dir
+            .join("little-women.p4-6.actual.page-breaks.json")
+            .display()
+    );
+    println!(
+        "wrote {}",
+        debug_dir
+            .join("little-women.p4-6.comparison-report.json")
+            .display()
+    );
+    println!(
+        "wrote {}",
+        debug_dir
+            .join("little-women.p4-6.pdf-line-counts.json")
+            .display()
+    );
 }
 
 fn write_big_fish_review(repo_root: &Path) {
@@ -207,6 +252,14 @@ fn write_fd_probes(repo_root: &Path) {
 fn write_visual_export(repo_root: &Path) {
     let debug_dir = repo_root.join("target/pagination-debug/visual");
     page_break_diagnostics::write_visual_comparison_data(&debug_dir);
-    println!("wrote {}", debug_dir.join("big-fish.comparison.json").display());
-    println!("wrote {}", debug_dir.join("little-women-p4-6.comparison.json").display());
+    println!(
+        "wrote {}",
+        debug_dir.join("big-fish.comparison.json").display()
+    );
+    println!(
+        "wrote {}",
+        debug_dir
+            .join("little-women-p4-6.comparison.json")
+            .display()
+    );
 }

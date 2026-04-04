@@ -178,7 +178,9 @@ fn assert_probe_matches(probe: &ProbeFixture) {
                 top_block
             );
             assert!(
-                bottom_block.trim_start().starts_with(bottom_fragment_starts_with),
+                bottom_block
+                    .trim_start()
+                    .starts_with(bottom_fragment_starts_with),
                 "{}: expected bottom fragment to start with {:?}, got {:?}",
                 probe.dir.display(),
                 bottom_fragment_starts_with,
@@ -302,16 +304,18 @@ fn rendered_block_text(
                 return dialogue
                     .parts
                     .iter()
-                    .filter(|part| !matches!(part.kind, jumpcut::pagination::DialoguePartKind::Character))
+                    .filter(|part| {
+                        !matches!(part.kind, jumpcut::pagination::DialoguePartKind::Character)
+                    })
                     .map(|part| part.text.clone())
                     .collect::<Vec<_>>()
                     .join("\n");
             }
 
-            let plan = block
-                .dialogue_split
-                .as_ref()
-                .expect(&format!("expected dialogue split metadata for probe: {:?}", block.unit));
+            let plan = block.dialogue_split.as_ref().expect(&format!(
+                "expected dialogue split metadata for probe: {:?}",
+                block.unit
+            ));
 
             dialogue
                 .parts

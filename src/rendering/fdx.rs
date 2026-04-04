@@ -1,5 +1,5 @@
 use super::shared::{escape_xml_attr, escape_xml_text, join_metadata, sorted_style_names};
-use crate::pagination::{Alignment, ScreenplayLayoutProfile, ScreenplayElementStyle};
+use crate::pagination::{Alignment, ScreenplayElementStyle, ScreenplayLayoutProfile};
 use crate::{Element, ElementText, Metadata, Screenplay};
 use std::fmt::Write;
 
@@ -111,11 +111,7 @@ pub(crate) fn add_fdx_formatting(metadata: &mut Metadata) {
     }
 }
 
-pub(crate) fn insert_metadata_value(
-    metadata: &mut Metadata,
-    key: &str,
-    value: &str,
-) {
+pub(crate) fn insert_metadata_value(metadata: &mut Metadata, key: &str, value: &str) {
     metadata.insert(key.to_string(), vec![value.into()]);
 }
 
@@ -254,7 +250,9 @@ fn render_element_settings(
             right_indent: format_indent(layout_profile.styles.scene_heading.right_indent),
             space_before: format_space_before(&layout_profile.styles.scene_heading),
             spacing: format_spacing(layout_profile.styles.scene_heading.line_spacing),
-            starts_new_page: format_starts_new_page(layout_profile.styles.scene_heading.starts_new_page),
+            starts_new_page: format_starts_new_page(
+                layout_profile.styles.scene_heading.starts_new_page,
+            ),
             paginate_as: "Scene Heading",
             return_key: "Action",
             shortcut: "1",
@@ -282,7 +280,9 @@ fn render_element_settings(
             right_indent: format_indent(layout_profile.styles.character.right_indent),
             space_before: format_space_before(&layout_profile.styles.character),
             spacing: format_spacing(layout_profile.styles.character.line_spacing),
-            starts_new_page: format_starts_new_page(layout_profile.styles.character.starts_new_page),
+            starts_new_page: format_starts_new_page(
+                layout_profile.styles.character.starts_new_page,
+            ),
             paginate_as: "Character",
             return_key: "Dialogue",
             shortcut: "3",
@@ -296,7 +296,9 @@ fn render_element_settings(
             right_indent: format_indent(layout_profile.styles.parenthetical.right_indent),
             space_before: format_space_before(&layout_profile.styles.parenthetical),
             spacing: format_spacing(layout_profile.styles.parenthetical.line_spacing),
-            starts_new_page: format_starts_new_page(layout_profile.styles.parenthetical.starts_new_page),
+            starts_new_page: format_starts_new_page(
+                layout_profile.styles.parenthetical.starts_new_page,
+            ),
             paginate_as: "Parenthetical",
             return_key: "Dialogue",
             shortcut: "4",
@@ -324,7 +326,9 @@ fn render_element_settings(
             right_indent: format_indent(layout_profile.styles.transition.right_indent),
             space_before: format_space_before(&layout_profile.styles.transition),
             spacing: format_spacing(layout_profile.styles.transition.line_spacing),
-            starts_new_page: format_starts_new_page(layout_profile.styles.transition.starts_new_page),
+            starts_new_page: format_starts_new_page(
+                layout_profile.styles.transition.starts_new_page,
+            ),
             paginate_as: "Transition",
             return_key: "Scene Heading",
             shortcut: "6",
@@ -380,7 +384,9 @@ fn render_element_settings(
             right_indent: format_indent(layout_profile.styles.end_of_act.right_indent),
             space_before: format_space_before(&layout_profile.styles.end_of_act),
             spacing: format_spacing(layout_profile.styles.end_of_act.line_spacing),
-            starts_new_page: format_starts_new_page(layout_profile.styles.end_of_act.starts_new_page),
+            starts_new_page: format_starts_new_page(
+                layout_profile.styles.end_of_act.starts_new_page,
+            ),
             paginate_as: "Character",
             return_key: "New Act",
             shortcut: ":",
@@ -394,7 +400,9 @@ fn render_element_settings(
             right_indent: format_indent(layout_profile.styles.cold_opening.right_indent),
             space_before: format_space_before(&layout_profile.styles.cold_opening),
             spacing: format_spacing(layout_profile.styles.cold_opening.line_spacing),
-            starts_new_page: format_starts_new_page(layout_profile.styles.cold_opening.starts_new_page),
+            starts_new_page: format_starts_new_page(
+                layout_profile.styles.cold_opening.starts_new_page,
+            ),
             paginate_as: "General",
             return_key: "Scene Heading",
             shortcut: "",
@@ -522,7 +530,13 @@ fn render_title_blank_paragraph(out: &mut String, font: &str, alignment: &str) {
 fn render_title_title_paragraph(out: &mut String, metadata: &Metadata, font: &str) {
     start_title_paragraph(out, "Center");
     for value in metadata.get("title").into_iter().flatten() {
-        push_title_text(out, font, "0", "Bold+Underline+AllCaps", &value.plain_text());
+        push_title_text(
+            out,
+            font,
+            "0",
+            "Bold+Underline+AllCaps",
+            &value.plain_text(),
+        );
     }
     end_title_paragraph(out);
 }

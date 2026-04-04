@@ -238,7 +238,10 @@ fn styled_runs_survive_normalization_and_semantic_building() {
 
     match &semantic.units[1] {
         SemanticUnit::Dialogue(unit) => {
-            assert_eq!(unit.parts[0].inline_text, normalized_character_inline_text());
+            assert_eq!(
+                unit.parts[0].inline_text,
+                normalized_character_inline_text()
+            );
             assert_eq!(unit.parts[1].inline_text, normalized_dialogue_inline_text());
         }
         other => panic!("expected dialogue unit, got {other:?}"),

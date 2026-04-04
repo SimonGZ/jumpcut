@@ -1,6 +1,6 @@
-use serde::{Deserialize, Deserializer, Serialize};
 use crate::render_attributes::RenderAttributes;
 use crate::styled_text::StyledText;
+use serde::{Deserialize, Deserializer, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]

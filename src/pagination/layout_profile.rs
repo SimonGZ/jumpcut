@@ -26,6 +26,12 @@ pub struct ScreenplayElementStyles {
     pub character: ScreenplayElementStyle,
     pub dialogue: ScreenplayElementStyle,
     pub parenthetical: ScreenplayElementStyle,
+    pub dual_dialogue_left_character: ScreenplayElementStyle,
+    pub dual_dialogue_left_dialogue: ScreenplayElementStyle,
+    pub dual_dialogue_left_parenthetical: ScreenplayElementStyle,
+    pub dual_dialogue_right_character: ScreenplayElementStyle,
+    pub dual_dialogue_right_dialogue: ScreenplayElementStyle,
+    pub dual_dialogue_right_parenthetical: ScreenplayElementStyle,
     pub transition: ScreenplayElementStyle,
     pub lyric: ScreenplayElementStyle,
     pub cold_opening: ScreenplayElementStyle,
@@ -86,6 +92,28 @@ impl ScreenplayLayoutProfile {
         geometry.end_of_act_spacing_before = self.styles.end_of_act.spacing_before;
         geometry.end_of_act_alignment = self.styles.end_of_act.alignment;
         geometry.end_of_act_line_height = self.styles.end_of_act.line_spacing;
+
+        geometry.dual_dialogue_left_character_left =
+            self.styles.dual_dialogue_left_character.left_indent;
+        geometry.dual_dialogue_left_character_right =
+            self.styles.dual_dialogue_left_character.right_indent;
+        geometry.dual_dialogue_left_left = self.styles.dual_dialogue_left_dialogue.left_indent;
+        geometry.dual_dialogue_left_right = self.styles.dual_dialogue_left_dialogue.right_indent;
+        geometry.dual_dialogue_left_parenthetical_left =
+            self.styles.dual_dialogue_left_parenthetical.left_indent;
+        geometry.dual_dialogue_left_parenthetical_right =
+            self.styles.dual_dialogue_left_parenthetical.right_indent;
+
+        geometry.dual_dialogue_right_character_left =
+            self.styles.dual_dialogue_right_character.left_indent;
+        geometry.dual_dialogue_right_character_right =
+            self.styles.dual_dialogue_right_character.right_indent;
+        geometry.dual_dialogue_right_left = self.styles.dual_dialogue_right_dialogue.left_indent;
+        geometry.dual_dialogue_right_right = self.styles.dual_dialogue_right_dialogue.right_indent;
+        geometry.dual_dialogue_right_parenthetical_left =
+            self.styles.dual_dialogue_right_parenthetical.left_indent;
+        geometry.dual_dialogue_right_parenthetical_right =
+            self.styles.dual_dialogue_right_parenthetical.right_indent;
 
         geometry.character_left = self.styles.character.left_indent;
         geometry.character_right = self.styles.character.right_indent;
@@ -167,6 +195,60 @@ impl ScreenplayLayoutProfile {
                 parenthetical: ScreenplayElementStyle {
                     left_indent: 3.0,
                     right_indent: 5.5,
+                    spacing_before: 0.0,
+                    line_spacing: 1.0,
+                    alignment: Alignment::Left,
+                    starts_new_page: false,
+                    underline: false,
+                },
+                dual_dialogue_left_character: ScreenplayElementStyle {
+                    left_indent: 2.5,
+                    right_indent: 4.875,
+                    spacing_before: 0.0,
+                    line_spacing: 1.0,
+                    alignment: Alignment::Left,
+                    starts_new_page: false,
+                    underline: false,
+                },
+                dual_dialogue_left_dialogue: ScreenplayElementStyle {
+                    left_indent: 1.5,
+                    right_indent: 4.375,
+                    spacing_before: 0.0,
+                    line_spacing: 1.0,
+                    alignment: Alignment::Left,
+                    starts_new_page: false,
+                    underline: false,
+                },
+                dual_dialogue_left_parenthetical: ScreenplayElementStyle {
+                    left_indent: 1.75,
+                    right_indent: 4.125,
+                    spacing_before: 0.0,
+                    line_spacing: 1.0,
+                    alignment: Alignment::Left,
+                    starts_new_page: false,
+                    underline: false,
+                },
+                dual_dialogue_right_character: ScreenplayElementStyle {
+                    left_indent: 5.875,
+                    right_indent: 7.5,
+                    spacing_before: 0.0,
+                    line_spacing: 1.0,
+                    alignment: Alignment::Left,
+                    starts_new_page: false,
+                    underline: false,
+                },
+                dual_dialogue_right_dialogue: ScreenplayElementStyle {
+                    left_indent: 4.625,
+                    right_indent: 7.5,
+                    spacing_before: 0.0,
+                    line_spacing: 1.0,
+                    alignment: Alignment::Left,
+                    starts_new_page: false,
+                    underline: false,
+                },
+                dual_dialogue_right_parenthetical: ScreenplayElementStyle {
+                    left_indent: 4.875,
+                    right_indent: 7.25,
                     spacing_before: 0.0,
                     line_spacing: 1.0,
                     alignment: Alignment::Left,

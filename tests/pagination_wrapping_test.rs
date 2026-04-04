@@ -7,11 +7,11 @@
 // for space-preservation specific to screenplay pagination needs.
 use std::fs;
 
-use jumpcut::pagination::{FdxExtractedSettings, LayoutGeometry};
 use jumpcut::pagination::wrapping::{
     wrap_styled_text_for_element, wrap_text_for_element, wrap_text_for_element_with_offsets,
     ElementType, WrapConfig, WrappedStyledFragment,
 };
+use jumpcut::pagination::{FdxExtractedSettings, LayoutGeometry};
 use jumpcut::styled_text::{StyledRun, StyledText};
 
 #[test]
@@ -99,10 +99,22 @@ fn action_text_wraps_jo_sits_scenario_correctly() {
     let lines = wrap_text_for_element(text, &config);
 
     assert_eq!(lines.len(), 5);
-    assert_eq!(lines[0], "Jo sits, hands folded, trying to cover the ink stains. Mr.");
-    assert_eq!(lines[1], "Dashwood reads her story with a pen in hand, gleefully");
-    assert_eq!(lines[2], "crossing out and making notes, changes. Every time his pen");
-    assert_eq!(lines[3], "scratches, Jo feels her heart breaking. She’s on the verge of");
+    assert_eq!(
+        lines[0],
+        "Jo sits, hands folded, trying to cover the ink stains. Mr."
+    );
+    assert_eq!(
+        lines[1],
+        "Dashwood reads her story with a pen in hand, gleefully"
+    );
+    assert_eq!(
+        lines[2],
+        "crossing out and making notes, changes. Every time his pen"
+    );
+    assert_eq!(
+        lines[3],
+        "scratches, Jo feels her heart breaking. She’s on the verge of"
+    );
     assert_eq!(lines[4], "tears when:");
 }
 
@@ -116,7 +128,11 @@ fn final_draft_discounts_exactly_one_trailing_dash_from_word_width() {
     // Discounting EXACTLY ONE dash gives an effective word length of 8.
     // Line width = 2 + 8 = 10. This FITS exactly within the 10-char limit!
     let lines_fit = wrap_text_for_element("A 12345678-", &config);
-    assert_eq!(lines_fit.len(), 1, "The word ending in a single dash should fit when one dash is discounted");
+    assert_eq!(
+        lines_fit.len(),
+        1,
+        "The word ending in a single dash should fit when one dash is discounted"
+    );
     assert_eq!(lines_fit[0], "A 12345678-");
 
     // SCENARIO 2: "A 12345678--" (length 12)
@@ -126,7 +142,11 @@ fn final_draft_discounts_exactly_one_trailing_dash_from_word_width() {
     // Line width = 2 + 9 = 11. This EXCEEDS the 10-char limit!
     // If we incorrectly discounted BOTH dashes, effective length would be 8, and it would wrap incorrectly.
     let lines_wrap = wrap_text_for_element("A 12345678--", &config);
-    assert_eq!(lines_wrap.len(), 2, "The word ending in two dashes should wrap because only one dash is discounted");
+    assert_eq!(
+        lines_wrap.len(),
+        2,
+        "The word ending in two dashes should wrap because only one dash is discounted"
+    );
     assert_eq!(lines_wrap[0], "A");
     assert_eq!(lines_wrap[1], "12345678--");
 }
@@ -155,7 +175,11 @@ fn final_draft_discounts_all_trailing_spaces_from_width() {
     // (It wraps after the 10th char)
     let text2 = "1234567890        A";
     let lines2 = wrap_text_for_element(text2, &config);
-    assert_eq!(lines2.len(), 2, "If a visible character follows the spaces, it must wrap.");
+    assert_eq!(
+        lines2.len(),
+        2,
+        "If a visible character follows the spaces, it must wrap."
+    );
 }
 
 #[test]
@@ -180,8 +204,10 @@ fn final_draft_allows_hyphenated_compounds_to_break_after_a_trailing_hyphen() {
 #[test]
 fn mostly_genius_action_wrap_allows_the_final_draft_hyphen_split_for_el_00363() {
     let settings: FdxExtractedSettings = serde_json::from_str(
-        &fs::read_to_string("tests/fixtures/corpus/public/mostly-genius/extracted/fdx-settings.json")
-            .unwrap(),
+        &fs::read_to_string(
+            "tests/fixtures/corpus/public/mostly-genius/extracted/fdx-settings.json",
+        )
+        .unwrap(),
     )
     .unwrap();
     let geometry = LayoutGeometry::from_fdx_settings(&settings);
@@ -203,20 +229,24 @@ fn mostly_genius_action_wrap_allows_the_final_draft_hyphen_split_for_el_00363() 
 #[test]
 fn wrap_config_can_be_created_from_custom_geometry() {
     use jumpcut::pagination::LayoutGeometry;
-    
+
     let mut geometry = LayoutGeometry::default();
     // Default dialogue is 2.5 to 6.0 (3.5 inches = 35 chars)
     // Let's make it narrower: 2.5 to 5.0 (2.5 inches = 25 chars)
-    geometry.dialogue_right = 5.0; 
-    
+    geometry.dialogue_right = 5.0;
+
     // This constructor doesn't exist yet
     let config = WrapConfig::from_geometry(&geometry, ElementType::Dialogue);
-    
+
     assert_eq!(config.exact_width_chars, 25);
-    
+
     let text = "1234567890123456789012345 6"; // Space at 26th char. "1234567890123456789012345 " is 26 chars, trimmed is 25.
     let lines = wrap_text_for_element(text, &config);
-    assert_eq!(lines.len(), 2, "Should wrap at the space after 25 characters");
+    assert_eq!(
+        lines.len(),
+        2,
+        "Should wrap at the space after 25 characters"
+    );
 }
 
 #[test]

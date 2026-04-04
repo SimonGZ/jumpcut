@@ -1,5 +1,5 @@
-use crate::pagination::split_scoring::choose_best_scored_split;
 use crate::pagination::sentence_boundary::{sentence_boundary_offsets, text_ends_sentence};
+use crate::pagination::split_scoring::choose_best_scored_split;
 use crate::pagination::wrapping::{wrap_text_for_element, WrapConfig};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -101,11 +101,9 @@ fn choose_flow_split_with_policy(
             return None;
         }
         if has_discouraged_runt_top_line(&top_lines, top_text)
-            && !(
-                policy.allow_exact_fit_sentence_runt
-                    && ends_sentence
-                    && top_line_count == max_top_lines
-            )
+            && !(policy.allow_exact_fit_sentence_runt
+                && ends_sentence
+                && top_line_count == max_top_lines)
         {
             return None;
         }

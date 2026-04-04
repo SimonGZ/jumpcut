@@ -1,20 +1,20 @@
 mod comparison;
+pub mod composer;
 pub mod dialogue_split;
-pub mod flow_split;
 mod fixtures;
+pub mod flow_split;
 mod ir;
-pub mod line_break_diagnostics;
 pub mod layout_profile;
+pub mod line_break_diagnostics;
+pub mod margin;
+mod normalized;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod page_break_diagnostics;
-mod normalized;
-mod semantic;
-pub mod wrapping;
-pub mod margin;
-pub mod composer;
 pub mod paginator;
+mod semantic;
 mod sentence_boundary;
 mod split_scoring;
+pub mod wrapping;
 
 pub use comparison::{
     compare_paginated_to_fixture, ComparisonIssue, ComparisonIssueKind, ComparisonReport,

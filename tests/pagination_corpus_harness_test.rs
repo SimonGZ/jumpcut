@@ -1,8 +1,8 @@
 use jumpcut::pagination::{
-    build_semantic_screenplay, compare_paginated_to_fixture,
-    margin::line_height_for_element_type, normalize_screenplay, wrapping::ElementType, ComparisonIssueKind,
-    DialoguePartKind, FlowKind, Fragment, LayoutGeometry, LineRange, NormalizedElement,
-    NormalizedScreenplay, PageBreakFixture, PaginatedScreenplay, PaginationConfig,
+    build_semantic_screenplay, compare_paginated_to_fixture, margin::line_height_for_element_type,
+    normalize_screenplay, wrapping::ElementType, ComparisonIssueKind, DialoguePartKind, FlowKind,
+    Fragment, LayoutGeometry, LineRange, NormalizedElement, NormalizedScreenplay, PageBreakFixture,
+    PaginatedScreenplay, PaginationConfig,
 };
 use jumpcut::parse;
 use serde::de::DeserializeOwned;
@@ -105,12 +105,11 @@ fn selected_public_windows_have_useful_exact_unique_pdf_line_matches() {
 fn pdf_line_count_diagnostic_confirms_big_fish_el_00787_is_one_line() {
     let fixture: PageBreakFixture =
         read_fixture("tests/fixtures/pagination/big-fish.p38-40.page-breaks.json");
-    let normalized =
-        normalized_window_from_fountain(
-            "big-fish",
-            "tests/fixtures/corpus/public/big-fish/source/source.fountain",
-            &fixture,
-        );
+    let normalized = normalized_window_from_fountain(
+        "big-fish",
+        "tests/fixtures/corpus/public/big-fish/source/source.fountain",
+        &fixture,
+    );
     let debug = canonical_pdf_line_count_debug("big-fish", &fixture, &normalized);
     let item = debug
         .items
@@ -128,12 +127,11 @@ fn pdf_line_count_diagnostic_confirms_big_fish_el_00787_is_one_line() {
 fn big_fish_public_slice_stays_at_or_better_than_width_measurement_baseline() {
     let fixture: PageBreakFixture =
         read_fixture("tests/fixtures/pagination/big-fish.split-page-breaks.json");
-    let normalized =
-        normalized_window_from_fountain(
-            "big-fish",
-            "tests/fixtures/corpus/public/big-fish/source/source.fountain",
-            &fixture,
-        );
+    let normalized = normalized_window_from_fountain(
+        "big-fish",
+        "tests/fixtures/corpus/public/big-fish/source/source.fountain",
+        &fixture,
+    );
     let semantic = build_semantic_screenplay(normalized);
 
     let report = run_window_parity_check(&fixture, &semantic, geometry_for_screenplay("big-fish"));
@@ -204,7 +202,8 @@ fn big_fish_pages_38_39_split_beamen_action_at_sentence_boundary() {
     };
     let semantic = build_semantic_screenplay(normalized);
     let blocks = jumpcut::pagination::composer::compose(&semantic.units, &config.geometry);
-    let pages = jumpcut::pagination::paginator::paginate(&blocks, config.lines_per_page, &config.geometry);
+    let pages =
+        jumpcut::pagination::paginator::paginate(&blocks, config.lines_per_page, &config.geometry);
 
     let page_38_block = pages
         .iter()
@@ -256,7 +255,9 @@ fn big_fish_pages_38_39_split_beamen_action_at_sentence_boundary() {
 fn big_fish_pages_53_54_split_el_01146_after_was_gone_for_a_long_time() {
     let mut fixture: PageBreakFixture =
         read_fixture("tests/fixtures/corpus/public/big-fish/canonical/page-breaks.json");
-    fixture.pages.retain(|page| matches!(page.number, 52 | 53 | 54));
+    fixture
+        .pages
+        .retain(|page| matches!(page.number, 52 | 53 | 54));
 
     let normalized = normalized_window_from_fountain(
         "big-fish",
@@ -269,7 +270,8 @@ fn big_fish_pages_53_54_split_el_01146_after_was_gone_for_a_long_time() {
         geometry: geometry_for_screenplay("big-fish"),
     };
     let blocks = jumpcut::pagination::composer::compose(&semantic.units, &config.geometry);
-    let pages = jumpcut::pagination::paginator::paginate(&blocks, config.lines_per_page, &config.geometry);
+    let pages =
+        jumpcut::pagination::paginator::paginate(&blocks, config.lines_per_page, &config.geometry);
 
     let page_53_block = pages
         .iter()
@@ -304,7 +306,9 @@ fn big_fish_pages_53_54_split_el_01146_after_was_gone_for_a_long_time() {
     let page_54_text = dialogue_block_fragment_text(page_54_block);
 
     assert!(
-        page_53_text.trim_end().ends_with("was gone for a long time."),
+        page_53_text
+            .trim_end()
+            .ends_with("was gone for a long time."),
         "expected page 53 fragment to end after 'was gone for a long time.', got: {:?}",
         page_53_text
     );
@@ -438,7 +442,8 @@ fn big_fish_pages_34_35_split_block_00213_after_go() {
         geometry: geometry_for_screenplay("big-fish"),
     };
     let blocks = jumpcut::pagination::composer::compose(&semantic.units, &config.geometry);
-    let pages = jumpcut::pagination::paginator::paginate(&blocks, config.lines_per_page, &config.geometry);
+    let pages =
+        jumpcut::pagination::paginator::paginate(&blocks, config.lines_per_page, &config.geometry);
 
     let page_34_block = pages
         .iter()
@@ -558,7 +563,9 @@ fn gumshoe_pages_4_5_keep_el_00064_whole_on_page_5() {
 fn gumshoe_pages_11_13_keep_el_00242_and_el_00243_together() {
     let mut fixture: PageBreakFixture =
         read_fixture("tests/fixtures/corpus/public/gumshoe/canonical/page-breaks.json");
-    fixture.pages.retain(|page| matches!(page.number, 11 | 12 | 13));
+    fixture
+        .pages
+        .retain(|page| matches!(page.number, 11 | 12 | 13));
     for page in &mut fixture.pages {
         page.items.retain(|item| {
             matches!(
@@ -634,7 +641,9 @@ fn gumshoe_pages_11_13_keep_el_00242_and_el_00243_together() {
 fn gumshoe_exact_part_boundary_dialogue_split_keeps_whole_parts_whole() {
     let mut fixture: PageBreakFixture =
         read_fixture("tests/fixtures/corpus/public/gumshoe/canonical/page-breaks.json");
-    fixture.pages.retain(|page| matches!(page.number, 11 | 12 | 13));
+    fixture
+        .pages
+        .retain(|page| matches!(page.number, 11 | 12 | 13));
     for page in &mut fixture.pages {
         page.items.retain(|item| {
             matches!(
@@ -710,19 +719,49 @@ fn gumshoe_exact_part_boundary_dialogue_split_keeps_whole_parts_whole() {
     let page_numbers: Vec<u32> = fixture.pages.iter().map(|page| page.number).collect();
     let actual = slice_paginated_to_fixture_window(&full_actual, &page_numbers);
 
-    let page_12 = actual.pages.iter().find(|page| page.metadata.number == 12).unwrap();
-    let page_13 = actual.pages.iter().find(|page| page.metadata.number == 13).unwrap();
+    let page_12 = actual
+        .pages
+        .iter()
+        .find(|page| page.metadata.number == 12)
+        .unwrap();
+    let page_13 = actual
+        .pages
+        .iter()
+        .find(|page| page.metadata.number == 13)
+        .unwrap();
 
     for element_id in ["el-00242", "el-00243"] {
-        let item = page_12.items.iter().find(|item| item.element_id == element_id).unwrap();
-        assert_eq!(item.fragment, Fragment::Whole, "{element_id} should stay whole on page 12");
-        assert_eq!(item.line_range, None, "{element_id} should not carry a partial line range");
+        let item = page_12
+            .items
+            .iter()
+            .find(|item| item.element_id == element_id)
+            .unwrap();
+        assert_eq!(
+            item.fragment,
+            Fragment::Whole,
+            "{element_id} should stay whole on page 12"
+        );
+        assert_eq!(
+            item.line_range, None,
+            "{element_id} should not carry a partial line range"
+        );
     }
 
     for element_id in ["el-00244", "el-00245"] {
-        let item = page_13.items.iter().find(|item| item.element_id == element_id).unwrap();
-        assert_eq!(item.fragment, Fragment::Whole, "{element_id} should stay whole on page 13");
-        assert_eq!(item.line_range, None, "{element_id} should not carry a partial line range");
+        let item = page_13
+            .items
+            .iter()
+            .find(|item| item.element_id == element_id)
+            .unwrap();
+        assert_eq!(
+            item.fragment,
+            Fragment::Whole,
+            "{element_id} should stay whole on page 13"
+        );
+        assert_eq!(
+            item.line_range, None,
+            "{element_id} should not carry a partial line range"
+        );
     }
 }
 
@@ -783,7 +822,9 @@ fn gumshoe_pages_15_16_keep_el_00321_on_page_15_and_split_el_00322() {
 fn big_fish_pages_115_116_keep_el_02473_and_el_02474_whole_on_page_116() {
     let mut fixture: PageBreakFixture =
         read_fixture("tests/fixtures/corpus/public/big-fish/canonical/page-breaks.json");
-    fixture.pages.retain(|page| matches!(page.number, 115 | 116));
+    fixture
+        .pages
+        .retain(|page| matches!(page.number, 115 | 116));
 
     let normalized = normalized_window_from_fountain(
         "big-fish",
@@ -855,7 +896,7 @@ fn big_fish_macro_parity_holds_baseline() {
         "tests/fixtures/corpus/public/big-fish/source/source.fountain",
         "tests/fixtures/corpus/public/big-fish/canonical/page-breaks.json",
     );
-    
+
     // As of the new Geometry Engine integration and Parenthetical wrap fixes, there are exactly 0 disagreements
     // across the entire 120-page screenplay compared to Canonical Final Draft PDFs!
     assert_eq!(
@@ -954,11 +995,11 @@ fn mostly_genius_line_break_diagnostic_report_includes_multicam_act_markers() {
 #[test]
 // #[ignore = "Temporarily disabled"]
 fn brick_n_steel_full_script_page_break_parity_holds_baseline() {
-    let fixture: PageBreakFixture = read_fixture(
-        "tests/fixtures/corpus/public/brick-n-steel/canonical/page-breaks.json",
-    );
-    let fountain = fs::read_to_string("tests/fixtures/corpus/public/brick-n-steel/source/source.fountain")
-        .unwrap();
+    let fixture: PageBreakFixture =
+        read_fixture("tests/fixtures/corpus/public/brick-n-steel/canonical/page-breaks.json");
+    let fountain =
+        fs::read_to_string("tests/fixtures/corpus/public/brick-n-steel/source/source.fountain")
+            .unwrap();
     let screenplay = parse(&fountain);
     let actual = PaginatedScreenplay::from_screenplay(
         "brick-n-steel",
@@ -980,8 +1021,9 @@ fn brick_n_steel_full_script_page_break_parity_holds_baseline() {
 fn little_women_full_script_page_break_parity_holds_baseline() {
     let fixture: PageBreakFixture =
         read_fixture("tests/fixtures/corpus/public/little-women/canonical/page-breaks.json");
-    let fountain = fs::read_to_string("tests/fixtures/corpus/public/little-women/source/source.fountain")
-        .unwrap();
+    let fountain =
+        fs::read_to_string("tests/fixtures/corpus/public/little-women/source/source.fountain")
+            .unwrap();
     let screenplay = parse(&fountain);
     let actual = PaginatedScreenplay::from_screenplay(
         "little-women",
@@ -1132,13 +1174,16 @@ fn flow_fragment_text(
     let element_type = ElementType::from_flow_kind(&flow.kind);
     let config = jumpcut::pagination::wrapping::WrapConfig::from_geometry(geometry, element_type);
     let wrapped_lines = jumpcut::pagination::wrapping::wrap_text_for_element(&flow.text, &config);
-    let fragment_line_count =
-        (block.content_lines / line_height_for_element_type(geometry, element_type)).round()
-            as usize;
+    let fragment_line_count = (block.content_lines
+        / line_height_for_element_type(geometry, element_type))
+    .round() as usize;
 
     match block.fragment {
         Fragment::Whole => wrapped_lines,
-        Fragment::ContinuedToNext => wrapped_lines.into_iter().take(fragment_line_count).collect(),
+        Fragment::ContinuedToNext => wrapped_lines
+            .into_iter()
+            .take(fragment_line_count)
+            .collect(),
         Fragment::ContinuedFromPrev => {
             let len = wrapped_lines.len();
             wrapped_lines
@@ -1146,7 +1191,10 @@ fn flow_fragment_text(
                 .skip(len.saturating_sub(fragment_line_count))
                 .collect()
         }
-        Fragment::ContinuedFromPrevAndToNext => wrapped_lines.into_iter().take(fragment_line_count).collect(),
+        Fragment::ContinuedFromPrevAndToNext => wrapped_lines
+            .into_iter()
+            .take(fragment_line_count)
+            .collect(),
     }
     .join("\n")
 }
@@ -1196,18 +1244,9 @@ fn debug_flow_geometry(
     geometry: &LayoutGeometry,
 ) -> DebugGeometry {
     let (left_indent_in, right_indent_in) = match flow_kind {
-        FlowKind::SceneHeading => (
-            geometry.action_left,
-            geometry.action_right,
-        ),
-        FlowKind::Transition => (
-            geometry.transition_left,
-            geometry.transition_right,
-        ),
-        _ => (
-            geometry.action_left,
-            geometry.action_right,
-        ),
+        FlowKind::SceneHeading => (geometry.action_left, geometry.action_right),
+        FlowKind::Transition => (geometry.transition_left, geometry.transition_right),
+        _ => (geometry.action_left, geometry.action_right),
     };
 
     DebugGeometry {
@@ -1215,7 +1254,10 @@ fn debug_flow_geometry(
         source_style: source_style.into(),
         left_indent_in,
         right_indent_in,
-        width_chars: jumpcut::pagination::margin::calculate_element_width(geometry, jumpcut::pagination::wrapping::ElementType::from_flow_kind(&flow_kind)),
+        width_chars: jumpcut::pagination::margin::calculate_element_width(
+            geometry,
+            jumpcut::pagination::wrapping::ElementType::from_flow_kind(&flow_kind),
+        ),
     }
 }
 
@@ -1226,22 +1268,12 @@ fn debug_dialogue_geometry(
     geometry: &LayoutGeometry,
 ) -> DebugGeometry {
     let (left_indent_in, right_indent_in) = match part_kind {
-        DialoguePartKind::Character => (
-            geometry.character_left,
-            geometry.character_right,
-        ),
-        DialoguePartKind::Parenthetical => (
-            geometry.parenthetical_left,
-            geometry.parenthetical_right,
-        ),
-        DialoguePartKind::Lyric => (
-            geometry.lyric_left,
-            geometry.lyric_right,
-        ),
-        DialoguePartKind::Dialogue => (
-            geometry.dialogue_left,
-            geometry.dialogue_right,
-        ),
+        DialoguePartKind::Character => (geometry.character_left, geometry.character_right),
+        DialoguePartKind::Parenthetical => {
+            (geometry.parenthetical_left, geometry.parenthetical_right)
+        }
+        DialoguePartKind::Lyric => (geometry.lyric_left, geometry.lyric_right),
+        DialoguePartKind::Dialogue => (geometry.dialogue_left, geometry.dialogue_right),
     };
 
     DebugGeometry {
@@ -1249,7 +1281,10 @@ fn debug_dialogue_geometry(
         source_style: source_style.into(),
         left_indent_in,
         right_indent_in,
-        width_chars: jumpcut::pagination::margin::calculate_element_width(geometry, jumpcut::pagination::wrapping::ElementType::from_dialogue_part_kind(&part_kind)),
+        width_chars: jumpcut::pagination::margin::calculate_element_width(
+            geometry,
+            jumpcut::pagination::wrapping::ElementType::from_dialogue_part_kind(&part_kind),
+        ),
     }
 }
 
@@ -1458,7 +1493,6 @@ fn public_pdf_pages(screenplay_id: &str) -> HashMap<u32, Vec<String>> {
         .collect()
 }
 
-
 fn build_line_break_parity_report(
     screenplay_id: &str,
     fountain_path: &str,
@@ -1635,15 +1669,14 @@ fn build_line_break_parity_item(
     };
 
     let element_type = ElementType::from_item_kind(kind, dual_dialogue_side);
-    let config = jumpcut::pagination::wrapping::WrapConfig::from_geometry(measurement, element_type);
+    let config =
+        jumpcut::pagination::wrapping::WrapConfig::from_geometry(measurement, element_type);
     let width_chars = config.exact_width_chars;
-    let expected_wrapped_lines = jumpcut::pagination::wrapping::wrap_text_for_element(
-        &candidate_text,
-        &config,
-    )
-        .into_iter()
-        .map(|line| normalize_pdf_match_text(&line))
-        .collect::<Vec<_>>();
+    let expected_wrapped_lines =
+        jumpcut::pagination::wrapping::wrap_text_for_element(&candidate_text, &config)
+            .into_iter()
+            .map(|line| normalize_pdf_match_text(&line))
+            .collect::<Vec<_>>();
     let normalized_text = normalize_pdf_match_text(&candidate_text);
     let matches = exact_pdf_line_matches(page_lines, &normalized_text);
 

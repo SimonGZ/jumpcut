@@ -158,7 +158,10 @@ mod tests {
             TitlePageRegion::CenterTitle
         );
         assert_eq!(
-            title_page.block(TitlePageBlockKind::Contact).unwrap().region,
+            title_page
+                .block(TitlePageBlockKind::Contact)
+                .unwrap()
+                .region,
             TitlePageRegion::BottomLeft
         );
         assert_eq!(
@@ -166,7 +169,10 @@ mod tests {
             TitlePageRegion::BottomRight
         );
         assert_eq!(
-            title_page.block(TitlePageBlockKind::DraftDate).unwrap().region,
+            title_page
+                .block(TitlePageBlockKind::DraftDate)
+                .unwrap()
+                .region,
             TitlePageRegion::BottomRight
         );
     }

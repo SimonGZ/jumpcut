@@ -1,10 +1,10 @@
 // tests/pagination_composer_test.rs
 use jumpcut::pagination::composer::compose;
+use jumpcut::pagination::{build_semantic_screenplay, normalize_screenplay};
 use jumpcut::pagination::{
     Cohesion, DialoguePart, DialoguePartKind, DialogueUnit, DualDialogueSide, DualDialogueUnit,
     FlowKind, FlowUnit, LayoutGeometry, PaginationConfig, SemanticUnit,
 };
-use jumpcut::pagination::{build_semantic_screenplay, normalize_screenplay};
 use jumpcut::parse;
 
 fn mock_action(id: &str, text: &str) -> SemanticUnit {
@@ -55,10 +55,7 @@ fn mock_flow(id: &str, kind: FlowKind, text: &str) -> SemanticUnit {
     })
 }
 
-fn mock_dual_dialogue(
-    left_text: &str,
-    right_text: &str,
-) -> SemanticUnit {
+fn mock_dual_dialogue(left_text: &str, right_text: &str) -> SemanticUnit {
     SemanticUnit::DualDialogue(DualDialogueUnit {
         group_id: "dual-00001".into(),
         sides: vec![
@@ -72,14 +69,16 @@ fn mock_dual_dialogue(
                             kind: DialoguePartKind::Character,
                             text: "LEFT".into(),
                             inline_text: None,
-                            render_attributes: jumpcut::render_attributes::RenderAttributes::default(),
+                            render_attributes:
+                                jumpcut::render_attributes::RenderAttributes::default(),
                         },
                         DialoguePart {
                             element_id: "el-left-dialogue".into(),
                             kind: DialoguePartKind::Dialogue,
                             text: left_text.into(),
                             inline_text: None,
-                            render_attributes: jumpcut::render_attributes::RenderAttributes::default(),
+                            render_attributes:
+                                jumpcut::render_attributes::RenderAttributes::default(),
                         },
                     ],
                     cohesion: Cohesion {
@@ -99,14 +98,16 @@ fn mock_dual_dialogue(
                             kind: DialoguePartKind::Character,
                             text: "RIGHT".into(),
                             inline_text: None,
-                            render_attributes: jumpcut::render_attributes::RenderAttributes::default(),
+                            render_attributes:
+                                jumpcut::render_attributes::RenderAttributes::default(),
                         },
                         DialoguePart {
                             element_id: "el-right-dialogue".into(),
                             kind: DialoguePartKind::Dialogue,
                             text: right_text.into(),
                             inline_text: None,
-                            render_attributes: jumpcut::render_attributes::RenderAttributes::default(),
+                            render_attributes:
+                                jumpcut::render_attributes::RenderAttributes::default(),
                         },
                     ],
                     cohesion: Cohesion {
@@ -222,11 +223,14 @@ fn composer_respects_custom_vertical_spacing() {
     let mut geometry = LayoutGeometry::default();
     // Default action spacing is 1 above. Let's make it 3.
     geometry.action_spacing_before = 3.0;
-    
+
     let units = vec![mock_action("el-1", "Starting action.")];
     let blocks = compose(&units, &geometry);
-    
-    assert_eq!(blocks[0].spacing_above, 3.0, "Expected 3 lines of spacing above due to custom geometry");
+
+    assert_eq!(
+        blocks[0].spacing_above, 3.0,
+        "Expected 3 lines of spacing above due to custom geometry"
+    );
 }
 
 #[test]
@@ -234,21 +238,24 @@ fn composer_respects_custom_line_height() {
     let mut geometry = LayoutGeometry::default();
     // Default action leading is 1.0. Let's make action specifically 2.0.
     geometry.action_line_height = 2.0;
-    
+
     // An action line that usually takes 2 lines of text.
     let text = "This is a sentence that is long enough to wrap onto a second line in the standard 6.0 inch action width.";
     // Check baseline (1.0 leading)
     let baseline_units = vec![mock_action("el-1", text)];
     let baseline_blocks = compose(&baseline_units, &LayoutGeometry::default());
-    assert_eq!(baseline_blocks[0].content_lines, 2.0, "Baseline should be 2 lines");
+    assert_eq!(
+        baseline_blocks[0].content_lines, 2.0,
+        "Baseline should be 2 lines"
+    );
 
     // Check custom action leading (2.0 leading)
     let units = vec![mock_action("el-1", text)];
     let blocks = compose(&units, &geometry);
-    
+
     // 2 text lines * 2.0 leading = 4.0 visual lines.
     assert_eq!(
-        blocks[0].content_lines, 4.0, 
+        blocks[0].content_lines, 4.0,
         "Expected 4 visual lines for double-spaced 2-line text"
     );
 }
@@ -257,37 +264,44 @@ fn composer_respects_custom_line_height() {
 fn composer_respects_1_5_line_height() {
     let mut geometry = LayoutGeometry::default();
     geometry.action_line_height = 1.5;
-    
+
     // 1 text line -> 1.5 visual lines (NO MORE CEIL)
     let units_1 = vec![mock_action("el-1", "Short.")];
     let blocks_1 = compose(&units_1, &geometry);
-    assert_eq!(blocks_1[0].content_lines, 1.5, "1 text line @ 1.5 -> 1.5 visual lines");
+    assert_eq!(
+        blocks_1[0].content_lines, 1.5,
+        "1 text line @ 1.5 -> 1.5 visual lines"
+    );
 
     // 2 text lines -> 3.0 visual lines
     let text_2 = "This is a sentence that is long enough to wrap onto a second line in the standard 6.0 inch action width.";
     let units_2 = vec![mock_action("el-2", text_2)];
     let blocks_2 = compose(&units_2, &geometry);
-    assert_eq!(blocks_2[0].content_lines, 3.0, "2 text lines @ 1.5 -> 3.0 visual lines");
+    assert_eq!(
+        blocks_2[0].content_lines, 3.0,
+        "2 text lines @ 1.5 -> 3.0 visual lines"
+    );
 
     // Multi-line text -> baseline lines * 1.5 = expected
     let mut geometry_narrow = geometry.clone();
     geometry_narrow.action_right = 3.5; // Narrower
-    
+
     // Baseline check for narrow geometry @ 1.0 leading
     let mut narrow_1_0 = geometry_narrow.clone();
     narrow_1_0.action_line_height = 1.0;
     let units_baseline = vec![mock_action("el-baseline", text_2)];
     let blocks_baseline = compose(&units_baseline, &narrow_1_0);
     let baseline_lines = blocks_baseline[0].content_lines;
-    
+
     let units_3 = vec![mock_action("el-3", text_2)];
     let blocks_3 = compose(&units_3, &geometry_narrow);
-    
+
     // baseline_lines * 1.5 = expected (f32)
     let expected = baseline_lines * 1.5;
     assert_eq!(
-        blocks_3[0].content_lines, expected, 
-        "Expected {} visual lines for {} text lines @ 1.5", expected, baseline_lines
+        blocks_3[0].content_lines, expected,
+        "Expected {} visual lines for {} text lines @ 1.5",
+        expected, baseline_lines
     );
 }
 
@@ -332,8 +346,7 @@ fn composer_uses_explicit_multicam_flow_geometry_instead_of_action_fallbacks() {
     geometry.cold_opening_right = 7.5;
     geometry.end_of_act_spacing_before = 2.0;
 
-    let cold_opening_text =
-        "12345678901234567890123456789012345678901234567890123456789012345";
+    let cold_opening_text = "12345678901234567890123456789012345678901234567890123456789012345";
     let units = vec![
         mock_flow("el-cold", FlowKind::ColdOpening, cold_opening_text),
         mock_flow("el-end", FlowKind::EndOfAct, "END ACT ONE"),

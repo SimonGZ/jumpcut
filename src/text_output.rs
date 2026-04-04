@@ -3,8 +3,8 @@ use crate::pagination::margin::{calculate_element_width, line_height_for_element
 use crate::pagination::paginator;
 use crate::pagination::wrapping::{self, ElementType};
 use crate::pagination::{
-    build_semantic_screenplay, normalize_screenplay, DialoguePartKind, LayoutGeometry,
-    Page, PageKind, PaginatedScreenplay, PaginationConfig, PaginationScope, ScreenplayLayoutProfile,
+    build_semantic_screenplay, normalize_screenplay, DialoguePartKind, LayoutGeometry, Page,
+    PageKind, PaginatedScreenplay, PaginationConfig, PaginationScope, ScreenplayLayoutProfile,
     SemanticUnit, StyleProfile,
 };
 use crate::title_page::TitlePage;
@@ -448,13 +448,15 @@ fn render_semantic_unit_lines(
                 .map(|text| RenderedElementLine { text, element_type })
                 .collect()
         }
-        SemanticUnit::Lyric(lyric) => render_indented_lines(&lyric.text, ElementType::Lyric, geometry)
-            .into_iter()
-            .map(|text| RenderedElementLine {
-                text,
-                element_type: ElementType::Lyric,
-            })
-            .collect(),
+        SemanticUnit::Lyric(lyric) => {
+            render_indented_lines(&lyric.text, ElementType::Lyric, geometry)
+                .into_iter()
+                .map(|text| RenderedElementLine {
+                    text,
+                    element_type: ElementType::Lyric,
+                })
+                .collect()
+        }
         SemanticUnit::Dialogue(dialogue) => dialogue
             .parts
             .iter()
@@ -470,28 +472,17 @@ fn render_semantic_unit_lines(
                 .sides
                 .iter()
                 .find(|side| side.side == 1)
-                .map(|side| {
-                    render_dual_dialogue_side_lines(
-                        &side.dialogue,
-                        ElementType::DualDialogueLeft,
-                        geometry,
-                    )
-                })
+                .map(|side| render_dual_dialogue_side_lines(&side.dialogue, side.side, geometry))
                 .unwrap_or_default();
             let right_lines = dual
                 .sides
                 .iter()
                 .find(|side| side.side == 2)
-                .map(|side| {
-                    render_dual_dialogue_side_lines(
-                        &side.dialogue,
-                        ElementType::DualDialogueRight,
-                        geometry,
-                    )
-                })
+                .map(|side| render_dual_dialogue_side_lines(&side.dialogue, side.side, geometry))
                 .unwrap_or_default();
 
-            let right_indent = indent_spaces_for_element_type(ElementType::DualDialogueRight, geometry);
+            let right_indent =
+                indent_spaces_for_element_type(ElementType::DualDialogueRight, geometry);
             let mut lines = Vec::new();
             for index in 0..left_lines.len().max(right_lines.len()) {
                 let left = left_lines.get(index).cloned().unwrap_or_default();
@@ -521,14 +512,17 @@ fn render_semantic_unit_lines(
 
 fn render_dual_dialogue_side_lines(
     dialogue: &crate::pagination::DialogueUnit,
-    element_type: ElementType,
+    side: u8,
     geometry: &LayoutGeometry,
 ) -> Vec<String> {
-    let config = wrapping::WrapConfig::from_geometry(geometry, element_type);
     dialogue
         .parts
         .iter()
-        .flat_map(|part| wrapping::wrap_text_for_element(&part.text, &config))
+        .flat_map(|part| {
+            let element_type = ElementType::from_dual_dialogue_part_kind(&part.kind, side);
+            let config = wrapping::WrapConfig::from_geometry(geometry, element_type);
+            wrapping::wrap_text_for_element(&part.text, &config)
+        })
         .collect()
 }
 
@@ -636,6 +630,14 @@ fn indent_spaces_for_element_type(element_type: ElementType, geometry: &LayoutGe
         ElementType::Lyric => geometry.lyric_left,
         ElementType::DualDialogueLeft => geometry.dual_dialogue_left_left,
         ElementType::DualDialogueRight => geometry.dual_dialogue_right_left,
+        ElementType::DualDialogueCharacterLeft => geometry.dual_dialogue_left_character_left,
+        ElementType::DualDialogueCharacterRight => geometry.dual_dialogue_right_character_left,
+        ElementType::DualDialogueParentheticalLeft => {
+            geometry.dual_dialogue_left_parenthetical_left
+        }
+        ElementType::DualDialogueParentheticalRight => {
+            geometry.dual_dialogue_right_parenthetical_left
+        }
     };
 
     ((left_indent_in - geometry.action_left) * geometry.cpi).floor() as usize
@@ -682,7 +684,10 @@ mod tests {
             },
         );
 
-        assert!(output.lines().next().is_some_and(|line| line.trim() == "FIRST PAGE"));
+        assert!(output
+            .lines()
+            .next()
+            .is_some_and(|line| line.trim() == "FIRST PAGE"));
         assert!(output.contains("SECOND PAGE"));
         let page_two_header = output
             .lines()
@@ -751,7 +756,10 @@ mod tests {
             },
         );
 
-        assert!(output.lines().next().is_some_and(|line| line.trim() == "BODY PAGE ONE"));
+        assert!(output
+            .lines()
+            .next()
+            .is_some_and(|line| line.trim() == "BODY PAGE ONE"));
         let page_two_header = output
             .lines()
             .find(|line| line.trim().ends_with("2."))

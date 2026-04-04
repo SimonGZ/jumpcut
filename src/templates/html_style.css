@@ -255,6 +255,21 @@
   margin-left: -0.5in;
 }
 
+.screenplay.exactWraps .dualDialogueLine,
+.screenplay.paginatedHtml .dualDialogueLine {
+  position: relative;
+  width: 6in;
+  max-width: 6in;
+  white-space: normal;
+}
+
+.screenplay.exactWraps .dualDialogueLine .dualSegment,
+.screenplay.paginatedHtml .dualDialogueLine .dualSegment {
+  position: absolute;
+  top: 0;
+  white-space: pre;
+}
+
 .paginatedHtmlView {
   margin: 0;
   background: #dfe4ea;

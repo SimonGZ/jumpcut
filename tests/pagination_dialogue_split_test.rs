@@ -69,8 +69,14 @@ fn dialogue_split_pushes_the_whole_block_when_only_a_too_short_top_fragment_fits
         ),
     ]);
 
-    let plan =
-        plan_dialogue_split_parts(&stub_dialogue_unit(), &parts, &LayoutGeometry::default(), 2.0, 2, 2);
+    let plan = plan_dialogue_split_parts(
+        &stub_dialogue_unit(),
+        &parts,
+        &LayoutGeometry::default(),
+        2.0,
+        2,
+        2,
+    );
 
     assert_eq!(plan, None);
 }
@@ -79,7 +85,10 @@ fn dialogue_split_pushes_the_whole_block_when_only_a_too_short_top_fragment_fits
 fn dialogue_split_can_start_the_continuation_with_a_parenthetical() {
     let parts = dialogue_parts(&[
         (DialoguePartKind::Character, "MAYOR"),
-        (DialoguePartKind::Dialogue, "Edward Bloom, first son of Ashton,"),
+        (
+            DialoguePartKind::Dialogue,
+            "Edward Bloom, first son of Ashton,",
+        ),
         (
             DialoguePartKind::Dialogue,
             "you have always been too big for this town,",
@@ -105,9 +114,15 @@ fn dialogue_split_can_start_the_continuation_with_a_parenthetical() {
         (DialoguePartKind::Dialogue, "you bring home next."),
     ]);
 
-    let plan =
-        plan_dialogue_split_parts(&stub_dialogue_unit(), &parts, &LayoutGeometry::default(), 6.0, 2, 2)
-            .unwrap();
+    let plan = plan_dialogue_split_parts(
+        &stub_dialogue_unit(),
+        &parts,
+        &LayoutGeometry::default(),
+        6.0,
+        2,
+        2,
+    )
+    .unwrap();
 
     assert_eq!(plan.top_line_count, 5);
 }
@@ -120,10 +135,7 @@ fn dialogue_split_prefers_the_sentence_boundary_that_also_fills_the_page() {
             DialoguePartKind::Dialogue,
             "For the next couple weeks, I didn't",
         ),
-        (
-            DialoguePartKind::Dialogue,
-            "have another dream.  Until one",
-        ),
+        (DialoguePartKind::Dialogue, "have another dream.  Until one"),
         (
             DialoguePartKind::Dialogue,
             "night the crow came back and said,",
@@ -161,12 +173,21 @@ fn dialogue_split_prefers_the_sentence_boundary_that_also_fills_the_page() {
         }),
     );
 
-    let plan =
-        plan_dialogue_split_parts(&stub_dialogue_unit(), &parts, &LayoutGeometry::default(), 19.0, 2, 2)
-            .unwrap();
+    let plan = plan_dialogue_split_parts(
+        &stub_dialogue_unit(),
+        &parts,
+        &LayoutGeometry::default(),
+        19.0,
+        2,
+        2,
+    )
+    .unwrap();
 
     assert_eq!(plan.top_line_count, 18);
-    assert_eq!(parts[plan.top_line_count - 1].text, "was gone for a long time.");
+    assert_eq!(
+        parts[plan.top_line_count - 1].text,
+        "was gone for a long time."
+    );
     assert_eq!(
         parts[plan.top_line_count].text,
         "And when he finally came back, he looked"
@@ -207,7 +228,10 @@ fn dialogue_split_plan_can_split_at_a_sentence_boundary_inside_a_wrapped_line() 
     assert_eq!(plan.parts[1].top_lines.len(), 12);
     assert_eq!(plan.parts[1].bottom_lines.len(), 6);
     assert_eq!(plan.parts[1].top_end_offset, plan.parts[1].top_text.len());
-    assert_eq!(plan.parts[1].bottom_start_offset, plan.parts[1].top_end_offset);
+    assert_eq!(
+        plan.parts[1].bottom_start_offset,
+        plan.parts[1].top_end_offset
+    );
     assert_eq!(
         plan.parts[1].top_text.trim_end(),
         "Well, I didn't know what to do.  But finally I told my father.  And he said not to worry, but I could tell he was rattled.  That next day, he wasn't himself, always looking around, waiting for something to drop on his head.  Because the crow didn't tell how it was going to happen, just those words:  your Daddy is going to die.  Well, he went into town early and was gone for a long time."

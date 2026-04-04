@@ -35,6 +35,18 @@ fn shared_layout_profile_can_lower_into_pagination_geometry() {
     let geometry = profile.to_pagination_geometry();
     assert_eq!(geometry.dialogue_left, 2.25);
     assert_eq!(geometry.dialogue_right, 5.75);
+    assert_eq!(geometry.dual_dialogue_left_character_left, 2.5);
+    assert_eq!(geometry.dual_dialogue_left_character_right, 4.875);
+    assert_eq!(geometry.dual_dialogue_left_left, 1.5);
+    assert_eq!(geometry.dual_dialogue_left_right, 4.375);
+    assert_eq!(geometry.dual_dialogue_left_parenthetical_left, 1.75);
+    assert_eq!(geometry.dual_dialogue_left_parenthetical_right, 4.125);
+    assert_eq!(geometry.dual_dialogue_right_character_left, 5.875);
+    assert_eq!(geometry.dual_dialogue_right_character_right, 7.5);
+    assert_eq!(geometry.dual_dialogue_right_left, 4.625);
+    assert_eq!(geometry.dual_dialogue_right_right, 7.5);
+    assert_eq!(geometry.dual_dialogue_right_parenthetical_left, 4.875);
+    assert_eq!(geometry.dual_dialogue_right_parenthetical_right, 7.25);
     assert_eq!(geometry.character_right, 6.25);
     assert_eq!(geometry.parenthetical_left, 2.75);
     assert_eq!(geometry.transition_right, 7.25);
@@ -44,9 +56,7 @@ fn shared_layout_profile_can_lower_into_pagination_geometry() {
 
 #[test]
 fn pagination_config_can_be_built_from_screenplay_metadata_profile() {
-    let screenplay = parse(
-        "Title: Demo\nFmt: multicam dr-5.75\n\nNEW ACT ONE\n\nINT. SET - DAY\n",
-    );
+    let screenplay = parse("Title: Demo\nFmt: multicam dr-5.75\n\nNEW ACT ONE\n\nINT. SET - DAY\n");
 
     let config = PaginationConfig::from_screenplay(&screenplay, 54.0);
 
@@ -80,10 +90,7 @@ fn geometry_affecting_fmt_options_all_map_into_layout_geometry() {
 #[test]
 fn explicit_fmt_geometry_knobs_override_multicam_even_if_they_appear_first() {
     let mut metadata: Metadata = HashMap::new();
-    metadata.insert(
-        "fmt".into(),
-        vec!["dr-5.75 dl-3.0 ssbsh multicam".into()],
-    );
+    metadata.insert("fmt".into(), vec!["dr-5.75 dl-3.0 ssbsh multicam".into()]);
 
     let profile = ScreenplayLayoutProfile::from_metadata(&metadata);
     let geometry = profile.to_pagination_geometry();

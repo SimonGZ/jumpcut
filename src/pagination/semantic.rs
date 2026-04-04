@@ -1,8 +1,8 @@
 use std::collections::BTreeMap;
 
+use super::fixtures::{NormalizedElement, NormalizedScreenplay};
 use crate::render_attributes::RenderAttributes;
 use crate::styled_text::StyledText;
-use super::fixtures::{NormalizedElement, NormalizedScreenplay};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Cohesion {
@@ -121,7 +121,8 @@ pub fn build_semantic_screenplay(normalized: NormalizedScreenplay) -> SemanticSc
             let start = index;
             let mut end = index + 1;
             while end < normalized.elements.len()
-                && normalized.elements[end].dual_dialogue_group.as_deref() == Some(group_id.as_str())
+                && normalized.elements[end].dual_dialogue_group.as_deref()
+                    == Some(group_id.as_str())
             {
                 end += 1;
             }

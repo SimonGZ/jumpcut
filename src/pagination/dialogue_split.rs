@@ -2,11 +2,9 @@ use std::cmp::Ordering;
 use std::collections::BTreeMap;
 
 use crate::pagination::margin::line_height_for_element_type;
-use crate::pagination::split_scoring::choose_best_scored_split;
 use crate::pagination::sentence_boundary::sentence_boundary_offsets;
-use crate::pagination::wrapping::{
-    wrap_text_for_element, ElementType, WrapConfig,
-};
+use crate::pagination::split_scoring::choose_best_scored_split;
+use crate::pagination::wrapping::{wrap_text_for_element, ElementType, WrapConfig};
 use crate::pagination::{DialoguePartKind, DialogueUnit, LayoutGeometry};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -150,7 +148,10 @@ fn generate_dialogue_split_candidates(
             .entry((part_index, part.text.len()))
             .or_insert(false);
 
-        if !matches!(part.kind, DialoguePartKind::Dialogue | DialoguePartKind::Lyric) {
+        if !matches!(
+            part.kind,
+            DialoguePartKind::Dialogue | DialoguePartKind::Lyric
+        ) {
             continue;
         }
 
@@ -218,12 +219,18 @@ fn build_candidate(
         top_height += top_lines.len() as f32 * line_height;
         bottom_height += bottom_lines.len() as f32 * line_height;
 
-        if matches!(part.kind, DialoguePartKind::Dialogue | DialoguePartKind::Lyric | DialoguePartKind::Parenthetical) {
+        if matches!(
+            part.kind,
+            DialoguePartKind::Dialogue | DialoguePartKind::Lyric | DialoguePartKind::Parenthetical
+        ) {
             top_dialogue_lines += top_lines.len();
             bottom_dialogue_lines += bottom_lines.len();
         }
 
-        if matches!(part.kind, DialoguePartKind::Dialogue | DialoguePartKind::Lyric) {
+        if matches!(
+            part.kind,
+            DialoguePartKind::Dialogue | DialoguePartKind::Lyric
+        ) {
             top_spoken_lines += top_lines.len();
             bottom_spoken_lines += bottom_lines.len();
         }

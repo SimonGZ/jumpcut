@@ -1,4 +1,6 @@
-use crate::{render_attributes::RenderAttributes, styled_text::StyledText, Element, ElementText, Screenplay};
+use crate::{
+    render_attributes::RenderAttributes, styled_text::StyledText, Element, ElementText, Screenplay,
+};
 
 use super::fixtures::{NormalizedElement, NormalizedScreenplay};
 

@@ -20,12 +20,19 @@ impl Screenplay {
     }
 
     #[cfg(feature = "html")]
-    pub fn to_html_with_options(&mut self, options: crate::html_output::HtmlRenderOptions) -> String {
+    pub fn to_html_with_options(
+        &mut self,
+        options: crate::html_output::HtmlRenderOptions,
+    ) -> String {
         crate::rendering::html::render_document(self, options)
     }
 
     pub fn to_text(&self, options: &crate::text_output::TextRenderOptions) -> String {
         crate::text_output::render(self, options)
+    }
+
+    pub fn to_pdf(&self) -> Vec<u8> {
+        crate::pdf_output::render(self)
     }
 
     pub fn to_json_string(self) -> String {
@@ -210,11 +217,10 @@ mod tests {
     #[test]
     fn test_html_renderer_matches_template_output() {
         let mut screenplay = sample_screenplay();
-        screenplay
-            .metadata
-            .retain(|key, _| key == "fmt");
+        screenplay.metadata.retain(|key, _| key == "fmt");
         let actual = normalize_markup_without_style(&screenplay.to_html(true));
-        let expected = normalize_markup_without_style(&render_html_with_handlebars(&screenplay, true));
+        let expected =
+            normalize_markup_without_style(&render_html_with_handlebars(&screenplay, true));
         assert_eq!(actual, expected);
     }
 
@@ -240,7 +246,9 @@ mod tests {
     #[test]
     fn test_fdx_renderer_uses_shared_layout_profile_for_multicam_settings() {
         let mut screenplay = sample_screenplay();
-        screenplay.metadata.insert("fmt".into(), vec!["multicam dr-5.75".into()]);
+        screenplay
+            .metadata
+            .insert("fmt".into(), vec!["multicam dr-5.75".into()]);
 
         let actual = screenplay.to_final_draft();
 
@@ -325,8 +333,7 @@ mod tests {
                     .plain_text()
                     .split_whitespace()
                     .any(|option| option.eq_ignore_ascii_case("multicam"))
-            })
-        {
+            }) {
             Some(true) => "screenplay multicam",
             _ => "screenplay",
         };

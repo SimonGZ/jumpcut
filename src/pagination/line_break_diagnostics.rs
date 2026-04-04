@@ -4,11 +4,11 @@ use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
-use crate::parse;
 use crate::pagination::{
     normalize_screenplay, wrapping::ElementType, DialoguePartKind, FlowKind, Fragment,
     LayoutGeometry, LineRange, NormalizedElement, PageBreakFixture, PaginationConfig,
 };
+use crate::parse;
 
 pub fn write_big_fish_packet(debug_dir: &Path) {
     let report = build_line_break_parity_report(
@@ -17,7 +17,11 @@ pub fn write_big_fish_packet(debug_dir: &Path) {
         "tests/fixtures/corpus/public/big-fish/canonical/page-breaks.json",
     );
     fs::create_dir_all(debug_dir).unwrap();
-    fs::write(debug_dir.join("parity.json"), serde_json::to_string_pretty(&report).unwrap()).unwrap();
+    fs::write(
+        debug_dir.join("parity.json"),
+        serde_json::to_string_pretty(&report).unwrap(),
+    )
+    .unwrap();
     fs::write(debug_dir.join("REVIEW.md"), render_big_fish_review(&report)).unwrap();
 }
 
@@ -28,8 +32,16 @@ pub fn write_little_women_packet(debug_dir: &Path) {
         "tests/fixtures/corpus/public/little-women/canonical/page-breaks.json",
     );
     fs::create_dir_all(debug_dir).unwrap();
-    fs::write(debug_dir.join("parity.json"), serde_json::to_string_pretty(&report).unwrap()).unwrap();
-    fs::write(debug_dir.join("REVIEW.md"), render_little_women_review(&report)).unwrap();
+    fs::write(
+        debug_dir.join("parity.json"),
+        serde_json::to_string_pretty(&report).unwrap(),
+    )
+    .unwrap();
+    fs::write(
+        debug_dir.join("REVIEW.md"),
+        render_little_women_review(&report),
+    )
+    .unwrap();
 }
 
 pub fn write_mostly_genius_packet(debug_dir: &Path) {
@@ -39,8 +51,16 @@ pub fn write_mostly_genius_packet(debug_dir: &Path) {
         "tests/fixtures/corpus/public/mostly-genius/canonical/page-breaks.json",
     );
     fs::create_dir_all(debug_dir).unwrap();
-    fs::write(debug_dir.join("parity.json"), serde_json::to_string_pretty(&report).unwrap()).unwrap();
-    fs::write(debug_dir.join("REVIEW.md"), render_mostly_genius_review(&report)).unwrap();
+    fs::write(
+        debug_dir.join("parity.json"),
+        serde_json::to_string_pretty(&report).unwrap(),
+    )
+    .unwrap();
+    fs::write(
+        debug_dir.join("REVIEW.md"),
+        render_mostly_genius_review(&report),
+    )
+    .unwrap();
 }
 
 pub fn build_line_break_parity_report(
@@ -68,7 +88,10 @@ pub fn build_line_break_parity_report(
     let mut disagreement_count = 0;
 
     for page in &canonical.pages {
-        let page_lines = pdf_pages.get(&page.number).map(Vec::as_slice).unwrap_or(&[]);
+        let page_lines = pdf_pages
+            .get(&page.number)
+            .map(Vec::as_slice)
+            .unwrap_or(&[]);
         for item in &page.items {
             let result = build_line_break_parity_item(
                 page.number,
@@ -107,17 +130,52 @@ pub fn build_line_break_parity_report(
         measurement: LineBreakParityMeasurement {
             flow_geometries: vec![
                 debug_flow_geometry("Action", "Action", FlowKind::Action, &measurement),
-                debug_flow_geometry("Scene Heading", "Scene Heading", FlowKind::SceneHeading, &measurement),
-                debug_flow_geometry("Transition", "Transition", FlowKind::Transition, &measurement),
-                debug_flow_geometry("Cold Opening", "Cold Opening", FlowKind::ColdOpening, &measurement),
+                debug_flow_geometry(
+                    "Scene Heading",
+                    "Scene Heading",
+                    FlowKind::SceneHeading,
+                    &measurement,
+                ),
+                debug_flow_geometry(
+                    "Transition",
+                    "Transition",
+                    FlowKind::Transition,
+                    &measurement,
+                ),
+                debug_flow_geometry(
+                    "Cold Opening",
+                    "Cold Opening",
+                    FlowKind::ColdOpening,
+                    &measurement,
+                ),
                 debug_flow_geometry("New Act", "New Act", FlowKind::NewAct, &measurement),
                 debug_flow_geometry("End of Act", "End of Act", FlowKind::EndOfAct, &measurement),
-                debug_flow_geometry("Section", "Action (fallback)", FlowKind::Section, &measurement),
-                debug_flow_geometry("Synopsis", "Action (fallback)", FlowKind::Synopsis, &measurement),
+                debug_flow_geometry(
+                    "Section",
+                    "Action (fallback)",
+                    FlowKind::Section,
+                    &measurement,
+                ),
+                debug_flow_geometry(
+                    "Synopsis",
+                    "Action (fallback)",
+                    FlowKind::Synopsis,
+                    &measurement,
+                ),
             ],
             dialogue_geometries: vec![
-                debug_dialogue_geometry("Dialogue", "Dialogue", DialoguePartKind::Dialogue, &measurement),
-                debug_dialogue_geometry("Character", "Character", DialoguePartKind::Character, &measurement),
+                debug_dialogue_geometry(
+                    "Dialogue",
+                    "Dialogue",
+                    DialoguePartKind::Dialogue,
+                    &measurement,
+                ),
+                debug_dialogue_geometry(
+                    "Character",
+                    "Character",
+                    DialoguePartKind::Character,
+                    &measurement,
+                ),
                 debug_dialogue_geometry(
                     "Parenthetical",
                     "Parenthetical",
@@ -184,10 +242,11 @@ fn build_line_break_parity_item(
     let element_type = ElementType::from_item_kind(kind, dual_dialogue_side);
     let config = crate::pagination::wrapping::WrapConfig::from_geometry(measurement, element_type);
     let width_chars = config.exact_width_chars;
-    let expected_wrapped_lines = crate::pagination::wrapping::wrap_text_for_element(&candidate_text, &config)
-        .into_iter()
-        .map(|line| normalize_pdf_match_text(&line))
-        .collect::<Vec<_>>();
+    let expected_wrapped_lines =
+        crate::pagination::wrapping::wrap_text_for_element(&candidate_text, &config)
+            .into_iter()
+            .map(|line| normalize_pdf_match_text(&line))
+            .collect::<Vec<_>>();
     let normalized_text = normalize_pdf_match_text(&candidate_text);
     let matches = exact_pdf_line_matches(page_lines, &normalized_text);
 
@@ -258,7 +317,11 @@ fn render_big_fish_review(report: &LineBreakParityReport) -> String {
 }
 
 fn render_little_women_review(report: &LineBreakParityReport) -> String {
-    let disagreements: Vec<&LineBreakParityItem> = report.items.iter().filter(|item| item.lines_agree == Some(false)).collect();
+    let disagreements: Vec<&LineBreakParityItem> = report
+        .items
+        .iter()
+        .filter(|item| item.lines_agree == Some(false))
+        .collect();
     let mut review = render_review_common("Little Women", "little-women", report);
     if disagreements.is_empty() {
         review.push_str("\nNo exact-unique line-break disagreements were found.\n");
@@ -269,12 +332,17 @@ fn render_little_women_review(report: &LineBreakParityReport) -> String {
 }
 
 fn render_mostly_genius_review(report: &LineBreakParityReport) -> String {
-    let disagreements: Vec<&LineBreakParityItem> =
-        report.items.iter().filter(|item| item.lines_agree == Some(false)).collect();
+    let disagreements: Vec<&LineBreakParityItem> = report
+        .items
+        .iter()
+        .filter(|item| item.lines_agree == Some(false))
+        .collect();
     let act_markers = report
         .items
         .iter()
-        .filter(|item| item.kind == "New Act" || item.kind == "End of Act" || item.kind == "Cold Opening")
+        .filter(|item| {
+            item.kind == "New Act" || item.kind == "End of Act" || item.kind == "Cold Opening"
+        })
         .count();
     let mut review = render_review_common("Mostly Genius", "mostly-genius", report);
     review.push_str(&format!(
@@ -289,7 +357,11 @@ fn render_mostly_genius_review(report: &LineBreakParityReport) -> String {
 }
 
 fn render_review_common(title: &str, slug: &str, report: &LineBreakParityReport) -> String {
-    let disagreements: Vec<&LineBreakParityItem> = report.items.iter().filter(|item| item.lines_agree == Some(false)).collect();
+    let disagreements: Vec<&LineBreakParityItem> = report
+        .items
+        .iter()
+        .filter(|item| item.lines_agree == Some(false))
+        .collect();
     let mut review = format!(
         "# {title} Line-Break Parity Review\n\n\
 Files in this packet:\n\n\
@@ -337,7 +409,12 @@ fn measurement_for_screenplay(screenplay_id: &str) -> LayoutGeometry {
     PaginationConfig::from_screenplay(&screenplay, 54.0).geometry
 }
 
-fn debug_flow_geometry(label: &str, source_style: &str, kind: FlowKind, geometry: &LayoutGeometry) -> DebugGeometry {
+fn debug_flow_geometry(
+    label: &str,
+    source_style: &str,
+    kind: FlowKind,
+    geometry: &LayoutGeometry,
+) -> DebugGeometry {
     let element_type = ElementType::from_flow_kind(&kind);
     let (left_indent_in, right_indent_in) = match kind {
         FlowKind::Action | FlowKind::SceneHeading | FlowKind::Section | FlowKind::Synopsis => {
@@ -366,7 +443,9 @@ fn debug_dialogue_geometry(
     let element_type = ElementType::from_dialogue_part_kind(&kind);
     let (left_indent_in, right_indent_in) = match kind {
         DialoguePartKind::Character => (geometry.character_left, geometry.character_right),
-        DialoguePartKind::Parenthetical => (geometry.parenthetical_left, geometry.parenthetical_right),
+        DialoguePartKind::Parenthetical => {
+            (geometry.parenthetical_left, geometry.parenthetical_right)
+        }
         DialoguePartKind::Lyric => (geometry.lyric_left, geometry.lyric_right),
         DialoguePartKind::Dialogue => (geometry.dialogue_left, geometry.dialogue_right),
     };
@@ -448,7 +527,8 @@ fn public_pdf_pages(screenplay_id: &str) -> HashMap<u32, Vec<String>> {
     let path = Path::new("tests/fixtures/corpus/public")
         .join(screenplay_id)
         .join("extracted/pdf-pages.json");
-    let pdf_pages: PublicPdfPages = serde_json::from_str(&fs::read_to_string(path).unwrap()).unwrap();
+    let pdf_pages: PublicPdfPages =
+        serde_json::from_str(&fs::read_to_string(path).unwrap()).unwrap();
     pdf_pages
         .pages
         .into_iter()
@@ -457,7 +537,12 @@ fn public_pdf_pages(screenplay_id: &str) -> HashMap<u32, Vec<String>> {
 }
 
 fn text_preview(text: &str) -> String {
-    text.split_whitespace().collect::<Vec<_>>().join(" ").chars().take(80).collect()
+    text.split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .chars()
+        .take(80)
+        .collect()
 }
 
 fn slice_explicit_lines(text: &str, start: u32, end: u32) -> String {

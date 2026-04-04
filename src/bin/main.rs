@@ -20,7 +20,7 @@ use std::path::PathBuf;
 )]
 #[cfg(feature = "cli")]
 struct Args {
-    /// Formats (FDX, HTML, JSON, text)
+    /// Formats (FDX, HTML, JSON, text, PDF)
     #[arg(short, long, default_value = "fdx")]
     format: String,
 
@@ -127,43 +127,42 @@ fn main() {
         std::process::exit(2);
     }
 
-    let mut output_text = String::new();
-
-    match format.as_str() {
-        "json" => {
-            let j = serde_json::to_string_pretty(&screenplay);
-            match j {
-                Ok(json) => output_text = json,
-                Err(e) => eprintln!("{}", e),
+    let output_bytes = match format.as_str() {
+        "json" => match serde_json::to_string_pretty(&screenplay) {
+            Ok(json) => json.into_bytes(),
+            Err(e) => {
+                eprintln!("{}", e);
+                std::process::exit(1);
             }
-        }
-        "fdx" => {
-            output_text = screenplay.to_final_draft();
-        }
-        "html" => {
-            output_text = screenplay.to_html_with_options(jumpcut::html_output::HtmlRenderOptions {
+        },
+        "fdx" => screenplay.to_final_draft().into_bytes(),
+        "html" => screenplay
+            .to_html_with_options(jumpcut::html_output::HtmlRenderOptions {
                 head: true,
                 exact_wraps: opt.exact_wraps || opt.paginate,
                 paginated: opt.paginate,
                 embed_courier_prime: opt.embed_courier_prime,
                 embedded_courier_prime_css: None,
-            });
-        }
-        "text" => {
-            output_text = screenplay.to_text(&jumpcut::text_output::TextRenderOptions {
+            })
+            .into_bytes(),
+        "text" => screenplay
+            .to_text(&jumpcut::text_output::TextRenderOptions {
                 paginated: opt.paginate,
                 line_numbers: opt.line_numbers,
-            });
-        }
-        _ => output_text = "nothing".to_string(),
-    }
+            })
+            .into_bytes(),
+        "pdf" => screenplay.to_pdf(),
+        _ => b"nothing".to_vec(),
+    };
 
     match opt.output {
-        Some(outfile) => fs::write(outfile, output_text).expect("Unable to write file."),
+        Some(outfile) => fs::write(outfile, output_bytes).expect("Unable to write file."),
         None => {
             let stdout = io::stdout();
             let mut handle = io::BufWriter::new(stdout);
-            writeln!(handle, "{}", output_text).expect("Unable to write to buffer.");
+            handle
+                .write_all(&output_bytes)
+                .expect("Unable to write to buffer.");
         }
     }
 }

@@ -39,7 +39,10 @@ pub struct ComparisonReport {
 
 impl ComparisonReport {
     pub fn issue_count(&self, kind: ComparisonIssueKind) -> usize {
-        self.issues.iter().filter(|issue| issue.kind == kind).count()
+        self.issues
+            .iter()
+            .filter(|issue| issue.kind == kind)
+            .count()
     }
 
     pub fn total_issues(&self) -> usize {
@@ -58,7 +61,10 @@ pub fn compare_paginated_to_fixture(
     let max_len = actual_occurrences.len().max(expected_occurrences.len());
 
     for index in 0..max_len {
-        match (expected_occurrences.get(index), actual_occurrences.get(index)) {
+        match (
+            expected_occurrences.get(index),
+            actual_occurrences.get(index),
+        ) {
             (Some(expected_item), Some(actual_item))
                 if expected_item.element_id == actual_item.element_id
                     && expected_item.occurrence == actual_item.occurrence =>
@@ -215,9 +221,9 @@ fn collect_expected_previews(
     expected_occurrences
         .iter()
         .filter_map(|item| {
-            item.text_preview.as_ref().map(|preview| {
-                ((item.element_id.clone(), item.occurrence), preview.clone())
-            })
+            item.text_preview
+                .as_ref()
+                .map(|preview| ((item.element_id.clone(), item.occurrence), preview.clone()))
         })
         .collect()
 }

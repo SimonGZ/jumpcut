@@ -5,14 +5,13 @@ use std::path::{Path, PathBuf};
 
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
-use crate::parse;
 use crate::pagination::{
-    build_semantic_screenplay, compare_paginated_to_fixture, normalize_screenplay,
-    ComparisonIssueKind, DialoguePartKind, FlowKind, Fragment, LayoutGeometry, LineRange,
-    NormalizedElement, NormalizedScreenplay, PageBreakFixture, PageBreakFixtureSourceRefs,
-    PaginatedScreenplay, PaginationConfig, SemanticUnit, margin::line_height_for_element_type,
-    wrapping::ElementType,
+    build_semantic_screenplay, compare_paginated_to_fixture, margin::line_height_for_element_type,
+    normalize_screenplay, wrapping::ElementType, ComparisonIssueKind, DialoguePartKind, FlowKind,
+    Fragment, LayoutGeometry, LineRange, NormalizedElement, NormalizedScreenplay, PageBreakFixture,
+    PageBreakFixtureSourceRefs, PaginatedScreenplay, PaginationConfig, SemanticUnit,
 };
+use crate::parse;
 
 pub fn write_big_fish_public_slice_json(debug_dir: &Path) {
     let fixture: PageBreakFixture =
@@ -23,7 +22,8 @@ pub fn write_big_fish_public_slice_json(debug_dir: &Path) {
         &fixture,
     );
     let semantic = build_semantic_screenplay(normalized.clone());
-    let page_mappings = read_page_mappings("tests/fixtures/pagination/big-fish.split-page-breaks.json");
+    let page_mappings =
+        read_page_mappings("tests/fixtures/pagination/big-fish.split-page-breaks.json");
     let run = run_window_diagnostics(&fixture, &semantic, geometry_for_screenplay("big-fish"));
     let previews = preview_map(&normalized);
     let report = enrich_report_previews(run.report, &previews);
@@ -67,7 +67,13 @@ pub fn write_big_fish_public_slice_json(debug_dir: &Path) {
     .unwrap();
     let page_numbers: Vec<u32> = fixture.pages.iter().map(|page| page.number).collect();
     let page_endings = build_page_endings_report(
-        "big-fish", &run.actual, &normalized, 54.0, &run.geometry, Some(&page_numbers), &page_mappings,
+        "big-fish",
+        &run.actual,
+        &normalized,
+        54.0,
+        &run.geometry,
+        Some(&page_numbers),
+        &page_mappings,
     );
     fs::write(
         debug_dir.join("big-fish.p18-19.page-endings.json"),
@@ -97,7 +103,8 @@ pub fn write_selected_public_windows_json(debug_dir: &Path) {
         let page_mappings = read_page_mappings(path);
         let normalized = normalized_window_from_fountain(screenplay_id, fountain_path, &fixture);
         let semantic = build_semantic_screenplay(normalized.clone());
-    let run = run_window_diagnostics(&fixture, &semantic, geometry_for_screenplay(screenplay_id));
+        let run =
+            run_window_diagnostics(&fixture, &semantic, geometry_for_screenplay(screenplay_id));
         let previews = preview_map(&normalized);
         let report = enrich_report_previews(run.report, &previews);
         let debug_fixture = paginated_to_debug_fixture(
@@ -117,12 +124,12 @@ pub fn write_selected_public_windows_json(debug_dir: &Path) {
         .unwrap();
         fs::write(
             debug_dir.join(format!("{stem}.comparison-report.json")),
-        serde_json::to_string_pretty(&FixtureProbeDebugOutput {
-            fixture_path: path.to_string(),
-            page_numbers: fixture.pages.iter().map(|page| page.number).collect(),
-            page_labels: diagnostic_page_labels(
-                fixture.pages.iter().map(|page| page.number),
-                &page_mappings,
+            serde_json::to_string_pretty(&FixtureProbeDebugOutput {
+                fixture_path: path.to_string(),
+                page_numbers: fixture.pages.iter().map(|page| page.number).collect(),
+                page_labels: diagnostic_page_labels(
+                    fixture.pages.iter().map(|page| page.number),
+                    &page_mappings,
                 ),
                 lines_per_page: run.lines_per_page,
                 score: run.score,
@@ -145,7 +152,13 @@ pub fn write_selected_public_windows_json(debug_dir: &Path) {
         .unwrap();
         let page_numbers: Vec<u32> = fixture.pages.iter().map(|page| page.number).collect();
         let page_endings = build_page_endings_report(
-            screenplay_id, &run.actual, &normalized, run.lines_per_page, &run.geometry, Some(&page_numbers), &page_mappings,
+            screenplay_id,
+            &run.actual,
+            &normalized,
+            run.lines_per_page,
+            &run.geometry,
+            Some(&page_numbers),
+            &page_mappings,
         );
         fs::write(
             debug_dir.join(format!("{stem}.page-endings.json")),
@@ -204,9 +217,10 @@ pub fn write_little_women_review_packet(debug_dir: &Path) {
 pub fn write_little_women_full_script_page_break_packet(debug_dir: &Path) {
     let fixture_path = "tests/fixtures/corpus/public/little-women/canonical/page-breaks.json";
     let fixture: PageBreakFixture = read_fixture(fixture_path);
-        let page_mappings = read_page_mappings(fixture_path);
-    let fountain = fs::read_to_string("tests/fixtures/corpus/public/little-women/source/source.fountain")
-        .unwrap();
+    let page_mappings = read_page_mappings(fixture_path);
+    let fountain =
+        fs::read_to_string("tests/fixtures/corpus/public/little-women/source/source.fountain")
+            .unwrap();
     let screenplay = parse(&fountain);
     let normalized = normalize_screenplay("little-women", &screenplay);
     let config = PaginationConfig::from_screenplay(&screenplay, 54.0);
@@ -290,18 +304,14 @@ pub fn write_little_women_full_script_page_break_packet(debug_dir: &Path) {
 pub fn write_big_fish_full_script_page_break_packet(debug_dir: &Path) {
     let fixture_path = "tests/fixtures/corpus/public/big-fish/canonical/page-breaks.json";
     let fixture: PageBreakFixture = read_fixture(fixture_path);
-        let page_mappings = read_page_mappings(fixture_path);
-    let fountain = fs::read_to_string("tests/fixtures/corpus/public/big-fish/source/source.fountain")
-        .unwrap();
+    let page_mappings = read_page_mappings(fixture_path);
+    let fountain =
+        fs::read_to_string("tests/fixtures/corpus/public/big-fish/source/source.fountain").unwrap();
     let screenplay = parse(&fountain);
     let normalized = normalize_screenplay("big-fish", &screenplay);
     let config = PaginationConfig::from_screenplay(&screenplay, 54.0);
-    let actual = PaginatedScreenplay::from_screenplay(
-        "big-fish",
-        &screenplay,
-        54.0,
-        fixture.scope.clone(),
-    );
+    let actual =
+        PaginatedScreenplay::from_screenplay("big-fish", &screenplay, 54.0, fixture.scope.clone());
     let report = compare_paginated_to_fixture(&actual, &fixture);
     let score = (
         report.total_issues(),
@@ -376,10 +386,7 @@ pub fn write_big_fish_full_script_page_break_packet(debug_dir: &Path) {
 
 fn write_fixture_symlink(debug_dir: &Path, fixture_path: &str) {
     let link_path = debug_dir.join("canonical.page-breaks.json");
-    let relative_target = Path::new("..")
-        .join("..")
-        .join("..")
-        .join(fixture_path);
+    let relative_target = Path::new("..").join("..").join("..").join(fixture_path);
     let _ = fs::remove_file(&link_path);
     symlink(&relative_target, &link_path).unwrap();
 }
@@ -387,9 +394,10 @@ fn write_fixture_symlink(debug_dir: &Path, fixture_path: &str) {
 pub fn write_mostly_genius_full_script_page_break_packet(debug_dir: &Path) {
     let fixture_path = "tests/fixtures/corpus/public/mostly-genius/canonical/page-breaks.json";
     let fixture: PageBreakFixture = read_fixture(fixture_path);
-        let page_mappings = read_page_mappings(fixture_path);
-    let fountain = fs::read_to_string("tests/fixtures/corpus/public/mostly-genius/source/source.fountain")
-        .unwrap();
+    let page_mappings = read_page_mappings(fixture_path);
+    let fountain =
+        fs::read_to_string("tests/fixtures/corpus/public/mostly-genius/source/source.fountain")
+            .unwrap();
     let screenplay = parse(&fountain);
     let normalized = normalize_screenplay("mostly-genius", &screenplay);
     let config = PaginationConfig::from_screenplay(&screenplay, 54.0);
@@ -473,9 +481,9 @@ pub fn write_mostly_genius_full_script_page_break_packet(debug_dir: &Path) {
 pub fn write_vikings_full_script_page_break_packet(debug_dir: &Path) {
     let fixture_path = "tests/fixtures/corpus/public/vikings/canonical/page-breaks.json";
     let fixture: PageBreakFixture = read_fixture(fixture_path);
-        let page_mappings = read_page_mappings(fixture_path);
-    let fountain = fs::read_to_string("tests/fixtures/corpus/public/vikings/source/source.fountain")
-        .unwrap();
+    let page_mappings = read_page_mappings(fixture_path);
+    let fountain =
+        fs::read_to_string("tests/fixtures/corpus/public/vikings/source/source.fountain").unwrap();
     let screenplay = parse(&fountain);
     let normalized = normalize_screenplay("vikings", &screenplay);
     let config = PaginationConfig::from_screenplay(&screenplay, 54.0);
@@ -555,9 +563,9 @@ pub fn write_vikings_full_script_page_break_packet(debug_dir: &Path) {
 pub fn write_gumshoe_full_script_page_break_packet(debug_dir: &Path) {
     let fixture_path = "tests/fixtures/corpus/public/gumshoe/canonical/page-breaks.json";
     let fixture: PageBreakFixture = read_fixture(fixture_path);
-        let page_mappings = read_page_mappings(fixture_path);
-    let fountain = fs::read_to_string("tests/fixtures/corpus/public/gumshoe/source/source.fountain")
-        .unwrap();
+    let page_mappings = read_page_mappings(fixture_path);
+    let fountain =
+        fs::read_to_string("tests/fixtures/corpus/public/gumshoe/source/source.fountain").unwrap();
     let screenplay = parse(&fountain);
     let normalized = normalize_screenplay("gumshoe", &screenplay);
     let config = PaginationConfig::from_screenplay(&screenplay, 54.0);
@@ -613,8 +621,15 @@ pub fn write_gumshoe_full_script_page_break_packet(debug_dir: &Path) {
         render_pseudo_pdf_output(&actual, &normalized, 54.0, &config.geometry, &page_mappings),
     )
     .unwrap();
-    let page_endings =
-        build_page_endings_report("gumshoe", &actual, &normalized, 54.0, &config.geometry, None, &page_mappings);
+    let page_endings = build_page_endings_report(
+        "gumshoe",
+        &actual,
+        &normalized,
+        54.0,
+        &config.geometry,
+        None,
+        &page_mappings,
+    );
     fs::write(
         debug_dir.join("page-endings.json"),
         serde_json::to_string_pretty(&page_endings).unwrap(),
@@ -658,8 +673,11 @@ pub fn write_fd_probe_packets(debug_dir: &Path) {
         );
         let semantic = build_semantic_screenplay(normalized.clone());
         let composed = crate::pagination::composer::compose(&semantic.units, &config.geometry);
-        let layout_pages =
-            crate::pagination::paginator::paginate(&composed, spec.lines_per_page, &config.geometry);
+        let layout_pages = crate::pagination::paginator::paginate(
+            &composed,
+            spec.lines_per_page,
+            &config.geometry,
+        );
         let actual_matches = collect_fd_probe_matches(&spec, &actual, &layout_pages);
 
         let page_mappings = read_page_mappings(probe_dir.to_str().unwrap());
@@ -667,7 +685,13 @@ pub fn write_fd_probe_packets(debug_dir: &Path) {
         fs::create_dir_all(&probe_debug_dir).unwrap();
         fs::write(
             probe_debug_dir.join("pseudo-pdf.txt"),
-            render_pseudo_pdf_output(&actual, &normalized, spec.lines_per_page, &config.geometry, &page_mappings),
+            render_pseudo_pdf_output(
+                &actual,
+                &normalized,
+                spec.lines_per_page,
+                &config.geometry,
+                &page_mappings,
+            ),
         )
         .unwrap();
         fs::write(
@@ -686,13 +710,21 @@ pub fn write_fd_probe_packets(debug_dir: &Path) {
         .unwrap();
 
         summaries.push(FdProbeSummary {
-            folder: probe_dir.file_name().unwrap().to_string_lossy().into_owned(),
+            folder: probe_dir
+                .file_name()
+                .unwrap()
+                .to_string_lossy()
+                .into_owned(),
             probe_id: spec.probe_id,
             status: spec.status,
         });
     }
 
-    fs::write(debug_dir.join("REVIEW.md"), render_fd_probe_review(&summaries)).unwrap();
+    fs::write(
+        debug_dir.join("REVIEW.md"),
+        render_fd_probe_review(&summaries),
+    )
+    .unwrap();
 }
 
 fn write_window_review_packet(
@@ -710,7 +742,8 @@ fn write_window_review_packet(
         let page_mappings = read_page_mappings(fixture_path);
         let normalized = normalized_window_from_fountain(screenplay_id, fountain_path, &fixture);
         let semantic = build_semantic_screenplay(normalized.clone());
-    let run = run_window_diagnostics(&fixture, &semantic, geometry_for_screenplay(screenplay_id));
+        let run =
+            run_window_diagnostics(&fixture, &semantic, geometry_for_screenplay(screenplay_id));
         let previews = preview_map(&normalized);
         let report = enrich_report_previews(run.report.clone(), &previews);
         let debug_fixture = paginated_to_debug_fixture(
@@ -757,12 +790,24 @@ fn write_window_review_packet(
         .unwrap();
         fs::write(
             debug_dir.join(format!("{stem}.pseudo-pdf.txt")),
-            render_pseudo_pdf_output(&run.actual, &normalized, run.lines_per_page, &run.geometry, &page_mappings),
+            render_pseudo_pdf_output(
+                &run.actual,
+                &normalized,
+                run.lines_per_page,
+                &run.geometry,
+                &page_mappings,
+            ),
         )
         .unwrap();
         let page_numbers: Vec<u32> = fixture.pages.iter().map(|page| page.number).collect();
         let page_endings = build_page_endings_report(
-            screenplay_id, &run.actual, &normalized, run.lines_per_page, &run.geometry, Some(&page_numbers), &page_mappings,
+            screenplay_id,
+            &run.actual,
+            &normalized,
+            run.lines_per_page,
+            &run.geometry,
+            Some(&page_numbers),
+            &page_mappings,
         );
         fs::write(
             debug_dir.join(format!("{stem}.page-endings.json")),
@@ -781,8 +826,12 @@ fn write_window_review_packet(
             total_issues: run.report.total_issues(),
             wrong_page: run.report.issue_count(ComparisonIssueKind::WrongPage),
             wrong_fragment: run.report.issue_count(ComparisonIssueKind::WrongFragment),
-            missing: run.report.issue_count(ComparisonIssueKind::MissingOccurrence),
-            unexpected: run.report.issue_count(ComparisonIssueKind::UnexpectedOccurrence),
+            missing: run
+                .report
+                .issue_count(ComparisonIssueKind::MissingOccurrence),
+            unexpected: run
+                .report
+                .issue_count(ComparisonIssueKind::UnexpectedOccurrence),
         });
     }
 
@@ -877,9 +926,11 @@ pub fn write_visual_comparison_data(debug_dir: &Path) {
                     _ => full_text.clone(),
                 };
                 let element_type = ElementType::from_item_kind(&item.kind, item.dual_dialogue_side);
-                let config = crate::pagination::wrapping::WrapConfig::from_geometry(&run.geometry, element_type);
-                let wrapped_lines =
-                    wrapped_visual_lines(element_type, &wrap_text, &config);
+                let config = crate::pagination::wrapping::WrapConfig::from_geometry(
+                    &run.geometry,
+                    element_type,
+                );
+                let wrapped_lines = wrapped_visual_lines(element_type, &wrap_text, &config);
                 let width_chars = config.exact_width_chars;
 
                 let (content_lines, spacing_before) = measure_visual_item(
@@ -941,12 +992,32 @@ pub fn write_visual_comparison_data(debug_dir: &Path) {
         let measurement_summary = VisualMeasurementSummary {
             flow_geometries: vec![
                 debug_flow_geometry("Action", "Action", FlowKind::Action, &run.geometry),
-                debug_flow_geometry("Scene Heading", "Scene Heading", FlowKind::SceneHeading, &run.geometry),
-                debug_flow_geometry("Transition", "Transition", FlowKind::Transition, &run.geometry),
+                debug_flow_geometry(
+                    "Scene Heading",
+                    "Scene Heading",
+                    FlowKind::SceneHeading,
+                    &run.geometry,
+                ),
+                debug_flow_geometry(
+                    "Transition",
+                    "Transition",
+                    FlowKind::Transition,
+                    &run.geometry,
+                ),
             ],
             dialogue_geometries: vec![
-                debug_dialogue_geometry("Character", "Character", DialoguePartKind::Character, &run.geometry),
-                debug_dialogue_geometry("Dialogue", "Dialogue", DialoguePartKind::Dialogue, &run.geometry),
+                debug_dialogue_geometry(
+                    "Character",
+                    "Character",
+                    DialoguePartKind::Character,
+                    &run.geometry,
+                ),
+                debug_dialogue_geometry(
+                    "Dialogue",
+                    "Dialogue",
+                    DialoguePartKind::Dialogue,
+                    &run.geometry,
+                ),
                 debug_dialogue_geometry(
                     "Parenthetical",
                     "Parenthetical",
@@ -1178,12 +1249,27 @@ fn paginated_to_debug_fixture(
         measurement: DebugMeasurement {
             flow_geometries: vec![
                 debug_flow_geometry("Action", "Action", FlowKind::Action, geometry),
-                debug_flow_geometry("Scene Heading", "Scene Heading", FlowKind::SceneHeading, geometry),
+                debug_flow_geometry(
+                    "Scene Heading",
+                    "Scene Heading",
+                    FlowKind::SceneHeading,
+                    geometry,
+                ),
                 debug_flow_geometry("Transition", "Transition", FlowKind::Transition, geometry),
             ],
             dialogue_geometries: vec![
-                debug_dialogue_geometry("Dialogue", "Dialogue", DialoguePartKind::Dialogue, geometry),
-                debug_dialogue_geometry("Character", "Character", DialoguePartKind::Character, geometry),
+                debug_dialogue_geometry(
+                    "Dialogue",
+                    "Dialogue",
+                    DialoguePartKind::Dialogue,
+                    geometry,
+                ),
+                debug_dialogue_geometry(
+                    "Character",
+                    "Character",
+                    DialoguePartKind::Character,
+                    geometry,
+                ),
                 debug_dialogue_geometry(
                     "Parenthetical",
                     "Parenthetical",
@@ -1216,7 +1302,12 @@ fn paginated_to_debug_fixture(
     }
 }
 
-fn debug_flow_geometry(kind: &str, source_style: &str, flow_kind: FlowKind, geometry: &LayoutGeometry) -> DebugGeometry {
+fn debug_flow_geometry(
+    kind: &str,
+    source_style: &str,
+    flow_kind: FlowKind,
+    geometry: &LayoutGeometry,
+) -> DebugGeometry {
     let (left_indent_in, right_indent_in) = match flow_kind {
         FlowKind::SceneHeading => (geometry.action_left, geometry.action_right),
         FlowKind::ColdOpening => (geometry.cold_opening_left, geometry.cold_opening_right),
@@ -1246,7 +1337,9 @@ fn debug_dialogue_geometry(
 ) -> DebugGeometry {
     let (left_indent_in, right_indent_in) = match part_kind {
         DialoguePartKind::Character => (geometry.character_left, geometry.character_right),
-        DialoguePartKind::Parenthetical => (geometry.parenthetical_left, geometry.parenthetical_right),
+        DialoguePartKind::Parenthetical => {
+            (geometry.parenthetical_left, geometry.parenthetical_right)
+        }
         DialoguePartKind::Lyric => (geometry.lyric_left, geometry.lyric_right),
         DialoguePartKind::Dialogue => (geometry.dialogue_left, geometry.dialogue_right),
     };
@@ -1314,7 +1407,12 @@ fn paged_layout_page_totals(
                 .iter()
                 .any(|block| !matches!(block.unit, SemanticUnit::PageStart(_)))
         })
-        .map(|page| page.blocks.iter().map(|block| block.spacing_above + block.content_lines).sum())
+        .map(|page| {
+            page.blocks
+                .iter()
+                .map(|block| block.spacing_above + block.content_lines)
+                .sum()
+        })
         .collect()
 }
 
@@ -1337,8 +1435,7 @@ fn render_pseudo_pdf_output(
 
     let mut out = String::new();
     for (page, layout_page) in actual.pages.iter().zip(layout_pages) {
-        let display_page_number =
-            diagnostic_page_label(page.metadata.number, page_mappings);
+        let display_page_number = diagnostic_page_label(page.metadata.number, page_mappings);
         out.push_str(&format!("=== PAGE {} START ===\n", display_page_number));
         let mut line_no: u32 = 1;
 
@@ -1468,7 +1565,8 @@ fn rendered_actual_page_lines(
 }
 
 fn last_meaningful_line(lines: &[String]) -> Option<String> {
-    lines.iter()
+    lines
+        .iter()
         .rev()
         .map(|line| line.trim())
         .find(|line| !line.is_empty() && !is_footer_page_number_line(line))
@@ -1686,7 +1784,9 @@ fn fd_probe_block_matches(
                     .join("\n")
                     .contains(&target.contains_text)
         }
-        (ProbeTargetKind::Flow, SemanticUnit::Flow(flow)) => flow.text.contains(&target.contains_text),
+        (ProbeTargetKind::Flow, SemanticUnit::Flow(flow)) => {
+            flow.text.contains(&target.contains_text)
+        }
         _ => false,
     }
 }
@@ -1815,21 +1915,17 @@ fn render_dialogue_fragment_lines(
             lines.push(render_more_marker_line(geometry));
             lines
         }
-        Fragment::ContinuedFromPrev => {
-            continuation_prefix
-                .into_iter()
-                .map(|text| DiagnosticRenderedLine {
-                    text,
-                    counted: false,
-                })
-                .chain(
-                    counted_rendered_lines(
-                        take_rendered_lines_from_bottom_by_height(&all_lines, content_lines, geometry),
-                        geometry,
-                    ),
-                )
-                .collect()
-        }
+        Fragment::ContinuedFromPrev => continuation_prefix
+            .into_iter()
+            .map(|text| DiagnosticRenderedLine {
+                text,
+                counted: false,
+            })
+            .chain(counted_rendered_lines(
+                take_rendered_lines_from_bottom_by_height(&all_lines, content_lines, geometry),
+                geometry,
+            ))
+            .collect(),
         Fragment::ContinuedFromPrevAndToNext => {
             let mut lines = continuation_prefix
                 .into_iter()
@@ -1837,12 +1933,10 @@ fn render_dialogue_fragment_lines(
                     text,
                     counted: false,
                 })
-                .chain(
-                    counted_rendered_lines(
-                        take_rendered_lines_from_top_by_height(&all_lines, content_lines, geometry),
-                        geometry,
-                    ),
-                )
+                .chain(counted_rendered_lines(
+                    take_rendered_lines_from_top_by_height(&all_lines, content_lines, geometry),
+                    geometry,
+                ))
                 .collect::<Vec<_>>();
             lines.push(render_more_marker_line(geometry));
             lines
@@ -1889,7 +1983,10 @@ fn render_more_marker_line(geometry: &LayoutGeometry) -> DiagnosticRenderedLine 
     }
 }
 
-fn render_semantic_unit_lines(unit: &SemanticUnit, geometry: &LayoutGeometry) -> Vec<RenderedElementLine> {
+fn render_semantic_unit_lines(
+    unit: &SemanticUnit,
+    geometry: &LayoutGeometry,
+) -> Vec<RenderedElementLine> {
     match unit {
         SemanticUnit::PageStart(_) => Vec::new(),
         SemanticUnit::Flow(flow) => {
@@ -1899,13 +1996,15 @@ fn render_semantic_unit_lines(unit: &SemanticUnit, geometry: &LayoutGeometry) ->
                 .map(|text| RenderedElementLine { text, element_type })
                 .collect()
         }
-        SemanticUnit::Lyric(lyric) => render_indented_lines(&lyric.text, ElementType::Lyric, geometry)
-            .into_iter()
-            .map(|text| RenderedElementLine {
-                text,
-                element_type: ElementType::Lyric,
-            })
-            .collect(),
+        SemanticUnit::Lyric(lyric) => {
+            render_indented_lines(&lyric.text, ElementType::Lyric, geometry)
+                .into_iter()
+                .map(|text| RenderedElementLine {
+                    text,
+                    element_type: ElementType::Lyric,
+                })
+                .collect()
+        }
         SemanticUnit::Dialogue(dialogue) => dialogue
             .parts
             .iter()
@@ -1921,28 +2020,17 @@ fn render_semantic_unit_lines(unit: &SemanticUnit, geometry: &LayoutGeometry) ->
                 .sides
                 .iter()
                 .find(|side| side.side == 1)
-                .map(|side| {
-                    render_dual_dialogue_side_lines(
-                        &side.dialogue,
-                        ElementType::DualDialogueLeft,
-                        geometry,
-                    )
-                })
+                .map(|side| render_dual_dialogue_side_lines(&side.dialogue, side.side, geometry))
                 .unwrap_or_default();
             let right_lines = dual
                 .sides
                 .iter()
                 .find(|side| side.side == 2)
-                .map(|side| {
-                    render_dual_dialogue_side_lines(
-                        &side.dialogue,
-                        ElementType::DualDialogueRight,
-                        geometry,
-                    )
-                })
+                .map(|side| render_dual_dialogue_side_lines(&side.dialogue, side.side, geometry))
                 .unwrap_or_default();
 
-            let right_indent = indent_spaces_for_element_type(ElementType::DualDialogueRight, geometry);
+            let right_indent =
+                indent_spaces_for_element_type(ElementType::DualDialogueRight, geometry);
             let mut lines = Vec::new();
             for index in 0..left_lines.len().max(right_lines.len()) {
                 let left = left_lines.get(index).cloned().unwrap_or_default();
@@ -1972,18 +2060,26 @@ fn render_semantic_unit_lines(unit: &SemanticUnit, geometry: &LayoutGeometry) ->
 
 fn render_dual_dialogue_side_lines(
     dialogue: &crate::pagination::DialogueUnit,
-    element_type: ElementType,
+    side: u8,
     geometry: &LayoutGeometry,
 ) -> Vec<String> {
-    let config = crate::pagination::wrapping::WrapConfig::from_geometry(geometry, element_type);
     dialogue
         .parts
         .iter()
-        .flat_map(|part| crate::pagination::wrapping::wrap_text_for_element(&part.text, &config))
+        .flat_map(|part| {
+            let element_type = ElementType::from_dual_dialogue_part_kind(&part.kind, side);
+            let config =
+                crate::pagination::wrapping::WrapConfig::from_geometry(geometry, element_type);
+            crate::pagination::wrapping::wrap_text_for_element(&part.text, &config)
+        })
         .collect()
 }
 
-fn render_indented_lines(text: &str, element_type: ElementType, geometry: &LayoutGeometry) -> Vec<String> {
+fn render_indented_lines(
+    text: &str,
+    element_type: ElementType,
+    geometry: &LayoutGeometry,
+) -> Vec<String> {
     let config = crate::pagination::wrapping::WrapConfig::from_geometry(geometry, element_type);
     let indent = " ".repeat(indent_spaces_for_element_type(element_type, geometry));
     wrapped_visual_lines(element_type, text, &config)
@@ -2074,6 +2170,14 @@ fn indent_spaces_for_element_type(element_type: ElementType, geometry: &LayoutGe
         ElementType::Lyric => geometry.lyric_left,
         ElementType::DualDialogueLeft => geometry.dual_dialogue_left_left,
         ElementType::DualDialogueRight => geometry.dual_dialogue_right_left,
+        ElementType::DualDialogueCharacterLeft => geometry.dual_dialogue_left_character_left,
+        ElementType::DualDialogueCharacterRight => geometry.dual_dialogue_right_character_left,
+        ElementType::DualDialogueParentheticalLeft => {
+            geometry.dual_dialogue_left_parenthetical_left
+        }
+        ElementType::DualDialogueParentheticalRight => {
+            geometry.dual_dialogue_right_parenthetical_left
+        }
     };
 
     ((left_indent_in - geometry.action_left) * geometry.cpi).floor() as usize
@@ -2111,7 +2215,10 @@ mod tests {
             ],
             &geometry,
         );
-        let texts = rendered.into_iter().map(|line| line.text).collect::<Vec<_>>();
+        let texts = rendered
+            .into_iter()
+            .map(|line| line.text)
+            .collect::<Vec<_>>();
 
         assert_eq!(texts, vec!["", "Hello", "", "World"]);
     }
@@ -2135,7 +2242,10 @@ mod tests {
             ],
             &geometry,
         );
-        let texts = rendered.into_iter().map(|line| line.text).collect::<Vec<_>>();
+        let texts = rendered
+            .into_iter()
+            .map(|line| line.text)
+            .collect::<Vec<_>>();
 
         assert_eq!(texts, vec!["Action", "", "Dialogue"]);
     }
@@ -2167,12 +2277,11 @@ mod tests {
 
     #[test]
     fn read_page_mappings_falls_back_to_canonical_window_mapping() {
-        let mappings = read_page_mappings("tests/fixtures/pagination/big-fish.split-page-breaks.json");
+        let mappings =
+            read_page_mappings("tests/fixtures/pagination/big-fish.split-page-breaks.json");
 
         assert_eq!(mappings.get("19").map(String::as_str), Some("18"));
     }
-
-
 }
 
 fn normalized_element_map(normalized: &NormalizedScreenplay) -> HashMap<String, NormalizedElement> {
@@ -2198,7 +2307,10 @@ fn canonical_pdf_line_count_debug(
     let mut items = Vec::new();
 
     for page in &fixture.pages {
-        let page_lines = pdf_pages.get(&page.number).map(Vec::as_slice).unwrap_or(&[]);
+        let page_lines = pdf_pages
+            .get(&page.number)
+            .map(Vec::as_slice)
+            .unwrap_or(&[]);
         for item in &page.items {
             let result = canonical_pdf_match_for_item(
                 page.number,
@@ -2269,7 +2381,11 @@ fn canonical_pdf_match_for_item(
     let normalized_text = normalize_pdf_match_text(&candidate_text);
     let matches = exact_pdf_line_matches(page_lines, &normalized_text);
     let (match_kind, pdf_line_count, line_span) = match matches.as_slice() {
-        [(start, end)] => ("exact_unique".into(), Some(end - start + 1), Some((*start, *end))),
+        [(start, end)] => (
+            "exact_unique".into(),
+            Some(end - start + 1),
+            Some((*start, *end)),
+        ),
         [] => ("unmatched".into(), None, None),
         _ => ("exact_ambiguous".into(), None, None),
     };
@@ -2354,7 +2470,8 @@ fn public_pdf_pages(screenplay_id: &str) -> HashMap<u32, Vec<String>> {
     let path = Path::new("tests/fixtures/corpus/public")
         .join(screenplay_id)
         .join("extracted/pdf-pages.json");
-    let pdf_pages: PublicPdfPages = serde_json::from_str(&fs::read_to_string(path).unwrap()).unwrap();
+    let pdf_pages: PublicPdfPages =
+        serde_json::from_str(&fs::read_to_string(path).unwrap()).unwrap();
     pdf_pages
         .pages
         .into_iter()
@@ -2363,8 +2480,10 @@ fn public_pdf_pages(screenplay_id: &str) -> HashMap<u32, Vec<String>> {
 }
 
 fn render_big_fish_review_packet(summaries: &[ReviewSummary]) -> String {
-    let focus_windows: Vec<&ReviewSummary> =
-        summaries.iter().filter(|summary| summary.total_issues > 0).collect();
+    let focus_windows: Vec<&ReviewSummary> = summaries
+        .iter()
+        .filter(|summary| summary.total_issues > 0)
+        .collect();
     let ordered_windows: Vec<&ReviewSummary> = focus_windows
         .iter()
         .copied()
@@ -2434,8 +2553,10 @@ Current window summary:\n\n",
 }
 
 fn render_little_women_review_packet(summaries: &[ReviewSummary]) -> String {
-    let focus_windows: Vec<&ReviewSummary> =
-        summaries.iter().filter(|summary| summary.total_issues > 0).collect();
+    let focus_windows: Vec<&ReviewSummary> = summaries
+        .iter()
+        .filter(|summary| summary.total_issues > 0)
+        .collect();
     let ordered_windows: Vec<&ReviewSummary> = focus_windows
         .iter()
         .copied()
@@ -2752,7 +2873,12 @@ Probe folders:\n\n",
 }
 
 fn text_preview(text: &str) -> String {
-    text.split_whitespace().collect::<Vec<_>>().join(" ").chars().take(80).collect()
+    text.split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .chars()
+        .take(80)
+        .collect()
 }
 
 fn slice_explicit_lines(text: &str, start: u32, end: u32) -> String {
@@ -2910,10 +3036,7 @@ struct PaginatedWindowRun {
     report: crate::pagination::ComparisonReport,
 }
 
-fn diagnostic_page_label(
-    page_number: u32,
-    page_mappings: &PageLabelMap,
-) -> String {
+fn diagnostic_page_label(page_number: u32, page_mappings: &PageLabelMap) -> String {
     page_mappings
         .get(&page_number.to_string())
         .cloned()

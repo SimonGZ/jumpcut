@@ -1,10 +1,10 @@
 use crate::pagination::dialogue_split::DialogueSplitPlan;
+use crate::pagination::fixtures::Fragment;
 use crate::pagination::flow_split::FlowSplitPlan;
 use crate::pagination::margin::line_height_for_element_type;
 use crate::pagination::semantic::{DialoguePartKind, FlowKind, SemanticUnit};
-use crate::pagination::wrapping::{wrap_text_for_element, WrapConfig, ElementType};
+use crate::pagination::wrapping::{wrap_text_for_element, ElementType, WrapConfig};
 use crate::pagination::LayoutGeometry;
-use crate::pagination::fixtures::Fragment;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct LayoutBlock<'a> {
@@ -24,7 +24,7 @@ pub fn compose<'a>(units: &'a [SemanticUnit], geometry: &LayoutGeometry) -> Vec<
 
     for (_i, unit) in units.iter().enumerate() {
         let (content_lines, spacing_above) = match unit {
-// ... (the match block stays as is)
+            // ... (the match block stays as is)
             SemanticUnit::Flow(flow) => {
                 let el_type = match flow.kind {
                     FlowKind::Action => ElementType::Action,
@@ -36,10 +36,10 @@ pub fn compose<'a>(units: &'a [SemanticUnit], geometry: &LayoutGeometry) -> Vec<
                     // Temporary defaults for unhandled FlowKinds
                     _ => ElementType::Action,
                 };
-                
+
                 let config = WrapConfig::from_geometry(geometry, el_type);
                 let lines = wrapped_flow_lines(flow, &config);
-                
+
                 let sp_above = match flow.kind {
                     FlowKind::SceneHeading => geometry.scene_heading_spacing_before,
                     FlowKind::ColdOpening => geometry.cold_opening_spacing_before,
@@ -49,12 +49,12 @@ pub fn compose<'a>(units: &'a [SemanticUnit], geometry: &LayoutGeometry) -> Vec<
                     FlowKind::Transition => geometry.transition_spacing_before,
                     _ => 1.0,
                 };
-                
+
                 (
                     measured_height_for_wrapped_lines(lines.len(), el_type, geometry),
                     sp_above,
                 )
-            },
+            }
             SemanticUnit::Dialogue(dialogue) => {
                 let lines = measure_dialogue_height(dialogue.parts.iter(), geometry, |part| {
                     match part.kind {
@@ -65,22 +65,20 @@ pub fn compose<'a>(units: &'a [SemanticUnit], geometry: &LayoutGeometry) -> Vec<
                     }
                 });
                 (lines, geometry.character_spacing_before)
-            },
+            }
             SemanticUnit::DualDialogue(dual) => {
                 let mut max_lines = 0.0;
                 for side in &dual.sides {
-                    let side_element_type = match side.side {
-                        1 => ElementType::DualDialogueLeft,
-                        _ => ElementType::DualDialogueRight,
-                    };
                     let side_lines =
-                        measure_dialogue_height(side.dialogue.parts.iter(), geometry, |_| {
-                            side_element_type
+                        measure_dialogue_height(side.dialogue.parts.iter(), geometry, |part| {
+                            ElementType::from_dual_dialogue_part_kind(&part.kind, side.side)
                         });
-                    if side_lines > max_lines { max_lines = side_lines; }
+                    if side_lines > max_lines {
+                        max_lines = side_lines;
+                    }
                 }
                 (max_lines, geometry.character_spacing_before)
-            },
+            }
             SemanticUnit::Lyric(lyric) => {
                 let config = WrapConfig::from_geometry(geometry, ElementType::Lyric);
                 let lines = wrap_text_for_element(&lyric.text, &config).len();
@@ -88,7 +86,7 @@ pub fn compose<'a>(units: &'a [SemanticUnit], geometry: &LayoutGeometry) -> Vec<
                     measured_height_for_wrapped_lines(lines, ElementType::Lyric, geometry),
                     geometry.lyric_spacing_before,
                 )
-            },
+            }
             SemanticUnit::PageStart(_) => (0.0, 0.0),
         };
 

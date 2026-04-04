@@ -1,5 +1,7 @@
 use super::shared::{escape_html, join_metadata, sorted_style_names};
 use crate::html_output::HtmlRenderOptions;
+use crate::pagination::margin::dual_dialogue_character_left_indent;
+use crate::pagination::wrapping::ElementType;
 use crate::pagination::{ScreenplayLayoutProfile, StyleProfile};
 use crate::title_page::{TitlePage, TitlePageBlockKind};
 use crate::visual_lines::{
@@ -17,8 +19,7 @@ const COURIER_PRIME_REGULAR_TTF: &[u8] =
 const COURIER_PRIME_ITALIC_TTF: &[u8] =
     include_bytes!("../templates/fonts/CourierPrime-Italic.ttf");
 #[cfg(not(target_arch = "wasm32"))]
-const COURIER_PRIME_BOLD_TTF: &[u8] =
-    include_bytes!("../templates/fonts/CourierPrime-Bold.ttf");
+const COURIER_PRIME_BOLD_TTF: &[u8] = include_bytes!("../templates/fonts/CourierPrime-Bold.ttf");
 #[cfg(not(target_arch = "wasm32"))]
 const COURIER_PRIME_BOLD_ITALIC_TTF: &[u8] =
     include_bytes!("../templates/fonts/CourierPrime-BoldItalic.ttf");
@@ -62,7 +63,10 @@ pub(crate) fn render_document(screenplay: &Screenplay, options: HtmlRenderOption
     out
 }
 
-fn root_class_name(layout_profile: &ScreenplayLayoutProfile, options: &HtmlRenderOptions) -> String {
+fn root_class_name(
+    layout_profile: &ScreenplayLayoutProfile,
+    options: &HtmlRenderOptions,
+) -> String {
     let mut classes = match layout_profile.style_profile {
         StyleProfile::Screenplay => vec!["screenplay"],
         StyleProfile::Multicam => vec!["screenplay", "multicam"],
@@ -196,14 +200,79 @@ fn render_visual_line(
     if line.centered {
         classes.push("centeredLine");
     }
+    if line.dual.is_some() {
+        classes.push("dualDialogueLine");
+    }
 
-    write!(out, "                    <div class=\"{}\">", classes.join(" ")).unwrap();
+    write!(
+        out,
+        "                    <div class=\"{}\">",
+        classes.join(" ")
+    )
+    .unwrap();
     if line.text.is_empty() {
         out.push_str("&nbsp;");
+    } else if let Some(dual) = &line.dual {
+        render_visual_dual_line(out, dual, layout_profile);
     } else {
         render_visual_fragments(out, &line.fragments);
     }
     out.push_str("</div>\n");
+}
+
+fn render_visual_dual_line(
+    out: &mut String,
+    dual: &crate::visual_lines::VisualDualLine,
+    layout_profile: &ScreenplayLayoutProfile,
+) {
+    if let Some(left) = &dual.left {
+        render_visual_dual_side(out, left, layout_profile);
+    }
+    if let Some(right) = &dual.right {
+        render_visual_dual_side(out, right, layout_profile);
+    }
+}
+
+fn render_visual_dual_side(
+    out: &mut String,
+    side: &crate::visual_lines::VisualDualSide,
+    layout_profile: &ScreenplayLayoutProfile,
+) {
+    let class_name = visual_line_class_name(side.element_type);
+    write!(
+        out,
+        "<span class=\"dualSegment {}\" style=\"left: {};\">",
+        class_name,
+        dual_side_left_offset_css(side, layout_profile),
+    )
+    .unwrap();
+    render_visual_fragments(out, &side.fragments);
+    out.push_str("</span>");
+}
+
+fn dual_side_left_offset_css(
+    side: &crate::visual_lines::VisualDualSide,
+    layout_profile: &ScreenplayLayoutProfile,
+) -> String {
+    let geometry = layout_profile.to_pagination_geometry();
+    let left = match side.element_type {
+        ElementType::DualDialogueLeft => geometry.dual_dialogue_left_left,
+        ElementType::DualDialogueRight => geometry.dual_dialogue_right_left,
+        ElementType::DualDialogueCharacterLeft => {
+            dual_dialogue_character_left_indent(&side.text, 1)
+        }
+        ElementType::DualDialogueCharacterRight => {
+            dual_dialogue_character_left_indent(&side.text, 2)
+        }
+        ElementType::DualDialogueParentheticalLeft => {
+            geometry.dual_dialogue_left_parenthetical_left
+        }
+        ElementType::DualDialogueParentheticalRight => {
+            geometry.dual_dialogue_right_parenthetical_left
+        }
+        _ => geometry.action_left,
+    };
+    format!("{}in", left - geometry.action_left)
 }
 
 fn render_visual_fragments(out: &mut String, fragments: &[crate::visual_lines::VisualFragment]) {
@@ -223,11 +292,7 @@ fn render_visual_fragments(out: &mut String, fragments: &[crate::visual_lines::V
     }
 }
 
-fn render_paragraph(
-    out: &mut String,
-    element: &Element,
-    layout_profile: &ScreenplayLayoutProfile,
-) {
+fn render_paragraph(out: &mut String, element: &Element, layout_profile: &ScreenplayLayoutProfile) {
     let (type_name, text, attributes) = match element {
         Element::Action(text, attributes)
         | Element::Character(text, attributes)
@@ -331,7 +396,12 @@ fn bundled_embedded_courier_prime_font_faces() -> Option<String> {
             embedded_font_face("Courier Prime", 400, "normal", COURIER_PRIME_REGULAR_TTF),
             embedded_font_face("Courier Prime", 400, "italic", COURIER_PRIME_ITALIC_TTF),
             embedded_font_face("Courier Prime", 700, "normal", COURIER_PRIME_BOLD_TTF),
-            embedded_font_face("Courier Prime", 700, "italic", COURIER_PRIME_BOLD_ITALIC_TTF),
+            embedded_font_face(
+                "Courier Prime",
+                700,
+                "italic",
+                COURIER_PRIME_BOLD_ITALIC_TTF,
+            ),
         ]
         .join("\n"),
     )
@@ -343,7 +413,12 @@ fn bundled_embedded_courier_prime_font_faces() -> Option<String> {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-fn embedded_font_face(font_family: &str, font_weight: u16, font_style: &str, bytes: &[u8]) -> String {
+fn embedded_font_face(
+    font_family: &str,
+    font_weight: u16,
+    font_style: &str,
+    bytes: &[u8],
+) -> String {
     use base64::{engine::general_purpose::STANDARD, Engine as _};
 
     format!(
@@ -555,7 +630,9 @@ mod tests {
 
         let output = render_document(&screenplay, html_options(false, true, false));
 
-        assert!(output.contains("<span class=\"bold\">BOLD</span> plain<span class=\"italic\"> ITALIC</span>"));
+        assert!(output.contains(
+            "<span class=\"bold\">BOLD</span> plain<span class=\"italic\"> ITALIC</span>"
+        ));
     }
 
     #[test]
@@ -669,7 +746,10 @@ mod tests {
         metadata.insert("credit".into(), vec!["Written by".into()]);
         metadata.insert(
             "author".into(),
-            vec![ElementText::Styled(vec![tr("Stu Maschwitz", vec!["Italic"])])],
+            vec![ElementText::Styled(vec![tr(
+                "Stu Maschwitz",
+                vec!["Italic"],
+            )])],
         );
         metadata.insert("source".into(), vec!["Based on a true story".into()]);
         metadata.insert("contact".into(), vec!["CAA".into(), "Los Angeles".into()]);
@@ -825,5 +905,41 @@ mod tests {
         assert!(output.contains("<span class=\"italic\">Left side.</span>"));
         assert!(output.contains("<span class=\"underline\">STEEL</span>"));
         assert!(output.contains("<span class=\"bold\">Right side.</span>"));
+    }
+
+    #[test]
+    fn paginated_html_uses_distinct_dual_offsets_for_character_dialogue_and_parenthetical() {
+        let screenplay = Screenplay {
+            metadata: Metadata::new(),
+            elements: vec![Element::DualDialogueBlock(vec![
+                Element::DialogueBlock(vec![
+                    Element::Character(p("BRICK"), blank_attributes()),
+                    Element::Parenthetical(p("(quietly)"), blank_attributes()),
+                    Element::Dialogue(p("Left side."), blank_attributes()),
+                ]),
+                Element::DialogueBlock(vec![
+                    Element::Character(p("STEEL"), blank_attributes()),
+                    Element::Parenthetical(p("(loudly)"), blank_attributes()),
+                    Element::Dialogue(p("Right side."), blank_attributes()),
+                ]),
+            ])],
+        };
+
+        let output = render_document(&screenplay, html_options(false, false, true));
+
+        assert!(output.contains("visualLine dialogue dualDialogueLine"));
+        assert!(output
+            .contains("class=\"dualSegment dualDialogueCharacterLeft\" style=\"left: 1.1875in;\""));
+        assert!(output.contains(
+            "class=\"dualSegment dualDialogueParentheticalLeft\" style=\"left: 0.25in;\""
+        ));
+        assert!(output.contains("class=\"dualSegment dualDialogueLeft\" style=\"left: 0in;\""));
+        assert!(output.contains(
+            "class=\"dualSegment dualDialogueCharacterRight\" style=\"left: 4.3125in;\""
+        ));
+        assert!(output.contains(
+            "class=\"dualSegment dualDialogueParentheticalRight\" style=\"left: 3.375in;\""
+        ));
+        assert!(output.contains("class=\"dualSegment dualDialogueRight\" style=\"left: 3.125in;\""));
     }
 }

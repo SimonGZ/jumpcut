@@ -1,7 +1,7 @@
 use jumpcut::pagination::{
     compare_paginated_to_fixture, normalize_screenplay, BlockPlacement, ComparisonIssueKind,
-    ContinuationMarker, NormalizedElement,
-    NormalizedScreenplay, PageBreakFixture, PageKind, PaginatedScreenplay, PaginationScope,
+    ContinuationMarker, NormalizedElement, NormalizedScreenplay, PageBreakFixture, PageKind,
+    PaginatedScreenplay, PaginationScope,
 };
 use jumpcut::parse;
 use pretty_assertions::assert_eq;
@@ -85,8 +85,9 @@ fn paginated_ir_from_normalized_matches_brick_n_steel_fixture_slice() {
 fn paginated_ir_from_screenplay_matches_brick_n_steel_full_fixture() {
     let fixture: PageBreakFixture =
         read_fixture("tests/fixtures/corpus/public/brick-n-steel/canonical/page-breaks.json");
-    let fountain = fs::read_to_string("tests/fixtures/corpus/public/brick-n-steel/source/source.fountain")
-        .unwrap();
+    let fountain =
+        fs::read_to_string("tests/fixtures/corpus/public/brick-n-steel/source/source.fountain")
+            .unwrap();
     let screenplay = parse(&fountain);
 
     let actual = PaginatedScreenplay::from_screenplay(

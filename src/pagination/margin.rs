@@ -1,6 +1,12 @@
-use std::collections::BTreeMap;
-use serde::Deserialize;
 use crate::pagination::wrapping::ElementType;
+use serde::Deserialize;
+use std::collections::BTreeMap;
+
+const DUAL_DIALOGUE_CHARACTER_BASE_LEFT: f32 = 2.875;
+const DUAL_DIALOGUE_CHARACTER_RIGHT_OFFSET: f32 = 3.125;
+const DUAL_DIALOGUE_CHARACTER_SHIFT_PER_CHAR: f32 = 3.0 / 64.0;
+const SIXTEENTH_INCH: f32 = 1.0 / 16.0;
+const DUAL_DIALOGUE_CHARACTER_MAX_WIDTH_CHARS: usize = 29;
 
 #[derive(Clone, Debug, Deserialize, PartialEq)]
 pub struct FdxExtractedSettings {
@@ -39,6 +45,14 @@ pub struct LayoutGeometry {
     pub dual_dialogue_left_right: f32,
     pub dual_dialogue_right_left: f32,
     pub dual_dialogue_right_right: f32,
+    pub dual_dialogue_left_character_left: f32,
+    pub dual_dialogue_left_character_right: f32,
+    pub dual_dialogue_left_parenthetical_left: f32,
+    pub dual_dialogue_left_parenthetical_right: f32,
+    pub dual_dialogue_right_character_left: f32,
+    pub dual_dialogue_right_character_right: f32,
+    pub dual_dialogue_right_parenthetical_left: f32,
+    pub dual_dialogue_right_parenthetical_right: f32,
     pub character_left: f32,
     pub character_right: f32,
     pub dialogue_left: f32,
@@ -105,6 +119,14 @@ impl Default for LayoutGeometry {
             dual_dialogue_left_right: 4.375,
             dual_dialogue_right_left: 4.625,
             dual_dialogue_right_right: 7.5,
+            dual_dialogue_left_character_left: 2.5,
+            dual_dialogue_left_character_right: 4.875,
+            dual_dialogue_left_parenthetical_left: 1.75,
+            dual_dialogue_left_parenthetical_right: 4.125,
+            dual_dialogue_right_character_left: 5.875,
+            dual_dialogue_right_character_right: 7.5,
+            dual_dialogue_right_parenthetical_left: 4.875,
+            dual_dialogue_right_parenthetical_right: 7.25,
             character_left: 3.5,
             character_right: 7.25,
             dialogue_left: 2.5,
@@ -170,7 +192,8 @@ impl LayoutGeometry {
         if let Some(style) = settings.paragraph_styles.get("Cold Opening") {
             geometry.cold_opening_left = style.left_indent;
             geometry.cold_opening_right = style.right_indent;
-            geometry.cold_opening_spacing_before = spacing_lines_from_points(style.space_before, lpi);
+            geometry.cold_opening_spacing_before =
+                spacing_lines_from_points(style.space_before, lpi);
             geometry.cold_opening_alignment = style.alignment;
             geometry.cold_opening_line_height = style.spacing;
         }
@@ -189,7 +212,8 @@ impl LayoutGeometry {
             geometry.end_of_act_line_height = style.spacing;
         }
         if let Some(style) = settings.paragraph_styles.get("Scene Heading") {
-            geometry.scene_heading_spacing_before = spacing_lines_from_points(style.space_before, lpi);
+            geometry.scene_heading_spacing_before =
+                spacing_lines_from_points(style.space_before, lpi);
             geometry.scene_heading_alignment = style.alignment;
             geometry.scene_heading_line_height = style.spacing;
         }
@@ -237,9 +261,16 @@ fn spacing_lines_from_points(space_before_points: f32, lines_per_inch: f32) -> f
     space_before_points / points_per_line
 }
 
-/// Calculates the exact character capacity for an element given its physical 
+/// Calculates the exact character capacity for an element given its physical
 /// margin bounds (in inches) and the characters-per-inch (CPI) of the typeface.
 pub fn calculate_element_width(geometry: &LayoutGeometry, element_type: ElementType) -> usize {
+    if matches!(
+        element_type,
+        ElementType::DualDialogueCharacterLeft | ElementType::DualDialogueCharacterRight
+    ) {
+        return DUAL_DIALOGUE_CHARACTER_MAX_WIDTH_CHARS;
+    }
+
     let (left_indent, right_indent) = match element_type {
         ElementType::Action => (geometry.action_left, geometry.action_right),
         ElementType::ColdOpening => (geometry.cold_opening_left, geometry.cold_opening_right),
@@ -253,6 +284,22 @@ pub fn calculate_element_width(geometry: &LayoutGeometry, element_type: ElementT
         ElementType::DualDialogueRight => (
             geometry.dual_dialogue_right_left,
             geometry.dual_dialogue_right_right,
+        ),
+        ElementType::DualDialogueCharacterLeft => (
+            geometry.dual_dialogue_left_character_left,
+            geometry.dual_dialogue_left_character_right,
+        ),
+        ElementType::DualDialogueCharacterRight => (
+            geometry.dual_dialogue_right_character_left,
+            geometry.dual_dialogue_right_character_right,
+        ),
+        ElementType::DualDialogueParentheticalLeft => (
+            geometry.dual_dialogue_left_parenthetical_left,
+            geometry.dual_dialogue_left_parenthetical_right,
+        ),
+        ElementType::DualDialogueParentheticalRight => (
+            geometry.dual_dialogue_right_parenthetical_left,
+            geometry.dual_dialogue_right_parenthetical_right,
         ),
         ElementType::Character => (geometry.character_left, geometry.character_right),
         ElementType::Dialogue => (geometry.dialogue_left, geometry.dialogue_right),
@@ -273,11 +320,28 @@ pub fn calculate_element_width(geometry: &LayoutGeometry, element_type: ElementT
             | ElementType::NewAct
             | ElementType::EndOfAct
             | ElementType::Parenthetical
+            | ElementType::DualDialogueParentheticalLeft
+            | ElementType::DualDialogueParentheticalRight
     ) {
         chars += 1;
     }
-    
+
     chars
+}
+
+pub fn dual_dialogue_character_left_indent(text: &str, side: u8) -> f32 {
+    let visible_len = text
+        .chars()
+        .count()
+        .clamp(1, DUAL_DIALOGUE_CHARACTER_MAX_WIDTH_CHARS);
+    let raw_left = DUAL_DIALOGUE_CHARACTER_BASE_LEFT
+        - ((visible_len.saturating_sub(1) as f32) * DUAL_DIALOGUE_CHARACTER_SHIFT_PER_CHAR);
+    let rounded_left = (raw_left / SIXTEENTH_INCH).round() * SIXTEENTH_INCH;
+
+    match side {
+        1 => rounded_left,
+        _ => rounded_left + DUAL_DIALOGUE_CHARACTER_RIGHT_OFFSET,
+    }
 }
 
 pub fn line_height_for_element_type(geometry: &LayoutGeometry, element_type: ElementType) -> f32 {
@@ -292,7 +356,14 @@ pub fn line_height_for_element_type(geometry: &LayoutGeometry, element_type: Ele
         ElementType::Parenthetical => geometry.parenthetical_line_height,
         ElementType::Transition => geometry.transition_line_height,
         ElementType::Lyric => geometry.lyric_line_height,
-        ElementType::DualDialogueLeft | ElementType::DualDialogueRight => geometry.dialogue_line_height,
+        ElementType::DualDialogueLeft | ElementType::DualDialogueRight => {
+            geometry.dialogue_line_height
+        }
+        ElementType::DualDialogueCharacterLeft | ElementType::DualDialogueCharacterRight => {
+            geometry.character_line_height
+        }
+        ElementType::DualDialogueParentheticalLeft
+        | ElementType::DualDialogueParentheticalRight => geometry.parenthetical_line_height,
     }
 }
 

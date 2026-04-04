@@ -47,14 +47,29 @@ Each element type conforms to specific structural constraints defined relative t
 - **Dual Dialogue**
   - _Configured as two side-by-side columns._
   - **Left Column**
-    - Character Left Indent: 2.5 inches
-    - Character Right Indent: 4.875 inches
+    - Character cues do **not** use a fixed left indent. The best current human model is that Final Draft tries to keep them visually centered on a 3-inch anchor, then snaps the resulting left edge through its own quantization rules.
+    - The current measured model that reproduces those probe points is:
+      - base left indent of 2.875 inches for a 1-character cue
+      - subtract 3/64 inch per additional character
+      - round to the nearest 1/16 inch
+      - clamp wrapping width to 29 characters
+    - Example measured left indents:
+      - 1 character: 2.875 inches
+      - 2 characters: 2.8125 inches
+      - 4 characters: 2.75 inches
+      - 9 characters: 2.5 inches
+      - 26 characters: 1.6875 inches
+      - 29 characters: 1.5625 inches
+    - Parenthetical Left Indent: 1.75 inches
+    - Parenthetical Right Indent: 4.125 inches
     - Dialogue Left Indent: 1.5 inch
     - Dialogue Right Indent: 4.375 inches
     - Available Width: 2.875 inches (Should be 28 characters, but Final Draft allows 29, so we copy that)
   - **Right Column**
-    - Character Left Indent: 5.875 inches
-    - Character Right Indent: 7.5 inches
+    - Character cues appear to follow the same centering behavior around a 6-inch anchor.
+    - The current measured left-indent model is the left-column formula shifted 3.125 inches further right.
+    - Parenthetical Left Indent: 4.875 inches
+    - Parenthetical Right Indent: 7.25 inches
     - Dialogue Left Indent: 4.625 inches
     - Dialogue Right Indent: 7.5 inches
     - Available Width: 2.875 inches (Should be 28 characters, but Final Draft allows 29, so we copy that)

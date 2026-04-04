@@ -1,3 +1,4 @@
+use crate::pagination::ScreenplayLayoutProfile;
 use lazy_static::lazy_static;
 use regex::Regex;
 use serde::ser::{SerializeMap, Serializer};
@@ -8,11 +9,11 @@ use std::convert::TryInto;
 use std::default::Default;
 use std::str::Lines;
 use Element::PageBreak;
-use crate::pagination::ScreenplayLayoutProfile;
 
 mod converters;
 pub mod html_output;
 pub mod pagination;
+mod pdf_output;
 pub mod render_attributes;
 mod rendering;
 pub mod styled_text;
@@ -269,8 +270,10 @@ pub fn parse(text: &str) -> Screenplay {
 
 fn apply_structural_act_break_policy(elements: &mut [Element], metadata: &Metadata) {
     let mut saw_prior_opener = false;
-    let auto_new_act_page_breaks =
-        ScreenplayLayoutProfile::from_metadata(metadata).styles.new_act.starts_new_page;
+    let auto_new_act_page_breaks = ScreenplayLayoutProfile::from_metadata(metadata)
+        .styles
+        .new_act
+        .starts_new_page;
 
     for element in elements {
         match element {
@@ -762,7 +765,10 @@ fn is_new_act(line: &str) -> bool {
 fn is_cold_opening(line: &str) -> bool {
     let owned = line.to_lowercase();
     let tokens = split_lowercase_tokens(&owned);
-    matches!(tokens.as_slice(), ["cold", "open", ..] | ["cold", "opening", ..])
+    matches!(
+        tokens.as_slice(),
+        ["cold", "open", ..] | ["cold", "opening", ..]
+    )
 }
 
 fn split_lowercase_tokens<'a>(line: &'a str) -> Vec<&'a str> {
@@ -1123,7 +1129,10 @@ mod tests {
 
         assert_eq!(
             screenplay.metadata.get("title"),
-            Some(&vec![Styled(vec![tr("BRICK & STEEL", vec!["Bold", "Underline"])])])
+            Some(&vec![Styled(vec![tr(
+                "BRICK & STEEL",
+                vec!["Bold", "Underline"]
+            )])])
         );
         assert_eq!(
             screenplay.metadata.get("author"),

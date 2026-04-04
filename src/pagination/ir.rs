@@ -5,13 +5,13 @@ use crate::pagination::fixtures::{
 };
 use crate::pagination::margin::line_height_for_element_type;
 use crate::pagination::normalize_screenplay;
-use crate::pagination::ScreenplayLayoutProfile;
 use crate::pagination::semantic::{
-    build_semantic_screenplay, DialoguePartKind, DialogueUnit, FlowKind, FlowUnit, SemanticScreenplay,
-    SemanticUnit,
+    build_semantic_screenplay, DialoguePartKind, DialogueUnit, FlowKind, FlowUnit,
+    SemanticScreenplay, SemanticUnit,
 };
 use crate::pagination::wrapping::{wrap_text_for_element, ElementType, WrapConfig};
 use crate::pagination::LayoutGeometry;
+use crate::pagination::ScreenplayLayoutProfile;
 use crate::Screenplay;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -116,7 +116,8 @@ impl PaginatedScreenplay {
         let geometry = &config.geometry;
 
         let blocks = crate::pagination::composer::compose(&semantic.units, geometry);
-        let paged_blocks = crate::pagination::paginator::paginate(&blocks, config.lines_per_page, geometry);
+        let paged_blocks =
+            crate::pagination::paginator::paginate(&blocks, config.lines_per_page, geometry);
 
         let mut pages: Vec<Page> = Vec::new();
 
@@ -273,8 +274,6 @@ fn build_page(
     }
 }
 
-
-
 fn page_items_from_layout_block(
     block: &crate::pagination::composer::LayoutBlock<'_>,
     geometry: &LayoutGeometry,
@@ -283,8 +282,14 @@ fn page_items_from_layout_block(
         SemanticUnit::PageStart(_) => Vec::new(),
         SemanticUnit::Flow(unit) => vec![flow_page_item(
             unit,
-            matches!(block.fragment, Fragment::ContinuedFromPrev | Fragment::ContinuedFromPrevAndToNext),
-            matches!(block.fragment, Fragment::ContinuedToNext | Fragment::ContinuedFromPrevAndToNext),
+            matches!(
+                block.fragment,
+                Fragment::ContinuedFromPrev | Fragment::ContinuedFromPrevAndToNext
+            ),
+            matches!(
+                block.fragment,
+                Fragment::ContinuedToNext | Fragment::ContinuedFromPrevAndToNext
+            ),
         )],
         SemanticUnit::Lyric(unit) => vec![PageItem {
             element_id: unit.element_id.clone(),
@@ -296,17 +301,15 @@ fn page_items_from_layout_block(
             dual_dialogue_side: None,
             continuation_markers: continuation_markers_for_fragment(&block.fragment),
         }],
-        SemanticUnit::Dialogue(unit) => {
-            dialogue_items_for_fragment(
-                unit,
-                None,
-                None,
-                &block.fragment,
-                block.dialogue_split.as_ref(),
-                block.content_lines,
-                geometry,
-            )
-        }
+        SemanticUnit::Dialogue(unit) => dialogue_items_for_fragment(
+            unit,
+            None,
+            None,
+            &block.fragment,
+            block.dialogue_split.as_ref(),
+            block.content_lines,
+            geometry,
+        ),
         SemanticUnit::DualDialogue(unit) => unit
             .sides
             .iter()
@@ -325,11 +328,7 @@ fn page_items_from_layout_block(
     }
 }
 
-fn flow_page_item(
-    unit: &FlowUnit,
-    continued_from_prev: bool,
-    continued_to_next: bool,
-) -> PageItem {
+fn flow_page_item(unit: &FlowUnit, continued_from_prev: bool, continued_to_next: bool) -> PageItem {
     let mut fragment = Fragment::Whole;
     if continued_from_prev {
         fragment = merge_fragment(&fragment, &Fragment::ContinuedFromPrev);
@@ -367,22 +366,12 @@ fn dialogue_items_for_fragment(
         match fragment {
             Fragment::ContinuedToNext => {
                 return dialogue_fragment_items_from_plan(
-                    unit,
-                    dual_group,
-                    dual_side,
-                    fragment,
-                    plan,
-                    true,
+                    unit, dual_group, dual_side, fragment, plan, true,
                 );
             }
             Fragment::ContinuedFromPrev => {
                 return dialogue_fragment_items_from_plan(
-                    unit,
-                    dual_group,
-                    dual_side,
-                    fragment,
-                    plan,
-                    false,
+                    unit, dual_group, dual_side, fragment, plan, false,
                 );
             }
             Fragment::Whole | Fragment::ContinuedFromPrevAndToNext => {}
@@ -480,8 +469,7 @@ fn dialogue_fragment_items_from_plan(
             if let Some(last) = items.last_mut() {
                 if last.line_range.is_some() {
                     last.fragment = merge_fragment(&last.fragment, &Fragment::ContinuedToNext);
-                    last.continuation_markers =
-                        continuation_markers_for_fragment(&last.fragment);
+                    last.continuation_markers = continuation_markers_for_fragment(&last.fragment);
                 }
             }
         }
@@ -489,8 +477,7 @@ fn dialogue_fragment_items_from_plan(
             if let Some(first) = items.first_mut() {
                 if first.line_range.is_some() {
                     first.fragment = merge_fragment(&first.fragment, &Fragment::ContinuedFromPrev);
-                    first.continuation_markers =
-                        continuation_markers_for_fragment(&first.fragment);
+                    first.continuation_markers = continuation_markers_for_fragment(&first.fragment);
                 }
             }
         }
@@ -548,8 +535,7 @@ fn dialogue_part_line_counts(
         .iter()
         .map(|part| {
             let element_type = match dual_side {
-                Some(1) => ElementType::DualDialogueLeft,
-                Some(_) => ElementType::DualDialogueRight,
+                Some(side) => ElementType::from_dual_dialogue_part_kind(&part.kind, side),
                 None => match part.kind {
                     DialoguePartKind::Character => ElementType::Character,
                     DialoguePartKind::Parenthetical => ElementType::Parenthetical,
@@ -572,8 +558,7 @@ fn dialogue_part_line_heights(
         .iter()
         .map(|part| {
             let element_type = match dual_side {
-                Some(1) => ElementType::DualDialogueLeft,
-                Some(_) => ElementType::DualDialogueRight,
+                Some(side) => ElementType::from_dual_dialogue_part_kind(&part.kind, side),
                 None => match part.kind {
                     DialoguePartKind::Character => ElementType::Character,
                     DialoguePartKind::Parenthetical => ElementType::Parenthetical,
@@ -626,7 +611,10 @@ fn skipped_prefix_dialogue_lines_for_bottom_fragment(
         }
     }
 
-    line_counts.iter().sum::<usize>().saturating_sub(visible_suffix_lines)
+    line_counts
+        .iter()
+        .sum::<usize>()
+        .saturating_sub(visible_suffix_lines)
 }
 
 fn dialogue_top_fragment_items(
@@ -713,7 +701,8 @@ fn dialogue_middle_fragment_items(
     skipped_lines: usize,
     visible_lines: usize,
 ) -> Vec<PageItem> {
-    let mut items = dialogue_bottom_fragment_items(unit, dual_group, dual_side, line_counts, skipped_lines);
+    let mut items =
+        dialogue_bottom_fragment_items(unit, dual_group, dual_side, line_counts, skipped_lines);
     let mut remaining = visible_lines;
 
     for item in &mut items {
@@ -734,7 +723,11 @@ fn dialogue_middle_fragment_items(
         }
     }
 
-    items.retain(|item| item.line_range.map(|(start, end)| start <= end).unwrap_or(true));
+    items.retain(|item| {
+        item.line_range
+            .map(|(start, end)| start <= end)
+            .unwrap_or(true)
+    });
 
     if let Some(last) = items.last_mut() {
         last.fragment = merge_fragment(&last.fragment, &Fragment::ContinuedToNext);
@@ -874,10 +867,6 @@ fn dialogue_part_kind_name(kind: &DialoguePartKind) -> &'static str {
         DialoguePartKind::Lyric => "Lyric",
     }
 }
-
-
-
-
 
 fn merge_fragment(current: &Fragment, next: &Fragment) -> Fragment {
     use Fragment::*;

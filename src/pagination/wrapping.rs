@@ -16,13 +16,21 @@ pub enum ElementType {
     Lyric,
     DualDialogueLeft,
     DualDialogueRight,
+    DualDialogueCharacterLeft,
+    DualDialogueCharacterRight,
+    DualDialogueParentheticalLeft,
+    DualDialogueParentheticalRight,
 }
 
 impl ElementType {
     pub fn from_item_kind(kind: &str, dual_dialogue_side: Option<u8>) -> Self {
         if let Some(side) = dual_dialogue_side {
-            return match side {
-                1 => Self::DualDialogueLeft,
+            return match (kind, side) {
+                ("Character", 1) => Self::DualDialogueCharacterLeft,
+                ("Character", _) => Self::DualDialogueCharacterRight,
+                ("Parenthetical", 1) => Self::DualDialogueParentheticalLeft,
+                ("Parenthetical", _) => Self::DualDialogueParentheticalRight,
+                (_, 1) => Self::DualDialogueLeft,
                 _ => Self::DualDialogueRight,
             };
         }
@@ -59,6 +67,24 @@ impl ElementType {
             crate::pagination::DialoguePartKind::Dialogue => Self::Dialogue,
             crate::pagination::DialoguePartKind::Parenthetical => Self::Parenthetical,
             crate::pagination::DialoguePartKind::Lyric => Self::Lyric,
+        }
+    }
+
+    pub fn from_dual_dialogue_part_kind(
+        kind: &crate::pagination::DialoguePartKind,
+        side: u8,
+    ) -> Self {
+        match (kind, side) {
+            (crate::pagination::DialoguePartKind::Character, 1) => Self::DualDialogueCharacterLeft,
+            (crate::pagination::DialoguePartKind::Character, _) => Self::DualDialogueCharacterRight,
+            (crate::pagination::DialoguePartKind::Parenthetical, 1) => {
+                Self::DualDialogueParentheticalLeft
+            }
+            (crate::pagination::DialoguePartKind::Parenthetical, _) => {
+                Self::DualDialogueParentheticalRight
+            }
+            (_, 1) => Self::DualDialogueLeft,
+            (_, _) => Self::DualDialogueRight,
         }
     }
 }
