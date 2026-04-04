@@ -151,6 +151,25 @@ def check_diagnostics(repo: Path, log_handle) -> int:
             log_handle.write(msg)
             issues_found += 1
 
+    # Check page-endings.json files (last meaningful line on each page)
+    for endings_path in sorted(debug_dir.glob("**/page-endings.json")):
+        try:
+            data = json.loads(endings_path.read_text(encoding="utf-8"))
+            mismatches = data.get("mismatch_count", 0)
+            if mismatches > 0:
+                rel_path = endings_path.relative_to(repo)
+                msg = (
+                    f"FAIL: {rel_path} reports {mismatches} page-ending mismatches\n"
+                )
+                sys.stdout.write(msg)
+                log_handle.write(msg)
+                issues_found += 1
+        except Exception as e:
+            msg = f"ERROR: failed to parse {endings_path}: {e}\n"
+            sys.stdout.write(msg)
+            log_handle.write(msg)
+            issues_found += 1
+
     if issues_found == 0:
         msg = "SUCCESS: No issues found in diagnostic reports.\n"
         sys.stdout.write(msg)

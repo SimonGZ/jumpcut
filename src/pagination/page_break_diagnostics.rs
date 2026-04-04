@@ -296,7 +296,13 @@ pub fn write_little_women_full_script_page_break_packet(debug_dir: &Path) {
     .unwrap();
     fs::write(
         debug_dir.join("REVIEW.md"),
-        render_little_women_full_script_review_packet(54.0, score, &fixture, &report),
+        render_little_women_full_script_review_packet(
+            54.0,
+            score,
+            &fixture,
+            &report,
+            &page_endings,
+        ),
     )
     .unwrap();
 }
@@ -379,7 +385,13 @@ pub fn write_big_fish_full_script_page_break_packet(debug_dir: &Path) {
     .unwrap();
     fs::write(
         debug_dir.join("REVIEW.md"),
-        render_big_fish_full_script_review_packet(54.0, score, &fixture, &report),
+        render_big_fish_full_script_review_packet(
+            54.0,
+            score,
+            &fixture,
+            &report,
+            &page_endings,
+        ),
     )
     .unwrap();
 }
@@ -473,7 +485,13 @@ pub fn write_mostly_genius_full_script_page_break_packet(debug_dir: &Path) {
     .unwrap();
     fs::write(
         debug_dir.join("REVIEW.md"),
-        render_mostly_genius_full_script_review_packet(54.0, score, &fixture, &report),
+        render_mostly_genius_full_script_review_packet(
+            54.0,
+            score,
+            &fixture,
+            &report,
+            &page_endings,
+        ),
     )
     .unwrap();
 }
@@ -555,7 +573,13 @@ pub fn write_vikings_full_script_page_break_packet(debug_dir: &Path) {
     .unwrap();
     fs::write(
         debug_dir.join("REVIEW.md"),
-        render_vikings_full_script_review_packet(54.0, score, &fixture, &report),
+        render_vikings_full_script_review_packet(
+            54.0,
+            score,
+            &fixture,
+            &report,
+            &page_endings,
+        ),
     )
     .unwrap();
 }
@@ -637,7 +661,13 @@ pub fn write_gumshoe_full_script_page_break_packet(debug_dir: &Path) {
     .unwrap();
     fs::write(
         debug_dir.join("REVIEW.md"),
-        render_gumshoe_full_script_review_packet(54.0, score, &fixture, &report),
+        render_gumshoe_full_script_review_packet(
+            54.0,
+            score,
+            &fixture,
+            &report,
+            &page_endings,
+        ),
     )
     .unwrap();
 }
@@ -1485,6 +1515,9 @@ fn build_page_endings_report(
 
     let pages = selected_page_numbers
         .into_iter()
+        .filter(|page_number| {
+            diagnostic_page_label(*page_number, page_mappings) != "title"
+        })
         .map(|page_number| {
             let canonical_lines = canonical_pages
                 .get(&page_number)
@@ -1493,11 +1526,12 @@ fn build_page_endings_report(
             let actual_lines = actual_pages.get(&page_number).cloned().unwrap_or_default();
             let canonical_last = last_meaningful_line(&canonical_lines);
             let actual_last = last_meaningful_line(&actual_lines);
+            let comparable = canonical_last.is_some() && actual_last.is_some();
 
             PageEndingItem {
                 page_number,
                 page_label: diagnostic_page_label(page_number, page_mappings),
-                matches: canonical_last == actual_last,
+                matches: !comparable || canonical_last == actual_last,
                 canonical_last_line: canonical_last,
                 actual_last_line: actual_last,
                 canonical_raw_last_line: canonical_lines
@@ -1569,7 +1603,13 @@ fn last_meaningful_line(lines: &[String]) -> Option<String> {
         .iter()
         .rev()
         .map(|line| line.trim())
-        .find(|line| !line.is_empty() && !is_footer_page_number_line(line))
+        .find(|line| {
+            !line.is_empty()
+                && !is_footer_page_number_line(line)
+                && !is_more_marker_line(line)
+                && !is_contd_character_cue_line(line)
+                && !is_uppercase_parenthetical_cue_line(line)
+        })
         .map(str::to_string)
 }
 
@@ -1580,6 +1620,32 @@ fn is_footer_page_number_line(line: &str) -> bool {
         && trimmed[..trimmed.len() - 1]
             .chars()
             .all(|ch| ch.is_ascii_digit())
+}
+
+fn is_more_marker_line(line: &str) -> bool {
+    line.trim() == "(MORE)"
+}
+
+fn is_contd_character_cue_line(line: &str) -> bool {
+    let trimmed = line.trim();
+    if !trimmed.ends_with("(CONT'D)") {
+        return false;
+    }
+
+    is_uppercase_cue_text(trimmed)
+}
+
+fn is_uppercase_parenthetical_cue_line(line: &str) -> bool {
+    let trimmed = line.trim();
+    trimmed.ends_with(')') && !trimmed.starts_with('(') && is_uppercase_cue_text(trimmed)
+}
+
+fn is_uppercase_cue_text(trimmed: &str) -> bool {
+    trimmed.chars().all(|ch| {
+        ch.is_ascii_uppercase()
+            || ch.is_ascii_digit()
+            || matches!(ch, ' ' | '\'' | '.' | ',' | '-' | '&' | '(' | ')' | '/')
+    }) && trimmed.chars().any(|ch| ch.is_ascii_uppercase())
 }
 
 struct DiagnosticRenderedLine {
@@ -2282,6 +2348,44 @@ mod tests {
 
         assert_eq!(mappings.get("19").map(String::as_str), Some("18"));
     }
+
+    #[test]
+    fn last_meaningful_line_ignores_page_number_more_and_contd_cue_noise() {
+        let lines = vec![
+            "baby. Hold the dog away from".to_string(),
+            "kittens.".to_string(),
+            "(MORE)".to_string(),
+            "EDWARD (CONT'D)".to_string(),
+            "88.".to_string(),
+        ];
+
+        assert_eq!(last_meaningful_line(&lines).as_deref(), Some("kittens."));
+    }
+
+    #[test]
+    fn last_meaningful_line_keeps_regular_dialogue_lines() {
+        let lines = vec![
+            "JOSEPHINE (O.S.)".to_string(),
+            "What are you doing?".to_string(),
+            "55.".to_string(),
+        ];
+
+        assert_eq!(
+            last_meaningful_line(&lines).as_deref(),
+            Some("What are you doing?")
+        );
+    }
+
+    #[test]
+    fn last_meaningful_line_ignores_sanitized_uppercase_continuation_cue_noise() {
+        let lines = vec![
+            "uxo owy qe yguqo.".to_string(),
+            "QUZEQ (H.R.) (OWEP'Z)".to_string(),
+            "23.".to_string(),
+        ];
+
+        assert_eq!(last_meaningful_line(&lines).as_deref(), Some("uxo owy qe yguqo."));
+    }
 }
 
 fn normalized_element_map(normalized: &NormalizedScreenplay) -> HashMap<String, NormalizedElement> {
@@ -2631,6 +2735,7 @@ fn render_little_women_full_script_review_packet(
     score: (usize, usize, usize),
     fixture: &PageBreakFixture,
     report: &crate::pagination::ComparisonReport,
+    page_endings: &PageEndingReport,
 ) -> String {
     format!(
         "# Little Women Full-Script Page-Break Review Packet\n\n\
@@ -2652,11 +2757,12 @@ Current full-script summary:\n\n\
 - wrong page: {wrong_page}\n\
 - wrong fragment: {wrong_fragment}\n\
 - missing: {missing}\n\
-- unexpected: {unexpected}\n\n\
+- unexpected: {unexpected}\n\
+- page-ending mismatches: {page_ending_mismatches}\n\n\
 Notes:\n\n\
 - `comparison-report.json` is the quickest way to see where page assignments diverge.\n\
 - `actual.page-breaks.json` is the current engine output in canonical fixture shape.\n\
-- `page-endings.json` compares our last meaningful line on each page against the canonical extracted PDF page ending.\n\
+- `page-endings.json` compares our last body text line on each comparable page against the canonical extracted PDF page ending, skipping title-page and extractor-noise footer artifacts.\n\
 - `pseudo-pdf.txt` is a plain-text rendering of the current engine's predicted page lines and blank spacing.\n\
 - `tests/fixtures/corpus/public/little-women/source/source.fountain` is the vendored local source text.\n",
         page_count = fixture.pages.len(),
@@ -2666,6 +2772,7 @@ Notes:\n\n\
         wrong_fragment = score.2,
         missing = report.issue_count(ComparisonIssueKind::MissingOccurrence),
         unexpected = report.issue_count(ComparisonIssueKind::UnexpectedOccurrence),
+        page_ending_mismatches = page_endings.mismatch_count,
     )
 }
 
@@ -2674,6 +2781,7 @@ fn render_big_fish_full_script_review_packet(
     _score: (usize, usize, usize),
     fixture: &PageBreakFixture,
     report: &crate::pagination::ComparisonReport,
+    page_endings: &PageEndingReport,
 ) -> String {
     format!(
         "# Big Fish Full-Script Page-Break Review Packet\n\n\
@@ -2695,11 +2803,12 @@ Current full-script summary:\n\n\
 - wrong page: {wrong_page}\n\
 - wrong fragment: {wrong_fragment}\n\
 - missing: {missing}\n\
-- unexpected: {unexpected}\n\n\
+- unexpected: {unexpected}\n\
+- page-ending mismatches: {page_ending_mismatches}\n\n\
 Notes:\n\n\
 - `comparison-report.json` is the quickest way to see where page assignments diverge.\n\
 - `actual.page-breaks.json` is the current engine output in canonical fixture shape.\n\
-- `page-endings.json` compares our last meaningful line on each page against the canonical extracted PDF page ending.\n\
+- `page-endings.json` compares our last body text line on each comparable page against the canonical extracted PDF page ending, skipping title-page and extractor-noise footer artifacts.\n\
 - `pseudo-pdf.txt` is a plain-text rendering of the current engine's predicted page lines and blank spacing.\n\
 - `tests/fixtures/corpus/public/big-fish/source/source.fountain` is the vendored local source text.\n",
         pages = fixture.pages.len(),
@@ -2709,6 +2818,7 @@ Notes:\n\n\
         wrong_fragment = report.issue_count(ComparisonIssueKind::WrongFragment),
         missing = report.issue_count(ComparisonIssueKind::MissingOccurrence),
         unexpected = report.issue_count(ComparisonIssueKind::UnexpectedOccurrence),
+        page_ending_mismatches = page_endings.mismatch_count,
     )
 }
 
@@ -2717,6 +2827,7 @@ fn render_mostly_genius_full_script_review_packet(
     score: (usize, usize, usize),
     fixture: &PageBreakFixture,
     report: &crate::pagination::ComparisonReport,
+    page_endings: &PageEndingReport,
 ) -> String {
     format!(
         "# Mostly Genius Full-Script Page-Break Review Packet\n\n\
@@ -2738,12 +2849,13 @@ Current full-script summary:\n\n\
 - wrong page: {wrong_page}\n\
 - wrong fragment: {wrong_fragment}\n\
 - missing: {missing}\n\
-- unexpected: {unexpected}\n\n\
+- unexpected: {unexpected}\n\
+- page-ending mismatches: {page_ending_mismatches}\n\n\
 Notes:\n\n\
 - This is the sanitized multicam sample, so the main things to inspect first are line-height drift, act-marker handling, and any multicam-specific pacing differences.\n\
 - `comparison-report.json` is the quickest way to see where page assignments diverge.\n\
 - `actual.page-breaks.json` is the current engine output in canonical fixture shape.\n\
-- `page-endings.json` compares our last meaningful line on each page against the canonical extracted PDF page ending.\n\
+- `page-endings.json` compares our last body text line on each comparable page against the canonical extracted PDF page ending, skipping title-page and extractor-noise footer artifacts.\n\
 - `pseudo-pdf.txt` is a plain-text rendering of the current engine's predicted page lines and blank spacing.\n\
 - `tests/fixtures/corpus/public/mostly-genius/source/source.fountain` is the vendored local source text.\n",
         page_count = fixture.pages.len(),
@@ -2753,6 +2865,7 @@ Notes:\n\n\
         wrong_fragment = score.2,
         missing = report.issue_count(ComparisonIssueKind::MissingOccurrence),
         unexpected = report.issue_count(ComparisonIssueKind::UnexpectedOccurrence),
+        page_ending_mismatches = page_endings.mismatch_count,
     )
 }
 
@@ -2761,6 +2874,7 @@ fn render_vikings_full_script_review_packet(
     score: (usize, usize, usize),
     fixture: &PageBreakFixture,
     report: &crate::pagination::ComparisonReport,
+    page_endings: &PageEndingReport,
 ) -> String {
     format!(
         "# Vikings Full-Script Page-Break Review Packet\n\n\
@@ -2782,12 +2896,13 @@ Current full-script summary:\n\n\
 - wrong page: {wrong_page}\n\
 - wrong fragment: {wrong_fragment}\n\
 - missing: {missing}\n\
-- unexpected: {unexpected}\n\n\
+- unexpected: {unexpected}\n\
+- page-ending mismatches: {page_ending_mismatches}\n\n\
 Notes:\n\n\
 - This packet is useful precisely because `vikings` is not yet a clean full-pagination baseline in JumpCut.\n\
 - `comparison-report.json` is the quickest way to see where page assignments diverge.\n\
 - `actual.page-breaks.json` is the current engine output in canonical fixture shape.\n\
-- `page-endings.json` compares our last meaningful line on each page against the canonical extracted PDF page ending.\n\
+- `page-endings.json` compares our last body text line on each comparable page against the canonical extracted PDF page ending, skipping title-page and extractor-noise footer artifacts.\n\
 - `pseudo-pdf.txt` is a plain-text rendering of the current engine's predicted page lines and blank spacing.\n\
 - `tests/fixtures/corpus/public/vikings/source/source.fountain` is the vendored local source text.\n",
         page_count = fixture.pages.len(),
@@ -2797,6 +2912,7 @@ Notes:\n\n\
         wrong_fragment = score.2,
         missing = report.issue_count(ComparisonIssueKind::MissingOccurrence),
         unexpected = report.issue_count(ComparisonIssueKind::UnexpectedOccurrence),
+        page_ending_mismatches = page_endings.mismatch_count,
     )
 }
 
@@ -2805,6 +2921,7 @@ fn render_gumshoe_full_script_review_packet(
     score: (usize, usize, usize),
     fixture: &PageBreakFixture,
     report: &crate::pagination::ComparisonReport,
+    page_endings: &PageEndingReport,
 ) -> String {
     format!(
         "# Gumshoe Full-Script Page-Break Review Packet\n\n\
@@ -2826,11 +2943,12 @@ Current full-script summary:\n\n\
 - wrong page: {wrong_page}\n\
 - wrong fragment: {wrong_fragment}\n\
 - missing: {missing}\n\
-- unexpected: {unexpected}\n\n\
+- unexpected: {unexpected}\n\
+- page-ending mismatches: {page_ending_mismatches}\n\n\
 Notes:\n\n\
 - `comparison-report.json` is the quickest way to see where page assignments diverge.\n\
 - `actual.page-breaks.json` is the current engine output in canonical fixture shape.\n\
-- `page-endings.json` compares our last meaningful line on each page against the canonical extracted PDF page ending.\n\
+- `page-endings.json` compares our last body text line on each comparable page against the canonical extracted PDF page ending, skipping title-page and extractor-noise footer artifacts.\n\
 - `pseudo-pdf.txt` is a plain-text rendering of the current engine's predicted page lines and blank spacing.\n\
 - `tests/fixtures/corpus/public/gumshoe/source/source.fountain` is the vendored local source text.\n",
         page_count = fixture.pages.len(),
@@ -2840,6 +2958,7 @@ Notes:\n\n\
         wrong_fragment = score.2,
         missing = report.issue_count(ComparisonIssueKind::MissingOccurrence),
         unexpected = report.issue_count(ComparisonIssueKind::UnexpectedOccurrence),
+        page_ending_mismatches = page_endings.mismatch_count,
     )
 }
 
