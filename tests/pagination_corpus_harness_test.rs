@@ -426,6 +426,90 @@ fn big_fish_pages_93_94_keep_block_00582_whole_on_page_94() {
 }
 
 #[test]
+fn big_fish_pages_89_90_split_hand_around_the_house_after_kittens() {
+    let mut fixture: PageBreakFixture =
+        read_fixture("tests/fixtures/corpus/public/big-fish/canonical/page-breaks.json");
+    fixture.pages.retain(|page| matches!(page.number, 89 | 90));
+
+    let normalized = normalized_window_from_fountain(
+        "big-fish",
+        "tests/fixtures/corpus/public/big-fish/source/source.fountain",
+        &fixture,
+    );
+    let semantic = build_semantic_screenplay(normalized);
+    let config = PaginationConfig {
+        lines_per_page: 54.0,
+        geometry: geometry_for_screenplay("big-fish"),
+    };
+    let actual = PaginatedScreenplay::paginate(
+        semantic.clone(),
+        config.clone(),
+        fixture.style_profile.clone(),
+        fixture.scope.clone(),
+    );
+    let blocks = jumpcut::pagination::composer::compose(&semantic.units, &config.geometry);
+    let layout_pages =
+        jumpcut::pagination::paginator::paginate(&blocks, config.lines_per_page, &config.geometry);
+
+    let page_89_block = actual
+        .pages
+        .iter()
+        .zip(layout_pages.iter())
+        .find(|(page, _)| page.metadata.number == 89)
+        .and_then(|(_, layout_page)| {
+            layout_page.blocks.iter().find(|block| {
+                matches!(
+                    block.unit,
+                    jumpcut::pagination::SemanticUnit::Dialogue(dialogue)
+                        if block.fragment == Fragment::ContinuedToNext
+                            && dialogue
+                                .parts
+                                .iter()
+                                .any(|part| part.text.contains("Hold the dog away from kittens."))
+                )
+            })
+        })
+        .expect("expected el-01921 top fragment on page 89");
+    let page_90_block = actual
+        .pages
+        .iter()
+        .zip(layout_pages.iter())
+        .find(|(page, _)| page.metadata.number == 90)
+        .and_then(|(_, layout_page)| {
+            layout_page.blocks.iter().find(|block| {
+                matches!(
+                    block.unit,
+                    jumpcut::pagination::SemanticUnit::Dialogue(dialogue)
+                        if block.fragment == Fragment::ContinuedFromPrev
+                            && dialogue
+                                .parts
+                                .iter()
+                                .any(|part| part.text.contains("Hold the dog away from kittens."))
+                )
+            })
+        })
+        .expect("expected el-01921 bottom fragment on page 90");
+
+    let page_89_text = dialogue_block_fragment_text(page_89_block);
+    let page_90_text = dialogue_block_fragment_text(page_90_block);
+
+    assert!(
+        page_89_text
+            .trim_end()
+            .ends_with("baby.  Hold the dog away from\nkittens."),
+        "expected page 89 fragment to end after 'kittens.', got: {:?}",
+        page_89_text
+    );
+    assert!(
+        page_90_text
+            .trim_start()
+            .starts_with("It's strong enough, you can do a"),
+        "expected page 90 fragment to start with 'It's strong enough, you can do a', got: {:?}",
+        page_90_text
+    );
+}
+
+#[test]
 fn big_fish_pages_34_35_split_block_00213_after_go() {
     let mut fixture: PageBreakFixture =
         read_fixture("tests/fixtures/corpus/public/big-fish/canonical/page-breaks.json");
