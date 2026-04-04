@@ -69,6 +69,7 @@ fn it_groups_dialogue_and_lyric_blocks_into_dialogue_units() {
             assert_eq!(unit.parts[0].kind, DialoguePartKind::Character);
             assert_eq!(unit.parts[1].kind, DialoguePartKind::Dialogue);
             assert_eq!(unit.parts[2].kind, DialoguePartKind::Lyric);
+            assert!(!unit.should_append_contd);
             assert_eq!(
                 unit.cohesion,
                 Cohesion {
@@ -310,6 +311,71 @@ fn render_attributes_survive_normalization_and_semantic_building() {
         }
         other => panic!("expected flow unit, got {other:?}"),
     }
+}
+
+#[test]
+fn resumed_same_scene_dialogue_adds_contd_after_action_but_not_after_another_speaker() {
+    let screenplay = parse(
+        "INT. OFFICE - DAY\n\nEDWARD\nFirst line.\n\nA beat.\n\nEDWARD\nSecond line.\n\nLITTLE BRAVE\nDifferent speaker.\n\nEDWARD\nThird line.",
+    );
+
+    let semantic = build_semantic_screenplay(normalize_screenplay("contd", &screenplay));
+    let dialogue_units = semantic
+        .units
+        .iter()
+        .filter_map(|unit| match unit {
+            SemanticUnit::Dialogue(dialogue) => Some(dialogue),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+
+    assert_eq!(dialogue_units.len(), 4);
+    assert!(!dialogue_units[0].should_append_contd);
+    assert!(dialogue_units[1].should_append_contd);
+    assert!(!dialogue_units[2].should_append_contd);
+    assert!(!dialogue_units[3].should_append_contd);
+}
+
+#[test]
+fn voice_over_dialogue_does_not_trigger_or_receive_contd() {
+    let screenplay = parse(
+        "INT. OFFICE - DAY\n\nEDWARD (V.O.)\nFirst line.\n\nA beat.\n\nEDWARD (V.O.)\nSecond line.",
+    );
+
+    let semantic = build_semantic_screenplay(normalize_screenplay("contd-vo", &screenplay));
+    let dialogue_units = semantic
+        .units
+        .iter()
+        .filter_map(|unit| match unit {
+            SemanticUnit::Dialogue(dialogue) => Some(dialogue),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+
+    assert_eq!(dialogue_units.len(), 2);
+    assert!(!dialogue_units[0].should_append_contd);
+    assert!(!dialogue_units[1].should_append_contd);
+}
+
+#[test]
+fn speaker_extensions_other_than_voice_over_still_match_for_contd() {
+    let screenplay = parse(
+        "INT. OFFICE - DAY\n\nJOSEPHINE\nFirst line.\n\nA beat.\n\nJOSEPHINE (O.S.)\nSecond line.",
+    );
+
+    let semantic = build_semantic_screenplay(normalize_screenplay("contd-os", &screenplay));
+    let dialogue_units = semantic
+        .units
+        .iter()
+        .filter_map(|unit| match unit {
+            SemanticUnit::Dialogue(dialogue) => Some(dialogue),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+
+    assert_eq!(dialogue_units.len(), 2);
+    assert!(!dialogue_units[0].should_append_contd);
+    assert!(dialogue_units[1].should_append_contd);
 }
 
 fn normalized_element(element_id: &str, kind: &str, text: &str) -> NormalizedElement {

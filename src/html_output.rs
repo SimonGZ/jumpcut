@@ -3,6 +3,7 @@ pub struct HtmlRenderOptions {
     pub head: bool,
     pub exact_wraps: bool,
     pub paginated: bool,
+    pub render_continueds: bool,
     pub embed_courier_prime: bool,
     pub embedded_courier_prime_css: Option<String>,
 }
@@ -13,6 +14,7 @@ impl Default for HtmlRenderOptions {
             head: true,
             exact_wraps: false,
             paginated: false,
+            render_continueds: true,
             embed_courier_prime: false,
             embedded_courier_prime_css: None,
         }

@@ -141,6 +141,7 @@ fn main() {
                 head: true,
                 exact_wraps: opt.exact_wraps || opt.paginate,
                 paginated: opt.paginate,
+                render_continueds: true,
                 embed_courier_prime: opt.embed_courier_prime,
                 embedded_courier_prime_css: None,
             })
@@ -149,6 +150,7 @@ fn main() {
             .to_text(&jumpcut::text_output::TextRenderOptions {
                 paginated: opt.paginate,
                 line_numbers: opt.line_numbers,
+                render_continueds: true,
             })
             .into_bytes(),
         "pdf" => screenplay.to_pdf(),

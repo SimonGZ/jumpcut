@@ -5,8 +5,9 @@ use crate::pagination::wrapping::ElementType;
 use crate::pagination::{ScreenplayLayoutProfile, StyleProfile};
 use crate::title_page::{TitlePage, TitlePageBlockKind};
 use crate::visual_lines::{
-    display_page_number, render_paginated_visual_pages, render_unpaginated_visual_lines,
-    visual_line_class_name, VisualLine,
+    display_page_number, render_paginated_visual_pages_with_options,
+    render_unpaginated_visual_lines_with_options, visual_line_class_name, VisualLine,
+    VisualRenderOptions,
 };
 use crate::{Attributes, Element, ElementText, Screenplay};
 use std::fmt::Write;
@@ -93,12 +94,12 @@ fn render_body(
     }
 
     if options.paginated {
-        render_paginated_body(out, screenplay, layout_profile);
+        render_paginated_body(out, screenplay, layout_profile, options);
         return;
     }
 
     if options.exact_wraps {
-        render_exact_wrap_body(out, screenplay, layout_profile);
+        render_exact_wrap_body(out, screenplay, layout_profile, options);
         return;
     }
 
@@ -135,9 +136,15 @@ fn render_exact_wrap_body(
     out: &mut String,
     screenplay: &Screenplay,
     layout_profile: &ScreenplayLayoutProfile,
+    options: &HtmlRenderOptions,
 ) {
     out.push_str("        <section class=\"body exactWrapBody\">\n");
-    for line in render_unpaginated_visual_lines(screenplay) {
+    for line in render_unpaginated_visual_lines_with_options(
+        screenplay,
+        VisualRenderOptions {
+            render_continueds: options.render_continueds,
+        },
+    ) {
         render_visual_line(out, &line, layout_profile);
     }
     out.push_str("        </section>\n");
@@ -147,10 +154,16 @@ fn render_paginated_body(
     out: &mut String,
     screenplay: &Screenplay,
     layout_profile: &ScreenplayLayoutProfile,
+    options: &HtmlRenderOptions,
 ) {
     out.push_str("        <section class=\"body paginatedBody\">\n");
 
-    for page in render_paginated_visual_pages(screenplay) {
+    for page in render_paginated_visual_pages_with_options(
+        screenplay,
+        VisualRenderOptions {
+            render_continueds: options.render_continueds,
+        },
+    ) {
         write!(
             out,
             "            <section class=\"page{}\" data-page-number=\"{}\">\n",
@@ -255,7 +268,7 @@ fn dual_side_left_offset_css(
     layout_profile: &ScreenplayLayoutProfile,
 ) -> String {
     let geometry = layout_profile.to_pagination_geometry();
-    let left = match side.element_type {
+    let mut left = match side.element_type {
         ElementType::DualDialogueLeft => geometry.dual_dialogue_left_left,
         ElementType::DualDialogueRight => geometry.dual_dialogue_right_left,
         ElementType::DualDialogueCharacterLeft => {
@@ -272,7 +285,19 @@ fn dual_side_left_offset_css(
         }
         _ => geometry.action_left,
     };
+    if hangs_opening_parenthesis(side.element_type, &side.text) {
+        left -= 1.0 / geometry.cpi;
+    }
     format!("{}in", left - geometry.action_left)
+}
+
+fn hangs_opening_parenthesis(element_type: ElementType, text: &str) -> bool {
+    matches!(
+        element_type,
+        ElementType::Parenthetical
+            | ElementType::DualDialogueParentheticalLeft
+            | ElementType::DualDialogueParentheticalRight
+    ) && text.starts_with('(')
 }
 
 fn render_visual_fragments(out: &mut String, fragments: &[crate::visual_lines::VisualFragment]) {
@@ -529,6 +554,7 @@ mod tests {
             head,
             exact_wraps,
             paginated,
+            render_continueds: true,
             embed_courier_prime: false,
             embedded_courier_prime_css: None,
         }
@@ -672,6 +698,23 @@ mod tests {
         let output = render_document(&screenplay, html_options(false, true, false));
 
         assert!(output.contains("visualLine newAct underline centeredLine"));
+    }
+
+    #[test]
+    fn exact_wrap_html_hangs_the_opening_parenthesis_one_cell_left() {
+        let screenplay = Screenplay {
+            metadata: Metadata::new(),
+            elements: vec![Element::DialogueBlock(vec![
+                Element::Character(p("ALEX"), blank_attributes()),
+                Element::Parenthetical(p("(quietly)"), blank_attributes()),
+            ])],
+        };
+
+        let output = render_document(&screenplay, html_options(false, true, false));
+
+        assert!(output.contains(
+            "<div class=\"visualLine parenthetical\">              (quietly)</div>"
+        ));
     }
 
     #[test]
@@ -929,16 +972,16 @@ mod tests {
 
         assert!(output.contains("visualLine dialogue dualDialogueLine"));
         assert!(output
-            .contains("class=\"dualSegment dualDialogueCharacterLeft\" style=\"left: 1.1875in;\""));
+            .contains("class=\"dualSegment dualDialogueCharacterLeft\" style=\"left: 1.1944444in;\""));
         assert!(output.contains(
-            "class=\"dualSegment dualDialogueParentheticalLeft\" style=\"left: 0.25in;\""
+            "class=\"dualSegment dualDialogueParentheticalLeft\" style=\"left: 0.14999998in;\""
         ));
         assert!(output.contains("class=\"dualSegment dualDialogueLeft\" style=\"left: 0in;\""));
         assert!(output.contains(
-            "class=\"dualSegment dualDialogueCharacterRight\" style=\"left: 4.3125in;\""
+            "class=\"dualSegment dualDialogueCharacterRight\" style=\"left: 4.3194447in;\""
         ));
         assert!(output.contains(
-            "class=\"dualSegment dualDialogueParentheticalRight\" style=\"left: 3.375in;\""
+            "class=\"dualSegment dualDialogueParentheticalRight\" style=\"left: 3.275in;\""
         ));
         assert!(output.contains("class=\"dualSegment dualDialogueRight\" style=\"left: 3.125in;\""));
     }

@@ -76,6 +76,7 @@ pub struct DialoguePart {
 pub struct DialogueUnit {
     pub block_id: String,
     pub parts: Vec<DialoguePart>,
+    pub should_append_contd: bool,
     pub cohesion: Cohesion,
 }
 
@@ -104,6 +105,7 @@ pub struct LyricUnit {
 pub fn build_semantic_screenplay(normalized: NormalizedScreenplay) -> SemanticScreenplay {
     let mut units = Vec::new();
     let mut index = 0;
+    let mut last_scene_dialogue_speaker: Option<String> = None;
 
     while index < normalized.elements.len() {
         let element = &normalized.elements[index];
@@ -130,6 +132,7 @@ pub fn build_semantic_screenplay(normalized: NormalizedScreenplay) -> SemanticSc
                 group_id,
                 &normalized.elements[start..end],
             )));
+            last_scene_dialogue_speaker = None;
             index = end;
             continue;
         }
@@ -143,10 +146,13 @@ pub fn build_semantic_screenplay(normalized: NormalizedScreenplay) -> SemanticSc
             {
                 end += 1;
             }
-            units.push(SemanticUnit::Dialogue(build_dialogue_unit(
+            let dialogue = build_dialogue_unit(
                 block_id,
                 &normalized.elements[start..end],
-            )));
+                last_scene_dialogue_speaker.as_deref(),
+            );
+            last_scene_dialogue_speaker = dialogue_contd_speaker(&dialogue.parts);
+            units.push(SemanticUnit::Dialogue(dialogue));
             index = end;
             continue;
         }
@@ -158,6 +164,9 @@ pub fn build_semantic_screenplay(normalized: NormalizedScreenplay) -> SemanticSc
         }
 
         units.push(SemanticUnit::Flow(build_flow_unit(element)));
+        if element.kind == "Scene Heading" {
+            last_scene_dialogue_speaker = None;
+        }
         index += 1;
     }
 
@@ -191,7 +200,7 @@ fn build_dual_dialogue_unit(group_id: &str, elements: &[NormalizedElement]) -> D
         .into_iter()
         .map(|((side, block_id), elements)| DualDialogueSide {
             side,
-            dialogue: build_dialogue_unit(&block_id, &elements),
+            dialogue: build_dialogue_unit(&block_id, &elements, None),
         })
         .collect();
 
@@ -202,19 +211,30 @@ fn build_dual_dialogue_unit(group_id: &str, elements: &[NormalizedElement]) -> D
     }
 }
 
-fn build_dialogue_unit(block_id: &str, elements: &[NormalizedElement]) -> DialogueUnit {
+fn build_dialogue_unit(
+    block_id: &str,
+    elements: &[NormalizedElement],
+    previous_scene_speaker: Option<&str>,
+) -> DialogueUnit {
+    let parts = elements
+        .iter()
+        .map(|element| DialoguePart {
+            element_id: element.element_id.clone(),
+            kind: dialogue_part_kind(&element.kind),
+            text: element.text.clone(),
+            inline_text: element.inline_text.clone(),
+            render_attributes: element.render_attributes.clone(),
+        })
+        .collect::<Vec<_>>();
+    let current_speaker = dialogue_contd_speaker(&parts);
+
     DialogueUnit {
         block_id: block_id.to_string(),
-        parts: elements
-            .iter()
-            .map(|element| DialoguePart {
-                element_id: element.element_id.clone(),
-                kind: dialogue_part_kind(&element.kind),
-                text: element.text.clone(),
-                inline_text: element.inline_text.clone(),
-                render_attributes: element.render_attributes.clone(),
-            })
-            .collect(),
+        should_append_contd: current_speaker
+            .as_deref()
+            .zip(previous_scene_speaker)
+            .is_some_and(|(current, previous)| current == previous),
+        parts,
         cohesion: dialogue_like_cohesion(),
     }
 }
@@ -289,4 +309,48 @@ fn dialogue_part_kind(kind: &str) -> DialoguePartKind {
         "Lyric" => DialoguePartKind::Lyric,
         _ => DialoguePartKind::Dialogue,
     }
+}
+
+fn dialogue_contd_speaker(parts: &[DialoguePart]) -> Option<String> {
+    let text = parts
+        .iter()
+        .find(|part| part.kind == DialoguePartKind::Character)
+        .map(|part| part.text.trim())?;
+    let stripped = strip_trailing_contd(text);
+
+    if speaker_excludes_contd(stripped) {
+        return None;
+    }
+
+    Some(strip_trailing_speaker_extensions(stripped).to_string())
+}
+
+fn strip_trailing_contd(text: &str) -> &str {
+    let trimmed = text.trim_end();
+    let upper = trimmed.to_ascii_uppercase();
+
+    if upper.ends_with("(CONT'D)") || upper.ends_with("(CONT’D)") {
+        let suffix_start = trimmed.rfind('(').unwrap_or(trimmed.len());
+        return trimmed[..suffix_start].trim_end();
+    }
+
+    trimmed
+}
+
+fn speaker_excludes_contd(text: &str) -> bool {
+    let upper = text.trim_end().to_ascii_uppercase();
+    upper.contains("(V.O.)") || upper.contains("(V.O)")
+}
+
+fn strip_trailing_speaker_extensions(text: &str) -> &str {
+    let mut current = text.trim_end();
+
+    while current.ends_with(')') {
+        let Some(open_paren) = current.rfind('(') else {
+            break;
+        };
+        current = current[..open_paren].trim_end();
+    }
+
+    current
 }

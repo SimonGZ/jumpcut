@@ -1,14 +1,14 @@
 #![allow(dead_code)]
 
-use crate::pagination::margin::{
-    calculate_element_width, dual_dialogue_character_left_indent, LayoutGeometry,
-};
+use crate::pagination::margin::{dual_dialogue_character_left_indent, LayoutGeometry};
 use crate::pagination::wrapping::ElementType;
 use crate::pagination::ScreenplayLayoutProfile;
-use crate::title_page::{TitlePage, TitlePageBlockKind, TitlePageRegion};
+use crate::title_page::{
+    plain_title_uses_all_caps, TitlePage, TitlePageBlockKind, TitlePageRegion,
+};
 use crate::visual_lines::{
-    display_page_number, render_paginated_visual_pages, VisualDualLine, VisualDualSide,
-    VisualFragment,
+    display_page_number, render_paginated_visual_pages_with_options, VisualDualLine,
+    VisualDualSide, VisualFragment, VisualRenderOptions,
 };
 use crate::{ElementText, Screenplay};
 use pdf_writer::types::{CidFontType, FontFlags, SystemInfo, UnicodeCmap};
@@ -21,27 +21,48 @@ const LETTER_HEIGHT: f32 = 792.0;
 const BODY_LINES_PER_PAGE: f32 = 54.0;
 const PAGE_TOP_BOTTOM_MARGIN_INCHES: f32 = 1.0;
 const BODY_TEXT_FONT_SIZE: f32 = 12.0;
-const PAGE_NUMBER_LEFT: f32 = 475.2;
-const PAGE_NUMBER_LINES_ABOVE_BODY: f32 = 3.0;
-const PAGE_NUMBER_BODY_GAP_LINES: f32 = 4.0;
-const TITLE_FONT_SIZE: f32 = 24.0;
+const PAGE_NUMBER_LEFT: f32 = 7.0625 * 72.0;
+const PAGE_NUMBER_BASELINE_Y: f32 = 747.0;
+const TITLE_FONT_SIZE: f32 = 12.0;
 const TITLE_META_FONT_SIZE: f32 = 12.0;
-const TITLE_BLOCK_LINE_STEP: f32 = 14.0;
-const TITLE_TITLE_TOP: f32 = 620.0;
-const TITLE_META_TOP: f32 = 520.0;
-const TITLE_BOTTOM_TOP: f32 = 120.0;
-const TITLE_BOTTOM_MARGIN: f32 = 72.0;
-const FONT_NAME: Name<'static> = Name(b"F1");
-const BODY_TEXT_HORIZONTAL_SCALING: f32 = 97.68321;
-const COURIER_PRIME_FONT_BYTES: &[u8] = include_bytes!("templates/fonts/CourierPrime-Regular.ttf");
-const COURIER_PRIME_BASE_FONT: Name<'static> = Name(b"CourierPrime-Regular");
-const COURIER_PRIME_CMAP_NAME: Name<'static> = Name(b"CourierPrime-Regular-UTF16");
+const TITLE_BLOCK_LINE_STEP: f32 = 12.0;
+const TITLE_TITLE_TOP: f32 = 495.0;
+const TITLE_META_TOP: f32 = 447.0;
+const TITLE_BOTTOM_TOP: f32 = 135.0;
+const PAGE_SIDE_MARGIN: f32 = 72.0;
+const FONT_REGULAR_NAME: Name<'static> = Name(b"F1");
+const FONT_BOLD_NAME: Name<'static> = Name(b"F2");
+const FONT_ITALIC_NAME: Name<'static> = Name(b"F3");
+const FONT_BOLD_ITALIC_NAME: Name<'static> = Name(b"F4");
+const BODY_TEXT_CELL_WIDTH: f32 = 7.0;
+const UNDERLINE_LINE_WIDTH: f32 = 0.75;
+const UNDERLINE_Y_OFFSET: f32 = 1.5;
+const COURIER_PRIME_REGULAR_BYTES: &[u8] =
+    include_bytes!("templates/fonts/CourierPrime-Regular.ttf");
+const COURIER_PRIME_BOLD_BYTES: &[u8] = include_bytes!("templates/fonts/CourierPrime-Bold.ttf");
+const COURIER_PRIME_ITALIC_BYTES: &[u8] =
+    include_bytes!("templates/fonts/CourierPrime-Italic.ttf");
+const COURIER_PRIME_BOLD_ITALIC_BYTES: &[u8] =
+    include_bytes!("templates/fonts/CourierPrime-BoldItalic.ttf");
 const IDENTITY_H: Name<'static> = Name(b"Identity-H");
 const ADOBE_IDENTITY: SystemInfo<'static> = SystemInfo {
     registry: Str(b"Adobe"),
     ordering: Str(b"Identity"),
     supplement: 0,
 };
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PdfRenderOptions {
+    pub render_continueds: bool,
+}
+
+impl Default for PdfRenderOptions {
+    fn default() -> Self {
+        Self {
+            render_continueds: true,
+        }
+    }
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct PdfRenderDocument {
@@ -52,6 +73,7 @@ pub(crate) struct PdfRenderDocument {
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct PdfTitlePage {
     pub blocks: Vec<PdfTitleBlock>,
+    pub plain_title_all_caps: bool,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -61,7 +83,7 @@ pub(crate) struct PdfTitleBlock {
     pub lines: Vec<ElementText>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum PdfTitleBlockKind {
     Title,
     Credit,
@@ -137,11 +159,52 @@ pub(crate) enum PdfLineKind {
 }
 
 struct EmbeddedFont {
+    resource_name: Name<'static>,
+    base_font: Name<'static>,
+    family_name: &'static [u8],
+    font_bytes: &'static [u8],
     cid_by_char: BTreeMap<char, u16>,
     font_descriptor: EmbeddedFontDescriptor,
     cid_widths: Vec<f32>,
     cid_to_gid_map: Vec<u8>,
     to_unicode_cmap: Vec<u8>,
+}
+
+struct EmbeddedFonts {
+    regular: EmbeddedFont,
+    bold: EmbeddedFont,
+    italic: EmbeddedFont,
+    bold_italic: EmbeddedFont,
+}
+
+#[derive(Clone, Copy)]
+struct UnderlineSegment {
+    start_x: f32,
+    end_x: f32,
+    y: f32,
+}
+
+#[derive(Clone, Copy, Default)]
+struct StyleFlags {
+    bold: bool,
+    italic: bool,
+    underline: bool,
+}
+
+#[derive(Clone)]
+struct ResolvedRun {
+    text: String,
+    styles: StyleFlags,
+}
+
+#[derive(Clone, Copy)]
+struct FontObjectIds {
+    type0_font_id: Ref,
+    cid_font_id: Ref,
+    font_descriptor_id: Ref,
+    font_file_id: Ref,
+    to_unicode_id: Ref,
+    cid_to_gid_map_id: Ref,
 }
 
 struct EmbeddedFontDescriptor {
@@ -157,9 +220,13 @@ struct EmbeddedFontDescriptor {
     flags: FontFlags,
 }
 
-pub(crate) fn build_render_document(screenplay: &Screenplay) -> PdfRenderDocument {
+pub(crate) fn build_render_document(
+    screenplay: &Screenplay,
+    options: PdfRenderOptions,
+) -> PdfRenderDocument {
     let title_page =
         TitlePage::from_metadata(&screenplay.metadata).map(|title_page| PdfTitlePage {
+            plain_title_all_caps: plain_title_uses_all_caps(&screenplay.metadata),
             blocks: title_page
                 .blocks
                 .into_iter()
@@ -171,7 +238,12 @@ pub(crate) fn build_render_document(screenplay: &Screenplay) -> PdfRenderDocumen
                 .collect(),
         });
 
-    let body_pages = render_paginated_visual_pages(screenplay)
+    let body_pages = render_paginated_visual_pages_with_options(
+        screenplay,
+        VisualRenderOptions {
+            render_continueds: options.render_continueds,
+        },
+    )
         .into_iter()
         .map(|page| PdfRenderPage {
             page_number: page.page.metadata.number,
@@ -202,26 +274,28 @@ pub(crate) fn build_render_document(screenplay: &Screenplay) -> PdfRenderDocumen
 }
 
 pub(crate) fn render(screenplay: &Screenplay) -> Vec<u8> {
-    let document = build_render_document(screenplay);
+    render_with_options(screenplay, PdfRenderOptions::default())
+}
+
+pub(crate) fn render_with_options(screenplay: &Screenplay, options: PdfRenderOptions) -> Vec<u8> {
+    let document = build_render_document(screenplay, options);
     let geometry =
         ScreenplayLayoutProfile::from_metadata(&screenplay.metadata).to_pagination_geometry();
-    let font = EmbeddedFont::new(&document);
+    let fonts = EmbeddedFonts::new(&document);
     let body_page_count = document.body_pages.len() as i32;
     let page_count = body_page_count + i32::from(document.title_page.is_some());
 
     let catalog_id = Ref::new(1);
     let page_tree_id = Ref::new(2);
-    let type0_font_id = Ref::new(3);
-    let cid_font_id = Ref::new(4);
-    let font_descriptor_id = Ref::new(5);
-    let font_file_id = Ref::new(6);
-    let to_unicode_id = Ref::new(7);
-    let cid_to_gid_map_id = Ref::new(8);
+    let regular_font_ids = font_object_ids(3);
+    let bold_font_ids = font_object_ids(9);
+    let italic_font_ids = font_object_ids(15);
+    let bold_italic_font_ids = font_object_ids(21);
     let page_ids = (0..page_count)
-        .map(|index| Ref::new(9 + index))
+        .map(|index| Ref::new(27 + index))
         .collect::<Vec<_>>();
     let content_ids = (0..page_count)
-        .map(|index| Ref::new(9 + page_count + index))
+        .map(|index| Ref::new(27 + page_count + index))
         .collect::<Vec<_>>();
 
     let mut pdf = Pdf::new();
@@ -229,23 +303,25 @@ pub(crate) fn render(screenplay: &Screenplay) -> Vec<u8> {
     pdf.pages(page_tree_id)
         .kids(page_ids.iter().copied())
         .count(page_count);
-    write_embedded_font_objects(
-        &mut pdf,
-        &font,
-        type0_font_id,
-        cid_font_id,
-        font_descriptor_id,
-        font_file_id,
-        to_unicode_id,
-        cid_to_gid_map_id,
-    );
+    write_embedded_font_objects(&mut pdf, &fonts.regular, regular_font_ids);
+    write_embedded_font_objects(&mut pdf, &fonts.bold, bold_font_ids);
+    write_embedded_font_objects(&mut pdf, &fonts.italic, italic_font_ids);
+    write_embedded_font_objects(&mut pdf, &fonts.bold_italic, bold_italic_font_ids);
 
     for (index, page_id) in page_ids.iter().copied().enumerate() {
         let mut page = pdf.page(page_id);
         page.parent(page_tree_id)
             .media_box(Rect::new(0.0, 0.0, LETTER_WIDTH, LETTER_HEIGHT))
             .contents(content_ids[index]);
-        page.resources().fonts().pair(FONT_NAME, type0_font_id);
+        page.resources()
+            .fonts()
+            .pair(fonts.regular.resource_name, regular_font_ids.type0_font_id)
+            .pair(fonts.bold.resource_name, bold_font_ids.type0_font_id)
+            .pair(fonts.italic.resource_name, italic_font_ids.type0_font_id)
+            .pair(
+                fonts.bold_italic.resource_name,
+                bold_italic_font_ids.type0_font_id,
+            );
         page.finish();
     }
 
@@ -253,7 +329,7 @@ pub(crate) fn render(screenplay: &Screenplay) -> Vec<u8> {
     if let Some(title_page) = &document.title_page {
         pdf.stream(
             content_ids[content_index],
-            &render_title_page_content(title_page, &font),
+            &render_title_page_content(title_page, &fonts),
         );
         content_index += 1;
     }
@@ -261,7 +337,7 @@ pub(crate) fn render(screenplay: &Screenplay) -> Vec<u8> {
     for body_page in &document.body_pages {
         pdf.stream(
             content_ids[content_index],
-            &render_body_page_content(body_page, &geometry, &font),
+            &render_body_page_content(body_page, &geometry, &fonts),
         );
         content_index += 1;
     }
@@ -272,26 +348,31 @@ pub(crate) fn render(screenplay: &Screenplay) -> Vec<u8> {
 fn render_body_page_content(
     page: &PdfRenderPage,
     geometry: &LayoutGeometry,
-    font: &EmbeddedFont,
+    fonts: &EmbeddedFonts,
 ) -> Vec<u8> {
     let mut content = Content::new();
+    let mut underlines = Vec::new();
     content.begin_text();
-    content.set_font(FONT_NAME, BODY_TEXT_FONT_SIZE);
-    content.set_horizontal_scaling(BODY_TEXT_HORIZONTAL_SCALING);
+    content.set_font(FONT_REGULAR_NAME, BODY_TEXT_FONT_SIZE);
     let line_step = body_line_step_points();
 
     if let Some(display_page_number) = page.display_page_number {
         let page_number = format!("{display_page_number}.");
-        content.set_text_matrix([1.0, 0.0, 0.0, 1.0, PAGE_NUMBER_LEFT, page_number_y()]);
-        let encoded_page_number = font.encode_text(&page_number);
-        content.show(Str(&encoded_page_number));
+        render_fixed_cell_runs(
+            &mut content,
+            fonts,
+            &[ResolvedRun {
+                text: page_number,
+                styles: StyleFlags::default(),
+            }],
+            PAGE_NUMBER_LEFT,
+            page_number_y(),
+            BODY_TEXT_FONT_SIZE,
+            &mut underlines,
+        );
     }
 
-    let body_top = if page.display_page_number.is_some() {
-        first_body_line_y() - (PAGE_NUMBER_BODY_GAP_LINES * line_step)
-    } else {
-        first_body_line_y()
-    };
+    let body_top = first_body_line_y();
     for (index, line) in page.lines.iter().enumerate() {
         if line.text.is_empty() {
             continue;
@@ -299,16 +380,24 @@ fn render_body_page_content(
 
         let line_y = body_top - (index as f32 * line_step);
         if let Some(dual) = &line.dual {
-            render_dual_body_line(&mut content, dual, geometry, font, line_y);
+            render_dual_body_line(&mut content, dual, geometry, fonts, line_y, &mut underlines);
             continue;
         }
-        let text = rendered_body_line_text(line, geometry);
-        content.set_text_matrix([1.0, 0.0, 0.0, 1.0, body_line_left(line, geometry), line_y]);
-        let encoded_text = font.encode_text(text);
-        content.show(Str(&encoded_text));
+        let fragments = displayed_body_fragments(line, geometry);
+        let defaults = default_body_line_styles(line.kind);
+        render_fixed_cell_runs(
+            &mut content,
+            fonts,
+            &resolve_runs(&fragments, defaults),
+            body_line_left(line, geometry),
+            line_y,
+            BODY_TEXT_FONT_SIZE,
+            &mut underlines,
+        );
     }
 
     content.end_text();
+    render_underlines(&mut content, &underlines);
     content.finish().to_vec()
 }
 
@@ -316,19 +405,88 @@ fn render_dual_body_line(
     content: &mut Content,
     dual: &PdfRenderDualLine,
     geometry: &LayoutGeometry,
-    font: &EmbeddedFont,
+    fonts: &EmbeddedFonts,
     line_y: f32,
+    underlines: &mut Vec<UnderlineSegment>,
 ) {
     if let Some(left) = &dual.left {
-        let encoded_left = font.encode_text(&left.text);
-        content.set_text_matrix([1.0, 0.0, 0.0, 1.0, dual_side_left(left, geometry), line_y]);
-        content.show(Str(&encoded_left));
+        render_fixed_cell_runs(
+            content,
+            fonts,
+            &resolve_runs(
+                &left.fragments,
+                default_body_line_styles(Some(left.kind)),
+            ),
+            dual_side_left(left, geometry),
+            line_y,
+            BODY_TEXT_FONT_SIZE,
+            underlines,
+        );
     }
 
     if let Some(right) = &dual.right {
-        let encoded_right = font.encode_text(&right.text);
-        content.set_text_matrix([1.0, 0.0, 0.0, 1.0, dual_side_left(right, geometry), line_y]);
-        content.show(Str(&encoded_right));
+        render_fixed_cell_runs(
+            content,
+            fonts,
+            &resolve_runs(
+                &right.fragments,
+                default_body_line_styles(Some(right.kind)),
+            ),
+            dual_side_left(right, geometry),
+            line_y,
+            BODY_TEXT_FONT_SIZE,
+            underlines,
+        );
+    }
+}
+
+fn render_fixed_cell_runs(
+    content: &mut Content,
+    fonts: &EmbeddedFonts,
+    runs: &[ResolvedRun],
+    line_left: f32,
+    line_y: f32,
+    font_size: f32,
+    underlines: &mut Vec<UnderlineSegment>,
+) {
+    let mut cell_index = 0usize;
+
+    for run in runs {
+        let font = fonts.for_styles(run.styles);
+        content.set_font(font.resource_name, font_size);
+        let run_start_cell = cell_index;
+
+        for character in run.text.chars() {
+            if character != ' ' {
+                content.set_text_matrix([
+                    1.0,
+                    0.0,
+                    0.0,
+                    1.0,
+                    line_left + (cell_index as f32 * BODY_TEXT_CELL_WIDTH),
+                    line_y,
+                ]);
+                let encoded_character = font.encode_char(character);
+                content.show(Str(&encoded_character));
+            }
+            cell_index += 1;
+        }
+
+        if run.styles.underline {
+            let underline_cell_count = run
+                .text
+                .trim_end_matches(' ')
+                .chars()
+                .count();
+            let underline_end_cell = run_start_cell + underline_cell_count;
+            if underline_end_cell > run_start_cell {
+                underlines.push(UnderlineSegment {
+                    start_x: line_left + (run_start_cell as f32 * BODY_TEXT_CELL_WIDTH),
+                    end_x: line_left + (underline_end_cell as f32 * BODY_TEXT_CELL_WIDTH),
+                    y: line_y,
+                });
+            }
+        }
     }
 }
 
@@ -338,65 +496,54 @@ fn body_line_step_points() -> f32 {
 }
 
 fn first_body_line_y() -> f32 {
-    LETTER_HEIGHT - (PAGE_TOP_BOTTOM_MARGIN_INCHES * 72.0)
+    711.0
 }
 
 fn page_number_y() -> f32 {
-    first_body_line_y() + (PAGE_NUMBER_LINES_ABOVE_BODY * body_line_step_points())
+    PAGE_NUMBER_BASELINE_Y
 }
 
-fn render_title_page_content(title_page: &PdfTitlePage, font: &EmbeddedFont) -> Vec<u8> {
+fn render_title_page_content(title_page: &PdfTitlePage, fonts: &EmbeddedFonts) -> Vec<u8> {
     let mut content = Content::new();
+    let mut underlines = Vec::new();
     content.begin_text();
-    content.set_font(FONT_NAME, TITLE_META_FONT_SIZE);
+    content.set_font(FONT_REGULAR_NAME, TITLE_META_FONT_SIZE);
 
     render_title_page_region(
         &mut content,
         title_page,
-        font,
+        fonts,
         PdfTitleBlockRegion::CenterTitle,
         TITLE_TITLE_TOP,
         TITLE_FONT_SIZE,
+        &mut underlines,
     );
     render_title_page_region(
         &mut content,
         title_page,
-        font,
+        fonts,
         PdfTitleBlockRegion::CenterMeta,
         TITLE_META_TOP,
         TITLE_META_FONT_SIZE,
+        &mut underlines,
     );
-    render_title_page_region(
-        &mut content,
-        title_page,
-        font,
-        PdfTitleBlockRegion::BottomLeft,
-        TITLE_BOTTOM_TOP,
-        TITLE_META_FONT_SIZE,
-    );
-    render_title_page_region(
-        &mut content,
-        title_page,
-        font,
-        PdfTitleBlockRegion::BottomRight,
-        TITLE_BOTTOM_TOP,
-        TITLE_META_FONT_SIZE,
-    );
+    render_title_page_bottom_regions(&mut content, title_page, fonts, &mut underlines);
 
     content.end_text();
+    render_underlines(&mut content, &underlines);
     content.finish().to_vec()
 }
 
 fn render_title_page_region(
     content: &mut Content,
     title_page: &PdfTitlePage,
-    font: &EmbeddedFont,
+    fonts: &EmbeddedFonts,
     region: PdfTitleBlockRegion,
     top_y: f32,
     font_size: f32,
+    underlines: &mut Vec<UnderlineSegment>,
 ) {
     let mut line_index = 0usize;
-    content.set_font(FONT_NAME, font_size);
 
     for block in title_page
         .blocks
@@ -406,55 +553,134 @@ fn render_title_page_region(
         for line in &block.lines {
             let text = line.plain_text();
             let y = top_y - (line_index as f32 * TITLE_BLOCK_LINE_STEP);
-            let encoded_text = font.encode_text(&text);
-            content.set_text_matrix([
-                1.0,
-                0.0,
-                0.0,
-                1.0,
-                title_page_line_left(&text, region, font_size),
+            render_fixed_cell_runs(
+                content,
+                fonts,
+                &resolve_runs(
+                    &title_page_fragments(title_page, block.kind, line),
+                    default_title_page_styles(block.kind, line),
+                ),
+                title_page_line_left(&text, region),
                 y,
-            ]);
-            content.show(Str(&encoded_text));
+                font_size,
+                underlines,
+            );
             line_index += 1;
         }
-        line_index += 1;
+        line_index += title_page_block_gap_after(block.kind);
     }
 }
 
-fn write_embedded_font_objects(
-    pdf: &mut Pdf,
-    font: &EmbeddedFont,
-    type0_font_id: Ref,
-    cid_font_id: Ref,
-    font_descriptor_id: Ref,
-    font_file_id: Ref,
-    to_unicode_id: Ref,
-    cid_to_gid_map_id: Ref,
+fn render_title_page_bottom_regions(
+    content: &mut Content,
+    title_page: &PdfTitlePage,
+    fonts: &EmbeddedFonts,
+    underlines: &mut Vec<UnderlineSegment>,
 ) {
-    pdf.type0_font(type0_font_id)
-        .base_font(COURIER_PRIME_BASE_FONT)
-        .encoding_predefined(IDENTITY_H)
-        .descendant_font(cid_font_id)
-        .to_unicode(to_unicode_id);
+    let left_lines = title_page
+        .blocks
+        .iter()
+        .filter(|block| block.region == PdfTitleBlockRegion::BottomLeft)
+        .flat_map(|block| block.lines.iter().map(move |line| (block.kind, line)))
+        .collect::<Vec<_>>();
+    let right_lines = title_page
+        .blocks
+        .iter()
+        .filter(|block| block.region == PdfTitleBlockRegion::BottomRight)
+        .flat_map(|block| block.lines.iter().map(move |line| (block.kind, line)))
+        .collect::<Vec<_>>();
 
-    let mut cid_font = pdf.cid_font(cid_font_id);
+    let max_lines = left_lines.len().max(right_lines.len());
+    render_title_page_bottom_region_lines(
+        content,
+        fonts,
+        PdfTitleBlockRegion::BottomLeft,
+        &left_lines,
+        max_lines,
+        underlines,
+    );
+    render_title_page_bottom_region_lines(
+        content,
+        fonts,
+        PdfTitleBlockRegion::BottomRight,
+        &right_lines,
+        max_lines,
+        underlines,
+    );
+}
+
+fn render_title_page_bottom_region_lines(
+    content: &mut Content,
+    fonts: &EmbeddedFonts,
+    region: PdfTitleBlockRegion,
+    lines: &[(PdfTitleBlockKind, &ElementText)],
+    max_lines: usize,
+    underlines: &mut Vec<UnderlineSegment>,
+) {
+    let line_offset = max_lines.saturating_sub(lines.len()) as f32 * TITLE_BLOCK_LINE_STEP;
+
+    for (line_index, (kind, line)) in lines.iter().enumerate() {
+        let text = line.plain_text();
+        let y = TITLE_BOTTOM_TOP - line_offset - (line_index as f32 * TITLE_BLOCK_LINE_STEP);
+        render_fixed_cell_runs(
+            content,
+            fonts,
+            &resolve_runs(
+                &title_page_fragments_for_kind(*kind, line),
+                default_title_page_styles(*kind, line),
+            ),
+            title_page_bottom_line_left(&text, region),
+            y,
+            TITLE_META_FONT_SIZE,
+            underlines,
+        );
+    }
+}
+
+fn title_page_bottom_line_left(text: &str, region: PdfTitleBlockRegion) -> f32 {
+    match region {
+        PdfTitleBlockRegion::BottomRight => title_page_bottom_right_left(text),
+        _ => title_page_line_left(text, region),
+    }
+}
+
+fn title_page_bottom_right_left(text: &str) -> f32 {
+    let right_edge_points = LETTER_WIDTH - PAGE_SIDE_MARGIN;
+    let text_width_points = (text.chars().count() as f32 * 7.1) + 2.0;
+    right_edge_points - text_width_points
+}
+
+fn title_page_block_gap_after(kind: PdfTitleBlockKind) -> usize {
+    match kind {
+        PdfTitleBlockKind::Author => 4,
+        _ => 1,
+    }
+}
+
+fn write_embedded_font_objects(pdf: &mut Pdf, font: &EmbeddedFont, ids: FontObjectIds) {
+    pdf.type0_font(ids.type0_font_id)
+        .base_font(font.base_font)
+        .encoding_predefined(IDENTITY_H)
+        .descendant_font(ids.cid_font_id)
+        .to_unicode(ids.to_unicode_id);
+
+    let mut cid_font = pdf.cid_font(ids.cid_font_id);
     cid_font
         .subtype(CidFontType::Type2)
-        .base_font(COURIER_PRIME_BASE_FONT)
+        .base_font(font.base_font)
         .system_info(ADOBE_IDENTITY)
-        .font_descriptor(font_descriptor_id)
+        .font_descriptor(ids.font_descriptor_id)
         .default_width(font.font_descriptor.missing_width);
     cid_font
         .widths()
         .consecutive(1, font.cid_widths.iter().copied())
         .finish();
-    cid_font.cid_to_gid_map_stream(cid_to_gid_map_id);
+    cid_font.cid_to_gid_map_stream(ids.cid_to_gid_map_id);
     cid_font.finish();
 
-    pdf.font_descriptor(font_descriptor_id)
-        .name(COURIER_PRIME_BASE_FONT)
-        .family(Str(b"Courier Prime"))
+    pdf.font_descriptor(ids.font_descriptor_id)
+        .name(font.base_font)
+        .family(Str(font.family_name))
         .flags(FontFlags::from_bits_retain(
             font.font_descriptor.flags.bits(),
         ))
@@ -468,26 +694,26 @@ fn write_embedded_font_objects(
         .avg_width(font.font_descriptor.avg_width)
         .max_width(font.font_descriptor.max_width)
         .missing_width(font.font_descriptor.missing_width)
-        .font_file2(font_file_id);
+        .font_file2(ids.font_file_id);
 
-    let mut font_file_stream = pdf.stream(font_file_id, COURIER_PRIME_FONT_BYTES);
-    font_file_stream.pair(Name(b"Length1"), COURIER_PRIME_FONT_BYTES.len() as i32);
+    let mut font_file_stream = pdf.stream(ids.font_file_id, font.font_bytes);
+    font_file_stream.pair(Name(b"Length1"), font.font_bytes.len() as i32);
     font_file_stream.finish();
 
-    pdf.stream(to_unicode_id, &font.to_unicode_cmap);
-    pdf.stream(cid_to_gid_map_id, &font.cid_to_gid_map);
+    pdf.stream(ids.to_unicode_id, &font.to_unicode_cmap);
+    pdf.stream(ids.cid_to_gid_map_id, &font.cid_to_gid_map);
 }
 
-fn title_page_line_left(text: &str, region: PdfTitleBlockRegion, font_size: f32) -> f32 {
-    let width = text.chars().count() as f32 * (font_size * 0.6);
+fn title_page_line_left(text: &str, region: PdfTitleBlockRegion) -> f32 {
+    let width = text.chars().count() as f32 * BODY_TEXT_CELL_WIDTH;
 
     match region {
         PdfTitleBlockRegion::CenterTitle | PdfTitleBlockRegion::CenterMeta => {
-            ((LETTER_WIDTH - width) / 2.0).max(TITLE_BOTTOM_MARGIN)
+            ((LETTER_WIDTH - width) / 2.0).max(PAGE_SIDE_MARGIN)
         }
-        PdfTitleBlockRegion::BottomLeft => TITLE_BOTTOM_MARGIN,
+        PdfTitleBlockRegion::BottomLeft => PAGE_SIDE_MARGIN,
         PdfTitleBlockRegion::BottomRight => {
-            (LETTER_WIDTH - TITLE_BOTTOM_MARGIN - width).max(TITLE_BOTTOM_MARGIN)
+            (LETTER_WIDTH - PAGE_SIDE_MARGIN - width).max(PAGE_SIDE_MARGIN)
         }
     }
 }
@@ -498,24 +724,20 @@ fn body_line_left(line: &PdfRenderLine, geometry: &LayoutGeometry) -> f32 {
             && geometry.transition_alignment == crate::pagination::Alignment::Right
         {
             let text = rendered_body_line_text(line, geometry);
-            let char_width = body_text_char_width_points(geometry);
+            let char_width = BODY_TEXT_CELL_WIDTH;
             let rendered_width = text.chars().count() as f32 * char_width;
             return (geometry.transition_right * 72.0) - rendered_width;
         }
-        return line_kind_left(line.kind, geometry);
+        return line_kind_left(line.kind, geometry)
+            - parenthetical_hang_offset_points(line.kind, rendered_body_line_text(line, geometry));
     }
 
     let action_left = geometry.action_left * 72.0;
-    let chars_per_line = calculate_element_width(geometry, ElementType::Action);
-    let char_width = body_text_char_width_points(geometry);
-    let rendered_width = line.text.chars().count() as f32 * char_width;
-    let available_width = chars_per_line as f32 * char_width;
+    let action_right = geometry.action_right * 72.0;
+    let rendered_width = line.text.chars().count() as f32 * BODY_TEXT_CELL_WIDTH;
+    let available_width = action_right - action_left;
 
     action_left + ((available_width - rendered_width) / 2.0).max(0.0)
-}
-
-fn body_text_char_width_points(geometry: &LayoutGeometry) -> f32 {
-    (72.0 / geometry.cpi) * (BODY_TEXT_HORIZONTAL_SCALING / 100.0)
 }
 
 fn rendered_body_line_text<'a>(line: &'a PdfRenderLine, geometry: &LayoutGeometry) -> &'a str {
@@ -526,7 +748,7 @@ fn rendered_body_line_text<'a>(line: &'a PdfRenderLine, geometry: &LayoutGeometr
     let Some(kind) = line.kind else {
         return &line.text;
     };
-    let indent = " ".repeat(synthetic_indent_spaces(kind, geometry));
+    let indent = " ".repeat(body_line_indent_spaces(kind, &line.text, geometry));
     line.text.strip_prefix(&indent).unwrap_or(&line.text)
 }
 
@@ -536,7 +758,7 @@ fn line_kind_left(kind: Option<PdfLineKind>, geometry: &LayoutGeometry) -> f32 {
 }
 
 fn dual_side_left(side: &PdfRenderDualSide, geometry: &LayoutGeometry) -> f32 {
-    match side.kind {
+    let left = match side.kind {
         PdfLineKind::DualDialogueCharacterLeft => {
             dual_dialogue_character_left_indent(&side.text, 1) * 72.0
         }
@@ -544,12 +766,21 @@ fn dual_side_left(side: &PdfRenderDualSide, geometry: &LayoutGeometry) -> f32 {
             dual_dialogue_character_left_indent(&side.text, 2) * 72.0
         }
         _ => line_kind_left(Some(side.kind), geometry),
-    }
+    };
+    left - parenthetical_hang_offset_points(Some(side.kind), &side.text)
 }
 
 fn synthetic_indent_spaces(kind: PdfLineKind, geometry: &LayoutGeometry) -> usize {
     let left = element_left_inches(kind, geometry);
     ((left - geometry.action_left) * geometry.cpi).floor() as usize
+}
+
+fn body_line_indent_spaces(kind: PdfLineKind, text: &str, geometry: &LayoutGeometry) -> usize {
+    let base = synthetic_indent_spaces(kind, geometry);
+    if hangs_opening_parenthesis(Some(kind), text) {
+        return base.saturating_sub(1);
+    }
+    base
 }
 
 fn element_left_inches(kind: PdfLineKind, geometry: &LayoutGeometry) -> f32 {
@@ -576,18 +807,90 @@ fn element_left_inches(kind: PdfLineKind, geometry: &LayoutGeometry) -> f32 {
     }
 }
 
-impl EmbeddedFont {
+fn parenthetical_hang_offset_points(kind: Option<PdfLineKind>, text: &str) -> f32 {
+    if hangs_opening_parenthesis(kind, text) {
+        return BODY_TEXT_CELL_WIDTH;
+    }
+    0.0
+}
+
+fn hangs_opening_parenthesis(kind: Option<PdfLineKind>, text: &str) -> bool {
+    matches!(
+        kind,
+        Some(
+            PdfLineKind::Parenthetical
+                | PdfLineKind::DualDialogueParentheticalLeft
+                | PdfLineKind::DualDialogueParentheticalRight
+        )
+    ) && text.trim_start().starts_with('(')
+}
+
+impl EmbeddedFonts {
     fn new(document: &PdfRenderDocument) -> Self {
+        Self {
+            regular: EmbeddedFont::new(
+                document,
+                FONT_REGULAR_NAME,
+                Name(b"CourierPrime-Regular"),
+                b"Courier Prime",
+                COURIER_PRIME_REGULAR_BYTES,
+                Name(b"CourierPrime-Regular-UTF16"),
+            ),
+            bold: EmbeddedFont::new(
+                document,
+                FONT_BOLD_NAME,
+                Name(b"CourierPrime-Bold"),
+                b"Courier Prime",
+                COURIER_PRIME_BOLD_BYTES,
+                Name(b"CourierPrime-Bold-UTF16"),
+            ),
+            italic: EmbeddedFont::new(
+                document,
+                FONT_ITALIC_NAME,
+                Name(b"CourierPrime-Italic"),
+                b"Courier Prime",
+                COURIER_PRIME_ITALIC_BYTES,
+                Name(b"CourierPrime-Italic-UTF16"),
+            ),
+            bold_italic: EmbeddedFont::new(
+                document,
+                FONT_BOLD_ITALIC_NAME,
+                Name(b"CourierPrime-BoldItalic"),
+                b"Courier Prime",
+                COURIER_PRIME_BOLD_ITALIC_BYTES,
+                Name(b"CourierPrime-BoldItalic-UTF16"),
+            ),
+        }
+    }
+
+    fn for_styles(&self, styles: StyleFlags) -> &EmbeddedFont {
+        match (styles.bold, styles.italic) {
+            (true, true) => &self.bold_italic,
+            (true, false) => &self.bold,
+            (false, true) => &self.italic,
+            (false, false) => &self.regular,
+        }
+    }
+}
+
+impl EmbeddedFont {
+    fn new(
+        document: &PdfRenderDocument,
+        resource_name: Name<'static>,
+        base_font: Name<'static>,
+        family_name: &'static [u8],
+        font_bytes: &'static [u8],
+        cmap_name: Name<'static>,
+    ) -> Self {
         let chars = collect_document_chars(document);
-        let face = Face::parse(COURIER_PRIME_FONT_BYTES, 0)
-            .expect("Courier Prime regular TTF should parse");
+        let face = Face::parse(font_bytes, 0).expect("Courier Prime TTF should parse");
         let units_per_em = face.units_per_em() as f32;
         let scale = 1000.0 / units_per_em;
 
         let mut cid_by_char = BTreeMap::new();
         let mut cid_widths = Vec::new();
         let mut cid_to_gid_map = vec![0_u8, 0_u8];
-        let mut to_unicode = UnicodeCmap::new(COURIER_PRIME_CMAP_NAME, ADOBE_IDENTITY);
+        let mut to_unicode = UnicodeCmap::new(cmap_name, ADOBE_IDENTITY);
 
         for (index, character) in chars.into_iter().enumerate() {
             let cid = u16::try_from(index + 1).expect("too many distinct characters for CID font");
@@ -607,6 +910,10 @@ impl EmbeddedFont {
         let widths = cid_widths.clone();
 
         Self {
+            resource_name,
+            base_font,
+            family_name,
+            font_bytes,
             cid_by_char,
             font_descriptor: EmbeddedFontDescriptor {
                 ascent: face.ascender() as f32 * scale,
@@ -653,6 +960,18 @@ impl EmbeddedFont {
         }
         encoded
     }
+
+    fn encode_char(&self, character: char) -> [u8; 2] {
+        let fallback_cid = *self
+            .cid_by_char
+            .get(&'?')
+            .expect("Courier Prime character map should include '?'");
+        self.cid_by_char
+            .get(&character)
+            .copied()
+            .unwrap_or(fallback_cid)
+            .to_be_bytes()
+    }
 }
 
 fn collect_document_chars(document: &PdfRenderDocument) -> BTreeSet<char> {
@@ -677,6 +996,189 @@ fn collect_document_chars(document: &PdfRenderDocument) -> BTreeSet<char> {
     }
 
     chars
+}
+
+fn font_object_ids(start: i32) -> FontObjectIds {
+    FontObjectIds {
+        type0_font_id: Ref::new(start),
+        cid_font_id: Ref::new(start + 1),
+        font_descriptor_id: Ref::new(start + 2),
+        font_file_id: Ref::new(start + 3),
+        to_unicode_id: Ref::new(start + 4),
+        cid_to_gid_map_id: Ref::new(start + 5),
+    }
+}
+
+fn title_page_fragments(
+    title_page: &PdfTitlePage,
+    kind: PdfTitleBlockKind,
+    line: &ElementText,
+) -> Vec<PdfRenderFragment> {
+    title_page_fragments_for_kind_and_caps(kind, line, title_page.plain_title_all_caps)
+}
+
+fn title_page_fragments_for_kind(
+    kind: PdfTitleBlockKind,
+    line: &ElementText,
+) -> Vec<PdfRenderFragment> {
+    title_page_fragments_for_kind_and_caps(kind, line, false)
+}
+
+fn title_page_fragments_for_kind_and_caps(
+    kind: PdfTitleBlockKind,
+    line: &ElementText,
+    plain_title_all_caps: bool,
+) -> Vec<PdfRenderFragment> {
+    match line {
+        ElementText::Plain(text) => vec![PdfRenderFragment {
+            text: if kind == PdfTitleBlockKind::Title && plain_title_all_caps {
+                text.to_ascii_uppercase()
+            } else {
+                text.clone()
+            },
+            styles: Vec::new(),
+        }],
+        ElementText::Styled(runs) => runs
+            .iter()
+            .map(|run| PdfRenderFragment {
+                text: run.content.clone(),
+                styles: sorted_run_styles(run.text_style.iter().cloned()),
+            })
+            .collect(),
+    }
+}
+
+fn sorted_run_styles(styles: impl IntoIterator<Item = String>) -> Vec<String> {
+    let mut styles = styles.into_iter().collect::<Vec<_>>();
+    styles.sort();
+    styles
+}
+
+fn displayed_body_fragments(
+    line: &PdfRenderLine,
+    geometry: &LayoutGeometry,
+) -> Vec<PdfRenderFragment> {
+    let Some(kind) = line.kind else {
+        return line.fragments.clone();
+    };
+    trim_leading_fragment_spaces(
+        &line.fragments,
+        body_line_indent_spaces(kind, &line.text, geometry),
+    )
+}
+
+fn trim_leading_fragment_spaces(
+    fragments: &[PdfRenderFragment],
+    mut spaces_to_trim: usize,
+) -> Vec<PdfRenderFragment> {
+    let mut trimmed = Vec::new();
+
+    for fragment in fragments {
+        if spaces_to_trim == 0 {
+            trimmed.push(fragment.clone());
+            continue;
+        }
+
+        let fragment_len = fragment.text.chars().count();
+        if spaces_to_trim >= fragment_len && fragment.text.chars().all(|ch| ch == ' ') {
+            spaces_to_trim -= fragment_len;
+            continue;
+        }
+
+        let mut skipped = 0usize;
+        let text = fragment
+            .text
+            .chars()
+            .filter(|character| {
+                if skipped < spaces_to_trim && *character == ' ' {
+                    skipped += 1;
+                    false
+                } else {
+                    true
+                }
+            })
+            .collect::<String>();
+        spaces_to_trim = spaces_to_trim.saturating_sub(skipped);
+        if !text.is_empty() {
+            trimmed.push(PdfRenderFragment {
+                text,
+                styles: fragment.styles.clone(),
+            });
+        }
+    }
+
+    trimmed
+}
+
+fn resolve_runs(fragments: &[PdfRenderFragment], default_styles: StyleFlags) -> Vec<ResolvedRun> {
+    let mut runs = Vec::new();
+    for fragment in fragments {
+        if fragment.text.is_empty() {
+            continue;
+        }
+        runs.push(ResolvedRun {
+            text: fragment.text.clone(),
+            styles: merge_style_flags(default_styles, style_flags_from_names(&fragment.styles)),
+        });
+    }
+    runs
+}
+
+fn style_flags_from_names(styles: &[String]) -> StyleFlags {
+    let mut flags = StyleFlags::default();
+    for style in styles {
+        if style.eq_ignore_ascii_case("bold") {
+            flags.bold = true;
+        } else if style.eq_ignore_ascii_case("italic") {
+            flags.italic = true;
+        } else if style.eq_ignore_ascii_case("underline") {
+            flags.underline = true;
+        }
+    }
+    flags
+}
+
+fn merge_style_flags(base: StyleFlags, extra: StyleFlags) -> StyleFlags {
+    StyleFlags {
+        bold: base.bold || extra.bold,
+        italic: base.italic || extra.italic,
+        underline: base.underline || extra.underline,
+    }
+}
+
+fn default_body_line_styles(kind: Option<PdfLineKind>) -> StyleFlags {
+    match kind {
+        Some(PdfLineKind::Lyric) => StyleFlags {
+            italic: true,
+            ..StyleFlags::default()
+        },
+        _ => StyleFlags::default(),
+    }
+}
+
+fn default_title_page_styles(kind: PdfTitleBlockKind, line: &ElementText) -> StyleFlags {
+    if kind == PdfTitleBlockKind::Title && matches!(line, ElementText::Plain(_)) {
+        return StyleFlags {
+            bold: true,
+            underline: true,
+            ..StyleFlags::default()
+        };
+    }
+    StyleFlags::default()
+}
+
+fn render_underlines(content: &mut Content, underlines: &[UnderlineSegment]) {
+    if underlines.is_empty() {
+        return;
+    }
+
+    content.set_line_width(UNDERLINE_LINE_WIDTH);
+    for underline in underlines {
+        let y = underline.y - UNDERLINE_Y_OFFSET;
+        content.move_to(underline.start_x, y);
+        content.line_to(underline.end_x, y);
+        content.stroke();
+    }
 }
 
 fn rendered_line_chars(line: &PdfRenderLine) -> Vec<char> {
@@ -791,7 +1293,7 @@ impl From<VisualDualSide> for PdfRenderDualSide {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{blank_attributes, p, Attributes, Element, Metadata};
+    use crate::{blank_attributes, p, tr, Attributes, Element, Metadata};
 
     #[test]
     fn pdf_render_document_is_derived_from_real_title_page_and_paginated_visual_pages() {
@@ -817,7 +1319,7 @@ mod tests {
             ],
         };
 
-        let document = build_render_document(&screenplay);
+        let document = build_render_document(&screenplay, PdfRenderOptions::default());
 
         let title_page = document.title_page.expect("expected title page");
         assert_eq!(title_page.blocks.len(), 6);
@@ -897,14 +1399,20 @@ mod tests {
             ],
         };
 
-        let document = build_render_document(&screenplay);
-        let font = EmbeddedFont::new(&document);
+        let document = build_render_document(&screenplay, PdfRenderOptions::default());
+        let fonts = EmbeddedFonts::new(&document);
         let content =
-            render_body_page_content(&document.body_pages[0], &LayoutGeometry::default(), &font);
+            render_body_page_content(&document.body_pages[0], &LayoutGeometry::default(), &fonts);
 
-        assert_stream_contains_text(&content, &font, "FIRST BODY PAGE");
-        assert_stream_contains_text(&content, &font, "ALEX");
-        assert_stream_contains_text(&content, &font, "HELLO FROM PAGE ONE");
+        assert_stream_contains_fixed_cell_text_at(&content, &fonts.regular, "FIRST BODY PAGE", 108.0, 711.0);
+        assert_stream_contains_fixed_cell_text_at(&content, &fonts.regular, "ALEX", 252.0, 687.0);
+        assert_stream_contains_fixed_cell_text_at(
+            &content,
+            &fonts.regular,
+            "HELLO FROM PAGE ONE",
+            180.0,
+            675.0,
+        );
     }
 
     #[test]
@@ -926,15 +1434,21 @@ mod tests {
             ],
         };
 
-        let document = build_render_document(&screenplay);
-        let font = EmbeddedFont::new(&document);
+        let document = build_render_document(&screenplay, PdfRenderOptions::default());
+        let fonts = EmbeddedFonts::new(&document);
         let first_page =
-            render_body_page_content(&document.body_pages[0], &LayoutGeometry::default(), &font);
+            render_body_page_content(&document.body_pages[0], &LayoutGeometry::default(), &fonts);
         let second_page =
-            render_body_page_content(&document.body_pages[1], &LayoutGeometry::default(), &font);
+            render_body_page_content(&document.body_pages[1], &LayoutGeometry::default(), &fonts);
 
-        assert_stream_lacks_text(&first_page, &font, "1.");
-        assert_stream_contains_text(&second_page, &font, "2.");
+        assert_stream_lacks_text(&first_page, &fonts.regular, "1.");
+        assert_stream_contains_fixed_cell_text_at(
+            &second_page,
+            &fonts.regular,
+            "2.",
+            PAGE_NUMBER_LEFT,
+            PAGE_NUMBER_BASELINE_Y,
+        );
     }
 
     #[test]
@@ -950,15 +1464,14 @@ mod tests {
             )],
         };
 
-        let document = build_render_document(&screenplay);
-        let font = EmbeddedFont::new(&document);
+        let document = build_render_document(&screenplay, PdfRenderOptions::default());
+        let fonts = EmbeddedFonts::new(&document);
         let content =
-            render_body_page_content(&document.body_pages[0], &LayoutGeometry::default(), &font);
+            render_body_page_content(&document.body_pages[0], &LayoutGeometry::default(), &fonts);
         let pdf_text = String::from_utf8_lossy(&content);
 
-        assert!(!pdf_text.contains("72 720 Tm"));
-        assert!(pdf_text.contains("276.79657 720 Tm"));
-        assert_stream_contains_text(&content, &font, "CENTERED LINE");
+        assert!(!pdf_text.contains("72 711 Tm"));
+        assert_stream_contains_fixed_cell_text_at(&content, &fonts.regular, "CENTERED LINE", 278.5, 711.0);
     }
 
     #[test]
@@ -977,20 +1490,20 @@ mod tests {
             ])],
         };
 
-        let document = build_render_document(&screenplay);
-        let font = EmbeddedFont::new(&document);
+        let document = build_render_document(&screenplay, PdfRenderOptions::default());
+        let fonts = EmbeddedFonts::new(&document);
         let content =
-            render_body_page_content(&document.body_pages[0], &LayoutGeometry::default(), &font);
+            render_body_page_content(&document.body_pages[0], &LayoutGeometry::default(), &fonts);
         let pdf_text = String::from_utf8_lossy(&content);
 
-        assert!(pdf_text.contains("202.5 720 Tm"));
-        assert!(pdf_text.contains("418.5 720 Tm"));
-        assert!(pdf_text.contains("108 708 Tm"));
-        assert!(pdf_text.contains("333 708 Tm"));
-        assert_stream_contains_text(&content, &font, "BOB");
-        assert_stream_contains_text(&content, &font, "CAROL");
-        assert_stream_contains_text(&content, &font, "LEFT");
-        assert_stream_contains_text(&content, &font, "RIGHT");
+        assert!(pdf_text.contains("201 711 Tm"));
+        assert!(pdf_text.contains("419 711 Tm"));
+        assert!(pdf_text.contains("108 699 Tm"));
+        assert!(pdf_text.contains("333 699 Tm"));
+        assert_stream_contains_fixed_cell_text_at(&content, &fonts.regular, "BOB", 201.0, 711.0);
+        assert_stream_contains_fixed_cell_text_at(&content, &fonts.regular, "CAROL", 419.0, 711.0);
+        assert_stream_contains_fixed_cell_text_at(&content, &fonts.regular, "LEFT", 108.0, 699.0);
+        assert_stream_contains_fixed_cell_text_at(&content, &fonts.regular, "RIGHT", 333.0, 699.0);
     }
 
     #[test]
@@ -1012,20 +1525,240 @@ mod tests {
             elements: vec![Element::Action(p("BODY PAGE"), blank_attributes())],
         };
 
-        let document = build_render_document(&screenplay);
-        let font = EmbeddedFont::new(&document);
+        let document = build_render_document(&screenplay, PdfRenderOptions::default());
+        let fonts = EmbeddedFonts::new(&document);
         let content = render_title_page_content(
             document.title_page.as_ref().expect("expected title page"),
-            &font,
+            &fonts,
         );
 
-        assert_stream_contains_text(&content, &font, "SAMPLE SCRIPT");
-        assert_stream_contains_text(&content, &font, "written by");
-        assert_stream_contains_text(&content, &font, "Alan Smithee");
-        assert_stream_contains_text(&content, &font, "based on the novel");
-        assert_stream_contains_text(&content, &font, "by J.R.R. Smithee");
-        assert_stream_contains_text(&content, &font, "WME");
-        assert_stream_contains_text(&content, &font, "First Draft");
+        assert_stream_contains_fixed_cell_text_at(
+            &content,
+            &fonts.bold,
+            "SAMPLE SCRIPT",
+            title_page_line_left("SAMPLE SCRIPT", PdfTitleBlockRegion::CenterTitle),
+            TITLE_TITLE_TOP,
+        );
+        assert_stream_contains_fixed_cell_text_at(
+            &content,
+            &fonts.regular,
+            "written by",
+            title_page_line_left("written by", PdfTitleBlockRegion::CenterMeta),
+            TITLE_META_TOP,
+        );
+        assert_stream_contains_fixed_cell_text_at(
+            &content,
+            &fonts.regular,
+            "Alan Smithee",
+            title_page_line_left("Alan Smithee", PdfTitleBlockRegion::CenterMeta),
+            TITLE_META_TOP - (TITLE_BLOCK_LINE_STEP * 2.0),
+        );
+        assert_stream_contains_fixed_cell_text_at(
+            &content,
+            &fonts.regular,
+            "based on the novel",
+            title_page_line_left("based on the novel", PdfTitleBlockRegion::CenterMeta),
+            TITLE_META_TOP - (TITLE_BLOCK_LINE_STEP * 7.0),
+        );
+        assert_stream_contains_fixed_cell_text_at(
+            &content,
+            &fonts.regular,
+            "by J.R.R. Smithee",
+            title_page_line_left("by J.R.R. Smithee", PdfTitleBlockRegion::CenterMeta),
+            TITLE_META_TOP - (TITLE_BLOCK_LINE_STEP * 8.0),
+        );
+        assert_stream_contains_fixed_cell_text_at(
+            &content,
+            &fonts.regular,
+            "WME",
+            title_page_line_left("WME", PdfTitleBlockRegion::BottomLeft),
+            TITLE_BOTTOM_TOP,
+        );
+        assert_stream_contains_fixed_cell_text_at(
+            &content,
+            &fonts.regular,
+            "First Draft",
+            title_page_bottom_right_left("First Draft"),
+            TITLE_BOTTOM_TOP,
+        );
+        assert_stream_contains_fixed_cell_text_at(
+            &content,
+            &fonts.regular,
+            "April 6, 1952",
+            title_page_bottom_right_left("April 6, 1952"),
+            TITLE_BOTTOM_TOP - TITLE_BLOCK_LINE_STEP,
+        );
+    }
+
+    #[test]
+    fn pdf_render_output_uppercases_and_underlines_plain_title_page_titles() {
+        let mut metadata = Metadata::new();
+        metadata.insert("title".into(), vec![p("Sample Script")]);
+
+        let screenplay = Screenplay {
+            metadata,
+            elements: vec![Element::Action(p("BODY PAGE"), blank_attributes())],
+        };
+
+        let document = build_render_document(&screenplay, PdfRenderOptions::default());
+        let fonts = EmbeddedFonts::new(&document);
+        let mut content = Content::new();
+        let mut underlines = Vec::new();
+        content.begin_text();
+        render_title_page_region(
+            &mut content,
+            document.title_page.as_ref().expect("expected title page"),
+            &fonts,
+            PdfTitleBlockRegion::CenterTitle,
+            TITLE_TITLE_TOP,
+            TITLE_FONT_SIZE,
+            &mut underlines,
+        );
+        content.end_text();
+        render_underlines(&mut content, &underlines);
+        let stream = content.finish().to_vec();
+        let stream_text = String::from_utf8_lossy(&stream);
+
+        assert_stream_contains_fixed_cell_text_at(
+            &stream,
+            &fonts.bold,
+            "SAMPLE SCRIPT",
+            title_page_line_left("SAMPLE SCRIPT", PdfTitleBlockRegion::CenterTitle),
+            TITLE_TITLE_TOP,
+        );
+        assert!(stream_text.contains("260.5 493.5 m"));
+        assert!(stream_text.contains("351.5 493.5 l"));
+    }
+
+    #[test]
+    fn pdf_render_output_preserves_plain_title_case_when_fmt_allows_lowercase_title() {
+        let mut metadata = Metadata::new();
+        metadata.insert("title".into(), vec![p("Sample Script")]);
+        metadata.insert("fmt".into(), vec![p("allow-lowercase-title")]);
+
+        let screenplay = Screenplay {
+            metadata,
+            elements: vec![Element::Action(p("BODY PAGE"), blank_attributes())],
+        };
+
+        let document = build_render_document(&screenplay, PdfRenderOptions::default());
+        let fonts = EmbeddedFonts::new(&document);
+        let mut content = Content::new();
+        let mut underlines = Vec::new();
+        content.begin_text();
+        render_title_page_region(
+            &mut content,
+            document.title_page.as_ref().expect("expected title page"),
+            &fonts,
+            PdfTitleBlockRegion::CenterTitle,
+            TITLE_TITLE_TOP,
+            TITLE_FONT_SIZE,
+            &mut underlines,
+        );
+        content.end_text();
+        let stream = content.finish().to_vec();
+
+        assert_stream_contains_fixed_cell_text_at(
+            &stream,
+            &fonts.bold,
+            "Sample Script",
+            title_page_line_left("Sample Script", PdfTitleBlockRegion::CenterTitle),
+            TITLE_TITLE_TOP,
+        );
+        assert_stream_lacks_text(&stream, &fonts.bold, "SAMPLE SCRIPT");
+    }
+
+    #[test]
+    fn pdf_render_output_uses_font_variants_and_underlines_for_styled_fragments() {
+        let screenplay = Screenplay {
+            metadata: Metadata::new(),
+            elements: vec![Element::Action(
+                ElementText::Styled(vec![
+                    tr("PLAIN ", vec![]),
+                    tr("BOLD ", vec!["Bold"]),
+                    tr("ITALIC ", vec!["Italic"]),
+                    tr("BOTH ", vec!["Bold", "Italic"]),
+                    tr("UNDER", vec!["Underline"]),
+                ]),
+                blank_attributes(),
+            )],
+        };
+
+        let document = build_render_document(&screenplay, PdfRenderOptions::default());
+        let fonts = EmbeddedFonts::new(&document);
+        let content =
+            render_body_page_content(&document.body_pages[0], &LayoutGeometry::default(), &fonts);
+        let pdf_text = String::from_utf8_lossy(&content);
+
+        assert!(pdf_text.contains("/F2 12 Tf"));
+        assert!(pdf_text.contains("/F3 12 Tf"));
+        assert!(pdf_text.contains("/F4 12 Tf"));
+        assert!(pdf_text.contains("0.75 w"));
+    }
+
+    #[test]
+    fn pdf_render_output_applies_default_scene_heading_and_lyric_styles() {
+        let screenplay = Screenplay {
+            metadata: Metadata::new(),
+            elements: vec![
+                Element::SceneHeading(p("INT. OFFICE - DAY"), blank_attributes()),
+                Element::Lyric(p("I love to sing"), blank_attributes()),
+            ],
+        };
+
+        let document = build_render_document(&screenplay, PdfRenderOptions::default());
+        let fonts = EmbeddedFonts::new(&document);
+        let content =
+            render_body_page_content(&document.body_pages[0], &LayoutGeometry::default(), &fonts);
+        let pdf_text = String::from_utf8_lossy(&content);
+
+        assert!(pdf_text.contains("/F3 12 Tf"));
+    }
+
+    #[test]
+    fn underline_segments_do_not_extend_into_trailing_wrap_spaces() {
+        let document = PdfRenderDocument {
+            title_page: None,
+            body_pages: vec![],
+        };
+        let fonts = EmbeddedFonts::new(&document);
+        let mut content = Content::new();
+        let mut underlines = Vec::new();
+        content.begin_text();
+        render_fixed_cell_runs(
+            &mut content,
+            &fonts,
+            &[ResolvedRun {
+                text: "FALL ".into(),
+                styles: StyleFlags {
+                    underline: true,
+                    ..StyleFlags::default()
+                },
+            }],
+            108.0,
+            720.0,
+            BODY_TEXT_FONT_SIZE,
+            &mut underlines,
+        );
+        content.end_text();
+        render_underlines(&mut content, &underlines);
+        let stream = String::from_utf8_lossy(&content.finish().to_vec()).into_owned();
+
+        assert!(stream.contains("108 718.5 m"));
+        assert!(stream.contains("136 718.5 l"));
+        assert!(!stream.contains("143 718.5 l"));
+    }
+
+    #[test]
+    fn title_page_line_left_uses_fixed_cell_widths() {
+        assert_eq!(
+            title_page_line_left("SAMPLE SCRIPT", PdfTitleBlockRegion::CenterTitle),
+            260.5
+        );
+        assert_eq!(
+            title_page_bottom_right_left("April 6, 1952"),
+            445.7
+        );
     }
 
     #[test]
@@ -1079,7 +1812,33 @@ mod tests {
             dual: None,
         };
 
-        assert!((body_line_left(&line, &geometry) - 461.96765).abs() < 0.001);
+        assert!((body_line_left(&line, &geometry) - 462.2).abs() < 0.001);
+    }
+
+    #[test]
+    fn body_line_left_hangs_opening_parenthetical_one_cell_left() {
+        let geometry = LayoutGeometry::default();
+        let line = PdfRenderLine {
+            text: format!("{}(quietly)", " ".repeat(14)),
+            counted: true,
+            centered: false,
+            kind: Some(PdfLineKind::Parenthetical),
+            fragments: Vec::new(),
+            dual: None,
+        };
+        let continuation = PdfRenderLine {
+            text: format!("{}quietly", " ".repeat(15)),
+            counted: true,
+            centered: false,
+            kind: Some(PdfLineKind::Parenthetical),
+            fragments: Vec::new(),
+            dual: None,
+        };
+
+        assert!((body_line_left(&line, &geometry) - 209.0).abs() < 0.001);
+        assert_eq!(rendered_body_line_text(&line, &geometry), "(quietly)");
+        assert!((body_line_left(&continuation, &geometry) - 216.0).abs() < 0.001);
+        assert_eq!(rendered_body_line_text(&continuation, &geometry), "quietly");
     }
 
     #[test]
@@ -1097,25 +1856,27 @@ mod tests {
             fragments: Vec::new(),
         };
 
-        assert_eq!(dual_side_left(&short_left, &geometry), 202.5);
-        assert_eq!(dual_side_left(&longer_right, &geometry), 418.5);
+        assert_eq!(dual_side_left(&short_left, &geometry), 201.0);
+        assert_eq!(dual_side_left(&longer_right, &geometry), 419.0);
+    }
+
+    #[test]
+    fn dual_parenthetical_left_hangs_opening_parenthesis_one_cell_left() {
+        let geometry = LayoutGeometry::default();
+        let side = PdfRenderDualSide {
+            text: "(quietly)".into(),
+            kind: PdfLineKind::DualDialogueParentheticalLeft,
+            fragments: Vec::new(),
+        };
+
+        assert_eq!(dual_side_left(&side, &geometry), 119.0);
     }
 
     #[test]
     fn body_vertical_metrics_are_derived_from_letter_and_54_lines() {
         assert_eq!(body_line_step_points(), 12.0);
-        assert_eq!(first_body_line_y(), 720.0);
-        assert_eq!(page_number_y(), 756.0);
-    }
-
-    fn assert_stream_contains_text(stream: &[u8], font: &EmbeddedFont, text: &str) {
-        let encoded = pdf_literal_text(font, text);
-        assert!(
-            stream
-                .windows(encoded.len())
-                .any(|window| window == encoded),
-            "expected stream to contain encoded text: {text}"
-        );
+        assert_eq!(first_body_line_y(), 711.0);
+        assert_eq!(page_number_y(), PAGE_NUMBER_BASELINE_Y);
     }
 
     fn assert_stream_lacks_text(stream: &[u8], font: &EmbeddedFont, text: &str) {
@@ -1126,6 +1887,36 @@ mod tests {
                 .any(|window| window == encoded),
             "expected stream to omit encoded text: {text}"
         );
+    }
+
+    fn assert_stream_contains_fixed_cell_text_at(
+        stream: &[u8],
+        font: &EmbeddedFont,
+        text: &str,
+        start_x: f32,
+        y: f32,
+    ) {
+        let stream_text = String::from_utf8_lossy(stream);
+        for (index, character) in text.chars().enumerate() {
+            if character == ' ' {
+                continue;
+            }
+
+            let x = start_x + (index as f32 * BODY_TEXT_CELL_WIDTH);
+            let matrix = format!("1 0 0 1 {x} {y} Tm");
+            assert!(
+                stream_text.contains(&matrix),
+                "expected stream to contain matrix: {matrix}"
+            );
+
+            let encoded = pdf_literal_text(font, &character.to_string());
+            assert!(
+                stream
+                    .windows(encoded.len())
+                    .any(|window| window == encoded),
+                "expected stream to contain encoded character: {character}"
+            );
+        }
     }
 
     fn pdf_literal_text(font: &EmbeddedFont, text: &str) -> Vec<u8> {
