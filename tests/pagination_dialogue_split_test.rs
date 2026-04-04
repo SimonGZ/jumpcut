@@ -1,7 +1,9 @@
 use jumpcut::pagination::dialogue_split::{
     plan_dialogue_split, plan_dialogue_split_parts, DialogueTextPart,
 };
-use jumpcut::pagination::{Cohesion, DialoguePart, DialoguePartKind, DialogueUnit, LayoutGeometry};
+use jumpcut::pagination::{
+    Cohesion, DialoguePart, DialoguePartKind, DialogueUnit, InterruptionDashWrap, LayoutGeometry,
+};
 
 #[test]
 fn dialogue_split_prefers_a_sentence_boundary_for_the_mayor_case() {
@@ -38,7 +40,15 @@ fn dialogue_split_prefers_a_sentence_boundary_for_the_mayor_case() {
         },
     };
 
-    let plan = plan_dialogue_split(&dialogue, &LayoutGeometry::default(), 5.0, 2, 2).unwrap();
+    let plan = plan_dialogue_split(
+        &dialogue,
+        &LayoutGeometry::default(),
+        InterruptionDashWrap::FinalDraft,
+        5.0,
+        2,
+        2,
+    )
+    .unwrap();
 
     assert!(plan.ends_sentence);
     assert_eq!(
@@ -74,6 +84,7 @@ fn dialogue_split_pushes_the_whole_block_when_only_a_too_short_top_fragment_fits
         &stub_dialogue_unit(),
         &parts,
         &LayoutGeometry::default(),
+        InterruptionDashWrap::FinalDraft,
         2.0,
         2,
         2,
@@ -119,6 +130,7 @@ fn dialogue_split_can_start_the_continuation_with_a_parenthetical() {
         &stub_dialogue_unit(),
         &parts,
         &LayoutGeometry::default(),
+        InterruptionDashWrap::FinalDraft,
         6.0,
         2,
         2,
@@ -178,6 +190,7 @@ fn dialogue_split_prefers_the_sentence_boundary_that_also_fills_the_page() {
         &stub_dialogue_unit(),
         &parts,
         &LayoutGeometry::default(),
+        InterruptionDashWrap::FinalDraft,
         19.0,
         2,
         2,
@@ -223,7 +236,15 @@ fn dialogue_split_plan_can_split_at_a_sentence_boundary_inside_a_wrapped_line() 
         },
     };
 
-    let plan = plan_dialogue_split(&dialogue, &LayoutGeometry::default(), 14.0, 2, 2).unwrap();
+    let plan = plan_dialogue_split(
+        &dialogue,
+        &LayoutGeometry::default(),
+        InterruptionDashWrap::FinalDraft,
+        14.0,
+        2,
+        2,
+    )
+    .unwrap();
 
     assert_eq!(plan.top_line_count, 13);
     assert_eq!(plan.bottom_line_count, 6);

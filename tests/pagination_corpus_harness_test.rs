@@ -1,8 +1,8 @@
 use jumpcut::pagination::{
     build_semantic_screenplay, compare_paginated_to_fixture, margin::line_height_for_element_type,
     normalize_screenplay, wrapping::ElementType, ComparisonIssueKind, DialoguePartKind, FlowKind,
-    Fragment, LayoutGeometry, LineRange, NormalizedElement, NormalizedScreenplay, PageBreakFixture,
-    PaginatedScreenplay, PaginationConfig,
+    Fragment, InterruptionDashWrap, LayoutGeometry, LineRange, NormalizedElement,
+    NormalizedScreenplay, PageBreakFixture, PaginatedScreenplay, PaginationConfig,
 };
 use jumpcut::parse;
 use serde::de::DeserializeOwned;
@@ -199,6 +199,7 @@ fn big_fish_pages_38_39_split_beamen_action_at_sentence_boundary() {
     let config = PaginationConfig {
         lines_per_page: 54.0,
         geometry: geometry_for_screenplay("big-fish"),
+        interruption_dash_wrap: InterruptionDashWrap::FinalDraft,
     };
     let semantic = build_semantic_screenplay(normalized);
     let blocks = jumpcut::pagination::composer::compose(&semantic.units, &config.geometry);
@@ -268,6 +269,7 @@ fn big_fish_pages_53_54_split_el_01146_after_was_gone_for_a_long_time() {
     let config = PaginationConfig {
         lines_per_page: 54.0,
         geometry: geometry_for_screenplay("big-fish"),
+        interruption_dash_wrap: InterruptionDashWrap::FinalDraft,
     };
     let blocks = jumpcut::pagination::composer::compose(&semantic.units, &config.geometry);
     let pages =
@@ -336,6 +338,7 @@ fn big_fish_pages_81_82_keep_el_01742_whole_on_page_82() {
     let config = PaginationConfig {
         lines_per_page: 54.0,
         geometry: geometry_for_screenplay("big-fish"),
+        interruption_dash_wrap: InterruptionDashWrap::FinalDraft,
     };
     let actual = PaginatedScreenplay::paginate(
         semantic,
@@ -379,6 +382,7 @@ fn big_fish_pages_93_94_keep_block_00582_whole_on_page_94() {
     let config = PaginationConfig {
         lines_per_page: 54.0,
         geometry: geometry_for_screenplay("big-fish"),
+        interruption_dash_wrap: InterruptionDashWrap::FinalDraft,
     };
     let actual = PaginatedScreenplay::paginate(
         semantic,
@@ -440,6 +444,7 @@ fn big_fish_pages_89_90_split_hand_around_the_house_after_kittens() {
     let config = PaginationConfig {
         lines_per_page: 54.0,
         geometry: geometry_for_screenplay("big-fish"),
+        interruption_dash_wrap: InterruptionDashWrap::FinalDraft,
     };
     let actual = PaginatedScreenplay::paginate(
         semantic.clone(),
@@ -522,6 +527,7 @@ fn big_fish_pages_34_35_split_block_00213_after_go() {
     let config = PaginationConfig {
         lines_per_page: 54.0,
         geometry: geometry_for_screenplay("big-fish"),
+        interruption_dash_wrap: InterruptionDashWrap::FinalDraft,
     };
     let blocks = jumpcut::pagination::composer::compose(&semantic.units, &config.geometry);
     let pages =
@@ -613,6 +619,30 @@ fn big_fish_line_break_parity_recovers_el_00533_hyphenated_pdf_match() {
     assert_eq!(item.lines_agree, Some(true));
     assert_eq!(item.expected_wrapped_lines.len(), 2);
     assert_eq!(item.pdf_lines.len(), 2);
+}
+
+#[test]
+fn big_fish_line_break_parity_matches_el_01856_interrupted_dash_dialogue_wrap() {
+    let report = build_line_break_parity_report(
+        "big-fish",
+        "tests/fixtures/corpus/public/big-fish/source/source.fountain",
+        "tests/fixtures/corpus/public/big-fish/canonical/page-breaks.json",
+    );
+    let item = report
+        .items
+        .iter()
+        .find(|item| item.element_id == "el-01856")
+        .unwrap();
+
+    assert_eq!(item.match_kind, "exact_unique");
+    assert_eq!(item.pdf_line_count, Some(16));
+    assert_eq!(
+        item.lines_agree,
+        Some(true),
+        "expected interrupted-dash WILL dialogue to wrap like the canonical PDF, got expected={:?} pdf={:?}",
+        item.expected_wrapped_lines,
+        item.pdf_lines
+    );
 }
 
 #[test]
@@ -791,6 +821,7 @@ fn gumshoe_exact_part_boundary_dialogue_split_keeps_whole_parts_whole() {
     let config = PaginationConfig {
         lines_per_page: 54.0,
         geometry: geometry_for_screenplay("gumshoe"),
+        interruption_dash_wrap: InterruptionDashWrap::FinalDraft,
     };
     let full_actual = PaginatedScreenplay::paginate(
         semantic,
@@ -917,6 +948,7 @@ fn big_fish_pages_115_116_keep_el_02473_and_el_02474_whole_on_page_116() {
     let config = PaginationConfig {
         lines_per_page: 54.0,
         geometry: geometry_for_screenplay("big-fish"),
+        interruption_dash_wrap: InterruptionDashWrap::FinalDraft,
     };
     let actual = PaginatedScreenplay::paginate(
         semantic,
@@ -1169,6 +1201,7 @@ fn run_window_parity_check(
     let config = PaginationConfig {
         lines_per_page: 54.0,
         geometry,
+        interruption_dash_wrap: InterruptionDashWrap::FinalDraft,
     };
     let full_actual = PaginatedScreenplay::paginate(
         semantic.clone(),
@@ -1559,7 +1592,33 @@ fn normalize_pdf_match_text(text: &str) -> String {
         index += 1;
     }
 
-    out.trim().to_string()
+    normalize_interruption_dashes(out.trim())
+}
+
+fn normalize_interruption_dashes(text: &str) -> String {
+    let chars: Vec<char> = text.chars().collect();
+    let mut out = String::new();
+    let mut index = 0;
+
+    while index < chars.len() {
+        if chars[index] == '-' {
+            let mut next_index = index + 1;
+            while next_index < chars.len() && chars[next_index].is_whitespace() {
+                next_index += 1;
+            }
+            if next_index < chars.len() && chars[next_index] == '-' {
+                out.push('-');
+                out.push('-');
+                index = next_index + 1;
+                continue;
+            }
+        }
+
+        out.push(chars[index]);
+        index += 1;
+    }
+
+    out
 }
 
 fn public_pdf_pages(screenplay_id: &str) -> HashMap<u32, Vec<String>> {

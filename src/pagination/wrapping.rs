@@ -89,8 +89,15 @@ impl ElementType {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum InterruptionDashWrap {
+    FinalDraft,
+    KeepTogether,
+}
+
 pub struct WrapConfig {
     pub exact_width_chars: usize,
+    pub interruption_dash_wrap: InterruptionDashWrap,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -127,14 +134,24 @@ impl WrapConfig {
     }
 
     pub fn from_geometry(geometry: &LayoutGeometry, element_type: ElementType) -> Self {
+        Self::from_geometry_with_mode(geometry, element_type, InterruptionDashWrap::FinalDraft)
+    }
+
+    pub fn from_geometry_with_mode(
+        geometry: &LayoutGeometry,
+        element_type: ElementType,
+        interruption_dash_wrap: InterruptionDashWrap,
+    ) -> Self {
         Self {
             exact_width_chars: calculate_element_width(geometry, element_type),
+            interruption_dash_wrap,
         }
     }
 
     pub fn with_exact_width_chars(width: usize) -> Self {
         Self {
             exact_width_chars: width,
+            interruption_dash_wrap: InterruptionDashWrap::FinalDraft,
         }
     }
 }
@@ -163,8 +180,10 @@ pub fn wrap_text_for_element_with_offsets(text: &str, config: &WrapConfig) -> Ve
         let mut current_line_end_offset = paragraph_offset;
         let words = tokenize_wrap_chunks(paragraph, paragraph_offset);
 
-        for word in words {
-            let word_start_offset = line_start_offset_for_chunk(&word);
+        let mut word_index = 0;
+        while word_index < words.len() {
+            let word = &words[word_index];
+            let word_start_offset = line_start_offset_for_chunk(word);
             let combined = format!("{}{}", current_line, word.text);
 
             // Final Draft explicitly discounts trailing whitespace and exactly
@@ -186,6 +205,42 @@ pub fn wrap_text_for_element_with_offsets(text: &str, config: &WrapConfig) -> Ve
             } else if fits {
                 current_line.push_str(&word.text);
                 current_line_end_offset = word.end_offset;
+            } else if should_split_interruption_dash(
+                &current_line,
+                &word.text,
+                &words[word_index + 1..],
+                max_width,
+                config.interruption_dash_wrap,
+            ) {
+                let split_offset = word_start_offset + 1;
+                current_line.push('-');
+                current_line_end_offset = split_offset;
+                lines.push(WrappedLine {
+                    text: current_line.trim_end().to_string(),
+                    start_offset: current_line_start_offset,
+                    end_offset: current_line_end_offset,
+                });
+                current_line = split_interruption_dash_chunk(&word.text);
+                current_line_start_offset = split_offset;
+                current_line_end_offset = word.end_offset;
+            } else if should_split_trailing_double_hyphen_word(
+                &current_line,
+                &word.text,
+                max_width,
+                config.interruption_dash_wrap,
+            ) {
+                let top_fragment = top_fragment_for_trailing_double_hyphen(&word.text);
+                let split_offset = word_start_offset + top_fragment.len();
+                current_line.push_str(&top_fragment);
+                current_line_end_offset = split_offset;
+                lines.push(WrappedLine {
+                    text: current_line.trim_end().to_string(),
+                    start_offset: current_line_start_offset,
+                    end_offset: current_line_end_offset,
+                });
+                current_line = bottom_fragment_for_trailing_double_hyphen(&word.text);
+                current_line_start_offset = split_offset;
+                current_line_end_offset = word.end_offset;
             } else {
                 // Line is full. Trim trailing spaces on the rendered visual line
                 lines.push(WrappedLine {
@@ -193,10 +248,11 @@ pub fn wrap_text_for_element_with_offsets(text: &str, config: &WrapConfig) -> Ve
                     start_offset: current_line_start_offset,
                     end_offset: current_line_end_offset,
                 });
-                current_line = word.text;
+                current_line = word.text.clone();
                 current_line_start_offset = word_start_offset;
                 current_line_end_offset = word.end_offset;
             }
+            word_index += 1;
         }
 
         if !current_line.is_empty() {
@@ -211,6 +267,110 @@ pub fn wrap_text_for_element_with_offsets(text: &str, config: &WrapConfig) -> Ve
     }
 
     lines
+}
+
+fn should_split_interruption_dash(
+    current_line: &str,
+    next_chunk: &str,
+    remaining_chunks: &[WrapChunk],
+    max_width: usize,
+    mode: InterruptionDashWrap,
+) -> bool {
+    if mode != InterruptionDashWrap::FinalDraft {
+        return false;
+    }
+
+    if current_line.trim_end().is_empty() {
+        return false;
+    }
+
+    if next_chunk.trim() != "--" {
+        return false;
+    }
+
+    let keep_together_next_line =
+        wrap_single_line_from_chunks(next_chunk.to_string(), remaining_chunks, max_width);
+    let split_next_line =
+        wrap_single_line_from_chunks(split_interruption_dash_chunk(next_chunk), remaining_chunks, max_width);
+
+    visible_alnum_count(&split_next_line) > visible_alnum_count(&keep_together_next_line)
+}
+
+fn split_interruption_dash_chunk(chunk: &str) -> String {
+    let trailing_whitespace: String = chunk
+        .chars()
+        .rev()
+        .take_while(|ch| ch.is_whitespace())
+        .collect::<Vec<_>>()
+        .into_iter()
+        .rev()
+        .collect();
+    format!("-{trailing_whitespace}")
+}
+
+fn should_split_trailing_double_hyphen_word(
+    current_line: &str,
+    next_chunk: &str,
+    max_width: usize,
+    mode: InterruptionDashWrap,
+) -> bool {
+    if mode != InterruptionDashWrap::FinalDraft {
+        return false;
+    }
+
+    let trimmed = next_chunk.trim_end();
+    if !trimmed.ends_with("--") || trimmed.len() <= 2 {
+        return false;
+    }
+
+    let stem = &trimmed[..trimmed.len() - 2];
+    if !stem.chars().any(|ch| ch.is_alphanumeric()) {
+        return false;
+    }
+
+    let combined = format!("{current_line}{}", top_fragment_for_trailing_double_hyphen(next_chunk));
+    effective_line_len(&combined) <= max_width
+}
+
+fn top_fragment_for_trailing_double_hyphen(chunk: &str) -> String {
+    let trimmed = chunk.trim_end();
+    let trailing_whitespace: String = chunk[trimmed.len()..].to_string();
+    let stem = &trimmed[..trimmed.len() - 2];
+    format!("{stem}-{trailing_whitespace}")
+}
+
+fn bottom_fragment_for_trailing_double_hyphen(_chunk: &str) -> String {
+    "-".to_string()
+}
+
+fn wrap_single_line_from_chunks(
+    mut current_line: String,
+    chunks: &[WrapChunk],
+    max_width: usize,
+) -> String {
+    for chunk in chunks {
+        let combined = format!("{current_line}{}", chunk.text);
+        if current_line.is_empty() || effective_line_len(&combined) <= max_width {
+            current_line.push_str(&chunk.text);
+        } else {
+            break;
+        }
+    }
+
+    current_line.trim_end().to_string()
+}
+
+fn effective_line_len(text: &str) -> usize {
+    let trimmed = text.trim_end_matches(' ');
+    let mut effective_len = trimmed.chars().count();
+    if trimmed.ends_with('-') {
+        effective_len = effective_len.saturating_sub(1);
+    }
+    effective_len
+}
+
+fn visible_alnum_count(text: &str) -> usize {
+    text.chars().filter(|ch| ch.is_alphanumeric()).count()
 }
 
 pub fn wrap_styled_text_for_element(

@@ -520,7 +520,33 @@ fn normalize_pdf_match_text(text: &str) -> String {
         index += 1;
     }
 
-    out.trim().to_string()
+    normalize_interruption_dashes(out.trim())
+}
+
+fn normalize_interruption_dashes(text: &str) -> String {
+    let chars: Vec<char> = text.chars().collect();
+    let mut out = String::new();
+    let mut index = 0;
+
+    while index < chars.len() {
+        if chars[index] == '-' {
+            let mut next_index = index + 1;
+            while next_index < chars.len() && chars[next_index].is_whitespace() {
+                next_index += 1;
+            }
+            if next_index < chars.len() && chars[next_index] == '-' {
+                out.push('-');
+                out.push('-');
+                index = next_index + 1;
+                continue;
+            }
+        }
+
+        out.push(chars[index]);
+        index += 1;
+    }
+
+    out
 }
 
 fn public_pdf_pages(screenplay_id: &str) -> HashMap<u32, Vec<String>> {
@@ -610,6 +636,22 @@ pub struct DebugGeometry {
 #[derive(Deserialize)]
 struct PublicPdfPages {
     pages: Vec<PublicPdfPage>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::normalize_pdf_match_text;
+
+    #[test]
+    fn normalize_pdf_match_text_collapses_spaced_interruption_dash_pairs() {
+        let extracted = "everything you said was impossible - - everything! -- I felt like such a fool";
+        let source = "everything you said was impossible -- everything! -- I felt like such a fool";
+
+        assert_eq!(
+            normalize_pdf_match_text(extracted),
+            normalize_pdf_match_text(source)
+        );
+    }
 }
 
 #[derive(Deserialize)]

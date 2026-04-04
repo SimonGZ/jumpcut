@@ -140,6 +140,7 @@ JumpCut treats `fmt` options in two layers:
 
 - template options such as `multicam` establish a base layout/style profile
 - explicit geometry knobs such as `ssbsh`, `dsd`, `dl-*`, and `dr-*` then override that base, regardless of where they appear in the `fmt` string
+- render/style options such as `allow-lowercase-title` and `clean-interruption-dashes` adjust output behavior without changing the shared page geometry
 
 **Example:**
 
@@ -161,6 +162,8 @@ Fmt: bsh ush acat dsd dl-1.5 dr-7.0
   * **`cfd`**: **Courier Final Draft Font**. Uses "Courier Final Draft" as the primary font instead of the default "Courier Prime".
   * **`dl-X.XX`**: **Custom Dialogue Left Indent**. Sets the left indent for dialogue blocks. Replace `X.XX` with a numerical value (e.g., `dl-1.25`). The default is 2.50 inches.
   * **`dr-X.XX`**: **Custom Dialogue Right Indent**. Sets the right indent for dialogue blocks. Replace `X.XX` with a numerical value (e.g., `dr-6.00`). The default is 6.00 inches.
+  * **`allow-lowercase-title`**: **Preserve Plain Title Casing**. By default, an unstylized title-page title is rendered in the usual all-caps Final Draft style. This option keeps the original title casing instead.
+  * **`clean-interruption-dashes`**: **Cleaner Double-Dash Wrapping**. Disables Final Draft-compatible dash splitting for interruption marks and trailing `--` word endings, keeping those double dashes together at line wraps instead.
 
 ### Combined Example
 
@@ -168,6 +171,20 @@ To start from the multicam template, keep its double-spaced dialogue, and then o
 
 ```
 Fmt: multicam bsh ush acat dsd dl-2.0 dr-5.5
+```
+
+### Title And Dash Examples
+
+Preserve the original title casing for a plain title page:
+
+```
+Fmt: allow-lowercase-title
+```
+
+Keep interruption dashes together instead of following Final Draft's line-wrap behavior:
+
+```
+Fmt: clean-interruption-dashes
 ```
 
 ## Prepending Metadata

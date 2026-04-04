@@ -9,7 +9,7 @@ use std::fs;
 
 use jumpcut::pagination::wrapping::{
     wrap_styled_text_for_element, wrap_text_for_element, wrap_text_for_element_with_offsets,
-    ElementType, WrapConfig, WrappedStyledFragment,
+    ElementType, InterruptionDashWrap, WrapConfig, WrappedStyledFragment,
 };
 use jumpcut::pagination::{FdxExtractedSettings, LayoutGeometry};
 use jumpcut::styled_text::{StyledRun, StyledText};
@@ -120,7 +120,10 @@ fn action_text_wraps_jo_sits_scenario_correctly() {
 
 #[test]
 fn final_draft_discounts_exactly_one_trailing_dash_from_word_width() {
-    let config = WrapConfig::with_exact_width_chars(10);
+    let config = WrapConfig {
+        exact_width_chars: 10,
+        interruption_dash_wrap: InterruptionDashWrap::KeepTogether,
+    };
 
     // SCENARIO 1: "A 12345678-" (length 11)
     // "A " is 2 visual characters conceptually (or 2 length on line).
@@ -140,7 +143,8 @@ fn final_draft_discounts_exactly_one_trailing_dash_from_word_width() {
     // Word is "12345678--" (length 10).
     // Discounting EXACTLY ONE dash gives an effective word length of 9.
     // Line width = 2 + 9 = 11. This EXCEEDS the 10-char limit!
-    // If we incorrectly discounted BOTH dashes, effective length would be 8, and it would wrap incorrectly.
+    // In keep-together mode, this should still wrap because only one dash is discounted.
+    // Final Draft mode has a separate policy for splitting some trailing `--` endings.
     let lines_wrap = wrap_text_for_element("A 12345678--", &config);
     assert_eq!(
         lines_wrap.len(),
@@ -149,6 +153,75 @@ fn final_draft_discounts_exactly_one_trailing_dash_from_word_width() {
     );
     assert_eq!(lines_wrap[0], "A");
     assert_eq!(lines_wrap[1], "12345678--");
+}
+
+#[test]
+fn final_draft_mode_can_split_a_standalone_double_dash_across_lines() {
+    let config = WrapConfig {
+        exact_width_chars: 35,
+        interruption_dash_wrap: InterruptionDashWrap::FinalDraft,
+    };
+
+    let text = "everything you said was impossible -- everything! -- I felt like such a fool";
+    let lines = wrap_text_for_element(text, &config);
+
+    assert_eq!(
+        lines,
+        vec![
+            "everything you said was impossible -",
+            "- everything! -- I felt like such a",
+            "fool",
+        ]
+    );
+}
+
+#[test]
+fn clean_mode_keeps_a_standalone_double_dash_together() {
+    let config = WrapConfig {
+        exact_width_chars: 35,
+        interruption_dash_wrap: InterruptionDashWrap::KeepTogether,
+    };
+
+    let text = "everything you said was impossible -- everything! -- I felt like such a fool";
+    let lines = wrap_text_for_element(text, &config);
+
+    assert_eq!(
+        lines,
+        vec![
+            "everything you said was impossible",
+            "-- everything! -- I felt like such",
+            "a fool",
+        ]
+    );
+}
+
+#[test]
+fn final_draft_mode_can_split_a_word_ending_in_double_hyphens() {
+    let config = WrapConfig {
+        exact_width_chars: 38,
+        interruption_dash_wrap: InterruptionDashWrap::FinalDraft,
+    };
+
+    let text = "Qaxu, uda owy’ox eqyxu. Y ugyvoju’e ga--";
+    let lines = wrap_text_for_element(text, &config);
+
+    assert_eq!(
+        lines,
+        vec!["Qaxu, uda owy’ox eqyxu. Y ugyvoju’e ga-", "-"]
+    );
+}
+
+#[test]
+fn clean_mode_keeps_a_word_ending_in_double_hyphens_together() {
+    let config = WrapConfig {
+        exact_width_chars: 38,
+        interruption_dash_wrap: InterruptionDashWrap::KeepTogether,
+    };
+
+    let text = "Qaxu, uda owy’ox eqyxu. Y ugyvoju’e ga--";
+    let lines = wrap_text_for_element(text, &config);
+
+    assert_eq!(lines, vec!["Qaxu, uda owy’ox eqyxu. Y ugyvoju’e", "ga--"]);
 }
 
 #[test]

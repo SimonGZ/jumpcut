@@ -9,7 +9,9 @@ use crate::pagination::semantic::{
     build_semantic_screenplay, DialoguePartKind, DialogueUnit, FlowKind, FlowUnit,
     SemanticScreenplay, SemanticUnit,
 };
-use crate::pagination::wrapping::{wrap_text_for_element, ElementType, WrapConfig};
+use crate::pagination::wrapping::{
+    wrap_text_for_element, ElementType, InterruptionDashWrap, WrapConfig,
+};
 use crate::pagination::LayoutGeometry;
 use crate::pagination::ScreenplayLayoutProfile;
 use crate::Screenplay;
@@ -83,6 +85,7 @@ pub struct PaginatedScreenplay {
 pub struct PaginationConfig {
     pub lines_per_page: f32,
     pub geometry: LayoutGeometry,
+    pub interruption_dash_wrap: InterruptionDashWrap,
 }
 
 impl PaginationConfig {
@@ -90,6 +93,7 @@ impl PaginationConfig {
         Self {
             lines_per_page,
             geometry: LayoutGeometry::default(),
+            interruption_dash_wrap: InterruptionDashWrap::FinalDraft,
         }
     }
 
@@ -98,6 +102,7 @@ impl PaginationConfig {
         Self {
             lines_per_page,
             geometry: profile.to_pagination_geometry(),
+            interruption_dash_wrap: profile.interruption_dash_wrap,
         }
     }
 }
@@ -115,9 +120,17 @@ impl PaginatedScreenplay {
         let style_profile = style_profile.into();
         let geometry = &config.geometry;
 
-        let blocks = crate::pagination::composer::compose(&semantic.units, geometry);
-        let paged_blocks =
-            crate::pagination::paginator::paginate(&blocks, config.lines_per_page, geometry);
+        let blocks = crate::pagination::composer::compose_with_mode(
+            &semantic.units,
+            geometry,
+            config.interruption_dash_wrap,
+        );
+        let paged_blocks = crate::pagination::paginator::paginate_with_mode(
+            &blocks,
+            config.lines_per_page,
+            geometry,
+            config.interruption_dash_wrap,
+        );
 
         let mut pages: Vec<Page> = Vec::new();
 

@@ -4,7 +4,9 @@ use std::collections::BTreeMap;
 use crate::pagination::margin::line_height_for_element_type;
 use crate::pagination::sentence_boundary::sentence_boundary_offsets;
 use crate::pagination::split_scoring::choose_best_scored_split;
-use crate::pagination::wrapping::{wrap_text_for_element, ElementType, WrapConfig};
+use crate::pagination::wrapping::{
+    wrap_text_for_element, ElementType, InterruptionDashWrap, WrapConfig,
+};
 use crate::pagination::{DialoguePartKind, DialogueUnit, LayoutGeometry};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -75,6 +77,7 @@ impl Default for DialogueSplitPolicy {
 pub fn plan_dialogue_split(
     dialogue: &DialogueUnit,
     geometry: &LayoutGeometry,
+    interruption_dash_wrap: InterruptionDashWrap,
     max_top_height: f32,
     min_top_content_lines: usize,
     min_bottom_content_lines: usize,
@@ -91,6 +94,7 @@ pub fn plan_dialogue_split(
         dialogue,
         &parts,
         geometry,
+        interruption_dash_wrap,
         max_top_height,
         min_top_content_lines,
         min_bottom_content_lines,
@@ -101,12 +105,13 @@ pub fn plan_dialogue_split_parts(
     _dialogue: &DialogueUnit,
     parts: &[DialogueTextPart],
     geometry: &LayoutGeometry,
+    interruption_dash_wrap: InterruptionDashWrap,
     max_top_height: f32,
     min_top_content_lines: usize,
     min_bottom_content_lines: usize,
 ) -> Option<DialogueSplitPlan> {
     let policy = DialogueSplitPolicy::default();
-    let candidates = generate_dialogue_split_candidates(parts, geometry);
+    let candidates = generate_dialogue_split_candidates(parts, geometry, interruption_dash_wrap);
 
     let winner = choose_best_scored_split(0..candidates.len(), |candidate_index| {
         let candidate = &candidates[candidate_index];
@@ -151,6 +156,7 @@ pub fn plan_dialogue_split_parts(
 fn generate_dialogue_split_candidates(
     parts: &[DialogueTextPart],
     geometry: &LayoutGeometry,
+    interruption_dash_wrap: InterruptionDashWrap,
 ) -> Vec<DialogueSplitCandidate> {
     let mut boundaries: BTreeMap<(usize, usize), bool> = BTreeMap::new();
 
@@ -167,8 +173,11 @@ fn generate_dialogue_split_candidates(
             continue;
         }
 
-        let config =
-            WrapConfig::from_geometry(geometry, element_type_for_part_kind(part.kind.clone()));
+        let config = WrapConfig::from_geometry_with_mode(
+            geometry,
+            element_type_for_part_kind(part.kind.clone()),
+            interruption_dash_wrap,
+        );
         let total_wrapped_lines = wrap_text_for_element(&part.text, &config).len();
 
         // Only allow mid-text sentence splits for parts with at least 3 wrapped lines.
@@ -193,6 +202,7 @@ fn generate_dialogue_split_candidates(
             build_candidate(
                 parts,
                 geometry,
+                interruption_dash_wrap,
                 DialogueSplitBoundary {
                     part_index,
                     offset,
@@ -220,6 +230,7 @@ fn generate_dialogue_split_candidates(
 fn build_candidate(
     parts: &[DialogueTextPart],
     geometry: &LayoutGeometry,
+    interruption_dash_wrap: InterruptionDashWrap,
     boundary: DialogueSplitBoundary,
 ) -> Option<DialogueSplitCandidate> {
     let mut top_line_count = 0;
@@ -237,8 +248,11 @@ fn build_candidate(
 
     for (part_index, part) in parts.iter().enumerate() {
         let (top_text, bottom_text) = split_part_text(&part.text, part_index, boundary);
-        let config =
-            WrapConfig::from_geometry(geometry, element_type_for_part_kind(part.kind.clone()));
+        let config = WrapConfig::from_geometry_with_mode(
+            geometry,
+            element_type_for_part_kind(part.kind.clone()),
+            interruption_dash_wrap,
+        );
         let top_lines = wrap_fragment_lines(top_text, &config);
         let bottom_lines = wrap_fragment_lines(bottom_text, &config);
         let line_height = line_height_for_part_kind(part.kind.clone(), geometry);

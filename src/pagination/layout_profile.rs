@@ -1,6 +1,7 @@
 use crate::Metadata;
 
 use super::{Alignment, LayoutGeometry};
+use super::wrapping::InterruptionDashWrap;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum StyleProfile {
@@ -42,6 +43,7 @@ pub struct ScreenplayElementStyles {
 #[derive(Clone, Debug, PartialEq)]
 pub struct ScreenplayLayoutProfile {
     pub style_profile: StyleProfile,
+    pub interruption_dash_wrap: InterruptionDashWrap,
     pub styles: ScreenplayElementStyles,
 }
 
@@ -155,6 +157,7 @@ impl ScreenplayLayoutProfile {
     fn default_screenplay() -> Self {
         Self {
             style_profile: StyleProfile::Screenplay,
+            interruption_dash_wrap: InterruptionDashWrap::FinalDraft,
             styles: ScreenplayElementStyles {
                 action: ScreenplayElementStyle {
                     left_indent: 1.5,
@@ -313,6 +316,8 @@ fn apply_fmt_template_option(profile: &mut ScreenplayLayoutProfile, option: &str
         profile.styles.character.right_indent = 6.25;
         profile.styles.parenthetical.left_indent = 2.75;
         profile.styles.transition.right_indent = 7.25;
+    } else if option.eq_ignore_ascii_case("clean-interruption-dashes") {
+        profile.interruption_dash_wrap = InterruptionDashWrap::KeepTogether;
     }
 }
 

@@ -37,3 +37,4 @@ pub use semantic::{
     DualDialogueSide, DualDialogueUnit, FlowKind, FlowUnit, LyricUnit, PageStartUnit,
     SemanticScreenplay, SemanticUnit,
 };
+pub use wrapping::InterruptionDashWrap;

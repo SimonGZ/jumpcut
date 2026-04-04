@@ -896,6 +896,7 @@ pub fn write_visual_comparison_data(debug_dir: &Path) {
             let config = PaginationConfig {
                 lines_per_page: lpp as f32,
                 geometry: measurement.clone(),
+                interruption_dash_wrap: crate::pagination::InterruptionDashWrap::FinalDraft,
             };
             let actual = PaginatedScreenplay::paginate(
                 semantic.clone(),
@@ -1110,6 +1111,7 @@ fn run_window_diagnostics(
     let config = PaginationConfig {
         lines_per_page: 54.0,
         geometry: geometry.clone(),
+        interruption_dash_wrap: crate::pagination::InterruptionDashWrap::FinalDraft,
     };
     let full_actual = PaginatedScreenplay::paginate(
         semantic.clone(),

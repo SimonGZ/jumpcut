@@ -41,6 +41,7 @@ pub fn render(screenplay: &Screenplay, options: &TextRenderOptions) -> String {
     let config = PaginationConfig {
         lines_per_page: DEFAULT_LINES_PER_PAGE,
         geometry: layout_profile.to_pagination_geometry(),
+        interruption_dash_wrap: layout_profile.interruption_dash_wrap,
     };
     let blocks = composer::compose(&semantic.units, &config.geometry);
 

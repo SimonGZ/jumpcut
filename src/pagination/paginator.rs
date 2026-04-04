@@ -7,7 +7,9 @@ use crate::pagination::flow_split::{
     choose_flow_split, choose_flow_split_allow_exact_fit_sentence_runt, FlowSplitPlan,
 };
 use crate::pagination::margin::line_height_for_element_type;
-use crate::pagination::wrapping::{wrap_text_for_element, ElementType, WrapConfig};
+use crate::pagination::wrapping::{
+    wrap_text_for_element, ElementType, InterruptionDashWrap, WrapConfig,
+};
 use crate::pagination::LayoutGeometry;
 use crate::pagination::SemanticUnit;
 
@@ -38,6 +40,20 @@ pub fn paginate<'a>(
     blocks: &'a [LayoutBlock<'a>],
     page_limit_lines: f32,
     geometry: &LayoutGeometry,
+) -> Vec<Page<'a>> {
+    paginate_with_mode(
+        blocks,
+        page_limit_lines,
+        geometry,
+        InterruptionDashWrap::FinalDraft,
+    )
+}
+
+pub fn paginate_with_mode<'a>(
+    blocks: &'a [LayoutBlock<'a>],
+    page_limit_lines: f32,
+    geometry: &LayoutGeometry,
+    interruption_dash_wrap: InterruptionDashWrap,
 ) -> Vec<Page<'a>> {
     let mut chunks: Vec<Chunk<'a>> = Vec::new();
     let mut current_chunk: Vec<&LayoutBlock<'a>> = Vec::new();
@@ -112,6 +128,7 @@ pub fn paginate<'a>(
                     current_page_lines,
                     page_limit_lines,
                     geometry,
+                    interruption_dash_wrap,
                 ) {
                     current_page_blocks.push(LayoutBlock {
                         unit: split.lead_block.unit,
@@ -166,8 +183,14 @@ pub fn paginate<'a>(
                 };
                 let available_lines = (page_limit_lines - current_page_lines).max(0.0);
 
-                if let Some(split) =
-                    choose_split_lines(block, available_lines, effective_spacing, geometry, false)
+                if let Some(split) = choose_split_lines(
+                    block,
+                    available_lines,
+                    effective_spacing,
+                    geometry,
+                    interruption_dash_wrap,
+                    false,
+                )
                 {
                     current_page_blocks.push(LayoutBlock {
                         unit: block.unit,
@@ -342,6 +365,7 @@ fn choose_split_lines(
     available_lines: f32,
     effective_spacing: f32,
     geometry: &LayoutGeometry,
+    interruption_dash_wrap: InterruptionDashWrap,
     allow_exact_fit_sentence_runt: bool,
 ) -> Option<SplitDecision> {
     if !has_room_for_minimum_top_fragment(available_lines, effective_spacing, geometry) {
@@ -368,6 +392,7 @@ fn choose_split_lines(
                         dialogue,
                         &current_parts,
                         geometry,
+                        interruption_dash_wrap,
                         max_top_height,
                         geometry.orphan_limit,
                         geometry.widow_limit,
@@ -376,6 +401,7 @@ fn choose_split_lines(
                 _ => plan_dialogue_split(
                     dialogue,
                     geometry,
+                    interruption_dash_wrap,
                     max_top_height,
                     geometry.orphan_limit,
                     geometry.widow_limit,
@@ -408,7 +434,11 @@ fn choose_split_lines(
             let target_line_count = (block.content_lines / element_line_height).round() as usize;
             let max_top_lines =
                 max_top_wrapped_lines(available_lines, effective_spacing, element_line_height);
-            let config = WrapConfig::from_geometry(geometry, element_type);
+            let config = WrapConfig::from_geometry_with_mode(
+                geometry,
+                element_type,
+                interruption_dash_wrap,
+            );
             let wrapped_lines = wrap_text_for_element(&flow.text, &config);
             if wrapped_lines.len() != target_line_count {
                 let lines_that_fit = available_lines - effective_spacing;
@@ -462,6 +492,7 @@ fn choose_keep_with_next_split<'a>(
     current_page_lines: f32,
     page_limit_lines: f32,
     geometry: &LayoutGeometry,
+    interruption_dash_wrap: InterruptionDashWrap,
 ) -> Option<KeepWithNextSplitDecision<'a>> {
     if !lead_block.keep_with_next || !split_block.can_split {
         return None;
@@ -504,6 +535,7 @@ fn choose_keep_with_next_split<'a>(
         available_lines,
         split_block.spacing_above,
         geometry,
+        interruption_dash_wrap,
         true,
     )?;
 

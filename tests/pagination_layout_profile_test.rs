@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 
-use jumpcut::pagination::{Alignment, PaginationConfig, ScreenplayLayoutProfile, StyleProfile};
+use jumpcut::pagination::{
+    Alignment, InterruptionDashWrap, PaginationConfig, ScreenplayLayoutProfile, StyleProfile,
+};
 use jumpcut::parse;
 use jumpcut::Metadata;
 
@@ -147,4 +149,18 @@ fn no_act_underlines_fmt_disables_default_act_underlines_without_changing_geomet
     assert_eq!(geometry.dialogue_right, 6.0);
     assert_eq!(geometry.scene_heading_spacing_before, 2.0);
     assert_eq!(geometry.line_height, 1.0);
+}
+
+#[test]
+fn clean_interruption_dashes_fmt_switches_the_wrap_policy_without_changing_geometry() {
+    let mut metadata: Metadata = HashMap::new();
+    metadata.insert("fmt".into(), vec!["clean-interruption-dashes".into()]);
+
+    let profile = ScreenplayLayoutProfile::from_metadata(&metadata);
+    let geometry = profile.to_pagination_geometry();
+
+    assert_eq!(profile.interruption_dash_wrap, InterruptionDashWrap::KeepTogether);
+    assert_eq!(geometry.dialogue_left, 2.5);
+    assert_eq!(geometry.dialogue_right, 6.0);
+    assert_eq!(geometry.scene_heading_spacing_before, 2.0);
 }
