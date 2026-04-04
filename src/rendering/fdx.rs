@@ -1,5 +1,6 @@
 use super::shared::{escape_xml_attr, escape_xml_text, join_metadata, sorted_style_names};
 use crate::pagination::{Alignment, ScreenplayElementStyle, ScreenplayLayoutProfile};
+use crate::title_page::plain_title_uses_all_caps;
 use crate::{Element, ElementText, Metadata, Screenplay};
 use std::fmt::Write;
 
@@ -514,8 +515,7 @@ fn render_title_page(out: &mut String, metadata: &Metadata) {
     for _ in 0..10 {
         render_title_blank_paragraph(out, &font, "Full");
     }
-    render_title_draft_paragraph(out, metadata, &font);
-    render_title_draft_date_paragraph(out, metadata, &font);
+    render_title_bottom_rows(out, metadata, &font);
     render_title_blank_paragraph(out, &font, "Left");
 
     out.push_str("    </Content>\n    <TextState Scaling=\"90\" Selection=\"233,233\" ShowInvisibles=\"No\"/>\n  </TitlePage>\n");
@@ -529,27 +529,21 @@ fn render_title_blank_paragraph(out: &mut String, font: &str, alignment: &str) {
 
 fn render_title_title_paragraph(out: &mut String, metadata: &Metadata, font: &str) {
     start_title_paragraph(out, "Center");
+    let style = if plain_title_uses_all_caps(metadata) {
+        "Bold+Underline+AllCaps"
+    } else {
+        "Bold+Underline"
+    };
     for value in metadata.get("title").into_iter().flatten() {
-        push_title_text(
-            out,
-            font,
-            "0",
-            "Bold+Underline+AllCaps",
-            &value.plain_text(),
-        );
+        push_title_text(out, font, "0", style, &value.plain_text());
     }
     end_title_paragraph(out);
 }
 
 fn render_title_credit_paragraph(out: &mut String, metadata: &Metadata, font: &str) {
     start_title_paragraph(out, "Center");
-    let credit = if let Some(values) = metadata.get("credit") {
-        let mut credit = String::new();
-        for value in values {
-            credit.push_str(&value.plain_text());
-            credit.push(' ');
-        }
-        credit
+    let credit = if metadata.contains_key("credit") {
+        join_metadata(metadata, "credit", " ")
     } else {
         "by".to_string()
     };
@@ -568,23 +562,61 @@ fn render_title_author_paragraph(out: &mut String, metadata: &Metadata, font: &s
 }
 
 fn render_title_source_paragraph(out: &mut String, metadata: &Metadata, font: &str) {
-    start_title_paragraph(out, "Center");
     for value in metadata.get("source").into_iter().flatten() {
+        start_title_paragraph(out, "Center");
         push_title_text(out, font, "-1", "", &value.plain_text());
+        end_title_paragraph(out);
     }
-    end_title_paragraph(out);
 }
 
-fn render_title_draft_paragraph(out: &mut String, metadata: &Metadata, font: &str) {
-    start_title_paragraph(out, "Right");
-    push_title_text(out, font, "0", "", &join_metadata(metadata, "draft", ""));
-    out.push_str("        <Tabstops>\n          <Tabstop Position=\"6.32\" Type=\"Left\"/>\n          <Tabstop Position=\"6.00\" Type=\"Left\"/>\n        </Tabstops>\n      </Paragraph>\n");
+fn render_title_bottom_rows(out: &mut String, metadata: &Metadata, font: &str) {
+    let contact_lines = metadata
+        .get("contact")
+        .cloned()
+        .unwrap_or_default()
+        .into_iter()
+        .map(|value| value.plain_text())
+        .collect::<Vec<_>>();
+    let mut right_rows = Vec::new();
+    let draft = join_metadata(metadata, "draft", "");
+    if !draft.is_empty() {
+        right_rows.push(draft);
+    }
+    let draft_date = metadata_first(metadata, "draft date");
+    if !draft_date.is_empty() {
+        right_rows.push(draft_date);
+    }
+
+    let row_count = contact_lines.len().max(right_rows.len());
+    let left_start_index = row_count.saturating_sub(contact_lines.len());
+    let right_start_index = row_count.saturating_sub(right_rows.len());
+    for index in 0..row_count {
+        start_title_paragraph(out, "Left");
+        if index >= left_start_index {
+            let contact_index = index - left_start_index;
+            if let Some(contact) = contact_lines.get(contact_index) {
+                push_title_text(out, font, "0", "", contact);
+            }
+        }
+        let mut tabstop_positions = Vec::new();
+        if index >= right_start_index {
+            let right_index = index - right_start_index;
+            if let Some(right_text) = right_rows.get(right_index) {
+                push_title_text(out, font, "0", "", "\t");
+                push_title_text(out, font, "0", "", right_text);
+                tabstop_positions.push(title_page_bottom_right_tabstop(right_text));
+            }
+        }
+        end_title_bottom_paragraph(out, &tabstop_positions);
+    }
 }
 
-fn render_title_draft_date_paragraph(out: &mut String, metadata: &Metadata, font: &str) {
-    start_title_paragraph(out, "Right");
-    push_title_text(out, font, "0", "", &metadata_first(metadata, "draft date"));
-    out.push_str("        <Tabstops>\n          <Tabstop Position=\"6.00\" Type=\"Left\"/>\n        </Tabstops>\n      </Paragraph>\n");
+fn title_page_bottom_right_tabstop(text: &str) -> f32 {
+    let right_edge_points = 7.5 * 72.0;
+    // Final Draft title-page tab stops need a small safety margin beyond the
+    // nominal cell grid or longer bottom-right rows wrap earlier than expected.
+    let text_width_points = (text.chars().count() as f32 * 7.1) + 2.0;
+    (right_edge_points - text_width_points) / 72.0
 }
 
 fn start_title_paragraph(out: &mut String, alignment: &str) {
@@ -594,6 +626,21 @@ fn start_title_paragraph(out: &mut String, alignment: &str) {
         alignment
     )
     .unwrap();
+}
+
+fn end_title_bottom_paragraph(out: &mut String, tabstop_positions: &[f32]) {
+    if !tabstop_positions.is_empty() {
+        out.push_str("        <Tabstops>\n");
+        for position in tabstop_positions {
+            writeln!(
+                out,
+                "          <Tabstop Position=\"{position:.2}\" Type=\"Left\"/>"
+            )
+            .unwrap();
+        }
+        out.push_str("        </Tabstops>\n");
+    }
+    out.push_str("      </Paragraph>\n");
 }
 
 fn push_title_text(out: &mut String, font: &str, adornment_style: &str, style: &str, text: &str) {

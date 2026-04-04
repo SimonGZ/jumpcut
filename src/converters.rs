@@ -264,6 +264,241 @@ mod tests {
         assert!(actual.contains("LeftIndent=\"5.50\" RightIndent=\"7.25\""));
     }
 
+    #[test]
+    fn test_fdx_renderer_does_not_add_extra_space_before_lyric() {
+        let mut screenplay = Screenplay {
+            metadata: Metadata::new(),
+            elements: vec![Element::Lyric(p("I love to sing"), blank_attributes())],
+        };
+
+        let actual = screenplay.to_final_draft();
+
+        assert!(actual.contains("<ElementSettings Type=\"Lyric\">"));
+        assert!(actual.contains(
+            "<ParagraphSpec Alignment=\"Left\" FirstIndent=\"0.00\" Leading=\"Regular\" LeftIndent=\"2.50\" RightIndent=\"7.38\" SpaceBefore=\"0\" Spacing=\"1\" StartsNewPage=\"No\"/>"
+        ));
+    }
+
+    #[test]
+    fn test_fdx_renderer_title_credit_omits_trailing_space() {
+        let mut metadata = Metadata::new();
+        metadata.insert("title".into(), vec!["TITLE".into()]);
+        metadata.insert("credit".into(), vec!["written by".into()]);
+
+        let mut screenplay = Screenplay {
+            metadata,
+            elements: vec![],
+        };
+
+        let actual = screenplay.to_final_draft();
+
+        assert!(actual.contains(">written by</Text>"));
+        assert!(!actual.contains(">written by </Text>"));
+    }
+
+    #[test]
+    fn test_fdx_renderer_writes_each_title_source_line_as_its_own_paragraph() {
+        let mut metadata = Metadata::new();
+        metadata.insert("title".into(), vec!["TITLE".into()]);
+        metadata.insert(
+            "source".into(),
+            vec!["based on the novel".into(), "by J.R.R. Smithee".into()],
+        );
+
+        let mut screenplay = Screenplay {
+            metadata,
+            elements: vec![],
+        };
+
+        let actual = screenplay.to_final_draft();
+
+        assert!(actual.contains(">based on the novel</Text>\n      </Paragraph>\n      <Paragraph Alignment=\"Center\""));
+        assert!(actual.contains(">by J.R.R. Smithee</Text>"));
+        assert!(!actual.contains(">based on the novel</Text>\n        <Text AdornmentStyle=\"-1\""));
+    }
+
+    #[test]
+    fn test_fdx_renderer_includes_contact_and_bottom_right_title_rows_with_tabstops() {
+        let actual = title_page_fdx_for_bottom_rows(
+            vec!["Anonymous Content"],
+            vec!["Second Revised Network (Goldenrod)"],
+            "April 6, 1952",
+        );
+
+        assert_title_page_bottom_rows(
+            &actual,
+            &[
+                (&["\t", "Second Revised Network (Goldenrod)"], Some("4.12")),
+                (&["Anonymous Content", "\t", "April 6, 1952"], Some("6.19")),
+            ],
+        );
+    }
+
+    #[test]
+    fn test_fdx_title_page_bottom_rows_are_bottom_aligned() {
+        let actual = title_page_fdx_for_bottom_rows(
+            vec!["Cobalt Artists", "555-555-0593", "contact@cobalt.example"],
+            vec!["STUDIO DRAFT"],
+            "September 17, 1998",
+        );
+
+        assert_title_page_bottom_rows(
+            &actual,
+            &[
+                (&["Cobalt Artists"], None),
+                (&["555-555-0593", "\t", "STUDIO DRAFT"], Some("6.29")),
+                (
+                    &["contact@cobalt.example", "\t", "September 17, 1998"],
+                    Some("5.70"),
+                ),
+            ],
+        );
+    }
+
+    #[test]
+    fn test_fdx_title_page_bottom_rows_cover_probe_suite() {
+        let cases = [
+            (
+                vec!["Atlas Literary"],
+                vec!["WRITERS DRAFT"],
+                "04/04/2026",
+                vec![
+                    (vec!["\t", "WRITERS DRAFT"], Some("6.19")),
+                    (vec!["Atlas Literary", "\t", "04/04/2026"], Some("6.49")),
+                ],
+            ),
+            (
+                vec!["North Fork Management", "scripts@northfork.example"],
+                vec!["NETWORK REVISED"],
+                "Mar. 3, 2022",
+                vec![
+                    (
+                        vec!["North Fork Management", "\t", "NETWORK REVISED"],
+                        Some("5.99"),
+                    ),
+                    (
+                        vec!["scripts@northfork.example", "\t", "Mar. 3, 2022"],
+                        Some("6.29"),
+                    ),
+                ],
+            ),
+            (
+                vec!["Meridian Creative Partners", "555-555-0593"],
+                vec!["SECOND REVISED NETWORK (GOLDENROD)"],
+                "1/1/00",
+                vec![
+                    (
+                        vec!["Meridian Creative Partners", "\t", "SECOND REVISED NETWORK (GOLDENROD)"],
+                        Some("4.12"),
+                    ),
+                    (vec!["555-555-0593", "\t", "1/1/00"], Some("6.88")),
+                ],
+            ),
+        ];
+
+        for (contact_lines, draft_lines, draft_date, expected_rows) in cases {
+            let actual = title_page_fdx_for_bottom_rows(contact_lines, draft_lines, draft_date);
+            let expected_refs = expected_rows
+                .iter()
+                .map(|(texts, tab)| (texts.as_slice(), *tab))
+                .collect::<Vec<_>>();
+            assert_title_page_bottom_rows(&actual, &expected_refs);
+        }
+    }
+
+    fn title_page_fdx_for_bottom_rows(
+        contact_lines: Vec<&str>,
+        draft_lines: Vec<&str>,
+        draft_date: &str,
+    ) -> String {
+        let mut metadata = Metadata::new();
+        metadata.insert("title".into(), vec!["TITLE".into()]);
+        if !contact_lines.is_empty() {
+            metadata.insert(
+                "contact".into(),
+                contact_lines.into_iter().map(Into::into).collect(),
+            );
+        }
+        if !draft_lines.is_empty() {
+            metadata.insert(
+                "draft".into(),
+                draft_lines.into_iter().map(Into::into).collect(),
+            );
+        }
+        metadata.insert("draft date".into(), vec![draft_date.into()]);
+
+        let mut screenplay = Screenplay {
+            metadata,
+            elements: vec![],
+        };
+
+        screenplay.to_final_draft()
+    }
+
+    fn assert_title_page_bottom_rows(
+        actual: &str,
+        expected_rows: &[(&[&str], Option<&str>)],
+    ) {
+        let rows = extract_title_page_bottom_rows(actual);
+        let actual_rows = rows
+            .iter()
+            .filter(|row| row.texts.iter().any(|text| !text.is_empty()))
+            .rev()
+            .take(expected_rows.len())
+            .collect::<Vec<_>>()
+            .into_iter()
+            .rev()
+            .collect::<Vec<_>>();
+
+        assert_eq!(actual_rows.len(), expected_rows.len());
+        for (row, (expected_texts, expected_tab)) in actual_rows.iter().zip(expected_rows.iter()) {
+            let expected_texts = expected_texts
+                .iter()
+                .map(|text| text.to_string())
+                .collect::<Vec<_>>();
+            assert_eq!(row.texts, expected_texts);
+            assert_eq!(row.tabstop.as_deref(), *expected_tab);
+        }
+    }
+
+    fn extract_title_page_bottom_rows(actual: &str) -> Vec<TitlePageBottomRow> {
+        const BOTTOM_PARAGRAPH_START: &str = "<Paragraph Alignment=\"Left\" FirstIndent=\"0.00\" Leading=\"Regular\" LeftIndent=\"1.00\" RightIndent=\"7.50\" SpaceBefore=\"0\" Spacing=\"1\" StartsNewPage=\"No\">";
+        const TITLE_PAGE_END: &str = "  </TitlePage>";
+
+        let title_page = actual
+            .split("<TitlePage>")
+            .nth(1)
+            .and_then(|rest| rest.split(TITLE_PAGE_END).next())
+            .expect("expected title page");
+        let mut rows = Vec::new();
+
+        for paragraph in title_page.split(BOTTOM_PARAGRAPH_START).skip(1) {
+            let Some(block) = paragraph.split("</Paragraph>").next() else {
+                continue;
+            };
+            let texts = block
+                .split("<Text")
+                .skip(1)
+                .filter_map(|segment| segment.split_once('>').map(|(_, rest)| rest))
+                .filter_map(|segment| segment.split_once("</Text>").map(|(text, _)| text))
+                .map(|text| text.to_string())
+                .collect::<Vec<_>>();
+            let tabstop = block
+                .split("<Tabstop Position=\"")
+                .nth(1)
+                .and_then(|segment| segment.split('"').next())
+                .map(str::to_string);
+            rows.push(TitlePageBottomRow { texts, tabstop });
+        }
+
+        rows
+    }
+
+    struct TitlePageBottomRow {
+        texts: Vec<String>,
+        tabstop: Option<String>,
+    }
+
     fn sample_screenplay() -> Screenplay {
         let mut metadata = Metadata::new();
         metadata.insert("title".into(), vec!["TITLE".into()]);
