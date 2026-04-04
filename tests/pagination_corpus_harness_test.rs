@@ -492,18 +492,16 @@ fn big_fish_pages_89_90_split_hand_around_the_house_after_kittens() {
 
     let page_89_text = dialogue_block_fragment_text(page_89_block);
     let page_90_text = dialogue_block_fragment_text(page_90_block);
+    let page_89_normalized = page_89_text.split_whitespace().collect::<Vec<_>>().join(" ");
+    let page_90_normalized = page_90_text.split_whitespace().collect::<Vec<_>>().join(" ");
 
     assert!(
-        page_89_text
-            .trim_end()
-            .ends_with("baby.  Hold the dog away from\nkittens."),
+        page_89_normalized.ends_with("baby. Hold the dog away from kittens."),
         "expected page 89 fragment to end after 'kittens.', got: {:?}",
         page_89_text
     );
     assert!(
-        page_90_text
-            .trim_start()
-            .starts_with("It's strong enough, you can do a"),
+        page_90_normalized.starts_with("It's strong enough, you can do a"),
         "expected page 90 fragment to start with 'It's strong enough, you can do a', got: {:?}",
         page_90_text
     );

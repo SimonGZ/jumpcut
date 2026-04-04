@@ -30,6 +30,7 @@ fn dialogue_split_prefers_a_sentence_boundary_for_the_mayor_case() {
                 render_attributes: jumpcut::render_attributes::RenderAttributes::default(),
             },
         ],
+        should_append_contd: false,
         cohesion: Cohesion {
             keep_together: false,
             keep_with_next: false,
@@ -214,6 +215,7 @@ fn dialogue_split_plan_can_split_at_a_sentence_boundary_inside_a_wrapped_line() 
                 render_attributes: jumpcut::render_attributes::RenderAttributes::default(),
             },
         ],
+        should_append_contd: false,
         cohesion: Cohesion {
             keep_together: false,
             keep_with_next: false,
@@ -260,6 +262,7 @@ fn stub_dialogue_unit() -> DialogueUnit {
     DialogueUnit {
         block_id: "stub-block".into(),
         parts: Vec::new(),
+        should_append_contd: false,
         cohesion: Cohesion {
             keep_together: false,
             keep_with_next: false,

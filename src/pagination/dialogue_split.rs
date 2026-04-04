@@ -53,6 +53,12 @@ struct DialogueSplitCandidate {
     bottom_dialogue_lines: usize,
     top_spoken_lines: usize,
     bottom_spoken_lines: usize,
+    bottom_first_spoken_line_chars: usize,
+    bottom_terminal_spoken_line_chars: usize,
+    mid_part_sentence_boundary_eligible: bool,
+    same_top_line_extension: bool,
+    boundary_part_index: usize,
+    boundary_offset: usize,
     ends_sentence: bool,
     top_content_bytes: usize,
 }
@@ -120,7 +126,13 @@ pub fn plan_dialogue_split_parts(
 
         Some(SplitScore {
             ends_sentence: policy.prefer_sentence_boundaries && candidate.ends_sentence,
-            substantial_bottom: substantial_bottom(candidate.bottom_spoken_lines),
+            substantial_bottom: substantial_bottom(
+                candidate.bottom_spoken_lines,
+                candidate.bottom_first_spoken_line_chars,
+                candidate.bottom_terminal_spoken_line_chars,
+                candidate.mid_part_sentence_boundary_eligible,
+                candidate.same_top_line_extension,
+            ),
             fuller_top_fragment: policy
                 .prefer_fuller_top_fragment
                 .then_some(candidate.plan.top_line_count)
@@ -175,7 +187,7 @@ fn generate_dialogue_split_candidates(
         }
     }
 
-    boundaries
+    let mut candidates = boundaries
         .into_iter()
         .filter_map(|((part_index, offset), ends_sentence)| {
             build_candidate(
@@ -188,7 +200,21 @@ fn generate_dialogue_split_candidates(
                 },
             )
         })
-        .collect()
+        .collect::<Vec<_>>();
+
+    for i in 0..candidates.len() {
+        let candidate = &candidates[i];
+        let same_top_line_extension = candidate.mid_part_sentence_boundary_eligible
+            && candidates.iter().any(|earlier| {
+                earlier.ends_sentence
+                    && earlier.boundary_part_index == candidate.boundary_part_index
+                    && earlier.boundary_offset < candidate.boundary_offset
+                    && earlier.plan.top_line_count == candidate.plan.top_line_count
+            });
+        candidates[i].same_top_line_extension = same_top_line_extension;
+    }
+
+    candidates
 }
 
 fn build_candidate(
@@ -204,6 +230,9 @@ fn build_candidate(
     let mut bottom_dialogue_lines = 0;
     let mut top_spoken_lines = 0;
     let mut bottom_spoken_lines = 0;
+    let mut bottom_first_spoken_line_chars = 0;
+    let mut bottom_terminal_spoken_line_chars = 0;
+    let mut mid_part_sentence_boundary_eligible = false;
     let mut split_parts = Vec::with_capacity(parts.len());
 
     for (part_index, part) in parts.iter().enumerate() {
@@ -233,6 +262,15 @@ fn build_candidate(
         ) {
             top_spoken_lines += top_lines.len();
             bottom_spoken_lines += bottom_lines.len();
+            if let Some(first_line) = bottom_lines.first() {
+                bottom_first_spoken_line_chars = first_line.trim_end().chars().count();
+            }
+            if let Some(last_line) = bottom_lines.last() {
+                bottom_terminal_spoken_line_chars = last_line.trim_end().chars().count();
+            }
+            mid_part_sentence_boundary_eligible = boundary.ends_sentence
+                && part_index == boundary.part_index
+                && boundary.offset < part.text.len();
         }
 
         split_parts.push(DialoguePartSplitLines {
@@ -264,6 +302,12 @@ fn build_candidate(
         bottom_dialogue_lines,
         top_spoken_lines,
         bottom_spoken_lines,
+        bottom_first_spoken_line_chars,
+        bottom_terminal_spoken_line_chars,
+        mid_part_sentence_boundary_eligible,
+        same_top_line_extension: false,
+        boundary_part_index: boundary.part_index,
+        boundary_offset: boundary.offset,
         ends_sentence: boundary.ends_sentence,
         top_content_bytes,
     })
@@ -309,8 +353,8 @@ fn line_height_for_part_kind(kind: DialoguePartKind, geometry: &LayoutGeometry) 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct SplitScore {
     ends_sentence: bool,
-    substantial_bottom: bool,
     fuller_top_fragment: usize,
+    substantial_bottom: bool,
     balance_score: usize,
     top_content_bytes: usize,
 }
@@ -349,6 +393,17 @@ fn balance_score(top_dialogue_lines: usize, bottom_dialogue_lines: usize) -> usi
     usize::MAX - top_dialogue_lines.abs_diff(bottom_dialogue_lines)
 }
 
-fn substantial_bottom(bottom_dialogue_lines: usize) -> bool {
+fn substantial_bottom(
+    bottom_dialogue_lines: usize,
+    bottom_first_spoken_line_chars: usize,
+    bottom_terminal_spoken_line_chars: usize,
+    mid_part_sentence_boundary_eligible: bool,
+    same_top_line_extension: bool,
+) -> bool {
     bottom_dialogue_lines >= 3
+        || (mid_part_sentence_boundary_eligible && same_top_line_extension)
+        || (mid_part_sentence_boundary_eligible
+            && bottom_dialogue_lines >= 1
+            && bottom_first_spoken_line_chars >= 16
+            && bottom_terminal_spoken_line_chars >= 16)
 }
