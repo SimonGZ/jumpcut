@@ -172,7 +172,7 @@
   margin-top: 0;
   margin-bottom: 0;
   margin-left: 15%;
-  text-indent: -0.6em;
+  text-indent: -1ch;
   page-break-inside: avoid;
   page-break-after: avoid;
 }

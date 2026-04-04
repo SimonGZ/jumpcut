@@ -41,9 +41,10 @@ Each element type conforms to specific structural constraints defined relative t
   - Right Indent: 7.375 inches
   - _Usually presented in italics._
 - **Parenthetical**
-  - Left Indent: 3.0 inches (Multi-Cam: 2.75 inches)
+  - Text Left Indent: 3.0 inches (Multi-Cam: 2.75 inches)
   - Right Indent: 5.5 inches
   - Available Width: 2.5 inches (Should be 25 characters, but Final Draft allows 26, so we copy that)
+  - The opening `(` hangs one character cell to the left of the text indent. In other words, the parenthetical text block is anchored at the nominal parenthetical margin, but a leading opening parenthesis begins one cell earlier.
 - **Dual Dialogue**
   - _Configured as two side-by-side columns._
   - **Left Column**
@@ -60,16 +61,18 @@ Each element type conforms to specific structural constraints defined relative t
       - 9 characters: 2.5 inches
       - 26 characters: 1.6875 inches
       - 29 characters: 1.5625 inches
-    - Parenthetical Left Indent: 1.75 inches
+    - Parenthetical Text Left Indent: 1.75 inches
     - Parenthetical Right Indent: 4.125 inches
+    - As with ordinary parentheticals, a leading opening parenthesis hangs one character cell to the left of that text indent.
     - Dialogue Left Indent: 1.5 inch
     - Dialogue Right Indent: 4.375 inches
     - Available Width: 2.875 inches (Should be 28 characters, but Final Draft allows 29, so we copy that)
   - **Right Column**
     - Character cues appear to follow the same centering behavior around a 6-inch anchor.
     - The current measured left-indent model is the left-column formula shifted 3.125 inches further right.
-    - Parenthetical Left Indent: 4.875 inches
+    - Parenthetical Text Left Indent: 4.875 inches
     - Parenthetical Right Indent: 7.25 inches
+    - As with ordinary parentheticals, a leading opening parenthesis hangs one character cell to the left of that text indent.
     - Dialogue Left Indent: 4.625 inches
     - Dialogue Right Indent: 7.5 inches
     - Available Width: 2.875 inches (Should be 28 characters, but Final Draft allows 29, so we copy that)

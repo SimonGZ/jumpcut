@@ -76,20 +76,20 @@ fn dual_dialogue_margin_calculation_uses_normal_rounding_without_a_special_quirk
 
 #[test]
 fn dual_dialogue_character_left_indent_matches_final_draft_probe_points() {
-    assert_eq!(dual_dialogue_character_left_indent("A", 1), 2.875);
-    assert_eq!(dual_dialogue_character_left_indent("AB", 1), 2.8125);
-    assert_eq!(dual_dialogue_character_left_indent("MARK", 1), 2.75);
-    assert_eq!(dual_dialogue_character_left_indent("CHARACTER", 1), 2.5);
-    assert_eq!(
-        dual_dialogue_character_left_indent(&"X".repeat(26), 1),
-        1.6875
+    assert!((dual_dialogue_character_left_indent("A", 1) - (208.0 / 72.0)).abs() < 0.001);
+    assert!((dual_dialogue_character_left_indent("AB", 1) - (204.5 / 72.0)).abs() < 0.001);
+    assert!((dual_dialogue_character_left_indent("MARK", 1) - (197.5 / 72.0)).abs() < 0.001);
+    assert!((dual_dialogue_character_left_indent("CHARACTER", 1) - 2.5).abs() < 0.001);
+    assert!(
+        (dual_dialogue_character_left_indent(&"X".repeat(25), 1) - (124.0 / 72.0)).abs()
+            < 0.001
     );
-    assert_eq!(
-        dual_dialogue_character_left_indent(&"X".repeat(29), 1),
-        1.5625
+    assert!(
+        (dual_dialogue_character_left_indent(&"X".repeat(29), 1) - (110.0 / 72.0)).abs()
+            < 0.001
     );
-    assert_eq!(dual_dialogue_character_left_indent("A", 2), 6.0);
-    assert_eq!(dual_dialogue_character_left_indent("MARK", 2), 5.875);
+    assert!((dual_dialogue_character_left_indent("A", 2) - (433.0 / 72.0)).abs() < 0.001);
+    assert!((dual_dialogue_character_left_indent("TOM", 2) - (426.0 / 72.0)).abs() < 0.001);
 }
 
 #[test]

@@ -9,6 +9,7 @@ const TITLE_PAGE_METADATA_KEYS: [&str; 7] = [
     "draft",
     "draft date",
 ];
+const ALLOW_LOWERCASE_TITLE_FMT_OPTION: &str = "allow-lowercase-title";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TitlePageRegion {
@@ -117,6 +118,15 @@ impl TitlePage {
     }
 }
 
+pub fn plain_title_uses_all_caps(metadata: &Metadata) -> bool {
+    !metadata.get("fmt").into_iter().flatten().any(|value| {
+        value
+            .plain_text()
+            .split_whitespace()
+            .any(|option| option.eq_ignore_ascii_case(ALLOW_LOWERCASE_TITLE_FMT_OPTION))
+    })
+}
+
 fn push_block(
     blocks: &mut Vec<TitlePageBlock>,
     metadata: &Metadata,
@@ -175,5 +185,22 @@ mod tests {
                 .region,
             TitlePageRegion::BottomRight
         );
+    }
+
+    #[test]
+    fn plain_title_uses_all_caps_by_default() {
+        let mut metadata = Metadata::new();
+        metadata.insert("title".into(), vec!["Sample Script".into()]);
+
+        assert!(plain_title_uses_all_caps(&metadata));
+    }
+
+    #[test]
+    fn fmt_can_allow_lowercase_plain_titles() {
+        let mut metadata = Metadata::new();
+        metadata.insert("title".into(), vec!["Sample Script".into()]);
+        metadata.insert("fmt".into(), vec!["bsh allow-lowercase-title".into()]);
+
+        assert!(!plain_title_uses_all_caps(&metadata));
     }
 }

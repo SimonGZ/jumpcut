@@ -81,6 +81,7 @@ fn mock_dual_dialogue(left_text: &str, right_text: &str) -> SemanticUnit {
                                 jumpcut::render_attributes::RenderAttributes::default(),
                         },
                     ],
+                    should_append_contd: false,
                     cohesion: Cohesion {
                         keep_together: false,
                         keep_with_next: false,
@@ -110,6 +111,7 @@ fn mock_dual_dialogue(left_text: &str, right_text: &str) -> SemanticUnit {
                                 jumpcut::render_attributes::RenderAttributes::default(),
                         },
                     ],
+                    should_append_contd: false,
                     cohesion: Cohesion {
                         keep_together: false,
                         keep_with_next: false,

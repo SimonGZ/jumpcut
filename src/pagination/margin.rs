@@ -2,11 +2,10 @@ use crate::pagination::wrapping::ElementType;
 use serde::Deserialize;
 use std::collections::BTreeMap;
 
-const DUAL_DIALOGUE_CHARACTER_BASE_LEFT: f32 = 2.875;
+const DUAL_DIALOGUE_CHARACTER_CENTER_LEFT: f32 = 2.9375;
 const DUAL_DIALOGUE_CHARACTER_RIGHT_OFFSET: f32 = 3.125;
-const DUAL_DIALOGUE_CHARACTER_SHIFT_PER_CHAR: f32 = 3.0 / 64.0;
-const SIXTEENTH_INCH: f32 = 1.0 / 16.0;
 const DUAL_DIALOGUE_CHARACTER_MAX_WIDTH_CHARS: usize = 29;
+const DUAL_DIALOGUE_CHARACTER_CELL_WIDTH_INCHES: f32 = 7.0 / 72.0;
 
 #[derive(Clone, Debug, Deserialize, PartialEq)]
 pub struct FdxExtractedSettings {
@@ -157,7 +156,7 @@ impl Default for LayoutGeometry {
             scene_heading_spacing_before: 2.0,
             character_spacing_before: 1.0,
             transition_spacing_before: 1.0,
-            lyric_spacing_before: 1.0,
+            lyric_spacing_before: 0.0,
 
             orphan_limit: 2,
             widow_limit: 2,
@@ -334,13 +333,12 @@ pub fn dual_dialogue_character_left_indent(text: &str, side: u8) -> f32 {
         .chars()
         .count()
         .clamp(1, DUAL_DIALOGUE_CHARACTER_MAX_WIDTH_CHARS);
-    let raw_left = DUAL_DIALOGUE_CHARACTER_BASE_LEFT
-        - ((visible_len.saturating_sub(1) as f32) * DUAL_DIALOGUE_CHARACTER_SHIFT_PER_CHAR);
-    let rounded_left = (raw_left / SIXTEENTH_INCH).round() * SIXTEENTH_INCH;
+    let cue_width = visible_len as f32 * DUAL_DIALOGUE_CHARACTER_CELL_WIDTH_INCHES;
+    let left = DUAL_DIALOGUE_CHARACTER_CENTER_LEFT - (cue_width / 2.0);
 
     match side {
-        1 => rounded_left,
-        _ => rounded_left + DUAL_DIALOGUE_CHARACTER_RIGHT_OFFSET,
+        1 => left,
+        _ => left + DUAL_DIALOGUE_CHARACTER_RIGHT_OFFSET,
     }
 }
 

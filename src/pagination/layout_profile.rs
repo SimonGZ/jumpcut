@@ -267,7 +267,7 @@ impl ScreenplayLayoutProfile {
                 lyric: ScreenplayElementStyle {
                     left_indent: 2.5,
                     right_indent: 7.375,
-                    spacing_before: 1.0,
+                    spacing_before: 0.0,
                     line_spacing: 1.0,
                     alignment: Alignment::Left,
                     starts_new_page: false,

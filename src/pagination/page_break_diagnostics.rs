@@ -1926,11 +1926,14 @@ fn render_dialogue_fragment_lines(
                     .parts
                     .iter()
                     .zip(dialogue.parts.iter())
-                    .flat_map(|(part, dialogue_part)| {
+                    .enumerate()
+                    .flat_map(|(part_index, (part, dialogue_part))| {
                         let element_type =
                             ElementType::from_dialogue_part_kind(&dialogue_part.kind);
+                        let rendered_text =
+                            dialogue_part_render_text(dialogue, dialogue_part, part_index, &part.top_text);
                         counted_rendered_lines(
-                            render_indented_lines(&part.top_text, element_type, geometry)
+                            render_indented_lines(&rendered_text, element_type, geometry)
                                 .into_iter()
                                 .map(|text| RenderedElementLine { text, element_type })
                                 .collect(),
@@ -2039,6 +2042,22 @@ fn continued_character_cue_text(text: &str) -> String {
     }
 }
 
+fn dialogue_part_render_text(
+    dialogue: &crate::pagination::DialogueUnit,
+    dialogue_part: &crate::pagination::DialoguePart,
+    part_index: usize,
+    plain_text: &str,
+) -> String {
+    if dialogue.should_append_contd
+        && part_index == 0
+        && dialogue_part.kind == DialoguePartKind::Character
+    {
+        return continued_character_cue_text(plain_text);
+    }
+
+    plain_text.to_string()
+}
+
 fn render_more_marker_line(geometry: &LayoutGeometry) -> DiagnosticRenderedLine {
     DiagnosticRenderedLine {
         text: render_indented_lines("(MORE)", ElementType::Character, geometry)
@@ -2074,9 +2093,14 @@ fn render_semantic_unit_lines(
         SemanticUnit::Dialogue(dialogue) => dialogue
             .parts
             .iter()
-            .flat_map(|part| {
+            .enumerate()
+            .flat_map(|(part_index, part)| {
                 let element_type = ElementType::from_dialogue_part_kind(&part.kind);
-                render_indented_lines(&part.text, element_type, geometry)
+                render_indented_lines(
+                    &dialogue_part_render_text(dialogue, part, part_index, &part.text),
+                    element_type,
+                    geometry,
+                )
                     .into_iter()
                     .map(move |text| RenderedElementLine { text, element_type })
             })
