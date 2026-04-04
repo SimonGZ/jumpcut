@@ -316,7 +316,7 @@ fn apply_fmt_template_option(profile: &mut ScreenplayLayoutProfile, option: &str
         profile.styles.character.right_indent = 6.25;
         profile.styles.parenthetical.left_indent = 2.75;
         profile.styles.transition.right_indent = 7.25;
-    } else if option.eq_ignore_ascii_case("clean-interruption-dashes") {
+    } else if option.eq_ignore_ascii_case("clean-dashes") {
         profile.interruption_dash_wrap = InterruptionDashWrap::KeepTogether;
     }
 }

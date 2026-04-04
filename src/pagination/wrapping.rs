@@ -223,6 +223,14 @@ pub fn wrap_text_for_element_with_offsets(text: &str, config: &WrapConfig) -> Ve
                 current_line = split_interruption_dash_chunk(&word.text);
                 current_line_start_offset = split_offset;
                 current_line_end_offset = word.end_offset;
+            } else if should_allow_hanging_trailing_double_hyphen_word(
+                &current_line,
+                &word.text,
+                max_width,
+                config.interruption_dash_wrap,
+            ) {
+                current_line.push_str(&word.text);
+                current_line_end_offset = word.end_offset;
             } else if should_split_trailing_double_hyphen_word(
                 &current_line,
                 &word.text,
@@ -330,6 +338,34 @@ fn should_split_trailing_double_hyphen_word(
 
     let combined = format!("{current_line}{}", top_fragment_for_trailing_double_hyphen(next_chunk));
     effective_line_len(&combined) <= max_width
+}
+
+fn should_allow_hanging_trailing_double_hyphen_word(
+    current_line: &str,
+    next_chunk: &str,
+    max_width: usize,
+    mode: InterruptionDashWrap,
+) -> bool {
+    if mode != InterruptionDashWrap::KeepTogether {
+        return false;
+    }
+
+    if current_line.trim_end().is_empty() {
+        return false;
+    }
+
+    let trimmed = next_chunk.trim_end();
+    if !trimmed.ends_with("--") || trimmed.len() <= 2 {
+        return false;
+    }
+
+    let stem = &trimmed[..trimmed.len() - 2];
+    if !stem.chars().any(|ch| ch.is_alphanumeric()) {
+        return false;
+    }
+
+    let combined = format!("{current_line}{next_chunk}");
+    effective_line_len(&combined) == max_width + 1
 }
 
 fn top_fragment_for_trailing_double_hyphen(chunk: &str) -> String {

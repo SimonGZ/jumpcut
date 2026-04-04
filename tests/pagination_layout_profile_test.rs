@@ -152,9 +152,9 @@ fn no_act_underlines_fmt_disables_default_act_underlines_without_changing_geomet
 }
 
 #[test]
-fn clean_interruption_dashes_fmt_switches_the_wrap_policy_without_changing_geometry() {
+fn clean_dashes_fmt_switches_the_wrap_policy_without_changing_geometry() {
     let mut metadata: Metadata = HashMap::new();
-    metadata.insert("fmt".into(), vec!["clean-interruption-dashes".into()]);
+    metadata.insert("fmt".into(), vec!["clean-dashes".into()]);
 
     let profile = ScreenplayLayoutProfile::from_metadata(&metadata);
     let geometry = profile.to_pagination_geometry();

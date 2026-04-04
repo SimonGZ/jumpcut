@@ -138,21 +138,21 @@ fn final_draft_discounts_exactly_one_trailing_dash_from_word_width() {
     );
     assert_eq!(lines_fit[0], "A 12345678-");
 
-    // SCENARIO 2: "A 12345678--" (length 12)
+    // SCENARIO 2: "A 123456789--" (length 13)
     // "A " is 2 limit.
-    // Word is "12345678--" (length 10).
-    // Discounting EXACTLY ONE dash gives an effective word length of 9.
-    // Line width = 2 + 9 = 11. This EXCEEDS the 10-char limit!
+    // Word is "123456789--" (length 11).
+    // Discounting EXACTLY ONE dash gives an effective word length of 10.
+    // Line width = 2 + 10 = 12. This EXCEEDS the 10-char limit!
     // In keep-together mode, this should still wrap because only one dash is discounted.
     // Final Draft mode has a separate policy for splitting some trailing `--` endings.
-    let lines_wrap = wrap_text_for_element("A 12345678--", &config);
+    let lines_wrap = wrap_text_for_element("A 123456789--", &config);
     assert_eq!(
         lines_wrap.len(),
         2,
         "The word ending in two dashes should wrap because only one dash is discounted"
     );
     assert_eq!(lines_wrap[0], "A");
-    assert_eq!(lines_wrap[1], "12345678--");
+    assert_eq!(lines_wrap[1], "123456789--");
 }
 
 #[test]
@@ -221,7 +221,23 @@ fn clean_mode_keeps_a_word_ending_in_double_hyphens_together() {
     let text = "Qaxu, uda owy’ox eqyxu. Y ugyvoju’e ga--";
     let lines = wrap_text_for_element(text, &config);
 
-    assert_eq!(lines, vec!["Qaxu, uda owy’ox eqyxu. Y ugyvoju’e", "ga--"]);
+    assert_eq!(lines, vec!["Qaxu, uda owy’ox eqyxu. Y ugyvoju’e ga--"]);
+}
+
+#[test]
+fn clean_mode_allows_a_gumshoe_style_trailing_double_hyphen_to_hang_at_line_end() {
+    let config = WrapConfig {
+        exact_width_chars: 42,
+        interruption_dash_wrap: InterruptionDashWrap::KeepTogether,
+    };
+
+    let text = "Yzusax ga uqywy yzusax ga uqywy yzusax ga-- ehaxe rus ajax";
+    let lines = wrap_text_for_element(text, &config);
+
+    assert_eq!(
+        lines,
+        vec!["Yzusax ga uqywy yzusax ga uqywy yzusax ga--", "ehaxe rus ajax"]
+    );
 }
 
 #[test]
