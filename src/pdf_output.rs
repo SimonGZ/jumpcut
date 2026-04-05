@@ -365,7 +365,7 @@ fn render_body_page_content(
                 text: page_number,
                 styles: StyleFlags::default(),
             }],
-            PAGE_NUMBER_LEFT,
+            page_number_x(display_page_number),
             page_number_y(),
             BODY_TEXT_FONT_SIZE,
             &mut underlines,
@@ -516,6 +516,11 @@ fn page_starts_with_split_contd_character(page: &PdfRenderPage) -> bool {
 
 fn page_number_y() -> f32 {
     PAGE_NUMBER_BASELINE_Y
+}
+
+fn page_number_x(display_page_number: u32) -> f32 {
+    let extra_digits = display_page_number.to_string().len().saturating_sub(1) as f32;
+    PAGE_NUMBER_LEFT - (extra_digits * BODY_TEXT_CELL_WIDTH)
 }
 
 fn render_title_page_content(title_page: &PdfTitlePage, fonts: &EmbeddedFonts) -> Vec<u8> {
@@ -1461,7 +1466,7 @@ mod tests {
             &second_page,
             &fonts.regular,
             "2.",
-            PAGE_NUMBER_LEFT,
+            page_number_x(2),
             PAGE_NUMBER_BASELINE_Y,
         );
     }
@@ -1892,6 +1897,13 @@ mod tests {
         assert_eq!(body_line_step_points(), 12.0);
         assert_eq!(first_body_line_y(), 711.0);
         assert_eq!(page_number_y(), PAGE_NUMBER_BASELINE_Y);
+    }
+
+    #[test]
+    fn page_number_x_keeps_the_period_column_fixed() {
+        assert_eq!(page_number_x(2), PAGE_NUMBER_LEFT);
+        assert_eq!(page_number_x(34), PAGE_NUMBER_LEFT - BODY_TEXT_CELL_WIDTH);
+        assert_eq!(page_number_x(100), PAGE_NUMBER_LEFT - (2.0 * BODY_TEXT_CELL_WIDTH));
     }
 
     #[test]
