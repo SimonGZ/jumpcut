@@ -30,6 +30,7 @@ class PdfParityCase:
     fountain: Path
     reference_pdf: Path
     report_name: str
+    ignore_case: bool
     max_mean_x: float
     max_mean_y: float
     max_abs_x: float
@@ -60,6 +61,7 @@ CASES = [
         fountain=ROOT / "tests/fixtures/corpus/public/big-fish/source/source.fountain",
         reference_pdf=ROOT / "tests/fixtures/corpus/public/big-fish/extracted/reference.pdf",
         report_name="verify-big-fish-pdf-parity",
+        ignore_case=False,
         max_mean_x=0.10,
         max_mean_y=0.10,
         max_abs_x=3.50,
@@ -70,6 +72,7 @@ CASES = [
         fountain=ROOT / "tests/fixtures/corpus/public/little-women/source/source.fountain",
         reference_pdf=ROOT / "tests/fixtures/corpus/public/little-women/extracted/reference.pdf",
         report_name="verify-little-women-pdf-parity",
+        ignore_case=False,
         max_mean_x=0.10,
         max_mean_y=0.10,
         max_abs_x=2.25,
@@ -120,6 +123,11 @@ def parse_args() -> argparse.Namespace:
         type=float,
         default=DEFAULT_MAX_ABS_Y,
         help="Default threshold for max absolute word y delta on ad hoc cases.",
+    )
+    parser.add_argument(
+        "--ignore-case",
+        action="store_true",
+        help="Treat extracted word text as case-insensitive before geometry comparison.",
     )
     return parser.parse_args()
 
@@ -177,9 +185,17 @@ def extract_word_boxes(pdf_path: Path) -> list[WordBox]:
     return boxes
 
 
-def compare_word_boxes(actual: list[WordBox], reference: list[WordBox]) -> tuple[dict, list[str]]:
+def normalize_word_text(text: str, ignore_case: bool) -> str:
+    return text.lower() if ignore_case else text
+
+
+def compare_word_boxes(
+    actual: list[WordBox], reference: list[WordBox], ignore_case: bool
+) -> tuple[dict, list[str]]:
     text_mismatch = len(actual) != len(reference) or any(
-        a.page_number != b.page_number or a.text != b.text
+        a.page_number != b.page_number
+        or normalize_word_text(a.text, ignore_case)
+        != normalize_word_text(b.text, ignore_case)
         for a, b in zip(actual, reference)
     )
 
@@ -305,6 +321,7 @@ def check_case(case: PdfParityCase) -> list[str]:
     report, failures = compare_word_boxes(
         extract_word_boxes(output_pdf),
         extract_word_boxes(case.reference_pdf),
+        case.ignore_case,
     )
     report_path = write_report(case, report)
     summary = report["summary"]
@@ -360,6 +377,7 @@ def build_cases(args: argparse.Namespace) -> list[PdfParityCase]:
                 if not Path(reference_pdf).is_absolute()
                 else Path(reference_pdf),
                 report_name=report_name_for(case_name),
+                ignore_case=args.ignore_case,
                 max_mean_x=args.max_mean_x,
                 max_mean_y=args.max_mean_y,
                 max_abs_x=args.max_abs_x,

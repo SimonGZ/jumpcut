@@ -307,6 +307,15 @@ python3 tools/check_corpus_pdf_parity.py \
 
 You can provide `--case` more than once in the same run. The script generates a PDF with JumpCut, compares it against the supplied reference PDF using `pdftotext -bbox-layout`, and writes a report packet for each case.
 
+If a reference differs only in letter case, you can opt into case-insensitive text matching before geometry comparison:
+
+```sh
+python3 tools/check_corpus_pdf_parity.py \
+  --no-default-cases \
+  --ignore-case \
+  --case mostly-genius /abs/path/to/mostly-genius.fountain /abs/path/to/mostly-genius.pdf
+```
+
 Local dependency:
 
 ```sh
