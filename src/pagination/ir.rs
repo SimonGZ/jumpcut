@@ -556,7 +556,7 @@ fn dialogue_part_line_counts(
                     DialoguePartKind::Lyric => ElementType::Lyric,
                 },
             };
-            let config = WrapConfig::from_geometry(geometry, element_type);
+            let config = WrapConfig::from_geometry_final_draft(geometry, element_type);
             wrap_text_for_element(&part.text, &config).len()
         })
         .collect()

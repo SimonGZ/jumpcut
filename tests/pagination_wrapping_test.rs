@@ -300,7 +300,7 @@ fn mostly_genius_action_wrap_allows_the_final_draft_hyphen_split_for_el_00363() 
     )
     .unwrap();
     let geometry = LayoutGeometry::from_fdx_settings(&settings);
-    let config = WrapConfig::from_geometry(&geometry, ElementType::Action);
+    let config = WrapConfig::from_geometry_final_draft(&geometry, ElementType::Action);
 
     let text = "EWYKO GYJYG WYSOHA, AWUBY. RUS ROGO OV KUQYPAXYDA QAGAGO--YZOVAPYPY REVOQU EQOQ, WUDAWEPAW AKUR HOG GERAB, UKEROJA OSOPOWU YVY. YSUREZU YPUJEJ.";
     let lines = wrap_text_for_element(text, &config);
@@ -325,7 +325,7 @@ fn wrap_config_can_be_created_from_custom_geometry() {
     geometry.dialogue_right = 5.0;
 
     // This constructor doesn't exist yet
-    let config = WrapConfig::from_geometry(&geometry, ElementType::Dialogue);
+    let config = WrapConfig::from_geometry_final_draft(&geometry, ElementType::Dialogue);
 
     assert_eq!(config.exact_width_chars, 25);
 

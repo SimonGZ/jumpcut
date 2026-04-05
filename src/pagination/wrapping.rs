@@ -130,10 +130,13 @@ struct WrapChunk {
 impl WrapConfig {
     pub fn new(element_type: ElementType) -> Self {
         let geometry = LayoutGeometry::default();
-        Self::from_geometry(&geometry, element_type)
+        Self::from_geometry_final_draft(&geometry, element_type)
     }
 
-    pub fn from_geometry(geometry: &LayoutGeometry, element_type: ElementType) -> Self {
+    pub fn from_geometry_final_draft(
+        geometry: &LayoutGeometry,
+        element_type: ElementType,
+    ) -> Self {
         Self::from_geometry_with_mode(geometry, element_type, InterruptionDashWrap::FinalDraft)
     }
 

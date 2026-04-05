@@ -1287,7 +1287,7 @@ fn flow_fragment_text(
     }
 
     let element_type = ElementType::from_flow_kind(&flow.kind);
-    let config = jumpcut::pagination::wrapping::WrapConfig::from_geometry(geometry, element_type);
+    let config = jumpcut::pagination::wrapping::WrapConfig::from_geometry_final_draft(geometry, element_type);
     let wrapped_lines = jumpcut::pagination::wrapping::wrap_text_for_element(&flow.text, &config);
     let fragment_line_count = (block.content_lines
         / line_height_for_element_type(geometry, element_type))
@@ -1811,7 +1811,7 @@ fn build_line_break_parity_item(
 
     let element_type = ElementType::from_item_kind(kind, dual_dialogue_side);
     let config =
-        jumpcut::pagination::wrapping::WrapConfig::from_geometry(measurement, element_type);
+        jumpcut::pagination::wrapping::WrapConfig::from_geometry_final_draft(measurement, element_type);
     let width_chars = config.exact_width_chars;
     let expected_wrapped_lines =
         jumpcut::pagination::wrapping::wrap_text_for_element(&candidate_text, &config)

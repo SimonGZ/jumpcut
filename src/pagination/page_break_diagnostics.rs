@@ -957,7 +957,7 @@ pub fn write_visual_comparison_data(debug_dir: &Path) {
                     _ => full_text.clone(),
                 };
                 let element_type = ElementType::from_item_kind(&item.kind, item.dual_dialogue_side);
-                let config = crate::pagination::wrapping::WrapConfig::from_geometry(
+                let config = crate::pagination::wrapping::WrapConfig::from_geometry_final_draft(
                     &run.geometry,
                     element_type,
                 );
@@ -2161,7 +2161,7 @@ fn render_dual_dialogue_side_lines(
         .flat_map(|part| {
             let element_type = ElementType::from_dual_dialogue_part_kind(&part.kind, side);
             let config =
-                crate::pagination::wrapping::WrapConfig::from_geometry(geometry, element_type);
+                crate::pagination::wrapping::WrapConfig::from_geometry_final_draft(geometry, element_type);
             crate::pagination::wrapping::wrap_text_for_element(&part.text, &config)
         })
         .collect()
@@ -2172,7 +2172,7 @@ fn render_indented_lines(
     element_type: ElementType,
     geometry: &LayoutGeometry,
 ) -> Vec<String> {
-    let config = crate::pagination::wrapping::WrapConfig::from_geometry(geometry, element_type);
+    let config = crate::pagination::wrapping::WrapConfig::from_geometry_final_draft(geometry, element_type);
     let indent = " ".repeat(indent_spaces_for_element_type(element_type, geometry));
     wrapped_visual_lines(element_type, text, &config)
         .into_iter()
@@ -3063,7 +3063,7 @@ fn measured_lines_for_item(
         item.dual_dialogue_side,
     );
 
-    let config = crate::pagination::wrapping::WrapConfig::from_geometry(geometry, element_type);
+    let config = crate::pagination::wrapping::WrapConfig::from_geometry_final_draft(geometry, element_type);
     let text = match item.line_range {
         Some((start, end)) => slice_explicit_lines(&element.text, start, end),
         None => element.text.clone(),
@@ -3102,7 +3102,7 @@ fn measure_visual_item(
     };
 
     let element_type = ElementType::from_item_kind(kind, dual_dialogue_side);
-    let config = crate::pagination::wrapping::WrapConfig::from_geometry(geometry, element_type);
+    let config = crate::pagination::wrapping::WrapConfig::from_geometry_final_draft(geometry, element_type);
     let text = match line_range {
         Some((start, end)) => slice_explicit_lines(&element.text, start, end),
         None => element.text.clone(),
