@@ -71,6 +71,7 @@ fn mock_dual_dialogue(left_text: &str, right_text: &str) -> SemanticUnit {
                             inline_text: None,
                             render_attributes:
                                 jumpcut::render_attributes::RenderAttributes::default(),
+                            should_append_contd: false,
                         },
                         DialoguePart {
                             element_id: "el-left-dialogue".into(),
@@ -79,6 +80,7 @@ fn mock_dual_dialogue(left_text: &str, right_text: &str) -> SemanticUnit {
                             inline_text: None,
                             render_attributes:
                                 jumpcut::render_attributes::RenderAttributes::default(),
+                            should_append_contd: false,
                         },
                     ],
                     should_append_contd: false,
@@ -101,6 +103,7 @@ fn mock_dual_dialogue(left_text: &str, right_text: &str) -> SemanticUnit {
                             inline_text: None,
                             render_attributes:
                                 jumpcut::render_attributes::RenderAttributes::default(),
+                            should_append_contd: false,
                         },
                         DialoguePart {
                             element_id: "el-right-dialogue".into(),
@@ -109,6 +112,7 @@ fn mock_dual_dialogue(left_text: &str, right_text: &str) -> SemanticUnit {
                             inline_text: None,
                             render_attributes:
                                 jumpcut::render_attributes::RenderAttributes::default(),
+                            should_append_contd: false,
                         },
                     ],
                     should_append_contd: false,

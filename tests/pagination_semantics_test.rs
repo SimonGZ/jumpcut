@@ -1,6 +1,7 @@
 use jumpcut::pagination::{
-    build_semantic_screenplay, normalize_screenplay, Cohesion, DialoguePartKind, FlowKind,
-    NormalizedElement, NormalizedScreenplay, SemanticUnit,
+    build_semantic_screenplay, build_semantic_screenplay_with_options, normalize_screenplay,
+    Cohesion, DialoguePartKind, FlowKind, NormalizedElement, NormalizedScreenplay,
+    SemanticOptions, SemanticUnit,
 };
 use jumpcut::render_attributes::RenderAttributes;
 use jumpcut::styled_text::{StyledRun, StyledText};
@@ -376,6 +377,75 @@ fn speaker_extensions_other_than_voice_over_still_match_for_contd() {
     assert_eq!(dialogue_units.len(), 2);
     assert!(!dialogue_units[0].should_append_contd);
     assert!(dialogue_units[1].should_append_contd);
+}
+
+#[test]
+fn dual_dialogue_contd_flags_follow_final_draft_side_state() {
+    let screenplay = parse(
+        "INT. CARRIAGE - DAY\n\nAMY\nSTOP THE CARRIAGE!\n\nLAURIE\nAMY! You're so /grown up!\n\nAMY ^\n/You wrote you'd come to the hotel!\n\nLAURIE\nI looked for you and couldn't find /you anywhere!\n\nAMY ^\n/You didn't look hard enough!",
+    );
+
+    let semantic = build_semantic_screenplay(normalize_screenplay("dual-contd", &screenplay));
+    let dual = semantic
+        .units
+        .iter()
+        .find_map(|unit| match unit {
+            SemanticUnit::DualDialogue(dual) => Some(dual),
+            _ => None,
+        })
+        .expect("expected dual dialogue unit");
+
+    let left_flags = dual
+        .sides
+        .iter()
+        .find(|side| side.side == 1)
+        .expect("expected left side")
+        .dialogue
+        .parts
+        .iter()
+        .filter(|part| part.kind == DialoguePartKind::Character)
+        .map(|part| part.should_append_contd)
+        .collect::<Vec<_>>();
+    let right_flags = dual
+        .sides
+        .iter()
+        .find(|side| side.side == 2)
+        .expect("expected right side")
+        .dialogue
+        .parts
+        .iter()
+        .filter(|part| part.kind == DialoguePartKind::Character)
+        .map(|part| part.should_append_contd)
+        .collect::<Vec<_>>();
+
+    assert_eq!(left_flags, vec![false]);
+    assert_eq!(right_flags, vec![true]);
+}
+
+#[test]
+fn dual_dialogue_contd_eligibility_can_be_disabled_for_balanced_mode() {
+    let screenplay = parse(
+        "INT. CARRIAGE - DAY\n\nLAURIE\nHello /there.\n\nAMY ^\n/Hi.\n\nLAURIE\nStill talking.\n\nAMY\nMe too.",
+    );
+
+    let semantic = build_semantic_screenplay_with_options(
+        normalize_screenplay("dual-contd-balanced", &screenplay),
+        SemanticOptions {
+            dual_dialogue_counts_for_contd: false,
+        },
+    );
+    let dialogue_units = semantic
+        .units
+        .iter()
+        .filter_map(|unit| match unit {
+            SemanticUnit::Dialogue(dialogue) => Some(dialogue),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+
+    assert_eq!(dialogue_units.len(), 2);
+    assert!(!dialogue_units[0].should_append_contd);
+    assert!(!dialogue_units[1].should_append_contd);
 }
 
 fn normalized_element(element_id: &str, kind: &str, text: &str) -> NormalizedElement {

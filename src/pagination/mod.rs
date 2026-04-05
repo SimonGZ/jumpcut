@@ -33,8 +33,8 @@ pub use layout_profile::{
 pub use margin::{Alignment, FdxExtractedSettings, FdxParagraphStyle, LayoutGeometry};
 pub use normalized::normalize_screenplay;
 pub use semantic::{
-    build_semantic_screenplay, Cohesion, DialoguePart, DialoguePartKind, DialogueUnit,
-    DualDialogueSide, DualDialogueUnit, FlowKind, FlowUnit, LyricUnit, PageStartUnit,
-    SemanticScreenplay, SemanticUnit,
+    build_semantic_screenplay, build_semantic_screenplay_with_options, Cohesion, DialoguePart,
+    DialoguePartKind, DialogueUnit, DualDialogueSide, DualDialogueUnit, FlowKind, FlowUnit,
+    LyricUnit, PageStartUnit, SemanticOptions, SemanticScreenplay, SemanticUnit,
 };
 pub use wrapping::InterruptionDashWrap;

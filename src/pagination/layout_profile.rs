@@ -44,6 +44,7 @@ pub struct ScreenplayElementStyles {
 pub struct ScreenplayLayoutProfile {
     pub style_profile: StyleProfile,
     pub interruption_dash_wrap: InterruptionDashWrap,
+    pub dual_dialogue_counts_for_contd: bool,
     pub styles: ScreenplayElementStyles,
 }
 
@@ -158,6 +159,7 @@ impl ScreenplayLayoutProfile {
         Self {
             style_profile: StyleProfile::Screenplay,
             interruption_dash_wrap: InterruptionDashWrap::FinalDraft,
+            dual_dialogue_counts_for_contd: true,
             styles: ScreenplayElementStyles {
                 action: ScreenplayElementStyle {
                     left_indent: 1.5,
@@ -316,8 +318,13 @@ fn apply_fmt_template_option(profile: &mut ScreenplayLayoutProfile, option: &str
         profile.styles.character.right_indent = 6.25;
         profile.styles.parenthetical.left_indent = 2.75;
         profile.styles.transition.right_indent = 7.25;
+    } else if option.eq_ignore_ascii_case("balanced") {
+        profile.interruption_dash_wrap = InterruptionDashWrap::KeepTogether;
+        profile.dual_dialogue_counts_for_contd = false;
     } else if option.eq_ignore_ascii_case("clean-dashes") {
         profile.interruption_dash_wrap = InterruptionDashWrap::KeepTogether;
+    } else if option.eq_ignore_ascii_case("no-dual-contds") {
+        profile.dual_dialogue_counts_for_contd = false;
     }
 }
 

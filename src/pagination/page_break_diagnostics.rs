@@ -2045,15 +2045,12 @@ fn continued_character_cue_text(text: &str) -> String {
 }
 
 fn dialogue_part_render_text(
-    dialogue: &crate::pagination::DialogueUnit,
+    _dialogue: &crate::pagination::DialogueUnit,
     dialogue_part: &crate::pagination::DialoguePart,
-    part_index: usize,
+    _part_index: usize,
     plain_text: &str,
 ) -> String {
-    if dialogue.should_append_contd
-        && part_index == 0
-        && dialogue_part.kind == DialoguePartKind::Character
-    {
+    if dialogue_part.should_append_contd && dialogue_part.kind == DialoguePartKind::Character {
         return continued_character_cue_text(plain_text);
     }
 
@@ -2162,7 +2159,12 @@ fn render_dual_dialogue_side_lines(
             let element_type = ElementType::from_dual_dialogue_part_kind(&part.kind, side);
             let config =
                 crate::pagination::wrapping::WrapConfig::from_geometry_final_draft(geometry, element_type);
-            crate::pagination::wrapping::wrap_text_for_element(&part.text, &config)
+            let text = if part.should_append_contd && part.kind == DialoguePartKind::Character {
+                continued_character_cue_text(&part.text)
+            } else {
+                part.text.clone()
+            };
+            crate::pagination::wrapping::wrap_text_for_element(&text, &config)
         })
         .collect()
 }

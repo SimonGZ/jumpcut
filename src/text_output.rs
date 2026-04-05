@@ -3,9 +3,9 @@ use crate::pagination::margin::{calculate_element_width, line_height_for_element
 use crate::pagination::paginator;
 use crate::pagination::wrapping::{self, ElementType, InterruptionDashWrap};
 use crate::pagination::{
-    build_semantic_screenplay, normalize_screenplay, DialoguePartKind, LayoutGeometry, Page,
-    PageKind, PaginatedScreenplay, PaginationConfig, PaginationScope, ScreenplayLayoutProfile,
-    SemanticUnit, StyleProfile,
+    build_semantic_screenplay_with_options, normalize_screenplay, DialoguePartKind,
+    LayoutGeometry, Page, PageKind, PaginatedScreenplay, PaginationConfig, PaginationScope,
+    ScreenplayLayoutProfile, SemanticOptions, SemanticUnit, StyleProfile,
 };
 use crate::title_page::TitlePage;
 use crate::Screenplay;
@@ -37,7 +37,12 @@ pub fn render(screenplay: &Screenplay, options: &TextRenderOptions) -> String {
     let layout_profile = ScreenplayLayoutProfile::from_metadata(&screenplay.metadata);
     let style_profile = style_profile_name(&layout_profile);
     let normalized = normalize_screenplay(screenplay_id, screenplay);
-    let semantic = build_semantic_screenplay(normalized);
+    let semantic = build_semantic_screenplay_with_options(
+        normalized,
+        SemanticOptions {
+            dual_dialogue_counts_for_contd: layout_profile.dual_dialogue_counts_for_contd,
+        },
+    );
     let config = PaginationConfig {
         lines_per_page: DEFAULT_LINES_PER_PAGE,
         geometry: layout_profile.to_pagination_geometry(),
@@ -626,15 +631,14 @@ fn render_semantic_unit_lines(
 }
 
 fn dialogue_part_render_text(
-    dialogue: &crate::pagination::DialogueUnit,
+    _dialogue: &crate::pagination::DialogueUnit,
     dialogue_part: &crate::pagination::DialoguePart,
-    part_index: usize,
+    _part_index: usize,
     plain_text: &str,
     options: &TextRenderOptions,
 ) -> String {
     if options.render_continueds
-        && dialogue.should_append_contd
-        && part_index == 0
+        && dialogue_part.should_append_contd
         && dialogue_part.kind == DialoguePartKind::Character
     {
         return continued_character_cue_text(plain_text);
@@ -659,7 +663,12 @@ fn render_dual_dialogue_side_lines(
                 element_type,
                 interruption_dash_wrap,
             );
-            wrapping::wrap_text_for_element(&part.text, &config)
+            let text = if part.should_append_contd && part.kind == DialoguePartKind::Character {
+                continued_character_cue_text(&part.text)
+            } else {
+                part.text.clone()
+            };
+            wrapping::wrap_text_for_element(&text, &config)
         })
         .collect()
 }

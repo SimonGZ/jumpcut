@@ -3,9 +3,9 @@ use crate::pagination::margin::line_height_for_element_type;
 use crate::pagination::paginator;
 use crate::pagination::wrapping::{self, ElementType, InterruptionDashWrap, WrappedStyledFragment};
 use crate::pagination::{
-    build_semantic_screenplay, normalize_screenplay, DialoguePartKind, LayoutGeometry, Page,
-    PageKind, PaginatedScreenplay, PaginationConfig, PaginationScope, ScreenplayLayoutProfile,
-    SemanticUnit, StyleProfile,
+    build_semantic_screenplay_with_options, normalize_screenplay, DialoguePartKind,
+    LayoutGeometry, Page, PageKind, PaginatedScreenplay, PaginationConfig, PaginationScope,
+    ScreenplayLayoutProfile, SemanticOptions, SemanticUnit, StyleProfile,
 };
 use crate::styled_text::{StyledRun, StyledText};
 use crate::title_page::TitlePage;
@@ -69,7 +69,12 @@ pub(crate) fn render_paginated_visual_pages_with_options(
     let layout_profile = ScreenplayLayoutProfile::from_metadata(&screenplay.metadata);
     let style_profile = style_profile_name(&layout_profile);
     let normalized = normalize_screenplay(screenplay_id, screenplay);
-    let semantic = build_semantic_screenplay(normalized);
+    let semantic = build_semantic_screenplay_with_options(
+        normalized,
+        SemanticOptions {
+            dual_dialogue_counts_for_contd: layout_profile.dual_dialogue_counts_for_contd,
+        },
+    );
     let config = PaginationConfig {
         lines_per_page: DEFAULT_LINES_PER_PAGE,
         geometry: layout_profile.to_pagination_geometry(),
@@ -108,7 +113,12 @@ pub(crate) fn render_unpaginated_visual_lines_with_options(
         interruption_dash_wrap: layout_profile.interruption_dash_wrap,
     };
     let normalized = normalize_screenplay(screenplay_id, screenplay);
-    let semantic = build_semantic_screenplay(normalized);
+    let semantic = build_semantic_screenplay_with_options(
+        normalized,
+        SemanticOptions {
+            dual_dialogue_counts_for_contd: layout_profile.dual_dialogue_counts_for_contd,
+        },
+    );
     let blocks = composer::compose(&semantic.units, &config.geometry);
 
     blocks
@@ -538,15 +548,14 @@ fn render_split_dialogue_part_lines(
 }
 
 fn dialogue_part_render_text(
-    dialogue: &crate::pagination::DialogueUnit,
+    _dialogue: &crate::pagination::DialogueUnit,
     dialogue_part: &crate::pagination::DialoguePart,
-    part_index: usize,
+    _part_index: usize,
     plain_text: &str,
     options: VisualRenderOptions,
 ) -> String {
     if options.render_continueds
-        && dialogue.should_append_contd
-        && part_index == 0
+        && dialogue_part.should_append_contd
         && dialogue_part.kind == DialoguePartKind::Character
     {
         return continued_character_cue_text(plain_text);
@@ -556,15 +565,14 @@ fn dialogue_part_render_text(
 }
 
 fn dialogue_part_render_styled_text(
-    dialogue: &crate::pagination::DialogueUnit,
+    _dialogue: &crate::pagination::DialogueUnit,
     dialogue_part: &crate::pagination::DialoguePart,
-    part_index: usize,
+    _part_index: usize,
     inline_text: &StyledText,
     options: VisualRenderOptions,
 ) -> StyledText {
     if options.render_continueds
-        && dialogue.should_append_contd
-        && part_index == 0
+        && dialogue_part.should_append_contd
         && dialogue_part.kind == DialoguePartKind::Character
     {
         let mut runs = inline_text.runs.clone();
@@ -913,7 +921,20 @@ fn render_dual_dialogue_side_rendered_lines(
                 interruption_dash_wrap,
             );
             if let Some(inline_text) = &part.inline_text {
-                wrapping::wrap_styled_text_for_element(inline_text, &config)
+                let inline_text = if part.should_append_contd && part.kind == DialoguePartKind::Character {
+                    let mut runs = inline_text.runs.clone();
+                    runs.push(StyledRun {
+                        text: " (CONT'D)".to_string(),
+                        styles: Vec::new(),
+                    });
+                    StyledText {
+                        plain_text: continued_character_cue_text(&inline_text.plain_text),
+                        runs,
+                    }
+                } else {
+                    inline_text.clone()
+                };
+                wrapping::wrap_styled_text_for_element(&inline_text, &config)
                     .into_iter()
                     .map(|line| RenderedStyledLine {
                         text: line.text,
@@ -926,7 +947,12 @@ fn render_dual_dialogue_side_rendered_lines(
                     })
                     .collect::<Vec<_>>()
             } else {
-                wrapping::wrap_text_for_element(&part.text, &config)
+                let text = if part.should_append_contd && part.kind == DialoguePartKind::Character {
+                    continued_character_cue_text(&part.text)
+                } else {
+                    part.text.clone()
+                };
+                wrapping::wrap_text_for_element(&text, &config)
                     .into_iter()
                     .map(|text| RenderedStyledLine {
                         element_type,
