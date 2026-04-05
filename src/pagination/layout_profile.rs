@@ -1,7 +1,7 @@
 use crate::Metadata;
 
-use super::{Alignment, LayoutGeometry};
 use super::wrapping::InterruptionDashWrap;
+use super::{Alignment, LayoutGeometry};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum StyleProfile {
@@ -306,7 +306,7 @@ impl ScreenplayLayoutProfile {
                     italic: true,
                 },
                 cold_opening: ScreenplayElementStyle {
-                    left_indent: 1.0,
+                    left_indent: 1.5,
                     right_indent: 7.5,
                     spacing_before: 1.0,
                     line_spacing: 1.0,

@@ -108,7 +108,7 @@ impl Default for LayoutGeometry {
         Self {
             action_left: 1.5,
             action_right: 7.5,
-            cold_opening_left: 1.0,
+            cold_opening_left: 1.5,
             cold_opening_right: 7.5,
             new_act_left: 1.5,
             new_act_right: 7.5,
