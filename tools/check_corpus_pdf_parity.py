@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import json
 import math
 import shutil
@@ -17,6 +18,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 TARGET_DIR = ROOT / "target" / "pdf-parity"
 REPORTS_DIR = ROOT / "target" / "pdf-placement-diagnostics"
+DEFAULT_MAX_MEAN_X = 0.10
+DEFAULT_MAX_MEAN_Y = 0.10
+DEFAULT_MAX_ABS_X = 3.50
+DEFAULT_MAX_ABS_Y = 0.10
 
 
 @dataclass(frozen=True)
@@ -73,6 +78,52 @@ CASES = [
 ]
 
 
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Compare generated JumpCut PDFs against reference PDFs."
+    )
+    parser.add_argument(
+        "--no-default-cases",
+        action="store_true",
+        help="Only run explicitly provided --case entries.",
+    )
+    parser.add_argument(
+        "--case",
+        action="append",
+        nargs=3,
+        metavar=("NAME", "FOUNTAIN", "REFERENCE_PDF"),
+        help=(
+            "Add an ad hoc parity case. May be provided more than once. "
+            "Reports are written under target/pdf-placement-diagnostics/<NAME>."
+        ),
+    )
+    parser.add_argument(
+        "--max-mean-x",
+        type=float,
+        default=DEFAULT_MAX_MEAN_X,
+        help="Default threshold for mean word x delta on ad hoc cases.",
+    )
+    parser.add_argument(
+        "--max-mean-y",
+        type=float,
+        default=DEFAULT_MAX_MEAN_Y,
+        help="Default threshold for mean word y delta on ad hoc cases.",
+    )
+    parser.add_argument(
+        "--max-abs-x",
+        type=float,
+        default=DEFAULT_MAX_ABS_X,
+        help="Default threshold for max absolute word x delta on ad hoc cases.",
+    )
+    parser.add_argument(
+        "--max-abs-y",
+        type=float,
+        default=DEFAULT_MAX_ABS_Y,
+        help="Default threshold for max absolute word y delta on ad hoc cases.",
+    )
+    return parser.parse_args()
+
+
 def run(cmd: list[str], cwd: Path) -> None:
     subprocess.run(cmd, cwd=cwd, check=True)
 
@@ -88,6 +139,14 @@ def require_tool(name: str, install_hint: str) -> None:
 
 def output_pdf_for(case: PdfParityCase) -> Path:
     return TARGET_DIR / f"{case.name}.pdf"
+
+
+def report_name_for(case_name: str) -> str:
+    return (
+        f"verify-{case_name}-pdf-parity"
+        .replace(" ", "-")
+        .replace("/", "-")
+    )
 
 
 def extract_word_boxes(pdf_path: Path) -> list[WordBox]:
@@ -286,15 +345,45 @@ def check_case(case: PdfParityCase) -> list[str]:
     return failures
 
 
+def build_cases(args: argparse.Namespace) -> list[PdfParityCase]:
+    cases = [] if args.no_default_cases else list(CASES)
+
+    for name, fountain, reference_pdf in args.case or []:
+        case_name = name.strip()
+        cases.append(
+            PdfParityCase(
+                name=case_name,
+                fountain=(ROOT / fountain).resolve()
+                if not Path(fountain).is_absolute()
+                else Path(fountain),
+                reference_pdf=(ROOT / reference_pdf).resolve()
+                if not Path(reference_pdf).is_absolute()
+                else Path(reference_pdf),
+                report_name=report_name_for(case_name),
+                max_mean_x=args.max_mean_x,
+                max_mean_y=args.max_mean_y,
+                max_abs_x=args.max_abs_x,
+                max_abs_y=args.max_abs_y,
+            )
+        )
+
+    return cases
+
+
 def main() -> int:
+    args = parse_args()
     require_tool("cargo", "install Rust and ensure cargo is on PATH")
     require_tool(
         "pdftotext",
         "install Poppler utilities (for example: apt install poppler-utils)",
     )
 
+    cases = build_cases(args)
+    if not cases:
+        raise SystemExit("no PDF parity cases selected")
+
     any_failures = False
-    for case in CASES:
+    for case in cases:
         failures = check_case(case)
         if failures:
             any_failures = True

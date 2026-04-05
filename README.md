@@ -282,6 +282,38 @@ The tool currently regenerates:
 - Little Women full-script page-break review packet
 - Little Women line-break parity packet
 - Mostly Genius full-script page-break review packet
+
+## PDF Parity Checks
+
+The repo also includes a PDF word-position parity checker:
+
+```sh
+python3 tools/check_corpus_pdf_parity.py
+```
+
+That runs the wired corpus PDF checks and writes reports under:
+
+```text
+target/pdf-placement-diagnostics/
+```
+
+If you want to compare an ad hoc script without adding it to the permanent corpus, use one or more `--case` entries:
+
+```sh
+python3 tools/check_corpus_pdf_parity.py \
+  --no-default-cases \
+  --case my-script /abs/path/to/script.fountain /abs/path/to/reference.pdf
+```
+
+You can provide `--case` more than once in the same run. The script generates a PDF with JumpCut, compares it against the supplied reference PDF using `pdftotext -bbox-layout`, and writes a report packet for each case.
+
+Local dependency:
+
+```sh
+sudo apt install poppler-utils
+```
+
+That provides `pdftotext`, which the parity checker requires.
 - Mostly Genius line-break parity packet
 - the extra paginated-output JSON dumps and visual-comparison export used for manual debugging
 
