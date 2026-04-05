@@ -45,7 +45,6 @@ pub struct ScreenplayLayoutProfile {
     pub style_profile: StyleProfile,
     pub interruption_dash_wrap: InterruptionDashWrap,
     pub dual_dialogue_counts_for_contd: bool,
-    pub closer_dual_dialogue_cues: bool,
     pub styles: ScreenplayElementStyles,
 }
 
@@ -118,8 +117,6 @@ impl ScreenplayLayoutProfile {
             self.styles.dual_dialogue_right_parenthetical.left_indent;
         geometry.dual_dialogue_right_parenthetical_right =
             self.styles.dual_dialogue_right_parenthetical.right_indent;
-        geometry.closer_dual_dialogue_cues = self.closer_dual_dialogue_cues;
-
         geometry.character_left = self.styles.character.left_indent;
         geometry.character_right = self.styles.character.right_indent;
         geometry.character_spacing_before = self.styles.character.spacing_before;
@@ -162,7 +159,6 @@ impl ScreenplayLayoutProfile {
             style_profile: StyleProfile::Screenplay,
             interruption_dash_wrap: InterruptionDashWrap::FinalDraft,
             dual_dialogue_counts_for_contd: true,
-            closer_dual_dialogue_cues: false,
             styles: ScreenplayElementStyles {
                 action: ScreenplayElementStyle {
                     left_indent: 1.5,
@@ -324,13 +320,10 @@ fn apply_fmt_template_option(profile: &mut ScreenplayLayoutProfile, option: &str
     } else if option.eq_ignore_ascii_case("balanced") {
         profile.interruption_dash_wrap = InterruptionDashWrap::KeepTogether;
         profile.dual_dialogue_counts_for_contd = false;
-        profile.closer_dual_dialogue_cues = true;
     } else if option.eq_ignore_ascii_case("clean-dashes") {
         profile.interruption_dash_wrap = InterruptionDashWrap::KeepTogether;
     } else if option.eq_ignore_ascii_case("no-dual-contds") {
         profile.dual_dialogue_counts_for_contd = false;
-    } else if option.eq_ignore_ascii_case("closer-dual-dialogue-cues") {
-        profile.closer_dual_dialogue_cues = true;
     }
 }
 

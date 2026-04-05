@@ -272,18 +272,10 @@ fn dual_side_left_offset_css(
         ElementType::DualDialogueLeft => geometry.dual_dialogue_left_left,
         ElementType::DualDialogueRight => geometry.dual_dialogue_right_left,
         ElementType::DualDialogueCharacterLeft => {
-            dual_dialogue_character_left_indent(
-                &side.text,
-                1,
-                layout_profile.closer_dual_dialogue_cues,
-            )
+            dual_dialogue_character_left_indent(&side.text, 1)
         }
         ElementType::DualDialogueCharacterRight => {
-            dual_dialogue_character_left_indent(
-                &side.text,
-                2,
-                layout_profile.closer_dual_dialogue_cues,
-            )
+            dual_dialogue_character_left_indent(&side.text, 2)
         }
         ElementType::DualDialogueParentheticalLeft => {
             geometry.dual_dialogue_left_parenthetical_left
@@ -300,12 +292,7 @@ fn dual_side_left_offset_css(
 }
 
 fn hangs_opening_parenthesis(element_type: ElementType, text: &str) -> bool {
-    matches!(
-        element_type,
-        ElementType::Parenthetical
-            | ElementType::DualDialogueParentheticalLeft
-            | ElementType::DualDialogueParentheticalRight
-    ) && text.starts_with('(')
+    matches!(element_type, ElementType::Parenthetical) && text.starts_with('(')
 }
 
 fn render_visual_fragments(out: &mut String, fragments: &[crate::visual_lines::VisualFragment]) {
@@ -982,14 +969,14 @@ mod tests {
         assert!(output
             .contains("class=\"dualSegment dualDialogueCharacterLeft\" style=\"left: 1.1944444in;\""));
         assert!(output.contains(
-            "class=\"dualSegment dualDialogueParentheticalLeft\" style=\"left: 0.14999998in;\""
+            "class=\"dualSegment dualDialogueParentheticalLeft\" style=\"left: 0.25in;\""
         ));
         assert!(output.contains("class=\"dualSegment dualDialogueLeft\" style=\"left: 0in;\""));
         assert!(output.contains(
             "class=\"dualSegment dualDialogueCharacterRight\" style=\"left: 4.3194447in;\""
         ));
         assert!(output.contains(
-            "class=\"dualSegment dualDialogueParentheticalRight\" style=\"left: 3.275in;\""
+            "class=\"dualSegment dualDialogueParentheticalRight\" style=\"left: 3.375in;\""
         ));
         assert!(output.contains("class=\"dualSegment dualDialogueRight\" style=\"left: 3.125in;\""));
     }

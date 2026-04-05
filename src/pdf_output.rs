@@ -780,12 +780,10 @@ fn line_kind_left(kind: Option<PdfLineKind>, geometry: &LayoutGeometry) -> f32 {
 fn dual_side_left(side: &PdfRenderDualSide, geometry: &LayoutGeometry) -> f32 {
     let left = match side.kind {
         PdfLineKind::DualDialogueCharacterLeft => {
-            dual_dialogue_character_left_indent(&side.text, 1, geometry.closer_dual_dialogue_cues)
-                * 72.0
+            dual_dialogue_character_left_indent(&side.text, 1) * 72.0
         }
         PdfLineKind::DualDialogueCharacterRight => {
-            dual_dialogue_character_left_indent(&side.text, 2, geometry.closer_dual_dialogue_cues)
-                * 72.0
+            dual_dialogue_character_left_indent(&side.text, 2) * 72.0
         }
         _ => line_kind_left(Some(side.kind), geometry),
     };
@@ -837,14 +835,7 @@ fn parenthetical_hang_offset_points(kind: Option<PdfLineKind>, text: &str) -> f3
 }
 
 fn hangs_opening_parenthesis(kind: Option<PdfLineKind>, text: &str) -> bool {
-    matches!(
-        kind,
-        Some(
-            PdfLineKind::Parenthetical
-                | PdfLineKind::DualDialogueParentheticalLeft
-                | PdfLineKind::DualDialogueParentheticalRight
-        )
-    ) && text.trim_start().starts_with('(')
+    matches!(kind, Some(PdfLineKind::Parenthetical)) && text.trim_start().starts_with('(')
 }
 
 impl EmbeddedFonts {
@@ -1891,24 +1882,11 @@ mod tests {
             fragments: Vec::new(),
         };
 
-        assert_eq!(dual_side_left(&right_with_contd, &geometry), 426.0);
+        assert!((dual_side_left(&right_with_contd, &geometry) - 426.0).abs() < 0.001);
     }
 
     #[test]
-    fn dual_side_left_can_keep_cleaner_dual_cues_closer_together_in_balanced_mode() {
-        let mut geometry = LayoutGeometry::default();
-        geometry.closer_dual_dialogue_cues = true;
-        let right_with_contd = PdfRenderDualSide {
-            text: "AMY (CONT'D)".into(),
-            kind: PdfLineKind::DualDialogueCharacterRight,
-            fragments: Vec::new(),
-        };
-
-        assert_eq!(dual_side_left(&right_with_contd, &geometry), 394.5);
-    }
-
-    #[test]
-    fn dual_parenthetical_left_hangs_opening_parenthesis_one_cell_left() {
+    fn dual_parenthetical_left_does_not_hang_opening_parenthesis() {
         let geometry = LayoutGeometry::default();
         let side = PdfRenderDualSide {
             text: "(quietly)".into(),
@@ -1916,7 +1894,7 @@ mod tests {
             fragments: Vec::new(),
         };
 
-        assert_eq!(dual_side_left(&side, &geometry), 119.0);
+        assert_eq!(dual_side_left(&side, &geometry), 126.0);
     }
 
     #[test]

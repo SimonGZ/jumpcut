@@ -76,26 +76,22 @@ fn dual_dialogue_margin_calculation_uses_normal_rounding_without_a_special_quirk
 
 #[test]
 fn dual_dialogue_character_left_indent_matches_final_draft_probe_points() {
-    assert!((dual_dialogue_character_left_indent("A", 1, false) - (208.0 / 72.0)).abs() < 0.001);
-    assert!((dual_dialogue_character_left_indent("AB", 1, false) - (204.5 / 72.0)).abs() < 0.001);
-    assert!((dual_dialogue_character_left_indent("MARK", 1, false) - (197.5 / 72.0)).abs() < 0.001);
-    assert!((dual_dialogue_character_left_indent("CHARACTER", 1, false) - 2.5).abs() < 0.001);
+    assert!((dual_dialogue_character_left_indent("A", 1) - (208.0 / 72.0)).abs() < 0.001);
+    assert!((dual_dialogue_character_left_indent("AB", 1) - (204.5 / 72.0)).abs() < 0.001);
+    assert!((dual_dialogue_character_left_indent("MARK", 1) - (197.5 / 72.0)).abs() < 0.001);
+    assert!((dual_dialogue_character_left_indent("CHARACTER", 1) - 2.5).abs() < 0.001);
     assert!(
-        (dual_dialogue_character_left_indent(&"X".repeat(25), 1, false) - (124.0 / 72.0)).abs()
+        (dual_dialogue_character_left_indent(&"X".repeat(25), 1) - (124.0 / 72.0)).abs()
             < 0.001
     );
     assert!(
-        (dual_dialogue_character_left_indent(&"X".repeat(29), 1, false) - (110.0 / 72.0)).abs()
+        (dual_dialogue_character_left_indent(&"X".repeat(29), 1) - (110.0 / 72.0)).abs()
             < 0.001
     );
-    assert!((dual_dialogue_character_left_indent("A", 2, false) - (433.0 / 72.0)).abs() < 0.001);
-    assert!((dual_dialogue_character_left_indent("TOM", 2, false) - (426.0 / 72.0)).abs() < 0.001);
-}
-
-#[test]
-fn closer_dual_dialogue_cues_center_the_full_visible_cue_text() {
+    assert!((dual_dialogue_character_left_indent("A", 2) - (433.0 / 72.0)).abs() < 0.001);
+    assert!((dual_dialogue_character_left_indent("TOM", 2) - (426.0 / 72.0)).abs() < 0.001);
     assert!(
-        (dual_dialogue_character_left_indent("AMY (CONT'D)", 2, true) - (394.5 / 72.0)).abs()
+        (dual_dialogue_character_left_indent("AMY (CONT'D)", 2) - (426.0 / 72.0)).abs()
             < 0.001
     );
 }
