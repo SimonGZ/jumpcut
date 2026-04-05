@@ -89,6 +89,13 @@ def build_steps(mode: str) -> list[tuple[str, list[str]]]:
                 ["cargo", "run", "--bin", "pagination-diagnostics", "--", "all"],
             )
         )
+    if mode == "full":
+        steps.append(
+            (
+                "pdf-parity",
+                ["python3", "tools/check_corpus_pdf_parity.py"],
+            )
+        )
     return steps
 
 
