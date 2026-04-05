@@ -526,7 +526,7 @@ mod tests {
         metadata.insert("source".into(), vec!["SOURCE".into()]);
         metadata.insert("draft".into(), vec!["DRAFT".into()]);
         metadata.insert("draft date".into(), vec!["DATE".into()]);
-        metadata.insert("fmt".into(), vec!["bsh".into()]);
+
 
         let styled =
             ElementText::Styled(vec![tr("BOLD", vec!["Bold"]), tr("ITALIC", vec!["Italic"])]);

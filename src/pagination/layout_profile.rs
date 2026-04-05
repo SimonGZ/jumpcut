@@ -18,6 +18,8 @@ pub struct ScreenplayElementStyle {
     pub alignment: Alignment,
     pub starts_new_page: bool,
     pub underline: bool,
+    pub bold: bool,
+    pub italic: bool,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -168,6 +170,8 @@ impl ScreenplayLayoutProfile {
                     alignment: Alignment::Left,
                     starts_new_page: false,
                     underline: false,
+                    bold: false,
+                    italic: false,
                 },
                 scene_heading: ScreenplayElementStyle {
                     left_indent: 1.5,
@@ -177,6 +181,8 @@ impl ScreenplayLayoutProfile {
                     alignment: Alignment::Left,
                     starts_new_page: false,
                     underline: false,
+                    bold: false,
+                    italic: false,
                 },
                 character: ScreenplayElementStyle {
                     left_indent: 3.5,
@@ -186,6 +192,8 @@ impl ScreenplayLayoutProfile {
                     alignment: Alignment::Left,
                     starts_new_page: false,
                     underline: false,
+                    bold: false,
+                    italic: false,
                 },
                 dialogue: ScreenplayElementStyle {
                     left_indent: 2.5,
@@ -195,6 +203,8 @@ impl ScreenplayLayoutProfile {
                     alignment: Alignment::Left,
                     starts_new_page: false,
                     underline: false,
+                    bold: false,
+                    italic: false,
                 },
                 parenthetical: ScreenplayElementStyle {
                     left_indent: 3.0,
@@ -204,6 +214,8 @@ impl ScreenplayLayoutProfile {
                     alignment: Alignment::Left,
                     starts_new_page: false,
                     underline: false,
+                    bold: false,
+                    italic: false,
                 },
                 dual_dialogue_left_character: ScreenplayElementStyle {
                     left_indent: 2.5,
@@ -213,6 +225,8 @@ impl ScreenplayLayoutProfile {
                     alignment: Alignment::Left,
                     starts_new_page: false,
                     underline: false,
+                    bold: false,
+                    italic: false,
                 },
                 dual_dialogue_left_dialogue: ScreenplayElementStyle {
                     left_indent: 1.5,
@@ -222,6 +236,8 @@ impl ScreenplayLayoutProfile {
                     alignment: Alignment::Left,
                     starts_new_page: false,
                     underline: false,
+                    bold: false,
+                    italic: false,
                 },
                 dual_dialogue_left_parenthetical: ScreenplayElementStyle {
                     left_indent: 1.75,
@@ -231,6 +247,8 @@ impl ScreenplayLayoutProfile {
                     alignment: Alignment::Left,
                     starts_new_page: false,
                     underline: false,
+                    bold: false,
+                    italic: false,
                 },
                 dual_dialogue_right_character: ScreenplayElementStyle {
                     left_indent: 5.875,
@@ -240,6 +258,8 @@ impl ScreenplayLayoutProfile {
                     alignment: Alignment::Left,
                     starts_new_page: false,
                     underline: false,
+                    bold: false,
+                    italic: false,
                 },
                 dual_dialogue_right_dialogue: ScreenplayElementStyle {
                     left_indent: 4.625,
@@ -249,6 +269,8 @@ impl ScreenplayLayoutProfile {
                     alignment: Alignment::Left,
                     starts_new_page: false,
                     underline: false,
+                    bold: false,
+                    italic: false,
                 },
                 dual_dialogue_right_parenthetical: ScreenplayElementStyle {
                     left_indent: 4.875,
@@ -258,6 +280,8 @@ impl ScreenplayLayoutProfile {
                     alignment: Alignment::Left,
                     starts_new_page: false,
                     underline: false,
+                    bold: false,
+                    italic: false,
                 },
                 transition: ScreenplayElementStyle {
                     left_indent: 5.5,
@@ -267,6 +291,8 @@ impl ScreenplayLayoutProfile {
                     alignment: Alignment::Right,
                     starts_new_page: false,
                     underline: false,
+                    bold: false,
+                    italic: false,
                 },
                 lyric: ScreenplayElementStyle {
                     left_indent: 2.5,
@@ -276,6 +302,8 @@ impl ScreenplayLayoutProfile {
                     alignment: Alignment::Left,
                     starts_new_page: false,
                     underline: false,
+                    bold: false,
+                    italic: true,
                 },
                 cold_opening: ScreenplayElementStyle {
                     left_indent: 1.0,
@@ -285,6 +313,8 @@ impl ScreenplayLayoutProfile {
                     alignment: Alignment::Center,
                     starts_new_page: false,
                     underline: true,
+                    bold: false,
+                    italic: false,
                 },
                 new_act: ScreenplayElementStyle {
                     left_indent: 1.5,
@@ -294,6 +324,8 @@ impl ScreenplayLayoutProfile {
                     alignment: Alignment::Center,
                     starts_new_page: true,
                     underline: true,
+                    bold: false,
+                    italic: false,
                 },
                 end_of_act: ScreenplayElementStyle {
                     left_indent: 1.5,
@@ -303,6 +335,8 @@ impl ScreenplayLayoutProfile {
                     alignment: Alignment::Center,
                     starts_new_page: false,
                     underline: true,
+                    bold: false,
+                    italic: false,
                 },
             },
         }
@@ -330,6 +364,10 @@ fn apply_fmt_template_option(profile: &mut ScreenplayLayoutProfile, option: &str
 fn apply_fmt_geometry_override_option(profile: &mut ScreenplayLayoutProfile, option: &str) {
     if option.eq_ignore_ascii_case("ssbsh") {
         profile.styles.scene_heading.spacing_before = 1.0;
+    } else if option.eq_ignore_ascii_case("bsh") {
+        profile.styles.scene_heading.bold = true;
+    } else if option.eq_ignore_ascii_case("ush") {
+        profile.styles.scene_heading.underline = true;
     } else if option.eq_ignore_ascii_case("dsd") {
         profile.styles.dialogue.line_spacing = 2.0;
     } else if option.eq_ignore_ascii_case("no-auto-act-breaks") {

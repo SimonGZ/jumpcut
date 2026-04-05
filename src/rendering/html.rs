@@ -203,8 +203,16 @@ fn render_visual_line(
     }
     if let Some(element_type) = line.element_type {
         classes.push(visual_line_class_name(element_type));
-        if default_underlines_for_element_type(element_type, layout_profile) {
-            classes.push("underline");
+        if let Some(style) = default_styles_for_element_type(element_type, layout_profile) {
+            if style.bold {
+                classes.push("bold");
+            }
+            if style.italic {
+                classes.push("italic");
+            }
+            if style.underline {
+                classes.push("underline");
+            }
         }
     }
     if !line.counted {
@@ -340,8 +348,16 @@ fn render_paragraph(out: &mut String, element: &Element, layout_profile: &Screen
         }
     )
     .unwrap();
-    if default_underlines_for_type_name(type_name, layout_profile) {
-        out.push_str(" underline");
+    if let Some(style) = default_styles_for_type_name(type_name, layout_profile) {
+        if style.bold {
+            out.push_str(" bold");
+        }
+        if style.italic {
+            out.push_str(" italic");
+        }
+        if style.underline {
+            out.push_str(" underline");
+        }
     }
     if attributes.centered {
         out.push_str(" centered");
@@ -369,31 +385,47 @@ fn render_text(out: &mut String, text: &ElementText) {
     }
 }
 
-fn default_underlines_for_type_name(
+fn default_styles_for_type_name<'a>(
     type_name: &str,
-    layout_profile: &ScreenplayLayoutProfile,
-) -> bool {
+    layout_profile: &'a ScreenplayLayoutProfile,
+) -> Option<&'a crate::pagination::layout_profile::ScreenplayElementStyle> {
     match type_name {
-        "Cold Opening" => layout_profile.styles.cold_opening.underline,
-        "New Act" => layout_profile.styles.new_act.underline,
-        "End of Act" => layout_profile.styles.end_of_act.underline,
-        _ => false,
+        "Action" => Some(&layout_profile.styles.action),
+        "Scene Heading" => Some(&layout_profile.styles.scene_heading),
+        "Character" => Some(&layout_profile.styles.character),
+        "Dialogue" => Some(&layout_profile.styles.dialogue),
+        "Parenthetical" => Some(&layout_profile.styles.parenthetical),
+        "Transition" => Some(&layout_profile.styles.transition),
+        "Lyric" => Some(&layout_profile.styles.lyric),
+        "Cold Opening" => Some(&layout_profile.styles.cold_opening),
+        "New Act" => Some(&layout_profile.styles.new_act),
+        "End of Act" => Some(&layout_profile.styles.end_of_act),
+        _ => None,
     }
 }
 
-fn default_underlines_for_element_type(
+fn default_styles_for_element_type<'a>(
     element_type: crate::pagination::wrapping::ElementType,
-    layout_profile: &ScreenplayLayoutProfile,
-) -> bool {
+    layout_profile: &'a ScreenplayLayoutProfile,
+) -> Option<&'a crate::pagination::layout_profile::ScreenplayElementStyle> {
+    use crate::pagination::wrapping::ElementType as ET;
     match element_type {
-        crate::pagination::wrapping::ElementType::ColdOpening => {
-            layout_profile.styles.cold_opening.underline
-        }
-        crate::pagination::wrapping::ElementType::NewAct => layout_profile.styles.new_act.underline,
-        crate::pagination::wrapping::ElementType::EndOfAct => {
-            layout_profile.styles.end_of_act.underline
-        }
-        _ => false,
+        ET::Action => Some(&layout_profile.styles.action),
+        ET::SceneHeading => Some(&layout_profile.styles.scene_heading),
+        ET::Character => Some(&layout_profile.styles.character),
+        ET::Dialogue => Some(&layout_profile.styles.dialogue),
+        ET::Parenthetical => Some(&layout_profile.styles.parenthetical),
+        ET::Transition => Some(&layout_profile.styles.transition),
+        ET::Lyric => Some(&layout_profile.styles.lyric),
+        ET::DualDialogueLeft => Some(&layout_profile.styles.dual_dialogue_left_dialogue),
+        ET::DualDialogueRight => Some(&layout_profile.styles.dual_dialogue_right_dialogue),
+        ET::DualDialogueCharacterLeft => Some(&layout_profile.styles.dual_dialogue_left_character),
+        ET::DualDialogueCharacterRight => Some(&layout_profile.styles.dual_dialogue_right_character),
+        ET::DualDialogueParentheticalLeft => Some(&layout_profile.styles.dual_dialogue_left_parenthetical),
+        ET::DualDialogueParentheticalRight => Some(&layout_profile.styles.dual_dialogue_right_parenthetical),
+        ET::ColdOpening => Some(&layout_profile.styles.cold_opening),
+        ET::NewAct => Some(&layout_profile.styles.new_act),
+        ET::EndOfAct => Some(&layout_profile.styles.end_of_act),
     }
 }
 

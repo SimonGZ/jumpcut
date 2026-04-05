@@ -279,8 +279,8 @@ pub(crate) fn render(screenplay: &Screenplay) -> Vec<u8> {
 
 pub(crate) fn render_with_options(screenplay: &Screenplay, options: PdfRenderOptions) -> Vec<u8> {
     let document = build_render_document(screenplay, options);
-    let geometry =
-        ScreenplayLayoutProfile::from_metadata(&screenplay.metadata).to_pagination_geometry();
+    let profile = ScreenplayLayoutProfile::from_metadata(&screenplay.metadata);
+    let geometry = profile.to_pagination_geometry();
     let fonts = EmbeddedFonts::new(&document);
     let body_page_count = document.body_pages.len() as i32;
     let page_count = body_page_count + i32::from(document.title_page.is_some());
@@ -337,7 +337,7 @@ pub(crate) fn render_with_options(screenplay: &Screenplay, options: PdfRenderOpt
     for body_page in &document.body_pages {
         pdf.stream(
             content_ids[content_index],
-            &render_body_page_content(body_page, &geometry, &fonts),
+            &render_body_page_content(body_page, &geometry, &fonts, &profile),
         );
         content_index += 1;
     }
@@ -349,6 +349,7 @@ fn render_body_page_content(
     page: &PdfRenderPage,
     geometry: &LayoutGeometry,
     fonts: &EmbeddedFonts,
+    profile: &ScreenplayLayoutProfile,
 ) -> Vec<u8> {
     let mut content = Content::new();
     let mut underlines = Vec::new();
@@ -380,11 +381,11 @@ fn render_body_page_content(
 
         let line_y = body_top - (index as f32 * line_step);
         if let Some(dual) = &line.dual {
-            render_dual_body_line(&mut content, dual, geometry, fonts, line_y, &mut underlines);
+            render_dual_body_line(&mut content, dual, geometry, fonts, line_y, &mut underlines, profile);
             continue;
         }
         let fragments = displayed_body_fragments(line, geometry);
-        let defaults = default_body_line_styles(line.kind);
+        let defaults = default_body_line_styles(line.kind, profile);
         render_fixed_cell_runs(
             &mut content,
             fonts,
@@ -408,6 +409,7 @@ fn render_dual_body_line(
     fonts: &EmbeddedFonts,
     line_y: f32,
     underlines: &mut Vec<UnderlineSegment>,
+    profile: &ScreenplayLayoutProfile,
 ) {
     if let Some(left) = &dual.left {
         render_fixed_cell_runs(
@@ -415,7 +417,7 @@ fn render_dual_body_line(
             fonts,
             &resolve_runs(
                 &left.fragments,
-                default_body_line_styles(Some(left.kind)),
+                default_body_line_styles(Some(left.kind), profile),
             ),
             dual_side_left(left, geometry),
             line_y,
@@ -430,7 +432,7 @@ fn render_dual_body_line(
             fonts,
             &resolve_runs(
                 &right.fragments,
-                default_body_line_styles(Some(right.kind)),
+                default_body_line_styles(Some(right.kind), profile),
             ),
             dual_side_left(right, geometry),
             line_y,
@@ -1159,14 +1161,35 @@ fn merge_style_flags(base: StyleFlags, extra: StyleFlags) -> StyleFlags {
     }
 }
 
-fn default_body_line_styles(kind: Option<PdfLineKind>) -> StyleFlags {
-    match kind {
-        Some(PdfLineKind::Lyric) => StyleFlags {
-            italic: true,
-            ..StyleFlags::default()
-        },
-        _ => StyleFlags::default(),
+fn default_body_line_styles(
+    kind: Option<PdfLineKind>,
+    profile: &ScreenplayLayoutProfile,
+) -> StyleFlags {
+    let mut flags = StyleFlags::default();
+    if let Some(kind) = kind {
+        use PdfLineKind as PK;
+        let style = match kind {
+            PK::Action => Some(&profile.styles.action),
+            PK::ColdOpening => Some(&profile.styles.cold_opening),
+            PK::NewAct => Some(&profile.styles.new_act),
+            PK::EndOfAct => Some(&profile.styles.end_of_act),
+            PK::SceneHeading => Some(&profile.styles.scene_heading),
+            PK::Character => Some(&profile.styles.character),
+            PK::Dialogue => Some(&profile.styles.dialogue),
+            PK::Parenthetical => Some(&profile.styles.parenthetical),
+            PK::Transition => Some(&profile.styles.transition),
+            PK::Lyric => Some(&profile.styles.lyric),
+            PK::DualDialogueLeft | PK::DualDialogueRight => Some(&profile.styles.dialogue),
+            PK::DualDialogueCharacterLeft | PK::DualDialogueCharacterRight => Some(&profile.styles.character),
+            PK::DualDialogueParentheticalLeft | PK::DualDialogueParentheticalRight => Some(&profile.styles.parenthetical),
+        };
+        if let Some(s) = style {
+            flags.bold = s.bold;
+            flags.italic = s.italic;
+            flags.underline = s.underline;
+        }
     }
+    flags
 }
 
 fn default_title_page_styles(kind: PdfTitleBlockKind, line: &ElementText) -> StyleFlags {
@@ -1415,7 +1438,7 @@ mod tests {
         let document = build_render_document(&screenplay, PdfRenderOptions::default());
         let fonts = EmbeddedFonts::new(&document);
         let content =
-            render_body_page_content(&document.body_pages[0], &LayoutGeometry::default(), &fonts);
+            render_body_page_content(&document.body_pages[0], &LayoutGeometry::default(), &fonts, &ScreenplayLayoutProfile::from_metadata(&screenplay.metadata));
 
         assert_stream_contains_fixed_cell_text_at(&content, &fonts.regular, "FIRST BODY PAGE", 108.0, 711.0);
         assert_stream_contains_fixed_cell_text_at(&content, &fonts.regular, "ALEX", 252.0, 687.0);
@@ -1450,9 +1473,9 @@ mod tests {
         let document = build_render_document(&screenplay, PdfRenderOptions::default());
         let fonts = EmbeddedFonts::new(&document);
         let first_page =
-            render_body_page_content(&document.body_pages[0], &LayoutGeometry::default(), &fonts);
+            render_body_page_content(&document.body_pages[0], &LayoutGeometry::default(), &fonts, &ScreenplayLayoutProfile::from_metadata(&screenplay.metadata));
         let second_page =
-            render_body_page_content(&document.body_pages[1], &LayoutGeometry::default(), &fonts);
+            render_body_page_content(&document.body_pages[1], &LayoutGeometry::default(), &fonts, &ScreenplayLayoutProfile::from_metadata(&screenplay.metadata));
 
         assert_stream_lacks_text(&first_page, &fonts.regular, "1.");
         assert_stream_contains_fixed_cell_text_at(
@@ -1480,7 +1503,7 @@ mod tests {
         let document = build_render_document(&screenplay, PdfRenderOptions::default());
         let fonts = EmbeddedFonts::new(&document);
         let content =
-            render_body_page_content(&document.body_pages[0], &LayoutGeometry::default(), &fonts);
+            render_body_page_content(&document.body_pages[0], &LayoutGeometry::default(), &fonts, &ScreenplayLayoutProfile::from_metadata(&screenplay.metadata));
         let pdf_text = String::from_utf8_lossy(&content);
 
         assert!(!pdf_text.contains("72 711 Tm"));
@@ -1506,7 +1529,7 @@ mod tests {
         let document = build_render_document(&screenplay, PdfRenderOptions::default());
         let fonts = EmbeddedFonts::new(&document);
         let content =
-            render_body_page_content(&document.body_pages[0], &LayoutGeometry::default(), &fonts);
+            render_body_page_content(&document.body_pages[0], &LayoutGeometry::default(), &fonts, &ScreenplayLayoutProfile::from_metadata(&screenplay.metadata));
         let pdf_text = String::from_utf8_lossy(&content);
 
         assert!(pdf_text.contains("201 711 Tm"));
@@ -1700,7 +1723,7 @@ mod tests {
         let document = build_render_document(&screenplay, PdfRenderOptions::default());
         let fonts = EmbeddedFonts::new(&document);
         let content =
-            render_body_page_content(&document.body_pages[0], &LayoutGeometry::default(), &fonts);
+            render_body_page_content(&document.body_pages[0], &LayoutGeometry::default(), &fonts, &ScreenplayLayoutProfile::from_metadata(&screenplay.metadata));
         let pdf_text = String::from_utf8_lossy(&content);
 
         assert!(pdf_text.contains("/F2 12 Tf"));
@@ -1722,10 +1745,31 @@ mod tests {
         let document = build_render_document(&screenplay, PdfRenderOptions::default());
         let fonts = EmbeddedFonts::new(&document);
         let content =
-            render_body_page_content(&document.body_pages[0], &LayoutGeometry::default(), &fonts);
+            render_body_page_content(&document.body_pages[0], &LayoutGeometry::default(), &fonts, &ScreenplayLayoutProfile::from_metadata(&screenplay.metadata));
         let pdf_text = String::from_utf8_lossy(&content);
 
         assert!(pdf_text.contains("/F3 12 Tf"));
+    }
+
+    #[test]
+    fn pdf_render_output_applies_bsh_and_ush_to_scene_headings() {
+        let mut metadata = Metadata::new();
+        metadata.insert("fmt".into(), vec!["bsh ush".into()]);
+        let screenplay = Screenplay {
+            metadata,
+            elements: vec![
+                Element::SceneHeading(p("INT. OFFICE - DAY"), blank_attributes()),
+            ],
+        };
+
+        let document = build_render_document(&screenplay, PdfRenderOptions::default());
+        let fonts = EmbeddedFonts::new(&document);
+        let content =
+            render_body_page_content(&document.body_pages[0], &LayoutGeometry::default(), &fonts, &ScreenplayLayoutProfile::from_metadata(&screenplay.metadata));
+        let pdf_text = String::from_utf8_lossy(&content);
+
+        assert!(pdf_text.contains("/F2 12 Tf"));
+        assert!(pdf_text.contains("0.75 w"));
     }
 
     #[test]
