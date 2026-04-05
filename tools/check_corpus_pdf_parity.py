@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import math
+import shutil
 import statistics
 import subprocess
 import sys
@@ -74,6 +75,15 @@ CASES = [
 
 def run(cmd: list[str], cwd: Path) -> None:
     subprocess.run(cmd, cwd=cwd, check=True)
+
+
+def require_tool(name: str, install_hint: str) -> None:
+    if shutil.which(name):
+        return
+    raise SystemExit(
+        f"missing required tool: {name}\n"
+        f"install hint: {install_hint}"
+    )
 
 
 def output_pdf_for(case: PdfParityCase) -> Path:
@@ -277,6 +287,12 @@ def check_case(case: PdfParityCase) -> list[str]:
 
 
 def main() -> int:
+    require_tool("cargo", "install Rust and ensure cargo is on PATH")
+    require_tool(
+        "pdftotext",
+        "install Poppler utilities (for example: apt install poppler-utils)",
+    )
+
     any_failures = False
     for case in CASES:
         failures = check_case(case)
