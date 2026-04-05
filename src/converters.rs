@@ -297,6 +297,21 @@ mod tests {
     }
 
     #[test]
+    fn test_fdx_renderer_does_not_invent_by_without_author_or_credit() {
+        let mut metadata = Metadata::new();
+        metadata.insert("title".into(), vec!["TITLE".into()]);
+
+        let mut screenplay = Screenplay {
+            metadata,
+            elements: vec![],
+        };
+
+        let actual = screenplay.to_final_draft();
+
+        assert!(!actual.contains(">by</Text>"));
+    }
+
+    #[test]
     fn test_fdx_renderer_writes_each_title_source_line_as_its_own_paragraph() {
         let mut metadata = Metadata::new();
         metadata.insert("title".into(), vec!["TITLE".into()]);

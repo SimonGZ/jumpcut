@@ -780,10 +780,12 @@ fn line_kind_left(kind: Option<PdfLineKind>, geometry: &LayoutGeometry) -> f32 {
 fn dual_side_left(side: &PdfRenderDualSide, geometry: &LayoutGeometry) -> f32 {
     let left = match side.kind {
         PdfLineKind::DualDialogueCharacterLeft => {
-            dual_dialogue_character_left_indent(&side.text, 1) * 72.0
+            dual_dialogue_character_left_indent(&side.text, 1, geometry.closer_dual_dialogue_cues)
+                * 72.0
         }
         PdfLineKind::DualDialogueCharacterRight => {
-            dual_dialogue_character_left_indent(&side.text, 2) * 72.0
+            dual_dialogue_character_left_indent(&side.text, 2, geometry.closer_dual_dialogue_cues)
+                * 72.0
         }
         _ => line_kind_left(Some(side.kind), geometry),
     };
@@ -1878,6 +1880,31 @@ mod tests {
 
         assert_eq!(dual_side_left(&short_left, &geometry), 201.0);
         assert_eq!(dual_side_left(&longer_right, &geometry), 419.0);
+    }
+
+    #[test]
+    fn dual_side_left_centers_final_draft_dual_cues_on_the_speaker_name_not_the_contd_suffix() {
+        let geometry = LayoutGeometry::default();
+        let right_with_contd = PdfRenderDualSide {
+            text: "AMY (CONT'D)".into(),
+            kind: PdfLineKind::DualDialogueCharacterRight,
+            fragments: Vec::new(),
+        };
+
+        assert_eq!(dual_side_left(&right_with_contd, &geometry), 426.0);
+    }
+
+    #[test]
+    fn dual_side_left_can_keep_cleaner_dual_cues_closer_together_in_balanced_mode() {
+        let mut geometry = LayoutGeometry::default();
+        geometry.closer_dual_dialogue_cues = true;
+        let right_with_contd = PdfRenderDualSide {
+            text: "AMY (CONT'D)".into(),
+            kind: PdfLineKind::DualDialogueCharacterRight,
+            fragments: Vec::new(),
+        };
+
+        assert_eq!(dual_side_left(&right_with_contd, &geometry), 394.5);
     }
 
     #[test]

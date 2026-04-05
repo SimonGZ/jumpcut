@@ -540,12 +540,20 @@ fn render_title_title_paragraph(out: &mut String, metadata: &Metadata, font: &st
     end_title_paragraph(out);
 }
 
+fn title_page_has_author(metadata: &Metadata) -> bool {
+    ["author", "authors"]
+        .into_iter()
+        .any(|key| metadata.get(key).is_some_and(|values| !values.is_empty()))
+}
+
 fn render_title_credit_paragraph(out: &mut String, metadata: &Metadata, font: &str) {
     start_title_paragraph(out, "Center");
     let credit = if metadata.contains_key("credit") {
         join_metadata(metadata, "credit", " ")
-    } else {
+    } else if title_page_has_author(metadata) {
         "by".to_string()
+    } else {
+        String::new()
     };
     push_title_text(out, font, "0", "", &credit);
     end_title_paragraph(out);

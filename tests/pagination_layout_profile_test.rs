@@ -174,6 +174,7 @@ fn balanced_fmt_switches_dash_behavior_and_disables_dual_dialogue_contds() {
 
     assert_eq!(profile.interruption_dash_wrap, InterruptionDashWrap::KeepTogether);
     assert!(!profile.dual_dialogue_counts_for_contd);
+    assert!(profile.closer_dual_dialogue_cues);
 }
 
 #[test]
@@ -185,4 +186,17 @@ fn no_dual_contds_fmt_only_disables_the_dual_dialogue_contd_rule() {
 
     assert_eq!(profile.interruption_dash_wrap, InterruptionDashWrap::FinalDraft);
     assert!(!profile.dual_dialogue_counts_for_contd);
+    assert!(!profile.closer_dual_dialogue_cues);
+}
+
+#[test]
+fn closer_dual_dialogue_cues_fmt_only_enables_the_cleaner_dual_cue_spacing_rule() {
+    let mut metadata: Metadata = HashMap::new();
+    metadata.insert("fmt".into(), vec!["closer-dual-dialogue-cues".into()]);
+
+    let profile = ScreenplayLayoutProfile::from_metadata(&metadata);
+
+    assert_eq!(profile.interruption_dash_wrap, InterruptionDashWrap::FinalDraft);
+    assert!(profile.dual_dialogue_counts_for_contd);
+    assert!(profile.closer_dual_dialogue_cues);
 }

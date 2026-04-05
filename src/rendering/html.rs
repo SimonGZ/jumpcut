@@ -272,10 +272,18 @@ fn dual_side_left_offset_css(
         ElementType::DualDialogueLeft => geometry.dual_dialogue_left_left,
         ElementType::DualDialogueRight => geometry.dual_dialogue_right_left,
         ElementType::DualDialogueCharacterLeft => {
-            dual_dialogue_character_left_indent(&side.text, 1)
+            dual_dialogue_character_left_indent(
+                &side.text,
+                1,
+                layout_profile.closer_dual_dialogue_cues,
+            )
         }
         ElementType::DualDialogueCharacterRight => {
-            dual_dialogue_character_left_indent(&side.text, 2)
+            dual_dialogue_character_left_indent(
+                &side.text,
+                2,
+                layout_profile.closer_dual_dialogue_cues,
+            )
         }
         ElementType::DualDialogueParentheticalLeft => {
             geometry.dual_dialogue_left_parenthetical_left

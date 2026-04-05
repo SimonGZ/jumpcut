@@ -63,6 +63,7 @@ pub struct LayoutGeometry {
     pub lyric_left: f32,
     pub lyric_right: f32,
     pub cpi: f32,
+    pub closer_dual_dialogue_cues: bool,
 
     pub action_alignment: Alignment,
     pub cold_opening_alignment: Alignment,
@@ -137,6 +138,7 @@ impl Default for LayoutGeometry {
             lyric_left: 2.5,
             lyric_right: 7.375,
             cpi: 10.0,
+            closer_dual_dialogue_cues: false,
 
             action_alignment: Alignment::Left,
             cold_opening_alignment: Alignment::Center,
@@ -328,8 +330,20 @@ pub fn calculate_element_width(geometry: &LayoutGeometry, element_type: ElementT
     chars
 }
 
-pub fn dual_dialogue_character_left_indent(text: &str, side: u8) -> f32 {
-    let visible_len = text
+fn dual_dialogue_character_anchor_text<'a>(text: &'a str, closer_dual_dialogue_cues: bool) -> &'a str {
+    if closer_dual_dialogue_cues {
+        text
+    } else {
+        text.split(" (").next().unwrap_or(text)
+    }
+}
+
+pub fn dual_dialogue_character_left_indent(
+    text: &str,
+    side: u8,
+    closer_dual_dialogue_cues: bool,
+) -> f32 {
+    let visible_len = dual_dialogue_character_anchor_text(text, closer_dual_dialogue_cues)
         .chars()
         .count()
         .clamp(1, DUAL_DIALOGUE_CHARACTER_MAX_WIDTH_CHARS);
