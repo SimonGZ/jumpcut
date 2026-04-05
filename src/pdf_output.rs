@@ -372,7 +372,7 @@ fn render_body_page_content(
         );
     }
 
-    let body_top = first_body_line_y();
+    let body_top = first_body_line_y_for_page(page);
     for (index, line) in page.lines.iter().enumerate() {
         if line.text.is_empty() {
             continue;
@@ -497,6 +497,21 @@ fn body_line_step_points() -> f32 {
 
 fn first_body_line_y() -> f32 {
     711.0
+}
+
+fn first_body_line_y_for_page(page: &PdfRenderPage) -> f32 {
+    let mut y = first_body_line_y();
+    if page_starts_with_split_contd_character(page) {
+        y += body_line_step_points();
+    }
+    y
+}
+
+fn page_starts_with_split_contd_character(page: &PdfRenderPage) -> bool {
+    page.lines
+        .iter()
+        .find(|line| !line.text.is_empty())
+        .is_some_and(|line| !line.counted && matches!(line.kind, Some(PdfLineKind::Character)))
 }
 
 fn page_number_y() -> f32 {
@@ -1877,6 +1892,57 @@ mod tests {
         assert_eq!(body_line_step_points(), 12.0);
         assert_eq!(first_body_line_y(), 711.0);
         assert_eq!(page_number_y(), PAGE_NUMBER_BASELINE_Y);
+    }
+
+    #[test]
+    fn split_contd_character_at_top_of_page_lifts_the_page_start_by_one_line() {
+        let page = PdfRenderPage {
+            page_number: 35,
+            display_page_number: Some(34),
+            lines: vec![
+                PdfRenderLine {
+                    text: "MAYOR (CONT'D)".into(),
+                    counted: false,
+                    centered: false,
+                    kind: Some(PdfLineKind::Character),
+                    fragments: Vec::new(),
+                    dual: None,
+                },
+                PdfRenderLine {
+                    text: format!("{}But take with you this Key", " ".repeat(10)),
+                    counted: true,
+                    centered: false,
+                    kind: Some(PdfLineKind::Dialogue),
+                    fragments: Vec::new(),
+                    dual: None,
+                },
+            ],
+        };
+
+        assert!(page_starts_with_split_contd_character(&page));
+        assert_eq!(
+            first_body_line_y_for_page(&page),
+            first_body_line_y() + body_line_step_points()
+        );
+    }
+
+    #[test]
+    fn ordinary_counted_contd_character_does_not_get_the_top_of_page_lift() {
+        let page = PdfRenderPage {
+            page_number: 35,
+            display_page_number: Some(34),
+            lines: vec![PdfRenderLine {
+                text: "MAYOR (CONT'D)".into(),
+                counted: true,
+                centered: false,
+                kind: Some(PdfLineKind::Character),
+                fragments: Vec::new(),
+                dual: None,
+            }],
+        };
+
+        assert!(!page_starts_with_split_contd_character(&page));
+        assert_eq!(first_body_line_y_for_page(&page), first_body_line_y());
     }
 
     fn assert_stream_lacks_text(stream: &[u8], font: &EmbeddedFont, text: &str) {
