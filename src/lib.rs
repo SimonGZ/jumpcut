@@ -14,6 +14,7 @@ mod converters;
 pub mod html_output;
 pub mod pagination;
 mod pdf_output;
+pub use crate::pdf_output::PdfRenderOptions;
 pub mod render_attributes;
 mod rendering;
 pub mod styled_text;

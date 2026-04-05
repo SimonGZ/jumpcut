@@ -35,6 +35,10 @@ impl Screenplay {
         crate::pdf_output::render(self)
     }
 
+    pub fn to_pdf_with_options(&self, options: crate::pdf_output::PdfRenderOptions) -> Vec<u8> {
+        crate::pdf_output::render_with_options(self, options)
+    }
+
     pub fn to_json_string(self) -> String {
         serde_json::to_string(&self)
             .expect("Should be impossible for this JSON serialization to fail.")

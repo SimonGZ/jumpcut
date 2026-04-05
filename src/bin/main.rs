@@ -1,7 +1,9 @@
 #[cfg(feature = "cli")]
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 #[cfg(feature = "cli")]
 use jumpcut::parse;
+#[cfg(feature = "cli")]
+use jumpcut::ElementText;
 #[cfg(feature = "cli")]
 use serde_json;
 #[cfg(feature = "cli")]
@@ -40,6 +42,14 @@ struct Args {
     #[arg(long)]
     line_numbers: bool,
 
+    /// Override the layout/render profile instead of using fmt metadata
+    #[arg(long, value_enum)]
+    render_profile: Option<RenderProfile>,
+
+    /// Suppress (CONT'D)/(MORE) style continued markers in render outputs
+    #[arg(long)]
+    no_continueds: bool,
+
     /// Input file, pass a dash ("-") to receive stdin
     input: PathBuf,
 
@@ -50,13 +60,21 @@ struct Args {
     #[arg(short, long, value_name = "FILE", num_args = 0..=1, default_missing_value = "metadata.fountain")]
     metadata: Option<PathBuf>,
 }
+
+#[cfg(feature = "cli")]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, ValueEnum)]
+enum RenderProfile {
+    FinalDraft,
+    Balanced,
+}
+
 #[cfg(feature = "cli")]
 fn main() {
     let opt = Args::parse();
     let mut content = String::new();
 
     // Handle metadata file first
-    if let Some(metadata_arg_path) = opt.metadata {
+    if let Some(ref metadata_arg_path) = opt.metadata {
         let mut actual_metadata_file_path = metadata_arg_path.clone();
 
         // If the default_missing_value was used, determine the correct path
@@ -110,6 +128,7 @@ fn main() {
     }
 
     let mut screenplay = parse(&content);
+    apply_cli_render_overrides(&mut screenplay, &opt);
     let format = opt.format.to_lowercase();
 
     if format != "text" && format != "html" && opt.paginate {
@@ -141,7 +160,7 @@ fn main() {
                 head: true,
                 exact_wraps: opt.exact_wraps || opt.paginate,
                 paginated: opt.paginate,
-                render_continueds: true,
+                render_continueds: !opt.no_continueds,
                 embed_courier_prime: opt.embed_courier_prime,
                 embedded_courier_prime_css: None,
             })
@@ -150,10 +169,13 @@ fn main() {
             .to_text(&jumpcut::text_output::TextRenderOptions {
                 paginated: opt.paginate,
                 line_numbers: opt.line_numbers,
-                render_continueds: true,
+                render_continueds: !opt.no_continueds,
             })
             .into_bytes(),
-        "pdf" => screenplay.to_pdf(),
+        "pdf" => screenplay
+            .to_pdf_with_options(jumpcut::PdfRenderOptions {
+                render_continueds: !opt.no_continueds,
+            }),
         _ => b"nothing".to_vec(),
     };
 
@@ -166,5 +188,88 @@ fn main() {
                 .write_all(&output_bytes)
                 .expect("Unable to write to buffer.");
         }
+    }
+}
+
+#[cfg(feature = "cli")]
+fn apply_cli_render_overrides(screenplay: &mut jumpcut::Screenplay, opt: &Args) {
+    if let Some(render_profile) = opt.render_profile {
+        apply_render_profile_override(&mut screenplay.metadata, render_profile);
+    }
+}
+
+#[cfg(feature = "cli")]
+fn apply_render_profile_override(metadata: &mut jumpcut::Metadata, render_profile: RenderProfile) {
+    const PROFILE_TOKENS: &[&str] = &["balanced", "clean-dashes", "no-dual-contds"];
+
+    let mut tokens = metadata
+        .get("fmt")
+        .and_then(|values| values.first())
+        .map(|value| value.plain_text())
+        .unwrap_or_default()
+        .split_whitespace()
+        .filter(|token| {
+            !PROFILE_TOKENS
+                .iter()
+                .any(|profile_token| token.eq_ignore_ascii_case(profile_token))
+        })
+        .map(str::to_string)
+        .collect::<Vec<_>>();
+
+    if matches!(render_profile, RenderProfile::Balanced) {
+        tokens.push("balanced".to_string());
+    }
+
+    if tokens.is_empty() {
+        metadata.remove("fmt");
+    } else {
+        metadata.insert(
+            "fmt".to_string(),
+            vec![ElementText::Plain(tokens.join(" "))],
+        );
+    }
+}
+
+#[cfg(all(test, feature = "cli"))]
+mod tests {
+    use super::{apply_render_profile_override, RenderProfile};
+    use jumpcut::{ElementText, Metadata};
+
+    #[test]
+    fn render_profile_override_replaces_balanced_family_tokens_only() {
+        let mut metadata = Metadata::new();
+        metadata.insert(
+            "fmt".into(),
+            vec![ElementText::Plain(
+                "allow-lowercase-title balanced clean-dashes no-dual-contds dl-2.0".into(),
+            )],
+        );
+
+        apply_render_profile_override(&mut metadata, RenderProfile::FinalDraft);
+
+        let fmt = metadata
+            .get("fmt")
+            .and_then(|values| values.first())
+            .map(|value| value.plain_text())
+            .unwrap();
+        assert_eq!(fmt, "allow-lowercase-title dl-2.0");
+    }
+
+    #[test]
+    fn render_profile_override_adds_balanced_without_dropping_other_fmt_knobs() {
+        let mut metadata = Metadata::new();
+        metadata.insert(
+            "fmt".into(),
+            vec![ElementText::Plain("allow-lowercase-title dl-2.0".into())],
+        );
+
+        apply_render_profile_override(&mut metadata, RenderProfile::Balanced);
+
+        let fmt = metadata
+            .get("fmt")
+            .and_then(|values| values.first())
+            .map(|value| value.plain_text())
+            .unwrap();
+        assert_eq!(fmt, "allow-lowercase-title dl-2.0 balanced");
     }
 }

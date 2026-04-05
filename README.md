@@ -103,7 +103,7 @@ Those scripts are what the repo currently uses to validate wasm changes.
 
 ## Usage
 
-Once installed, you can pass JumpCut a text file and it will parse it and output it as either an FDX, HTML, or JSON. The full options from the help text are listed below.
+Once installed, you can pass JumpCut a text file and it will parse it and output it as FDX, HTML, JSON, text, or PDF. The full options from the help text are listed below.
 
 ```
 USAGE:
@@ -114,8 +114,14 @@ FLAGS:
     -V, --version    Prints version information
 
 OPTIONS:
-    -f, --format <format>    Formats (FDX, HTML, JSON) [default: fdx]
+    -f, --format <format>    Formats (FDX, HTML, JSON, text, PDF) [default: fdx]
     -m, --metadata <FILE>    Optional Fountain file to prepend as metadata. Defaults to "metadata.fountain" if flag is present without a value.
+        --paginate           Render paginated text or exact-wrap paginated HTML
+        --line-numbers       Show line numbers in text output
+        --exact-wraps        Render HTML with exact Final Draft-style wraps
+        --render-profile <render-profile>
+                             Override metadata-driven render profile [possible values: final-draft, balanced]
+        --no-continueds      Suppress (CONT'D)/(MORE) style continued markers in text, HTML, or PDF output
 
 ARGS:
     <input>     Input file, pass a dash ("-") to receive stdin
@@ -128,6 +134,24 @@ To use JumpCut within a Rust program, you can examine the [main.rs](src/bin/main
 let mut screenplay: Screenplay = parse(&content); // content is a String provided by your application
 let output_fdx: String = screenplay.to_final_draft();
 let output_html: String = screenplay.to_html();
+```
+
+### CLI Render Profile Override
+
+The CLI can override the metadata-driven render profile for `pdf`, `text`, or `html` output:
+
+```sh
+jumpcut -f pdf --render-profile final-draft script.fountain script.pdf
+jumpcut -f text --render-profile balanced --paginate script.fountain
+```
+
+If both Fountain metadata and `--render-profile` are present, the CLI option wins. The override only replaces profile-related `fmt` tokens such as `balanced`, `clean-dashes`, and `no-dual-contds`; unrelated `fmt` knobs like `allow-lowercase-title` or `dl-*` / `dr-*` are preserved.
+
+You can also suppress continued markers from the CLI:
+
+```sh
+jumpcut -f text --paginate --no-continueds script.fountain
+jumpcut -f pdf --render-profile balanced --no-continueds script.fountain script.pdf
 ```
 
 ## Custom Formatting for Final Draft (FDX) Export
