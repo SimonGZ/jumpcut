@@ -5,11 +5,8 @@ mod fixtures;
 pub mod flow_split;
 mod ir;
 pub mod layout_profile;
-pub mod line_break_diagnostics;
 pub mod margin;
 mod normalized;
-#[cfg(not(target_arch = "wasm32"))]
-pub mod page_break_diagnostics;
 pub mod paginator;
 mod semantic;
 mod sentence_boundary;

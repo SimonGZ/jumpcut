@@ -592,9 +592,9 @@ mod tests {
             _ => "screenplay",
         };
         let template = if head {
-            include_str!("templates/html.hbs")
+            include_str!("../templates/html.hbs")
         } else {
-            include_str!("templates/body.hbs")
+            include_str!("../templates/body.hbs")
         };
         let mut handlebars = Handlebars::new();
         handlebars.register_helper(
