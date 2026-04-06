@@ -11,17 +11,12 @@ use std::str::Lines;
 use Element::PageBreak;
 
 mod converters;
-pub mod html_output;
 pub mod pagination;
-mod pdf_output;
-pub use crate::pdf_output::PdfRenderOptions;
 pub mod render_attributes;
-mod rendering;
+pub mod rendering;
 pub mod styled_text;
-pub mod text_output;
 mod text_style_parser;
 pub mod title_page;
-mod visual_lines;
 
 use ElementText::*;
 

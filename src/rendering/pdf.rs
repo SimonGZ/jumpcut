@@ -6,7 +6,7 @@ use crate::pagination::ScreenplayLayoutProfile;
 use crate::title_page::{
     plain_title_uses_all_caps, TitlePage, TitlePageBlockKind, TitlePageRegion,
 };
-use crate::visual_lines::{
+use crate::pagination::visual_lines::{
     display_page_number, render_paginated_visual_pages_with_options, VisualDualLine,
     VisualDualSide, VisualFragment, VisualRenderOptions,
 };
@@ -38,12 +38,12 @@ const BODY_TEXT_CELL_WIDTH: f32 = 7.0;
 const UNDERLINE_LINE_WIDTH: f32 = 0.75;
 const UNDERLINE_Y_OFFSET: f32 = 1.5;
 const COURIER_PRIME_REGULAR_BYTES: &[u8] =
-    include_bytes!("templates/fonts/CourierPrime-Regular.ttf");
-const COURIER_PRIME_BOLD_BYTES: &[u8] = include_bytes!("templates/fonts/CourierPrime-Bold.ttf");
+    include_bytes!("../templates/fonts/CourierPrime-Regular.ttf");
+const COURIER_PRIME_BOLD_BYTES: &[u8] = include_bytes!("../templates/fonts/CourierPrime-Bold.ttf");
 const COURIER_PRIME_ITALIC_BYTES: &[u8] =
-    include_bytes!("templates/fonts/CourierPrime-Italic.ttf");
+    include_bytes!("../templates/fonts/CourierPrime-Italic.ttf");
 const COURIER_PRIME_BOLD_ITALIC_BYTES: &[u8] =
-    include_bytes!("templates/fonts/CourierPrime-BoldItalic.ttf");
+    include_bytes!("../templates/fonts/CourierPrime-BoldItalic.ttf");
 const IDENTITY_H: Name<'static> = Name(b"Identity-H");
 const ADOBE_IDENTITY: SystemInfo<'static> = SystemInfo {
     registry: Str(b"Adobe"),

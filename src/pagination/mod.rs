@@ -15,6 +15,7 @@ mod semantic;
 mod sentence_boundary;
 mod split_scoring;
 pub mod wrapping;
+pub mod visual_lines;
 
 pub use comparison::{
     compare_paginated_to_fixture, ComparisonIssue, ComparisonIssueKind, ComparisonReport,

@@ -1,10 +1,10 @@
 use super::shared::{escape_html, join_metadata, sorted_style_names};
-use crate::html_output::HtmlRenderOptions;
+
 use crate::pagination::margin::dual_dialogue_character_left_indent;
 use crate::pagination::wrapping::ElementType;
 use crate::pagination::{ScreenplayLayoutProfile, StyleProfile};
 use crate::title_page::{TitlePage, TitlePageBlockKind};
-use crate::visual_lines::{
+use crate::pagination::visual_lines::{
     display_page_number, render_paginated_visual_pages_with_options,
     render_unpaginated_visual_lines_with_options, visual_line_class_name, VisualLine,
     VisualRenderOptions,
@@ -24,6 +24,56 @@ const COURIER_PRIME_BOLD_TTF: &[u8] = include_bytes!("../templates/fonts/Courier
 #[cfg(not(target_arch = "wasm32"))]
 const COURIER_PRIME_BOLD_ITALIC_TTF: &[u8] =
     include_bytes!("../templates/fonts/CourierPrime-BoldItalic.ttf");
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct HtmlRenderOptions {
+    pub head: bool,
+    pub exact_wraps: bool,
+    pub paginated: bool,
+    pub render_continueds: bool,
+    pub embed_courier_prime: bool,
+    pub embedded_courier_prime_css: Option<String>,
+}
+
+impl Default for HtmlRenderOptions {
+    fn default() -> Self {
+        Self {
+            head: true,
+            exact_wraps: false,
+            paginated: false,
+            render_continueds: true,
+            embed_courier_prime: false,
+            embedded_courier_prime_css: None,
+        }
+    }
+}
+
+pub fn embedded_courier_prime_css_from_base64(
+    regular_ttf_base64: &str,
+    italic_ttf_base64: &str,
+    bold_ttf_base64: &str,
+    bold_italic_ttf_base64: &str,
+) -> String {
+    [
+        embedded_font_face_from_base64("Courier Prime", 400, "normal", regular_ttf_base64),
+        embedded_font_face_from_base64("Courier Prime", 400, "italic", italic_ttf_base64),
+        embedded_font_face_from_base64("Courier Prime", 700, "normal", bold_ttf_base64),
+        embedded_font_face_from_base64("Courier Prime", 700, "italic", bold_italic_ttf_base64),
+    ]
+    .join("\n")
+}
+
+fn embedded_font_face_from_base64(
+    font_family: &str,
+    font_weight: u16,
+    font_style: &str,
+    encoded: &str,
+) -> String {
+    format!(
+        "@font-face {{\n  font-family: \"{font_family}\";\n  src: url(data:font/ttf;base64,{encoded}) format(\"truetype\");\n  font-weight: {font_weight};\n  font-style: {font_style};\n}}\n"
+    )
+}
+
 
 pub(crate) fn render_document(screenplay: &Screenplay, options: HtmlRenderOptions) -> String {
     let layout_profile = ScreenplayLayoutProfile::from_metadata(&screenplay.metadata);
@@ -243,7 +293,7 @@ fn render_visual_line(
 
 fn render_visual_dual_line(
     out: &mut String,
-    dual: &crate::visual_lines::VisualDualLine,
+    dual: &crate::pagination::visual_lines::VisualDualLine,
     layout_profile: &ScreenplayLayoutProfile,
 ) {
     if let Some(left) = &dual.left {
@@ -256,7 +306,7 @@ fn render_visual_dual_line(
 
 fn render_visual_dual_side(
     out: &mut String,
-    side: &crate::visual_lines::VisualDualSide,
+    side: &crate::pagination::visual_lines::VisualDualSide,
     layout_profile: &ScreenplayLayoutProfile,
 ) {
     let class_name = visual_line_class_name(side.element_type);
@@ -272,7 +322,7 @@ fn render_visual_dual_side(
 }
 
 fn dual_side_left_offset_css(
-    side: &crate::visual_lines::VisualDualSide,
+    side: &crate::pagination::visual_lines::VisualDualSide,
     layout_profile: &ScreenplayLayoutProfile,
 ) -> String {
     let geometry = layout_profile.to_pagination_geometry();
@@ -303,7 +353,7 @@ fn hangs_opening_parenthesis(element_type: ElementType, text: &str) -> bool {
     matches!(element_type, ElementType::Parenthetical) && text.starts_with('(')
 }
 
-fn render_visual_fragments(out: &mut String, fragments: &[crate::visual_lines::VisualFragment]) {
+fn render_visual_fragments(out: &mut String, fragments: &[crate::pagination::visual_lines::VisualFragment]) {
     for fragment in fragments {
         if fragment.styles.is_empty() {
             out.push_str(&escape_html(&fragment.text));
@@ -650,7 +700,7 @@ mod tests {
             &screenplay,
             HtmlRenderOptions {
                 embedded_courier_prime_css: Some(
-                    crate::html_output::embedded_courier_prime_css_from_base64(
+                    embedded_courier_prime_css_from_base64(
                         "regular",
                         "italic",
                         "bold",

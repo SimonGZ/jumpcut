@@ -156,7 +156,7 @@ fn main() {
         },
         "fdx" => screenplay.to_final_draft().into_bytes(),
         "html" => screenplay
-            .to_html_with_options(jumpcut::html_output::HtmlRenderOptions {
+            .to_html_with_options(jumpcut::rendering::html::HtmlRenderOptions {
                 head: true,
                 exact_wraps: opt.exact_wraps || opt.paginate,
                 paginated: opt.paginate,
@@ -166,14 +166,14 @@ fn main() {
             })
             .into_bytes(),
         "text" => screenplay
-            .to_text(&jumpcut::text_output::TextRenderOptions {
+            .to_text(&jumpcut::rendering::text::TextRenderOptions {
                 paginated: opt.paginate,
                 line_numbers: opt.line_numbers,
                 render_continueds: !opt.no_continueds,
             })
             .into_bytes(),
         "pdf" => screenplay
-            .to_pdf_with_options(jumpcut::PdfRenderOptions {
+            .to_pdf_with_options(jumpcut::rendering::pdf::PdfRenderOptions {
                 render_continueds: !opt.no_continueds,
             }),
         _ => b"nothing".to_vec(),

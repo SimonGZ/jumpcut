@@ -12,7 +12,7 @@ impl Screenplay {
     pub fn to_html(&mut self, head: bool) -> String {
         crate::rendering::html::render_document(
             self,
-            crate::html_output::HtmlRenderOptions {
+            crate::rendering::html::HtmlRenderOptions {
                 head,
                 ..Default::default()
             },
@@ -22,21 +22,21 @@ impl Screenplay {
     #[cfg(feature = "html")]
     pub fn to_html_with_options(
         &mut self,
-        options: crate::html_output::HtmlRenderOptions,
+        options: crate::rendering::html::HtmlRenderOptions,
     ) -> String {
         crate::rendering::html::render_document(self, options)
     }
 
-    pub fn to_text(&self, options: &crate::text_output::TextRenderOptions) -> String {
-        crate::text_output::render(self, options)
+    pub fn to_text(&self, options: &crate::rendering::text::TextRenderOptions) -> String {
+        crate::rendering::text::render(self, options)
     }
 
     pub fn to_pdf(&self) -> Vec<u8> {
-        crate::pdf_output::render(self)
+        crate::rendering::pdf::render(self)
     }
 
-    pub fn to_pdf_with_options(&self, options: crate::pdf_output::PdfRenderOptions) -> Vec<u8> {
-        crate::pdf_output::render_with_options(self, options)
+    pub fn to_pdf_with_options(&self, options: crate::rendering::pdf::PdfRenderOptions) -> Vec<u8> {
+        crate::rendering::pdf::render_with_options(self, options)
     }
 
     pub fn to_json_string(self) -> String {
