@@ -3,8 +3,8 @@ use crate::pagination::margin::line_height_for_element_type;
 use crate::pagination::paginator;
 use crate::pagination::wrapping::{self, ElementType, InterruptionDashWrap, WrappedStyledFragment};
 use crate::pagination::{
-    build_semantic_screenplay_with_options, normalize_screenplay, DialoguePartKind,
-    LayoutGeometry, Page, PageKind, PaginatedScreenplay, PaginationConfig, PaginationScope,
+    build_semantic_screenplay_with_options, normalize_screenplay, DialoguePartKind, LayoutGeometry,
+    Page, PageKind, PaginatedScreenplay, PaginationConfig, PaginationScope,
     ScreenplayLayoutProfile, SemanticOptions, SemanticUnit, StyleProfile,
 };
 use crate::styled_text::{StyledRun, StyledText};
@@ -314,7 +314,8 @@ fn render_layout_block_lines(
         }
     }
 
-    let all_lines = render_semantic_unit_lines(block.unit, geometry, interruption_dash_wrap, options);
+    let all_lines =
+        render_semantic_unit_lines(block.unit, geometry, interruption_dash_wrap, options);
     let lines = match block.fragment {
         crate::pagination::Fragment::Whole => all_lines,
         crate::pagination::Fragment::ContinuedToNext => {
@@ -384,17 +385,16 @@ fn render_dialogue_fragment_lines(
                         )
                     })
                     .collect::<Vec<_>>();
-                lines.push(render_more_marker_line(geometry, interruption_dash_wrap));
+                lines.extend(render_more_marker_lines(geometry, interruption_dash_wrap));
                 return lines;
             }
             crate::pagination::Fragment::ContinuedFromPrev => {
-                let continuation_prefix =
-                    render_dialogue_continuation_prefix(
-                        dialogue,
-                        geometry,
-                        interruption_dash_wrap,
-                        options,
-                    );
+                let continuation_prefix = render_dialogue_continuation_prefix(
+                    dialogue,
+                    geometry,
+                    interruption_dash_wrap,
+                    options,
+                );
                 let mut lines = continuation_prefix
                     .into_iter()
                     .map(|text| VisualLine {
@@ -437,26 +437,21 @@ fn render_dialogue_fragment_lines(
         }
     }
 
-    let all_lines =
-        render_semantic_unit_lines(
-            &SemanticUnit::Dialogue(dialogue.clone()),
-            geometry,
-            interruption_dash_wrap,
-            options,
-        );
-    let continuation_prefix = render_dialogue_continuation_prefix(
-        dialogue,
+    let all_lines = render_semantic_unit_lines(
+        &SemanticUnit::Dialogue(dialogue.clone()),
         geometry,
         interruption_dash_wrap,
         options,
     );
+    let continuation_prefix =
+        render_dialogue_continuation_prefix(dialogue, geometry, interruption_dash_wrap, options);
 
     match fragment {
-            crate::pagination::Fragment::Whole => counted_visual_lines(all_lines, geometry),
+        crate::pagination::Fragment::Whole => counted_visual_lines(all_lines, geometry),
         crate::pagination::Fragment::ContinuedToNext => {
             let lines = take_rendered_lines_from_top_by_height(&all_lines, content_lines, geometry);
             let mut lines = counted_visual_lines(lines, geometry);
-            lines.push(render_more_marker_line(geometry, interruption_dash_wrap));
+            lines.extend(render_more_marker_lines(geometry, interruption_dash_wrap));
             lines
         }
         crate::pagination::Fragment::ContinuedFromPrev => continuation_prefix
@@ -490,7 +485,7 @@ fn render_dialogue_fragment_lines(
                     geometry,
                 ))
                 .collect::<Vec<_>>();
-            lines.push(render_more_marker_line(geometry, interruption_dash_wrap));
+            lines.extend(render_more_marker_lines(geometry, interruption_dash_wrap));
             lines
         }
     }
@@ -509,8 +504,13 @@ fn render_split_dialogue_part_lines(
     options: VisualRenderOptions,
 ) -> Vec<RenderedElementLine> {
     if let Some(inline_text) = &dialogue_part.inline_text {
-        let rendered_text =
-            dialogue_part_render_styled_text(dialogue, dialogue_part, part_index, inline_text, options);
+        let rendered_text = dialogue_part_render_styled_text(
+            dialogue,
+            dialogue_part,
+            part_index,
+            inline_text,
+            options,
+        );
         return render_indented_styled_lines(
             &rendered_text.slice(start_offset, end_offset),
             element_type,
@@ -626,11 +626,24 @@ fn continued_character_cue_text(text: &str) -> String {
     }
 }
 
-fn render_more_marker_line(
+fn render_more_marker_lines(
     geometry: &LayoutGeometry,
     interruption_dash_wrap: InterruptionDashWrap,
-) -> VisualLine {
-    VisualLine {
+) -> Vec<VisualLine> {
+    let mut lines = Vec::new();
+
+    if uses_double_spaced_rows(ElementType::Dialogue, geometry) {
+        lines.push(VisualLine {
+            text: String::new(),
+            counted: false,
+            centered: false,
+            element_type: None,
+            fragments: Vec::new(),
+            dual: None,
+        });
+    }
+
+    lines.push(VisualLine {
         text: render_indented_lines(
             "(MORE)",
             ElementType::Character,
@@ -638,9 +651,9 @@ fn render_more_marker_line(
             interruption_dash_wrap,
             false,
         )
-            .into_iter()
-            .next()
-            .unwrap_or_else(|| "(MORE)".to_string()),
+        .into_iter()
+        .next()
+        .unwrap_or_else(|| "(MORE)".to_string()),
         counted: false,
         centered: false,
         element_type: Some(ElementType::Character),
@@ -652,12 +665,14 @@ fn render_more_marker_line(
                 interruption_dash_wrap,
                 false,
             )
-                .into_iter()
-                .next()
-                .unwrap_or_else(|| "(MORE)".to_string()),
+            .into_iter()
+            .next()
+            .unwrap_or_else(|| "(MORE)".to_string()),
         )],
         dual: None,
-    }
+    });
+
+    lines
 }
 
 fn render_semantic_unit_lines(
@@ -749,14 +764,13 @@ fn render_semantic_unit_lines(
                 let (part_index, part) = part;
                 let element_type = ElementType::from_dialogue_part_kind(&part.kind);
                 if let Some(inline_text) = &part.inline_text {
-                    let rendered_text =
-                        dialogue_part_render_styled_text(
-                            dialogue,
-                            part,
-                            part_index,
-                            inline_text,
-                            options,
-                        );
+                    let rendered_text = dialogue_part_render_styled_text(
+                        dialogue,
+                        part,
+                        part_index,
+                        inline_text,
+                        options,
+                    );
                     return render_indented_styled_lines(
                         &rendered_text,
                         element_type,
@@ -921,19 +935,20 @@ fn render_dual_dialogue_side_rendered_lines(
                 interruption_dash_wrap,
             );
             if let Some(inline_text) = &part.inline_text {
-                let inline_text = if part.should_append_contd && part.kind == DialoguePartKind::Character {
-                    let mut runs = inline_text.runs.clone();
-                    runs.push(StyledRun {
-                        text: " (CONT'D)".to_string(),
-                        styles: Vec::new(),
-                    });
-                    StyledText {
-                        plain_text: continued_character_cue_text(&inline_text.plain_text),
-                        runs,
-                    }
-                } else {
-                    inline_text.clone()
-                };
+                let inline_text =
+                    if part.should_append_contd && part.kind == DialoguePartKind::Character {
+                        let mut runs = inline_text.runs.clone();
+                        runs.push(StyledRun {
+                            text: " (CONT'D)".to_string(),
+                            styles: Vec::new(),
+                        });
+                        StyledText {
+                            plain_text: continued_character_cue_text(&inline_text.plain_text),
+                            runs,
+                        }
+                    } else {
+                        inline_text.clone()
+                    };
                 wrapping::wrap_styled_text_for_element(&inline_text, &config)
                     .into_iter()
                     .map(|line| RenderedStyledLine {
