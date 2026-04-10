@@ -23,8 +23,8 @@ use std::path::PathBuf;
 #[cfg(feature = "cli")]
 struct Args {
     /// Formats (FDX, HTML, JSON, text, PDF)
-    #[arg(short, long, default_value = "fdx")]
-    format: String,
+    #[arg(short, long)]
+    format: Option<String>,
 
     /// Render text output with pagination
     #[arg(long)]
@@ -129,7 +129,7 @@ fn main() {
 
     let mut screenplay = parse(&content);
     apply_cli_render_overrides(&mut screenplay, &opt);
-    let format = opt.format.to_lowercase();
+    let format = infer_format(opt.format.as_deref(), opt.output.as_ref());
 
     if format != "text" && format != "html" && opt.paginate {
         eprintln!("Error: --paginate is only supported with --format text or --format html.");
@@ -188,6 +188,24 @@ fn main() {
                 .write_all(&output_bytes)
                 .expect("Unable to write to buffer.");
         }
+    }
+}
+
+#[cfg(feature = "cli")]
+fn infer_format(format_opt: Option<&str>, output_opt: Option<&PathBuf>) -> String {
+    match format_opt {
+        Some(f) => f.to_lowercase(),
+        None => match output_opt {
+            Some(out) => match out.extension().and_then(|e| e.to_str()) {
+                Some("pdf") => "pdf".to_string(),
+                Some("html") | Some("htm") => "html".to_string(),
+                Some("txt") | Some("text") => "text".to_string(),
+                Some("json") => "json".to_string(),
+                Some("fdx") => "fdx".to_string(),
+                _ => "fdx".to_string(),
+            },
+            None => "fdx".to_string(),
+        },
     }
 }
 
@@ -271,5 +289,37 @@ mod tests {
             .map(|value| value.plain_text())
             .unwrap();
         assert_eq!(fmt, "allow-lowercase-title dl-2.0 balanced");
+    }
+
+    #[test]
+    fn format_inference_uses_explicit_format_arg_first() {
+        use std::path::PathBuf;
+        use super::infer_format;
+        
+        assert_eq!(infer_format(Some("HTML"), Some(&PathBuf::from("out.pdf"))), "html");
+    }
+
+    #[test]
+    fn format_inference_falls_back_to_extension() {
+        use std::path::PathBuf;
+        use super::infer_format;
+        
+        assert_eq!(infer_format(None, Some(&PathBuf::from("out.pdf"))), "pdf");
+        assert_eq!(infer_format(None, Some(&PathBuf::from("out.html"))), "html");
+        assert_eq!(infer_format(None, Some(&PathBuf::from("out.htm"))), "html");
+        assert_eq!(infer_format(None, Some(&PathBuf::from("out.txt"))), "text");
+        assert_eq!(infer_format(None, Some(&PathBuf::from("out.text"))), "text");
+        assert_eq!(infer_format(None, Some(&PathBuf::from("out.json"))), "json");
+        assert_eq!(infer_format(None, Some(&PathBuf::from("out.fdx"))), "fdx");
+    }
+
+    #[test]
+    fn format_inference_defaults_to_fdx_if_no_extension_or_unknown() {
+        use std::path::PathBuf;
+        use super::infer_format;
+        
+        assert_eq!(infer_format(None, Some(&PathBuf::from("out"))), "fdx");
+        assert_eq!(infer_format(None, Some(&PathBuf::from("out.mp3"))), "fdx");
+        assert_eq!(infer_format(None, None), "fdx");
     }
 }
