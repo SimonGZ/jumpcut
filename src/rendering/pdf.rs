@@ -491,6 +491,9 @@ pub(crate) fn render_with_options(screenplay: &Screenplay, options: PdfRenderOpt
         info.producer(TextStr(TOOL_IDENTITY));
         let render_date = pdf_date(render_timestamp);
         info.creation_date(render_date).modified_date(render_date);
+        if let Some(author) = document_author(&screenplay.metadata) {
+            info.author(TextStr(&author));
+        }
         if let Some(title) = document_title(&screenplay.metadata) {
             info.title(TextStr(&title));
         }
@@ -637,6 +640,22 @@ fn document_title(metadata: &Metadata) -> Option<String> {
     }
 }
 
+fn document_creators(metadata: &Metadata) -> Vec<String> {
+    metadata
+        .get("author")
+        .into_iter()
+        .flatten()
+        .chain(metadata.get("authors").into_iter().flatten())
+        .map(ElementText::plain_text)
+        .filter(|author| !author.trim().is_empty())
+        .collect()
+}
+
+fn document_author(metadata: &Metadata) -> Option<String> {
+    let authors = document_creators(metadata);
+    (!authors.is_empty()).then(|| authors.join(", "))
+}
+
 fn document_language(metadata: &Metadata) -> String {
     metadata
         .get("lang")
@@ -683,6 +702,16 @@ fn build_xmp_metadata(
             escaped_language = escaped_language,
         )
     });
+    let creator_entries = {
+        let creators = document_creators(metadata);
+        (!creators.is_empty()).then(|| {
+            let creator_items = creators
+                .into_iter()
+                .map(|creator| format!("<rdf:li>{}</rdf:li>", escape_xml_text(&creator)))
+                .collect::<String>();
+            format!("<dc:creator><rdf:Seq>{creator_items}</rdf:Seq></dc:creator>")
+        })
+    };
     let escaped_language = escape_xml_text(document_language);
     let escaped_tool_identity = escape_xml_text(TOOL_IDENTITY);
     let render_timestamp = render_timestamp
@@ -698,6 +727,7 @@ fn build_xmp_metadata(
          xmlns:xmp=\"http://ns.adobe.com/xap/1.0/\" \
          xmlns:pdf=\"http://ns.adobe.com/pdf/1.3/\">\n\
                {title_entries}\
+               {creator_entries}\
                <dc:language><rdf:Bag><rdf:li>{escaped_language}</rdf:li></rdf:Bag></dc:language>\n\
                <xmp:CreatorTool>{escaped_tool_identity}</xmp:CreatorTool>\n\
                <pdf:Producer>{escaped_tool_identity}</pdf:Producer>\n\
@@ -711,6 +741,7 @@ fn build_xmp_metadata(
         escaped_language = escaped_language,
         escaped_tool_identity = escaped_tool_identity,
         render_timestamp = render_timestamp,
+        creator_entries = creator_entries.unwrap_or_default(),
         title_entries = title_entries.unwrap_or_default(),
     )
 }
@@ -3111,6 +3142,46 @@ mod tests {
         assert!(xmp.contains("<xmp:CreateDate>"));
         assert!(xmp.contains("<xmp:ModifyDate>"));
         assert!(xmp.contains("<xmp:MetadataDate>"));
+    }
+
+    #[test]
+    fn pdf_render_output_emits_info_author_from_author_and_authors_metadata() {
+        let mut metadata = Metadata::new();
+        metadata.insert("author".into(), vec![p("Alan Smithee")]);
+        metadata.insert("authors".into(), vec![p("Jane Doe"), p("John Roe")]);
+
+        let screenplay = Screenplay {
+            metadata,
+            elements: vec![Element::Action(p("BODY PAGE"), blank_attributes())],
+        };
+
+        let pdf = render(&screenplay);
+        let pdf_text = String::from_utf8_lossy(&pdf);
+
+        assert!(pdf_text.contains("/Author (Alan Smithee, Jane Doe, John Roe)"));
+    }
+
+    #[test]
+    fn pdf_render_output_emits_matching_xmp_creator_entries() {
+        let mut metadata = Metadata::new();
+        metadata.insert("author".into(), vec![p("Alan Smithee")]);
+        metadata.insert("authors".into(), vec![p("Jane Doe"), p("John Roe")]);
+
+        let screenplay = Screenplay {
+            metadata,
+            elements: vec![Element::Action(p("BODY PAGE"), blank_attributes())],
+        };
+
+        let inspection = inspect_tagged_pdf(&render(&screenplay));
+        let xmp = inspection
+            .xmp_metadata
+            .as_deref()
+            .expect("expected XMP metadata stream");
+
+        assert!(xmp.contains("<dc:creator><rdf:Seq>"));
+        assert!(xmp.contains("<rdf:li>Alan Smithee</rdf:li>"));
+        assert!(xmp.contains("<rdf:li>Jane Doe</rdf:li>"));
+        assert!(xmp.contains("<rdf:li>John Roe</rdf:li>"));
     }
 
     #[test]
