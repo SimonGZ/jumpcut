@@ -1,7 +1,7 @@
 use jumpcut::pagination::{
     build_semantic_screenplay, build_semantic_screenplay_with_options, normalize_screenplay,
-    Cohesion, DialoguePartKind, FlowKind, NormalizedElement, NormalizedScreenplay,
-    SemanticOptions, SemanticUnit,
+    Cohesion, DialoguePartKind, FlowKind, NormalizedElement, NormalizedScreenplay, SemanticOptions,
+    SemanticUnit,
 };
 use jumpcut::render_attributes::RenderAttributes;
 use jumpcut::styled_text::{StyledRun, StyledText};

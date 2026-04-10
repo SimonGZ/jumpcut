@@ -81,18 +81,15 @@ fn dual_dialogue_character_left_indent_matches_final_draft_probe_points() {
     assert!((dual_dialogue_character_left_indent("MARK", 1) - (197.5 / 72.0)).abs() < 0.001);
     assert!((dual_dialogue_character_left_indent("CHARACTER", 1) - 2.5).abs() < 0.001);
     assert!(
-        (dual_dialogue_character_left_indent(&"X".repeat(25), 1) - (124.0 / 72.0)).abs()
-            < 0.001
+        (dual_dialogue_character_left_indent(&"X".repeat(25), 1) - (124.0 / 72.0)).abs() < 0.001
     );
     assert!(
-        (dual_dialogue_character_left_indent(&"X".repeat(29), 1) - (110.0 / 72.0)).abs()
-            < 0.001
+        (dual_dialogue_character_left_indent(&"X".repeat(29), 1) - (110.0 / 72.0)).abs() < 0.001
     );
     assert!((dual_dialogue_character_left_indent("A", 2) - (433.0 / 72.0)).abs() < 0.001);
     assert!((dual_dialogue_character_left_indent("TOM", 2) - (426.0 / 72.0)).abs() < 0.001);
     assert!(
-        (dual_dialogue_character_left_indent("AMY (CONT'D)", 2) - (426.0 / 72.0)).abs()
-            < 0.001
+        (dual_dialogue_character_left_indent("AMY (CONT'D)", 2) - (426.0 / 72.0)).abs() < 0.001
     );
 }
 

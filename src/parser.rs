@@ -4,9 +4,11 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::str::Lines;
 
-use crate::{Attributes, Element, ElementText, Metadata, Screenplay, blank_attributes, text_style_parser};
 use crate::pagination::ScreenplayLayoutProfile;
 use crate::Element::PageBreak;
+use crate::{
+    blank_attributes, text_style_parser, Attributes, Element, ElementText, Metadata, Screenplay,
+};
 use ElementText::*;
 
 const SCENE_LOCATORS: [&str; 16] = [

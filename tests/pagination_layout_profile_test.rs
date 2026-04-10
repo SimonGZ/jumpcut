@@ -159,7 +159,10 @@ fn clean_dashes_fmt_switches_the_wrap_policy_without_changing_geometry() {
     let profile = ScreenplayLayoutProfile::from_metadata(&metadata);
     let geometry = profile.to_pagination_geometry();
 
-    assert_eq!(profile.interruption_dash_wrap, InterruptionDashWrap::KeepTogether);
+    assert_eq!(
+        profile.interruption_dash_wrap,
+        InterruptionDashWrap::KeepTogether
+    );
     assert_eq!(geometry.dialogue_left, 2.5);
     assert_eq!(geometry.dialogue_right, 6.0);
     assert_eq!(geometry.scene_heading_spacing_before, 2.0);
@@ -172,7 +175,10 @@ fn balanced_fmt_switches_dash_behavior_and_disables_dual_dialogue_contds() {
 
     let profile = ScreenplayLayoutProfile::from_metadata(&metadata);
 
-    assert_eq!(profile.interruption_dash_wrap, InterruptionDashWrap::KeepTogether);
+    assert_eq!(
+        profile.interruption_dash_wrap,
+        InterruptionDashWrap::KeepTogether
+    );
     assert!(!profile.dual_dialogue_counts_for_contd);
 }
 
@@ -183,6 +189,9 @@ fn no_dual_contds_fmt_only_disables_the_dual_dialogue_contd_rule() {
 
     let profile = ScreenplayLayoutProfile::from_metadata(&metadata);
 
-    assert_eq!(profile.interruption_dash_wrap, InterruptionDashWrap::FinalDraft);
+    assert_eq!(
+        profile.interruption_dash_wrap,
+        InterruptionDashWrap::FinalDraft
+    );
     assert!(!profile.dual_dialogue_counts_for_contd);
 }

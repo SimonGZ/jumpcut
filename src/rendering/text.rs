@@ -3,8 +3,8 @@ use crate::pagination::margin::{calculate_element_width, line_height_for_element
 use crate::pagination::paginator;
 use crate::pagination::wrapping::{self, ElementType, InterruptionDashWrap};
 use crate::pagination::{
-    build_semantic_screenplay_with_options, normalize_screenplay, DialoguePartKind,
-    LayoutGeometry, Page, PageKind, PaginatedScreenplay, PaginationConfig, PaginationScope,
+    build_semantic_screenplay_with_options, normalize_screenplay, DialoguePartKind, LayoutGeometry,
+    Page, PageKind, PaginatedScreenplay, PaginationConfig, PaginationScope,
     ScreenplayLayoutProfile, SemanticOptions, SemanticUnit, StyleProfile,
 };
 use crate::title_page::TitlePage;
@@ -326,12 +326,8 @@ fn render_layout_block_lines(
         }
     }
 
-    let all_lines = render_semantic_unit_lines(
-        block.unit,
-        geometry,
-        interruption_dash_wrap,
-        options,
-    );
+    let all_lines =
+        render_semantic_unit_lines(block.unit, geometry, interruption_dash_wrap, options);
     let lines = match block.fragment {
         crate::pagination::Fragment::Whole => all_lines,
         crate::pagination::Fragment::ContinuedToNext => {
@@ -374,9 +370,9 @@ fn render_dialogue_fragment_lines(
                                 geometry,
                                 interruption_dash_wrap,
                             )
-                                .into_iter()
-                                .map(|text| RenderedElementLine { text, element_type })
-                                .collect(),
+                            .into_iter()
+                            .map(|text| RenderedElementLine { text, element_type })
+                            .collect(),
                             geometry,
                         )
                     })
@@ -411,8 +407,8 @@ fn render_dialogue_fragment_lines(
                                 geometry,
                                 interruption_dash_wrap,
                             )
-                                .into_iter()
-                                .map(move |text| RenderedElementLine { text, element_type })
+                            .into_iter()
+                            .map(move |text| RenderedElementLine { text, element_type })
                         })
                         .collect::<Vec<_>>(),
                     geometry,
@@ -430,12 +426,8 @@ fn render_dialogue_fragment_lines(
         interruption_dash_wrap,
         options,
     );
-    let continuation_prefix = render_dialogue_continuation_prefix(
-        dialogue,
-        geometry,
-        interruption_dash_wrap,
-        options,
-    );
+    let continuation_prefix =
+        render_dialogue_continuation_prefix(dialogue, geometry, interruption_dash_wrap, options);
 
     match fragment {
         crate::pagination::Fragment::Whole => counted_rendered_lines(all_lines, geometry),
@@ -521,9 +513,9 @@ fn render_more_marker_line(
             geometry,
             interruption_dash_wrap,
         )
-            .into_iter()
-            .next()
-            .unwrap_or_else(|| "(MORE)".to_string()),
+        .into_iter()
+        .next()
+        .unwrap_or_else(|| "(MORE)".to_string()),
         counted: false,
     }
 }
@@ -543,20 +535,18 @@ fn render_semantic_unit_lines(
                 .map(|text| RenderedElementLine { text, element_type })
                 .collect()
         }
-        SemanticUnit::Lyric(lyric) => {
-            render_indented_lines(
-                &lyric.text,
-                ElementType::Lyric,
-                geometry,
-                interruption_dash_wrap,
-            )
-                .into_iter()
-                .map(|text| RenderedElementLine {
-                    text,
-                    element_type: ElementType::Lyric,
-                })
-                .collect()
-        }
+        SemanticUnit::Lyric(lyric) => render_indented_lines(
+            &lyric.text,
+            ElementType::Lyric,
+            geometry,
+            interruption_dash_wrap,
+        )
+        .into_iter()
+        .map(|text| RenderedElementLine {
+            text,
+            element_type: ElementType::Lyric,
+        })
+        .collect(),
         SemanticUnit::Dialogue(dialogue) => dialogue
             .parts
             .iter()
@@ -569,8 +559,8 @@ fn render_semantic_unit_lines(
                     geometry,
                     interruption_dash_wrap,
                 )
-                    .into_iter()
-                    .map(move |text| RenderedElementLine { text, element_type })
+                .into_iter()
+                .map(move |text| RenderedElementLine { text, element_type })
             })
             .collect(),
         SemanticUnit::DualDialogue(dual) => {

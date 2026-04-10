@@ -1,14 +1,14 @@
 use super::shared::{escape_html, join_metadata, sorted_style_names};
 
 use crate::pagination::margin::dual_dialogue_character_left_indent;
-use crate::pagination::wrapping::ElementType;
-use crate::pagination::{ScreenplayLayoutProfile, StyleProfile};
-use crate::title_page::{TitlePage, TitlePageBlockKind};
 use crate::pagination::visual_lines::{
     display_page_number, render_paginated_visual_pages_with_options,
     render_unpaginated_visual_lines_with_options, visual_line_class_name, VisualLine,
     VisualRenderOptions,
 };
+use crate::pagination::wrapping::ElementType;
+use crate::pagination::{ScreenplayLayoutProfile, StyleProfile};
+use crate::title_page::{TitlePage, TitlePageBlockKind};
 use crate::{Attributes, Element, ElementText, Screenplay};
 use std::fmt::Write;
 
@@ -73,7 +73,6 @@ fn embedded_font_face_from_base64(
         "@font-face {{\n  font-family: \"{font_family}\";\n  src: url(data:font/ttf;base64,{encoded}) format(\"truetype\");\n  font-weight: {font_weight};\n  font-style: {font_style};\n}}\n"
     )
 }
-
 
 pub(crate) fn render_document(screenplay: &Screenplay, options: HtmlRenderOptions) -> String {
     let layout_profile = ScreenplayLayoutProfile::from_metadata(&screenplay.metadata);
@@ -287,9 +286,19 @@ fn render_visual_line(
         render_visual_dual_line(out, dual, layout_profile);
     } else {
         if let Some(scene_number) = &line.scene_number {
-            write!(out, "<span class=\"sceneNumberLeft\">{}</span>", escape_html(scene_number)).unwrap();
+            write!(
+                out,
+                "<span class=\"sceneNumberLeft\">{}</span>",
+                escape_html(scene_number)
+            )
+            .unwrap();
             render_visual_fragments(out, &line.fragments);
-            write!(out, "<span class=\"sceneNumberRight\">{}</span>", escape_html(scene_number)).unwrap();
+            write!(
+                out,
+                "<span class=\"sceneNumberRight\">{}</span>",
+                escape_html(scene_number)
+            )
+            .unwrap();
         } else {
             render_visual_fragments(out, &line.fragments);
         }
@@ -359,7 +368,10 @@ fn hangs_opening_parenthesis(element_type: ElementType, text: &str) -> bool {
     matches!(element_type, ElementType::Parenthetical) && text.starts_with('(')
 }
 
-fn render_visual_fragments(out: &mut String, fragments: &[crate::pagination::visual_lines::VisualFragment]) {
+fn render_visual_fragments(
+    out: &mut String,
+    fragments: &[crate::pagination::visual_lines::VisualFragment],
+) {
     for fragment in fragments {
         if fragment.styles.is_empty() {
             out.push_str(&escape_html(&fragment.text));
@@ -421,13 +433,23 @@ fn render_paragraph(out: &mut String, element: &Element, layout_profile: &Screen
     out.push_str("\">");
     if type_name == "Scene Heading" {
         if let Some(scene_number) = &attributes.scene_number {
-            write!(out, "<span class=\"sceneNumberLeft\">{}</span>", escape_html(scene_number)).unwrap();
+            write!(
+                out,
+                "<span class=\"sceneNumberLeft\">{}</span>",
+                escape_html(scene_number)
+            )
+            .unwrap();
         }
     }
     render_text(out, text);
     if type_name == "Scene Heading" {
         if let Some(scene_number) = &attributes.scene_number {
-            write!(out, "<span class=\"sceneNumberRight\">{}</span>", escape_html(scene_number)).unwrap();
+            write!(
+                out,
+                "<span class=\"sceneNumberRight\">{}</span>",
+                escape_html(scene_number)
+            )
+            .unwrap();
         }
     }
     out.push_str("</p>\n");
@@ -486,9 +508,15 @@ fn default_styles_for_element_type<'a>(
         ET::DualDialogueLeft => Some(&layout_profile.styles.dual_dialogue_left_dialogue),
         ET::DualDialogueRight => Some(&layout_profile.styles.dual_dialogue_right_dialogue),
         ET::DualDialogueCharacterLeft => Some(&layout_profile.styles.dual_dialogue_left_character),
-        ET::DualDialogueCharacterRight => Some(&layout_profile.styles.dual_dialogue_right_character),
-        ET::DualDialogueParentheticalLeft => Some(&layout_profile.styles.dual_dialogue_left_parenthetical),
-        ET::DualDialogueParentheticalRight => Some(&layout_profile.styles.dual_dialogue_right_parenthetical),
+        ET::DualDialogueCharacterRight => {
+            Some(&layout_profile.styles.dual_dialogue_right_character)
+        }
+        ET::DualDialogueParentheticalLeft => {
+            Some(&layout_profile.styles.dual_dialogue_left_parenthetical)
+        }
+        ET::DualDialogueParentheticalRight => {
+            Some(&layout_profile.styles.dual_dialogue_right_parenthetical)
+        }
         ET::ColdOpening => Some(&layout_profile.styles.cold_opening),
         ET::NewAct => Some(&layout_profile.styles.new_act),
         ET::EndOfAct => Some(&layout_profile.styles.end_of_act),
@@ -715,14 +743,12 @@ mod tests {
         let output = render_document(
             &screenplay,
             HtmlRenderOptions {
-                embedded_courier_prime_css: Some(
-                    embedded_courier_prime_css_from_base64(
-                        "regular",
-                        "italic",
-                        "bold",
-                        "bolditalic",
-                    ),
-                ),
+                embedded_courier_prime_css: Some(embedded_courier_prime_css_from_base64(
+                    "regular",
+                    "italic",
+                    "bold",
+                    "bolditalic",
+                )),
                 ..html_options(true, false, false)
             },
         );
@@ -805,9 +831,8 @@ mod tests {
 
         let output = render_document(&screenplay, html_options(false, true, false));
 
-        assert!(output.contains(
-            "<div class=\"visualLine parenthetical\">              (quietly)</div>"
-        ));
+        assert!(output
+            .contains("<div class=\"visualLine parenthetical\">              (quietly)</div>"));
     }
 
     #[test]
@@ -1064,8 +1089,9 @@ mod tests {
         let output = render_document(&screenplay, html_options(false, false, true));
 
         assert!(output.contains("visualLine dialogue dualDialogueLine"));
-        assert!(output
-            .contains("class=\"dualSegment dualDialogueCharacterLeft\" style=\"left: 1.1944444in;\""));
+        assert!(output.contains(
+            "class=\"dualSegment dualDialogueCharacterLeft\" style=\"left: 1.1944444in;\""
+        ));
         assert!(output.contains(
             "class=\"dualSegment dualDialogueParentheticalLeft\" style=\"left: 0.25in;\""
         ));

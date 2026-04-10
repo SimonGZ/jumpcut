@@ -331,7 +331,9 @@ mod tests {
 
         let actual = screenplay.to_final_draft();
 
-        assert!(actual.contains(">based on the novel</Text>\n      </Paragraph>\n      <Paragraph Alignment=\"Center\""));
+        assert!(actual.contains(
+            ">based on the novel</Text>\n      </Paragraph>\n      <Paragraph Alignment=\"Center\""
+        ));
         assert!(actual.contains(">by J.R.R. Smithee</Text>"));
         assert!(!actual.contains(">based on the novel</Text>\n        <Text AdornmentStyle=\"-1\""));
     }
@@ -407,7 +409,11 @@ mod tests {
                 "1/1/00",
                 vec![
                     (
-                        vec!["Meridian Creative Partners", "\t", "SECOND REVISED NETWORK (GOLDENROD)"],
+                        vec![
+                            "Meridian Creative Partners",
+                            "\t",
+                            "SECOND REVISED NETWORK (GOLDENROD)",
+                        ],
                         Some("4.12"),
                     ),
                     (vec!["555-555-0593", "\t", "1/1/00"], Some("6.88")),
@@ -454,10 +460,7 @@ mod tests {
         screenplay.to_final_draft()
     }
 
-    fn assert_title_page_bottom_rows(
-        actual: &str,
-        expected_rows: &[(&[&str], Option<&str>)],
-    ) {
+    fn assert_title_page_bottom_rows(actual: &str, expected_rows: &[(&[&str], Option<&str>)]) {
         let rows = extract_title_page_bottom_rows(actual);
         let actual_rows = rows
             .iter()
@@ -526,7 +529,6 @@ mod tests {
         metadata.insert("source".into(), vec!["SOURCE".into()]);
         metadata.insert("draft".into(), vec!["DRAFT".into()]);
         metadata.insert("draft date".into(), vec!["DATE".into()]);
-
 
         let styled =
             ElementText::Styled(vec![tr("BOLD", vec!["Bold"]), tr("ITALIC", vec!["Italic"])]);

@@ -87,13 +87,12 @@ pub fn compose_with_mode<'a>(
             SemanticUnit::DualDialogue(dual) => {
                 let mut max_lines = 0.0;
                 for side in &dual.sides {
-                    let side_lines =
-                        measure_dialogue_height(
-                            side.dialogue.parts.iter(),
-                            geometry,
-                            interruption_dash_wrap,
-                            |part| ElementType::from_dual_dialogue_part_kind(&part.kind, side.side),
-                        );
+                    let side_lines = measure_dialogue_height(
+                        side.dialogue.parts.iter(),
+                        geometry,
+                        interruption_dash_wrap,
+                        |part| ElementType::from_dual_dialogue_part_kind(&part.kind, side.side),
+                    );
                     if side_lines > max_lines {
                         max_lines = side_lines;
                     }
@@ -163,7 +162,8 @@ fn measure_dialogue_height<'a>(
         let element_type = element_type_for_part(part);
         let config = WrapConfig {
             exact_width_chars: crate::pagination::margin::calculate_element_width(
-                geometry, element_type,
+                geometry,
+                element_type,
             ),
             interruption_dash_wrap,
         };

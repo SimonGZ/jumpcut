@@ -190,8 +190,7 @@ pub fn paginate_with_mode<'a>(
                     geometry,
                     interruption_dash_wrap,
                     false,
-                )
-                {
+                ) {
                     current_page_blocks.push(LayoutBlock {
                         unit: block.unit,
                         fragment: Fragment::ContinuedToNext,
@@ -434,11 +433,8 @@ fn choose_split_lines(
             let target_line_count = (block.content_lines / element_line_height).round() as usize;
             let max_top_lines =
                 max_top_wrapped_lines(available_lines, effective_spacing, element_line_height);
-            let config = WrapConfig::from_geometry_with_mode(
-                geometry,
-                element_type,
-                interruption_dash_wrap,
-            );
+            let config =
+                WrapConfig::from_geometry_with_mode(geometry, element_type, interruption_dash_wrap);
             let wrapped_lines = wrap_text_for_element(&flow.text, &config);
             if wrapped_lines.len() != target_line_count {
                 let lines_that_fit = available_lines - effective_spacing;

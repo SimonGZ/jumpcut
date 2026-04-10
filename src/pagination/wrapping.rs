@@ -133,10 +133,7 @@ impl WrapConfig {
         Self::from_geometry_final_draft(&geometry, element_type)
     }
 
-    pub fn from_geometry_final_draft(
-        geometry: &LayoutGeometry,
-        element_type: ElementType,
-    ) -> Self {
+    pub fn from_geometry_final_draft(geometry: &LayoutGeometry, element_type: ElementType) -> Self {
         Self::from_geometry_with_mode(geometry, element_type, InterruptionDashWrap::FinalDraft)
     }
 
@@ -301,8 +298,11 @@ fn should_split_interruption_dash(
 
     let keep_together_next_line =
         wrap_single_line_from_chunks(next_chunk.to_string(), remaining_chunks, max_width);
-    let split_next_line =
-        wrap_single_line_from_chunks(split_interruption_dash_chunk(next_chunk), remaining_chunks, max_width);
+    let split_next_line = wrap_single_line_from_chunks(
+        split_interruption_dash_chunk(next_chunk),
+        remaining_chunks,
+        max_width,
+    );
 
     visible_alnum_count(&split_next_line) > visible_alnum_count(&keep_together_next_line)
 }
@@ -339,7 +339,10 @@ fn should_split_trailing_double_hyphen_word(
         return false;
     }
 
-    let combined = format!("{current_line}{}", top_fragment_for_trailing_double_hyphen(next_chunk));
+    let combined = format!(
+        "{current_line}{}",
+        top_fragment_for_trailing_double_hyphen(next_chunk)
+    );
     effective_line_len(&combined) <= max_width
 }
 

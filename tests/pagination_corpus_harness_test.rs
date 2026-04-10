@@ -497,8 +497,14 @@ fn big_fish_pages_89_90_split_hand_around_the_house_after_kittens() {
 
     let page_89_text = dialogue_block_fragment_text(page_89_block);
     let page_90_text = dialogue_block_fragment_text(page_90_block);
-    let page_89_normalized = page_89_text.split_whitespace().collect::<Vec<_>>().join(" ");
-    let page_90_normalized = page_90_text.split_whitespace().collect::<Vec<_>>().join(" ");
+    let page_89_normalized = page_89_text
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ");
+    let page_90_normalized = page_90_text
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ");
 
     assert!(
         page_89_normalized.ends_with("baby. Hold the dog away from kittens."),
@@ -1287,7 +1293,10 @@ fn flow_fragment_text(
     }
 
     let element_type = ElementType::from_flow_kind(&flow.kind);
-    let config = jumpcut::pagination::wrapping::WrapConfig::from_geometry_final_draft(geometry, element_type);
+    let config = jumpcut::pagination::wrapping::WrapConfig::from_geometry_final_draft(
+        geometry,
+        element_type,
+    );
     let wrapped_lines = jumpcut::pagination::wrapping::wrap_text_for_element(&flow.text, &config);
     let fragment_line_count = (block.content_lines
         / line_height_for_element_type(geometry, element_type))
@@ -1810,8 +1819,10 @@ fn build_line_break_parity_item(
     };
 
     let element_type = ElementType::from_item_kind(kind, dual_dialogue_side);
-    let config =
-        jumpcut::pagination::wrapping::WrapConfig::from_geometry_final_draft(measurement, element_type);
+    let config = jumpcut::pagination::wrapping::WrapConfig::from_geometry_final_draft(
+        measurement,
+        element_type,
+    );
     let width_chars = config.exact_width_chars;
     let expected_wrapped_lines =
         jumpcut::pagination::wrapping::wrap_text_for_element(&candidate_text, &config)

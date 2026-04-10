@@ -385,13 +385,7 @@ pub fn write_big_fish_full_script_page_break_packet(debug_dir: &Path) {
     .unwrap();
     fs::write(
         debug_dir.join("REVIEW.md"),
-        render_big_fish_full_script_review_packet(
-            54.0,
-            score,
-            &fixture,
-            &report,
-            &page_endings,
-        ),
+        render_big_fish_full_script_review_packet(54.0, score, &fixture, &report, &page_endings),
     )
     .unwrap();
 }
@@ -573,13 +567,7 @@ pub fn write_vikings_full_script_page_break_packet(debug_dir: &Path) {
     .unwrap();
     fs::write(
         debug_dir.join("REVIEW.md"),
-        render_vikings_full_script_review_packet(
-            54.0,
-            score,
-            &fixture,
-            &report,
-            &page_endings,
-        ),
+        render_vikings_full_script_review_packet(54.0, score, &fixture, &report, &page_endings),
     )
     .unwrap();
 }
@@ -661,13 +649,7 @@ pub fn write_gumshoe_full_script_page_break_packet(debug_dir: &Path) {
     .unwrap();
     fs::write(
         debug_dir.join("REVIEW.md"),
-        render_gumshoe_full_script_review_packet(
-            54.0,
-            score,
-            &fixture,
-            &report,
-            &page_endings,
-        ),
+        render_gumshoe_full_script_review_packet(54.0, score, &fixture, &report, &page_endings),
     )
     .unwrap();
 }
@@ -1517,9 +1499,7 @@ fn build_page_endings_report(
 
     let pages = selected_page_numbers
         .into_iter()
-        .filter(|page_number| {
-            diagnostic_page_label(*page_number, page_mappings) != "title"
-        })
+        .filter(|page_number| diagnostic_page_label(*page_number, page_mappings) != "title")
         .map(|page_number| {
             let canonical_lines = canonical_pages
                 .get(&page_number)
@@ -1932,8 +1912,12 @@ fn render_dialogue_fragment_lines(
                     .flat_map(|(part_index, (part, dialogue_part))| {
                         let element_type =
                             ElementType::from_dialogue_part_kind(&dialogue_part.kind);
-                        let rendered_text =
-                            dialogue_part_render_text(dialogue, dialogue_part, part_index, &part.top_text);
+                        let rendered_text = dialogue_part_render_text(
+                            dialogue,
+                            dialogue_part,
+                            part_index,
+                            &part.top_text,
+                        );
                         counted_rendered_lines(
                             render_indented_lines(&rendered_text, element_type, geometry)
                                 .into_iter()
@@ -2100,8 +2084,8 @@ fn render_semantic_unit_lines(
                     element_type,
                     geometry,
                 )
-                    .into_iter()
-                    .map(move |text| RenderedElementLine { text, element_type })
+                .into_iter()
+                .map(move |text| RenderedElementLine { text, element_type })
             })
             .collect(),
         SemanticUnit::DualDialogue(dual) => {
@@ -2157,8 +2141,10 @@ fn render_dual_dialogue_side_lines(
         .iter()
         .flat_map(|part| {
             let element_type = ElementType::from_dual_dialogue_part_kind(&part.kind, side);
-            let config =
-                crate::pagination::wrapping::WrapConfig::from_geometry_final_draft(geometry, element_type);
+            let config = crate::pagination::wrapping::WrapConfig::from_geometry_final_draft(
+                geometry,
+                element_type,
+            );
             let text = if part.should_append_contd && part.kind == DialoguePartKind::Character {
                 continued_character_cue_text(&part.text)
             } else {
@@ -2174,7 +2160,8 @@ fn render_indented_lines(
     element_type: ElementType,
     geometry: &LayoutGeometry,
 ) -> Vec<String> {
-    let config = crate::pagination::wrapping::WrapConfig::from_geometry_final_draft(geometry, element_type);
+    let config =
+        crate::pagination::wrapping::WrapConfig::from_geometry_final_draft(geometry, element_type);
     let indent = " ".repeat(indent_spaces_for_element_type(element_type, geometry));
     wrapped_visual_lines(element_type, text, &config)
         .into_iter()
@@ -2412,7 +2399,10 @@ mod tests {
             "23.".to_string(),
         ];
 
-        assert_eq!(last_meaningful_line(&lines).as_deref(), Some("uxo owy qe yguqo."));
+        assert_eq!(
+            last_meaningful_line(&lines).as_deref(),
+            Some("uxo owy qe yguqo.")
+        );
     }
 }
 
@@ -3065,7 +3055,8 @@ fn measured_lines_for_item(
         item.dual_dialogue_side,
     );
 
-    let config = crate::pagination::wrapping::WrapConfig::from_geometry_final_draft(geometry, element_type);
+    let config =
+        crate::pagination::wrapping::WrapConfig::from_geometry_final_draft(geometry, element_type);
     let text = match item.line_range {
         Some((start, end)) => slice_explicit_lines(&element.text, start, end),
         None => element.text.clone(),
@@ -3104,7 +3095,8 @@ fn measure_visual_item(
     };
 
     let element_type = ElementType::from_item_kind(kind, dual_dialogue_side);
-    let config = crate::pagination::wrapping::WrapConfig::from_geometry_final_draft(geometry, element_type);
+    let config =
+        crate::pagination::wrapping::WrapConfig::from_geometry_final_draft(geometry, element_type);
     let text = match line_range {
         Some((start, end)) => slice_explicit_lines(&element.text, start, end),
         None => element.text.clone(),

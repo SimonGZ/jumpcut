@@ -205,10 +205,7 @@ fn final_draft_mode_can_split_a_word_ending_in_double_hyphens() {
     let text = "Qaxu, uda owy’ox eqyxu. Y ugyvoju’e ga--";
     let lines = wrap_text_for_element(text, &config);
 
-    assert_eq!(
-        lines,
-        vec!["Qaxu, uda owy’ox eqyxu. Y ugyvoju’e ga-", "-"]
-    );
+    assert_eq!(lines, vec!["Qaxu, uda owy’ox eqyxu. Y ugyvoju’e ga-", "-"]);
 }
 
 #[test]
@@ -236,7 +233,10 @@ fn clean_mode_allows_a_gumshoe_style_trailing_double_hyphen_to_hang_at_line_end(
 
     assert_eq!(
         lines,
-        vec!["Yzusax ga uqywy yzusax ga uqywy yzusax ga--", "ehaxe rus ajax"]
+        vec![
+            "Yzusax ga uqywy yzusax ga uqywy yzusax ga--",
+            "ehaxe rus ajax"
+        ]
     );
 }
 

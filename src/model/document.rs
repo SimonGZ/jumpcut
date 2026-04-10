@@ -3,7 +3,6 @@ use serde::Serialize;
 use std::collections::{HashMap, HashSet};
 use std::default::Default;
 
-
 pub type Metadata = HashMap<String, Vec<ElementText>>;
 
 #[derive(Debug, PartialEq, Serialize)]
@@ -206,4 +205,3 @@ pub fn blank_attributes() -> Attributes {
         ..Attributes::default()
     }
 }
-

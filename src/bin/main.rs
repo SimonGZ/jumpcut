@@ -172,10 +172,9 @@ fn main() {
                 render_continueds: !opt.no_continueds,
             })
             .into_bytes(),
-        "pdf" => screenplay
-            .to_pdf_with_options(jumpcut::rendering::pdf::PdfRenderOptions {
-                render_continueds: !opt.no_continueds,
-            }),
+        "pdf" => screenplay.to_pdf_with_options(jumpcut::rendering::pdf::PdfRenderOptions {
+            render_continueds: !opt.no_continueds,
+        }),
         _ => b"nothing".to_vec(),
     };
 
@@ -293,17 +292,20 @@ mod tests {
 
     #[test]
     fn format_inference_uses_explicit_format_arg_first() {
-        use std::path::PathBuf;
         use super::infer_format;
-        
-        assert_eq!(infer_format(Some("HTML"), Some(&PathBuf::from("out.pdf"))), "html");
+        use std::path::PathBuf;
+
+        assert_eq!(
+            infer_format(Some("HTML"), Some(&PathBuf::from("out.pdf"))),
+            "html"
+        );
     }
 
     #[test]
     fn format_inference_falls_back_to_extension() {
-        use std::path::PathBuf;
         use super::infer_format;
-        
+        use std::path::PathBuf;
+
         assert_eq!(infer_format(None, Some(&PathBuf::from("out.pdf"))), "pdf");
         assert_eq!(infer_format(None, Some(&PathBuf::from("out.html"))), "html");
         assert_eq!(infer_format(None, Some(&PathBuf::from("out.htm"))), "html");
@@ -315,9 +317,9 @@ mod tests {
 
     #[test]
     fn format_inference_defaults_to_fdx_if_no_extension_or_unknown() {
-        use std::path::PathBuf;
         use super::infer_format;
-        
+        use std::path::PathBuf;
+
         assert_eq!(infer_format(None, Some(&PathBuf::from("out"))), "fdx");
         assert_eq!(infer_format(None, Some(&PathBuf::from("out.mp3"))), "fdx");
         assert_eq!(infer_format(None, None), "fdx");

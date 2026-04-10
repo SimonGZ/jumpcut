@@ -240,7 +240,10 @@ fn build_line_break_parity_item(
     };
 
     let element_type = ElementType::from_item_kind(kind, dual_dialogue_side);
-    let config = crate::pagination::wrapping::WrapConfig::from_geometry_final_draft(measurement, element_type);
+    let config = crate::pagination::wrapping::WrapConfig::from_geometry_final_draft(
+        measurement,
+        element_type,
+    );
     let width_chars = config.exact_width_chars;
     let expected_wrapped_lines =
         crate::pagination::wrapping::wrap_text_for_element(&candidate_text, &config)
@@ -644,7 +647,8 @@ mod tests {
 
     #[test]
     fn normalize_pdf_match_text_collapses_spaced_interruption_dash_pairs() {
-        let extracted = "everything you said was impossible - - everything! -- I felt like such a fool";
+        let extracted =
+            "everything you said was impossible - - everything! -- I felt like such a fool";
         let source = "everything you said was impossible -- everything! -- I felt like such a fool";
 
         assert_eq!(
