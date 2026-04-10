@@ -1,14 +1,14 @@
 #![allow(dead_code)]
 
 use crate::pagination::margin::{dual_dialogue_character_left_indent, LayoutGeometry};
+use crate::pagination::visual_lines::{
+    display_page_number, render_paginated_visual_pages_with_options, VisualDualLine,
+    VisualDualSide, VisualFragment, VisualRenderOptions,
+};
 use crate::pagination::wrapping::ElementType;
 use crate::pagination::ScreenplayLayoutProfile;
 use crate::title_page::{
     plain_title_uses_all_caps, TitlePage, TitlePageBlockKind, TitlePageRegion,
-};
-use crate::pagination::visual_lines::{
-    display_page_number, render_paginated_visual_pages_with_options, VisualDualLine,
-    VisualDualSide, VisualFragment, VisualRenderOptions,
 };
 use crate::{ElementText, Screenplay};
 use pdf_writer::types::{CidFontType, FontFlags, SystemInfo, UnicodeCmap};
@@ -37,6 +37,8 @@ const FONT_BOLD_ITALIC_NAME: Name<'static> = Name(b"F4");
 const BODY_TEXT_CELL_WIDTH: f32 = 7.0;
 const UNDERLINE_LINE_WIDTH: f32 = 0.75;
 const UNDERLINE_Y_OFFSET: f32 = 1.5;
+const SCENE_NUMBER_LEFT_X: f32 = 0.75 * 72.0;
+const SCENE_NUMBER_Y_OFFSET: f32 = 1.176;
 const COURIER_PRIME_REGULAR_BYTES: &[u8] =
     include_bytes!("../templates/fonts/CourierPrime-Regular.ttf");
 const COURIER_PRIME_BOLD_BYTES: &[u8] = include_bytes!("../templates/fonts/CourierPrime-Bold.ttf");
@@ -117,6 +119,7 @@ pub(crate) struct PdfRenderLine {
     pub kind: Option<PdfLineKind>,
     pub fragments: Vec<PdfRenderFragment>,
     pub dual: Option<PdfRenderDualLine>,
+    pub scene_number: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -244,28 +247,29 @@ pub(crate) fn build_render_document(
             render_continueds: options.render_continueds,
         },
     )
-        .into_iter()
-        .map(|page| PdfRenderPage {
-            page_number: page.page.metadata.number,
-            display_page_number: display_page_number(&page.page),
-            lines: page
-                .lines
-                .into_iter()
-                .map(|line| PdfRenderLine {
-                    text: line.text,
-                    counted: line.counted,
-                    centered: line.centered,
-                    kind: line.element_type.map(Into::into),
-                    fragments: line
-                        .fragments
-                        .into_iter()
-                        .map(PdfRenderFragment::from)
-                        .collect(),
-                    dual: line.dual.map(Into::into),
-                })
-                .collect(),
-        })
-        .collect();
+    .into_iter()
+    .map(|page| PdfRenderPage {
+        page_number: page.page.metadata.number,
+        display_page_number: display_page_number(&page.page),
+        lines: page
+            .lines
+            .into_iter()
+            .map(|line| PdfRenderLine {
+                text: line.text,
+                counted: line.counted,
+                centered: line.centered,
+                kind: line.element_type.map(Into::into),
+                fragments: line
+                    .fragments
+                    .into_iter()
+                    .map(PdfRenderFragment::from)
+                    .collect(),
+                dual: line.dual.map(Into::into),
+                scene_number: line.scene_number,
+            })
+            .collect(),
+    })
+    .collect();
 
     PdfRenderDocument {
         title_page,
@@ -381,20 +385,74 @@ fn render_body_page_content(
 
         let line_y = body_top - (index as f32 * line_step);
         if let Some(dual) = &line.dual {
-            render_dual_body_line(&mut content, dual, geometry, fonts, line_y, &mut underlines, profile);
+            render_dual_body_line(
+                &mut content,
+                dual,
+                geometry,
+                fonts,
+                line_y,
+                &mut underlines,
+                profile,
+            );
             continue;
         }
-        let fragments = displayed_body_fragments(line, geometry);
-        let defaults = default_body_line_styles(line.kind, profile);
-        render_fixed_cell_runs(
-            &mut content,
-            fonts,
-            &resolve_runs(&fragments, defaults),
-            body_line_left(line, geometry),
-            line_y,
-            BODY_TEXT_FONT_SIZE,
-            &mut underlines,
-        );
+
+        // Scene number rendering: left BEFORE heading text, right AFTER heading text,
+        // matching the word stream order of Final Draft reference PDFs.
+        if let Some(scene_number) = &line.scene_number {
+            let plain_run = [ResolvedRun {
+                text: scene_number.clone(),
+                styles: StyleFlags::default(),
+            }];
+            // Left scene number first (at 0.75" from page left)
+            let scene_y = line_y + SCENE_NUMBER_Y_OFFSET;
+            render_fixed_cell_runs(
+                &mut content,
+                fonts,
+                &plain_run,
+                SCENE_NUMBER_LEFT_X,
+                scene_y,
+                BODY_TEXT_FONT_SIZE,
+                &mut underlines,
+            );
+            // Heading text in the middle
+            let fragments = displayed_body_fragments(line, geometry);
+            let defaults = default_body_line_styles(line.kind, profile);
+            render_fixed_cell_runs(
+                &mut content,
+                fonts,
+                &resolve_runs(&fragments, defaults),
+                body_line_left(line, geometry),
+                line_y,
+                BODY_TEXT_FONT_SIZE,
+                &mut underlines,
+            );
+            // Right scene number last (right-aligned to scene_number_right)
+            let scene_number_right_x = geometry.scene_number_right * 72.0;
+            let right_x =
+                scene_number_right_x - (scene_number.chars().count() as f32 * BODY_TEXT_CELL_WIDTH);
+            render_fixed_cell_runs(
+                &mut content,
+                fonts,
+                &plain_run,
+                right_x,
+                scene_y,
+                BODY_TEXT_FONT_SIZE,
+                &mut underlines,
+            );
+        } else {
+            let fragments = displayed_body_fragments(line, geometry);
+            let defaults = default_body_line_styles(line.kind, profile);
+            render_fixed_cell_runs(
+                &mut content,
+                fonts,
+                &resolve_runs(&fragments, defaults),
+                body_line_left(line, geometry),
+                line_y,
+                BODY_TEXT_FONT_SIZE,
+                &mut underlines,
+            );
+        }
     }
 
     content.end_text();
@@ -475,11 +533,7 @@ fn render_fixed_cell_runs(
         }
 
         if run.styles.underline {
-            let underline_cell_count = run
-                .text
-                .trim_end_matches(' ')
-                .chars()
-                .count();
+            let underline_cell_count = run.text.trim_end_matches(' ').chars().count();
             let underline_end_cell = run_start_cell + underline_cell_count;
             if underline_end_cell > run_start_cell {
                 underlines.push(UnderlineSegment {
@@ -1007,6 +1061,9 @@ fn collect_document_chars(document: &PdfRenderDocument) -> BTreeSet<char> {
 
         for line in &page.lines {
             chars.extend(rendered_line_chars(line));
+            if let Some(scene_number) = &line.scene_number {
+                chars.extend(scene_number.chars());
+            }
         }
     }
 
@@ -1180,8 +1237,12 @@ fn default_body_line_styles(
             PK::Transition => Some(&profile.styles.transition),
             PK::Lyric => Some(&profile.styles.lyric),
             PK::DualDialogueLeft | PK::DualDialogueRight => Some(&profile.styles.dialogue),
-            PK::DualDialogueCharacterLeft | PK::DualDialogueCharacterRight => Some(&profile.styles.character),
-            PK::DualDialogueParentheticalLeft | PK::DualDialogueParentheticalRight => Some(&profile.styles.parenthetical),
+            PK::DualDialogueCharacterLeft | PK::DualDialogueCharacterRight => {
+                Some(&profile.styles.character)
+            }
+            PK::DualDialogueParentheticalLeft | PK::DualDialogueParentheticalRight => {
+                Some(&profile.styles.parenthetical)
+            }
         };
         if let Some(s) = style {
             flags.bold = s.bold;
@@ -1437,10 +1498,20 @@ mod tests {
 
         let document = build_render_document(&screenplay, PdfRenderOptions::default());
         let fonts = EmbeddedFonts::new(&document);
-        let content =
-            render_body_page_content(&document.body_pages[0], &LayoutGeometry::default(), &fonts, &ScreenplayLayoutProfile::from_metadata(&screenplay.metadata));
+        let content = render_body_page_content(
+            &document.body_pages[0],
+            &LayoutGeometry::default(),
+            &fonts,
+            &ScreenplayLayoutProfile::from_metadata(&screenplay.metadata),
+        );
 
-        assert_stream_contains_fixed_cell_text_at(&content, &fonts.regular, "FIRST BODY PAGE", 108.0, 711.0);
+        assert_stream_contains_fixed_cell_text_at(
+            &content,
+            &fonts.regular,
+            "FIRST BODY PAGE",
+            108.0,
+            711.0,
+        );
         assert_stream_contains_fixed_cell_text_at(&content, &fonts.regular, "ALEX", 252.0, 687.0);
         assert_stream_contains_fixed_cell_text_at(
             &content,
@@ -1472,10 +1543,18 @@ mod tests {
 
         let document = build_render_document(&screenplay, PdfRenderOptions::default());
         let fonts = EmbeddedFonts::new(&document);
-        let first_page =
-            render_body_page_content(&document.body_pages[0], &LayoutGeometry::default(), &fonts, &ScreenplayLayoutProfile::from_metadata(&screenplay.metadata));
-        let second_page =
-            render_body_page_content(&document.body_pages[1], &LayoutGeometry::default(), &fonts, &ScreenplayLayoutProfile::from_metadata(&screenplay.metadata));
+        let first_page = render_body_page_content(
+            &document.body_pages[0],
+            &LayoutGeometry::default(),
+            &fonts,
+            &ScreenplayLayoutProfile::from_metadata(&screenplay.metadata),
+        );
+        let second_page = render_body_page_content(
+            &document.body_pages[1],
+            &LayoutGeometry::default(),
+            &fonts,
+            &ScreenplayLayoutProfile::from_metadata(&screenplay.metadata),
+        );
 
         assert_stream_lacks_text(&first_page, &fonts.regular, "1.");
         assert_stream_contains_fixed_cell_text_at(
@@ -1502,12 +1581,22 @@ mod tests {
 
         let document = build_render_document(&screenplay, PdfRenderOptions::default());
         let fonts = EmbeddedFonts::new(&document);
-        let content =
-            render_body_page_content(&document.body_pages[0], &LayoutGeometry::default(), &fonts, &ScreenplayLayoutProfile::from_metadata(&screenplay.metadata));
+        let content = render_body_page_content(
+            &document.body_pages[0],
+            &LayoutGeometry::default(),
+            &fonts,
+            &ScreenplayLayoutProfile::from_metadata(&screenplay.metadata),
+        );
         let pdf_text = String::from_utf8_lossy(&content);
 
         assert!(!pdf_text.contains("72 711 Tm"));
-        assert_stream_contains_fixed_cell_text_at(&content, &fonts.regular, "CENTERED LINE", 278.5, 711.0);
+        assert_stream_contains_fixed_cell_text_at(
+            &content,
+            &fonts.regular,
+            "CENTERED LINE",
+            278.5,
+            711.0,
+        );
     }
 
     #[test]
@@ -1528,8 +1617,12 @@ mod tests {
 
         let document = build_render_document(&screenplay, PdfRenderOptions::default());
         let fonts = EmbeddedFonts::new(&document);
-        let content =
-            render_body_page_content(&document.body_pages[0], &LayoutGeometry::default(), &fonts, &ScreenplayLayoutProfile::from_metadata(&screenplay.metadata));
+        let content = render_body_page_content(
+            &document.body_pages[0],
+            &LayoutGeometry::default(),
+            &fonts,
+            &ScreenplayLayoutProfile::from_metadata(&screenplay.metadata),
+        );
         let pdf_text = String::from_utf8_lossy(&content);
 
         assert!(pdf_text.contains("201 711 Tm"));
@@ -1722,8 +1815,12 @@ mod tests {
 
         let document = build_render_document(&screenplay, PdfRenderOptions::default());
         let fonts = EmbeddedFonts::new(&document);
-        let content =
-            render_body_page_content(&document.body_pages[0], &LayoutGeometry::default(), &fonts, &ScreenplayLayoutProfile::from_metadata(&screenplay.metadata));
+        let content = render_body_page_content(
+            &document.body_pages[0],
+            &LayoutGeometry::default(),
+            &fonts,
+            &ScreenplayLayoutProfile::from_metadata(&screenplay.metadata),
+        );
         let pdf_text = String::from_utf8_lossy(&content);
 
         assert!(pdf_text.contains("/F2 12 Tf"));
@@ -1744,8 +1841,12 @@ mod tests {
 
         let document = build_render_document(&screenplay, PdfRenderOptions::default());
         let fonts = EmbeddedFonts::new(&document);
-        let content =
-            render_body_page_content(&document.body_pages[0], &LayoutGeometry::default(), &fonts, &ScreenplayLayoutProfile::from_metadata(&screenplay.metadata));
+        let content = render_body_page_content(
+            &document.body_pages[0],
+            &LayoutGeometry::default(),
+            &fonts,
+            &ScreenplayLayoutProfile::from_metadata(&screenplay.metadata),
+        );
         let pdf_text = String::from_utf8_lossy(&content);
 
         assert!(pdf_text.contains("/F3 12 Tf"));
@@ -1757,15 +1858,20 @@ mod tests {
         metadata.insert("fmt".into(), vec!["bsh ush".into()]);
         let screenplay = Screenplay {
             metadata,
-            elements: vec![
-                Element::SceneHeading(p("INT. OFFICE - DAY"), blank_attributes()),
-            ],
+            elements: vec![Element::SceneHeading(
+                p("INT. OFFICE - DAY"),
+                blank_attributes(),
+            )],
         };
 
         let document = build_render_document(&screenplay, PdfRenderOptions::default());
         let fonts = EmbeddedFonts::new(&document);
-        let content =
-            render_body_page_content(&document.body_pages[0], &LayoutGeometry::default(), &fonts, &ScreenplayLayoutProfile::from_metadata(&screenplay.metadata));
+        let content = render_body_page_content(
+            &document.body_pages[0],
+            &LayoutGeometry::default(),
+            &fonts,
+            &ScreenplayLayoutProfile::from_metadata(&screenplay.metadata),
+        );
         let pdf_text = String::from_utf8_lossy(&content);
 
         assert!(pdf_text.contains("/F2 12 Tf"));
@@ -1812,10 +1918,7 @@ mod tests {
             title_page_line_left("SAMPLE SCRIPT", PdfTitleBlockRegion::CenterTitle),
             260.5
         );
-        assert_eq!(
-            title_page_bottom_right_left("April 6, 1952"),
-            445.7
-        );
+        assert_eq!(title_page_bottom_right_left("April 6, 1952"), 445.7);
     }
 
     #[test]
@@ -1867,6 +1970,7 @@ mod tests {
             kind: Some(PdfLineKind::Transition),
             fragments: Vec::new(),
             dual: None,
+            scene_number: None,
         };
 
         assert!((body_line_left(&line, &geometry) - 462.2).abs() < 0.001);
@@ -1882,6 +1986,7 @@ mod tests {
             kind: Some(PdfLineKind::Parenthetical),
             fragments: Vec::new(),
             dual: None,
+            scene_number: None,
         };
         let continuation = PdfRenderLine {
             text: format!("{}quietly", " ".repeat(15)),
@@ -1890,6 +1995,7 @@ mod tests {
             kind: Some(PdfLineKind::Parenthetical),
             fragments: Vec::new(),
             dual: None,
+            scene_number: None,
         };
 
         assert!((body_line_left(&line, &geometry) - 209.0).abs() < 0.001);
@@ -1952,7 +2058,10 @@ mod tests {
     fn page_number_x_keeps_the_period_column_fixed() {
         assert_eq!(page_number_x(2), PAGE_NUMBER_LEFT);
         assert_eq!(page_number_x(34), PAGE_NUMBER_LEFT - BODY_TEXT_CELL_WIDTH);
-        assert_eq!(page_number_x(100), PAGE_NUMBER_LEFT - (2.0 * BODY_TEXT_CELL_WIDTH));
+        assert_eq!(
+            page_number_x(100),
+            PAGE_NUMBER_LEFT - (2.0 * BODY_TEXT_CELL_WIDTH)
+        );
     }
 
     #[test]
@@ -1968,6 +2077,7 @@ mod tests {
                     kind: Some(PdfLineKind::Character),
                     fragments: Vec::new(),
                     dual: None,
+                    scene_number: None,
                 },
                 PdfRenderLine {
                     text: format!("{}But take with you this Key", " ".repeat(10)),
@@ -1976,6 +2086,7 @@ mod tests {
                     kind: Some(PdfLineKind::Dialogue),
                     fragments: Vec::new(),
                     dual: None,
+                    scene_number: None,
                 },
             ],
         };
@@ -1999,6 +2110,7 @@ mod tests {
                 kind: Some(PdfLineKind::Character),
                 fragments: Vec::new(),
                 dual: None,
+                scene_number: None,
             }],
         };
 

@@ -33,6 +33,7 @@ pub(crate) struct VisualLine {
     pub element_type: Option<ElementType>,
     pub fragments: Vec<VisualFragment>,
     pub dual: Option<VisualDualLine>,
+    pub scene_number: Option<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -190,6 +191,7 @@ fn render_continuous_block_lines(
             element_type: None,
             fragments: Vec::new(),
             dual: None,
+            scene_number: None,
         });
     }
     lines.extend(render_layout_block_lines(
@@ -218,6 +220,7 @@ fn render_layout_page_lines(
                 element_type: None,
                 fragments: Vec::new(),
                 dual: None,
+                scene_number: None,
             });
         }
         lines.extend(render_layout_block_lines(
@@ -274,12 +277,17 @@ fn render_layout_block_lines(
                     flow.render_attributes.centered,
                 )
                 .into_iter()
-                .map(|line| {
-                    rendered_element_line_from_styled(
+                .enumerate()
+                .map(|(line_index, line)| {
+                    let mut el = rendered_element_line_from_styled(
                         line,
                         element_type,
                         flow.render_attributes.centered,
-                    )
+                    );
+                    if line_index == 0 {
+                        el.scene_number = flow.render_attributes.scene_number.clone();
+                    }
+                    el
                 })
                 .collect()
             } else {
@@ -300,12 +308,18 @@ fn render_layout_block_lines(
                     flow.render_attributes.centered,
                 )
                 .into_iter()
-                .map(|text| RenderedElementLine {
+                .enumerate()
+                .map(|(line_index, text)| RenderedElementLine {
                     fragments: vec![plain_fragment_for_text(&text)],
                     text,
                     element_type,
                     centered: flow.render_attributes.centered,
                     dual: None,
+                    scene_number: if line_index == 0 {
+                        flow.render_attributes.scene_number.clone()
+                    } else {
+                        None
+                    },
                 })
                 .collect()
             };
@@ -404,6 +418,7 @@ fn render_dialogue_fragment_lines(
                         centered: false,
                         element_type: Some(ElementType::Character),
                         dual: None,
+                        scene_number: None,
                     })
                     .collect::<Vec<_>>();
                 lines.extend(counted_visual_lines(
@@ -463,6 +478,7 @@ fn render_dialogue_fragment_lines(
                 centered: false,
                 element_type: Some(ElementType::Character),
                 dual: None,
+                scene_number: None,
             })
             .chain(counted_visual_lines(
                 take_rendered_lines_from_bottom_by_height(&all_lines, content_lines, geometry),
@@ -479,6 +495,7 @@ fn render_dialogue_fragment_lines(
                     centered: false,
                     element_type: Some(ElementType::Character),
                     dual: None,
+                    scene_number: None,
                 })
                 .chain(counted_visual_lines(
                     take_rendered_lines_from_top_by_height(&all_lines, content_lines, geometry),
@@ -543,6 +560,7 @@ fn render_split_dialogue_part_lines(
         element_type,
         centered: dialogue_part.render_attributes.centered,
         dual: None,
+        scene_number: None,
     })
     .collect()
 }
@@ -640,6 +658,7 @@ fn render_more_marker_lines(
             element_type: None,
             fragments: Vec::new(),
             dual: None,
+            scene_number: None,
         });
     }
 
@@ -670,6 +689,7 @@ fn render_more_marker_lines(
             .unwrap_or_else(|| "(MORE)".to_string()),
         )],
         dual: None,
+        scene_number: None,
     });
 
     lines
@@ -711,12 +731,18 @@ fn render_semantic_unit_lines(
                 flow.render_attributes.centered,
             )
             .into_iter()
-            .map(|text| RenderedElementLine {
+            .enumerate()
+            .map(|(line_index, text)| RenderedElementLine {
                 fragments: vec![plain_fragment_for_text(&text)],
                 text,
                 element_type,
                 centered: flow.render_attributes.centered,
                 dual: None,
+                scene_number: if line_index == 0 {
+                    flow.render_attributes.scene_number.clone()
+                } else {
+                    None
+                },
             })
             .collect()
         }
@@ -753,6 +779,7 @@ fn render_semantic_unit_lines(
                 element_type: ElementType::Lyric,
                 centered: lyric.render_attributes.centered,
                 dual: None,
+                scene_number: None,
             })
             .collect()
         }
@@ -802,6 +829,7 @@ fn render_semantic_unit_lines(
                     element_type,
                     centered: part.render_attributes.centered,
                     dual: None,
+                    scene_number: None,
                 })
                 .collect::<Vec<_>>()
             })
@@ -861,6 +889,7 @@ fn render_semantic_unit_lines(
                         text: left.text,
                         element_type: ElementType::Dialogue,
                         centered: false,
+                        scene_number: None,
                     });
                 } else if left.text.is_empty() {
                     let gutter = " ".repeat(right_indent);
@@ -881,6 +910,7 @@ fn render_semantic_unit_lines(
                         text,
                         element_type: ElementType::Dialogue,
                         centered: false,
+                        scene_number: None,
                     });
                 } else {
                     let gutter_width = right_indent.saturating_sub(left.text.chars().count());
@@ -910,6 +940,7 @@ fn render_semantic_unit_lines(
                         text,
                         element_type: ElementType::Dialogue,
                         centered: false,
+                        scene_number: None,
                     });
                 }
             }
@@ -1083,6 +1114,7 @@ fn counted_visual_lines(
                 element_type: None,
                 fragments: Vec::new(),
                 dual: None,
+                scene_number: None,
             });
         }
         rendered.push(VisualLine {
@@ -1092,6 +1124,7 @@ fn counted_visual_lines(
             element_type: Some(line.element_type),
             fragments: line.fragments,
             dual: line.dual.map(Into::into),
+            scene_number: line.scene_number,
         });
     }
 
@@ -1196,6 +1229,7 @@ struct RenderedElementLine {
     fragments: Vec<VisualFragment>,
     centered: bool,
     dual: Option<RenderedDualLine>,
+    scene_number: Option<String>,
 }
 
 #[derive(Clone)]
@@ -1288,6 +1322,7 @@ fn rendered_element_line_from_styled(
         fragments: line.fragments,
         centered,
         dual: None,
+        scene_number: None,
     }
 }
 

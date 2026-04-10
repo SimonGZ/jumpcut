@@ -64,6 +64,9 @@ pub struct LayoutGeometry {
     pub lyric_right: f32,
     pub cpi: f32,
 
+    pub scene_number_left: f32,
+    pub scene_number_right: f32,
+
     pub action_alignment: Alignment,
     pub cold_opening_alignment: Alignment,
     pub new_act_alignment: Alignment,
@@ -137,6 +140,9 @@ impl Default for LayoutGeometry {
             lyric_left: 2.5,
             lyric_right: 7.375,
             cpi: 10.0,
+
+            scene_number_left: 0.75,
+            scene_number_right: 7.375,
 
             action_alignment: Alignment::Left,
             cold_opening_alignment: Alignment::Center,

@@ -193,6 +193,12 @@ def extract_word_boxes(pdf_path: Path) -> list[WordBox]:
                     y_max=float(word.attrib["yMax"]),
                 )
             )
+
+    # Sort by visual reading order (page, y row, x) so comparison is
+    # position-based rather than dependent on PDF content-stream order.
+    # Words within 2pt of the same y are treated as the same line.
+    Y_BIN = 4.0
+    boxes.sort(key=lambda b: (b.page_number, round(b.y_min / Y_BIN), b.x_min))
     return boxes
 
 
