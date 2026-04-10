@@ -90,6 +90,8 @@ pub(crate) fn render_document(screenplay: &Screenplay, options: HtmlRenderOption
             out.push('\n');
         }
         out.push_str(HTML_STYLE);
+        out.push('\n');
+        out.push_str(&layout_profile_css(&layout_profile));
         out.push_str("\n  </style>\n</head>\n\n<body");
         if options.paginated {
             out.push_str(" class=\"paginatedHtmlView\"");
@@ -111,6 +113,25 @@ pub(crate) fn render_document(screenplay: &Screenplay, options: HtmlRenderOption
     }
 
     out
+}
+
+fn layout_profile_css(layout_profile: &ScreenplayLayoutProfile) -> String {
+    let page_width = css_inches(layout_profile.page_width);
+    let page_height = css_inches(layout_profile.page_height);
+    let page_left_margin = css_inches(layout_profile.styles.action.left_indent);
+    let page_right_margin = css_inches(
+        (layout_profile.page_width - layout_profile.styles.action.right_indent).max(0.0),
+    );
+
+    format!(
+        "@page screenplay, screenplay-title {{\n  size: {page_width} {page_height};\n  margin-top: 1in;\n  margin-right: {page_right_margin};\n  margin-bottom: 0.75in;\n  margin-left: {page_left_margin};\n}}\n\n.screenplay.paginatedHtml .page {{\n  width: {page_width};\n  min-height: {page_height};\n  padding-left: {page_left_margin};\n  padding-right: {page_right_margin};\n}}\n\n.screenplay .title-page {{\n  width: {page_width};\n  min-height: {page_height};\n  padding-left: {page_left_margin};\n  padding-right: {page_right_margin};\n}}\n"
+    )
+}
+
+fn css_inches(value: f32) -> String {
+    let trimmed = format!("{value:.2}");
+    let trimmed = trimmed.trim_end_matches('0').trim_end_matches('.');
+    format!("{trimmed}in")
 }
 
 fn root_class_name(
@@ -1030,6 +1051,27 @@ mod tests {
             .expect("expected a second paginated page");
 
         assert!(second_page.contains("<span class=\"bold\">"));
+    }
+
+    #[test]
+    fn paginated_html_uses_a4_page_dimensions_from_metadata() {
+        let mut metadata = Metadata::new();
+        metadata.insert("fmt".into(), vec!["a4".into()]);
+        metadata.insert("title".into(), vec!["A4 Sample".into()]);
+        let screenplay = Screenplay {
+            metadata,
+            elements: vec![Element::Action(p("FIRST PAGE"), blank_attributes())],
+        };
+
+        let output = render_document(&screenplay, html_options(true, false, true));
+
+        assert!(output.contains("@page screenplay, screenplay-title {"));
+        assert!(output.contains("size: 8.26in 11.69in;"));
+        assert!(output.contains(".screenplay.paginatedHtml .page {"));
+        assert!(output.contains("width: 8.26in;"));
+        assert!(output.contains("min-height: 11.69in;"));
+        assert!(output.contains("padding-right: 0.76in;"));
+        assert!(output.contains(".screenplay .title-page {"));
     }
 
     #[test]
