@@ -875,9 +875,10 @@ pub fn write_visual_comparison_data(debug_dir: &Path) {
         let measurement = geometry_for_screenplay(screenplay_id);
 
         let run = if let Some(lpp) = fixed_lpp {
+            let mut geometry = measurement.clone();
+            geometry.lines_per_page = lpp as f32;
             let config = PaginationConfig {
-                lines_per_page: lpp as f32,
-                geometry: measurement.clone(),
+                geometry,
                 interruption_dash_wrap: crate::pagination::InterruptionDashWrap::FinalDraft,
             };
             let actual = PaginatedScreenplay::paginate(
@@ -1090,8 +1091,9 @@ fn run_window_diagnostics(
     geometry: LayoutGeometry,
 ) -> PaginatedWindowRun {
     let page_numbers: Vec<u32> = fixture.pages.iter().map(|page| page.number).collect();
+    let mut geometry = geometry.clone();
+    geometry.lines_per_page = 54.0;
     let config = PaginationConfig {
-        lines_per_page: 54.0,
         geometry: geometry.clone(),
         interruption_dash_wrap: crate::pagination::InterruptionDashWrap::FinalDraft,
     };

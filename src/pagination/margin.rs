@@ -104,6 +104,12 @@ pub struct LayoutGeometry {
     pub transition_line_height: f32,
     pub lyric_line_height: f32,
     pub line_height: f32,
+
+    pub page_width: f32,
+    pub page_height: f32,
+    pub top_margin: f32,
+    pub bottom_margin: f32,
+    pub lines_per_page: f32,
 }
 
 impl Default for LayoutGeometry {
@@ -177,6 +183,11 @@ impl Default for LayoutGeometry {
             transition_line_height: 1.0,
             lyric_line_height: 1.0,
             line_height: 1.0,
+            page_width: 8.5,
+            page_height: 11.0,
+            top_margin: 1.0,
+            bottom_margin: 1.0,
+            lines_per_page: 54.0,
         }
     }
 }
@@ -258,6 +269,14 @@ impl LayoutGeometry {
 
         geometry.line_height = geometry.dialogue_line_height;
         geometry
+    }
+
+    pub fn calculate_usable_height_points(&self) -> f32 {
+        (self.page_height - self.top_margin - self.bottom_margin) * 72.0
+    }
+
+    pub fn calculate_line_step(&self) -> f32 {
+        self.calculate_usable_height_points() / self.lines_per_page
     }
 }
 

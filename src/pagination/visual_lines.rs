@@ -11,7 +11,7 @@ use crate::styled_text::{StyledRun, StyledText};
 use crate::title_page::TitlePage;
 use crate::Screenplay;
 
-const DEFAULT_LINES_PER_PAGE: f32 = 54.0;
+
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct VisualRenderOptions {
@@ -77,14 +77,13 @@ pub(crate) fn render_paginated_visual_pages_with_options(
         },
     );
     let config = PaginationConfig {
-        lines_per_page: DEFAULT_LINES_PER_PAGE,
         geometry: layout_profile.to_pagination_geometry(),
         interruption_dash_wrap: layout_profile.interruption_dash_wrap,
     };
     let blocks = composer::compose(&semantic.units, &config.geometry);
     let actual =
         PaginatedScreenplay::paginate(semantic.clone(), config.clone(), style_profile, scope);
-    let layout_pages = nonempty_layout_pages(&blocks, &config.geometry, config.lines_per_page);
+    let layout_pages = nonempty_layout_pages(&blocks, &config.geometry, config.geometry.lines_per_page);
 
     actual
         .pages
@@ -109,7 +108,6 @@ pub(crate) fn render_unpaginated_visual_lines_with_options(
     let screenplay_id = "screenplay";
     let layout_profile = ScreenplayLayoutProfile::from_metadata(&screenplay.metadata);
     let config = PaginationConfig {
-        lines_per_page: DEFAULT_LINES_PER_PAGE,
         geometry: layout_profile.to_pagination_geometry(),
         interruption_dash_wrap: layout_profile.interruption_dash_wrap,
     };

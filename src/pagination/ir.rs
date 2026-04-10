@@ -83,25 +83,26 @@ pub struct PaginatedScreenplay {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct PaginationConfig {
-    pub lines_per_page: f32,
     pub geometry: LayoutGeometry,
     pub interruption_dash_wrap: InterruptionDashWrap,
 }
 
 impl PaginationConfig {
     pub fn screenplay(lines_per_page: f32) -> Self {
+        let mut geometry = LayoutGeometry::default();
+        geometry.lines_per_page = lines_per_page;
         Self {
-            lines_per_page,
-            geometry: LayoutGeometry::default(),
+            geometry,
             interruption_dash_wrap: InterruptionDashWrap::FinalDraft,
         }
     }
 
     pub fn from_screenplay(screenplay: &Screenplay, lines_per_page: f32) -> Self {
         let profile = ScreenplayLayoutProfile::from_metadata(&screenplay.metadata);
+        let mut geometry = profile.to_pagination_geometry();
+        geometry.lines_per_page = lines_per_page;
         Self {
-            lines_per_page,
-            geometry: profile.to_pagination_geometry(),
+            geometry,
             interruption_dash_wrap: profile.interruption_dash_wrap,
         }
     }
@@ -127,7 +128,7 @@ impl PaginatedScreenplay {
         );
         let paged_blocks = crate::pagination::paginator::paginate_with_mode(
             &blocks,
-            config.lines_per_page,
+            config.geometry.lines_per_page,
             geometry,
             config.interruption_dash_wrap,
         );

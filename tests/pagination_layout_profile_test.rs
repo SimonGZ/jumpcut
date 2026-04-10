@@ -62,7 +62,7 @@ fn pagination_config_can_be_built_from_screenplay_metadata_profile() {
 
     let config = PaginationConfig::from_screenplay(&screenplay, 54.0);
 
-    assert_eq!(config.lines_per_page, 54.0);
+    assert_eq!(config.geometry.lines_per_page, 54.0);
     assert_eq!(config.geometry.dialogue_left, 2.25);
     assert_eq!(config.geometry.dialogue_right, 5.75);
     assert_eq!(config.geometry.character_right, 6.25);

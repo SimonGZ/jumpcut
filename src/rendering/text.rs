@@ -43,9 +43,10 @@ pub fn render(screenplay: &Screenplay, options: &TextRenderOptions) -> String {
             dual_dialogue_counts_for_contd: layout_profile.dual_dialogue_counts_for_contd,
         },
     );
+    let mut geometry = layout_profile.to_pagination_geometry();
+    geometry.lines_per_page = DEFAULT_LINES_PER_PAGE;
     let config = PaginationConfig {
-        lines_per_page: DEFAULT_LINES_PER_PAGE,
-        geometry: layout_profile.to_pagination_geometry(),
+        geometry,
         interruption_dash_wrap: layout_profile.interruption_dash_wrap,
     };
     let blocks = composer::compose(&semantic.units, &config.geometry);
@@ -53,7 +54,7 @@ pub fn render(screenplay: &Screenplay, options: &TextRenderOptions) -> String {
     if options.paginated {
         let actual =
             PaginatedScreenplay::paginate(semantic.clone(), config.clone(), style_profile, scope);
-        let layout_pages = nonempty_layout_pages(&blocks, &config.geometry, config.lines_per_page);
+        let layout_pages = nonempty_layout_pages(&blocks, &config.geometry, config.geometry.lines_per_page);
         render_paginated_text(
             &actual.pages,
             &layout_pages,

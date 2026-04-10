@@ -48,6 +48,11 @@ pub struct ScreenplayLayoutProfile {
     pub interruption_dash_wrap: InterruptionDashWrap,
     pub dual_dialogue_counts_for_contd: bool,
     pub styles: ScreenplayElementStyles,
+    pub page_width: f32,
+    pub page_height: f32,
+    pub top_margin: f32,
+    pub bottom_margin: f32,
+    pub lines_per_page: f32,
 }
 
 impl ScreenplayLayoutProfile {
@@ -152,6 +157,11 @@ impl ScreenplayLayoutProfile {
         geometry.scene_heading_line_height = self.styles.scene_heading.line_spacing;
 
         geometry.line_height = self.styles.dialogue.line_spacing;
+        geometry.page_width = self.page_width;
+        geometry.page_height = self.page_height;
+        geometry.top_margin = self.top_margin;
+        geometry.bottom_margin = self.bottom_margin;
+        geometry.lines_per_page = self.lines_per_page;
 
         geometry
     }
@@ -339,6 +349,11 @@ impl ScreenplayLayoutProfile {
                     italic: false,
                 },
             },
+            page_width: 8.5,
+            page_height: 11.0,
+            top_margin: 1.0,
+            bottom_margin: 1.0,
+            lines_per_page: 54.0,
         }
     }
 }
@@ -351,6 +366,10 @@ fn apply_fmt_template_option(profile: &mut ScreenplayLayoutProfile, option: &str
         profile.styles.character.right_indent = 6.25;
         profile.styles.parenthetical.left_indent = 2.75;
         profile.styles.transition.right_indent = 7.25;
+    } else if option.eq_ignore_ascii_case("a4") {
+        profile.page_width = 8.27;
+        profile.page_height = 11.69;
+        profile.lines_per_page = 58.0;
     } else if option.eq_ignore_ascii_case("balanced") {
         profile.interruption_dash_wrap = InterruptionDashWrap::KeepTogether;
         profile.dual_dialogue_counts_for_contd = false;
@@ -383,6 +402,18 @@ fn apply_fmt_geometry_override_option(profile: &mut ScreenplayLayoutProfile, opt
     } else if let Some(value) = option.strip_prefix("dr-") {
         if let Ok(indent) = value.parse::<f32>() {
             profile.styles.dialogue.right_indent = indent;
+        }
+    } else if let Some(value) = option.strip_prefix("tm-") {
+        if let Ok(margin) = value.parse::<f32>() {
+            profile.top_margin = margin;
+        }
+    } else if let Some(value) = option.strip_prefix("bm-") {
+        if let Ok(margin) = value.parse::<f32>() {
+            profile.bottom_margin = margin;
+        }
+    } else if let Some(value) = option.strip_prefix("lpp-") {
+        if let Ok(lpp) = value.parse::<f32>() {
+            profile.lines_per_page = lpp;
         }
     }
 }
