@@ -78,6 +78,17 @@ CASES = [
         max_abs_x=2.25,
         max_abs_y=0.10,
     ),
+    PdfParityCase(
+        name="big-fish-scene-numbers",
+        fountain=ROOT / "tests/fixtures/corpus/public/big-fish-scene-numbers/source/source.fountain",
+        reference_pdf=ROOT / "tests/fixtures/corpus/public/big-fish-scene-numbers/extracted/reference.pdf",
+        report_name="verify-big-fish-scene-numbers-pdf-parity",
+        ignore_case=False,
+        max_mean_x=0.10,
+        max_mean_y=0.10,
+        max_abs_x=2.25,
+        max_abs_y=0.10,
+    ),
 ]
 
 

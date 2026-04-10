@@ -28,6 +28,14 @@ Each element type conforms to specific structural constraints defined relative t
   - Left Indent: 1.5 inches
   - Right Indent: 7.5 inches
   - Available Width: 6.0 inches (Should be 60 characters, but Final Draft allows 61, so we copy that)
+- **Scene Headings*
+  - Left Indent: 1.5 inches
+  - Right Indent: 7.5 inches
+  - Available Width: 6.0 inches (Should be 60 characters, but Final Draft allows 61, so we copy that)
+  - **Scene Numbers**
+    - Scene numbers are an optional modifier on Scene Headings. They appear on both sides of a scene heading.
+    - The left scene number starts at 0.75 inches.
+    - The right scene number is right aligned starting at 7.5 inches.
 - **Character**
   - Left Indent: 3.5 inches
   - Right Indent: 7.25 inches (Multi-Cam: 6.25 inches)
