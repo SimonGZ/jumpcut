@@ -286,7 +286,13 @@ fn render_visual_line(
     } else if let Some(dual) = &line.dual {
         render_visual_dual_line(out, dual, layout_profile);
     } else {
-        render_visual_fragments(out, &line.fragments);
+        if let Some(scene_number) = &line.scene_number {
+            write!(out, "<span class=\"sceneNumberLeft\">{}</span>", escape_html(scene_number)).unwrap();
+            render_visual_fragments(out, &line.fragments);
+            write!(out, "<span class=\"sceneNumberRight\">{}</span>", escape_html(scene_number)).unwrap();
+        } else {
+            render_visual_fragments(out, &line.fragments);
+        }
     }
     out.push_str("</div>\n");
 }
@@ -413,7 +419,17 @@ fn render_paragraph(out: &mut String, element: &Element, layout_profile: &Screen
         out.push_str(" centered");
     }
     out.push_str("\">");
+    if type_name == "Scene Heading" {
+        if let Some(scene_number) = &attributes.scene_number {
+            write!(out, "<span class=\"sceneNumberLeft\">{}</span>", escape_html(scene_number)).unwrap();
+        }
+    }
     render_text(out, text);
+    if type_name == "Scene Heading" {
+        if let Some(scene_number) = &attributes.scene_number {
+            write!(out, "<span class=\"sceneNumberRight\">{}</span>", escape_html(scene_number)).unwrap();
+        }
+    }
     out.push_str("</p>\n");
 }
 

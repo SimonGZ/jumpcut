@@ -125,6 +125,20 @@
   margin-bottom: 0;
   clear: both;
   page-break-after: avoid;
+  position: relative;
+}
+
+.screenplay .sceneNumberLeft,
+.screenplay .sceneNumberRight {
+  position: absolute;
+}
+
+.screenplay .sceneNumberLeft {
+  left: -0.75in;
+}
+
+.screenplay .sceneNumberRight {
+  left: 5.875in;
 }
 
 .screenplay .action {
@@ -240,6 +254,7 @@
   min-height: 1em;
   line-height: 1;
   white-space: pre;
+  position: relative;
 }
 
 .screenplay.exactWraps .blankLine,

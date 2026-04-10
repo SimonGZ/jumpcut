@@ -1,5 +1,6 @@
 {{#*inline "element"~}}
       <p class="{{type_to_class type}}{{~#if attributes.starts_new_page}} startsNewPage{{/if~}}{{~#if attributes.centered}} centered{{/if~}}">
+        {{~#if attributes.scene_number}}<span class="sceneNumberLeft">{{attributes.scene_number}}</span>{{/if~}}
         {{~#if text.Plain~}}{{~text.Plain~}}{{~/if~}}
         {{~#if text.Styled~}}{{~#each text.Styled~}}
             {{~#if text_style~}}<span class="
@@ -9,6 +10,7 @@
             {{~/if~}}
         {{~content~}}{{~#if text_style~}}</span>{{~/if~}}
         {{~/each~}}{{~/if~}}
+        {{~#if attributes.scene_number}}<span class="sceneNumberRight">{{attributes.scene_number}}</span>{{/if~}}
       </p>
 {{/inline~}}
 <!doctype html>
