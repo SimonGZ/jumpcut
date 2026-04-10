@@ -22,6 +22,7 @@ DEFAULT_MAX_MEAN_X = 0.10
 DEFAULT_MAX_MEAN_Y = 0.10
 DEFAULT_MAX_ABS_X = 3.50
 DEFAULT_MAX_ABS_Y = 0.10
+WORD_Y_BIN = 4.0
 
 
 @dataclass(frozen=True)
@@ -197,8 +198,7 @@ def extract_word_boxes(pdf_path: Path) -> list[WordBox]:
     # Sort by visual reading order (page, y row, x) so comparison is
     # position-based rather than dependent on PDF content-stream order.
     # Words within 2pt of the same y are treated as the same line.
-    Y_BIN = 4.0
-    boxes.sort(key=lambda b: (b.page_number, round(b.y_min / Y_BIN), b.x_min))
+    boxes.sort(key=lambda b: (b.page_number, round(b.y_min / WORD_Y_BIN), b.x_min))
     return boxes
 
 

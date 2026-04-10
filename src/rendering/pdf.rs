@@ -7,13 +7,20 @@ use crate::pagination::visual_lines::{
 };
 use crate::pagination::wrapping::ElementType;
 use crate::pagination::ScreenplayLayoutProfile;
+use crate::pagination::{
+    BlockPlacement, ContinuationMarker, Fragment, PageItem, PaginatedScreenplay, PaginationScope,
+};
 use crate::title_page::{
     plain_title_uses_all_caps, TitlePage, TitlePageBlockKind, TitlePageRegion,
 };
-use crate::{ElementText, Screenplay};
-use pdf_writer::types::{CidFontType, FontFlags, SystemInfo, UnicodeCmap};
-use pdf_writer::{Content, Finish, Name, Pdf, Rect, Ref, Str};
+use crate::{ElementText, Metadata, Screenplay};
+use pdf_writer::types::{
+    ArtifactAttachment, ArtifactSubtype, ArtifactType, CidFontType, FontFlags, NumberingStyle,
+    StructRole, SystemInfo, UnicodeCmap,
+};
+use pdf_writer::{Content, Date, Finish, Name, Pdf, Rect, Ref, Str, TextStr};
 use std::collections::{BTreeMap, BTreeSet};
+use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 use ttf_parser::Face;
 
 const LETTER_WIDTH: f32 = 612.0;
@@ -25,6 +32,8 @@ const PAGE_NUMBER_LEFT: f32 = 7.0625 * 72.0;
 const PAGE_NUMBER_BASELINE_Y: f32 = 747.0;
 const TITLE_FONT_SIZE: f32 = 12.0;
 const TITLE_META_FONT_SIZE: f32 = 12.0;
+const DEFAULT_DOCUMENT_LANGUAGE: &str = "en-US";
+const TOOL_IDENTITY: &str = concat!("JumpCut ", env!("CARGO_PKG_VERSION"));
 const TITLE_BLOCK_LINE_STEP: f32 = 12.0;
 const TITLE_TITLE_TOP: f32 = 495.0;
 const TITLE_META_TOP: f32 = 447.0;
@@ -85,6 +94,115 @@ pub(crate) struct PdfTitleBlock {
     pub lines: Vec<ElementText>,
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct PdfTaggedDocument {
+    pub title_page: Option<PdfTaggedTitlePage>,
+    pub body_pages: Vec<PdfTaggedPage>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct PdfTaggedTitlePage {
+    pub blocks: Vec<PdfTaggedTitleBlock>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct PdfTaggedTitleBlock {
+    pub id: String,
+    pub kind: PdfTitleBlockKind,
+    pub role: PdfTaggedRole,
+    pub region: PdfTitleBlockRegion,
+    pub lines: Vec<ElementText>,
+    pub artifact: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct PdfTaggedPage {
+    pub page_number: u32,
+    pub body_page_number: Option<u32>,
+    pub blocks: Vec<PdfTaggedBlock>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct PdfBodyStructPage {
+    tagged_lines: Vec<PdfBodyStructLine>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct PdfBodyStructLine {
+    mcid: i32,
+    role: PdfTaggedRole,
+    structure_key: String,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct PdfEmittedStructLine {
+    mcid: i32,
+    role: PdfTaggedRole,
+    dual_side: Option<u8>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct PdfStructElementPlan {
+    key: String,
+    role: PdfTaggedRole,
+    refs: Vec<PdfMarkedContentRef>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct PdfMarkedContentRef {
+    page_index: usize,
+    mcid: i32,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct PdfPageLabelPlan {
+    page_index: i32,
+    style: PdfPageLabelStyle,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum PdfPageLabelStyle {
+    Blank,
+    Arabic { offset: i32 },
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct PdfTaggedBlock {
+    pub id: String,
+    pub source_block_id: Option<String>,
+    pub placement: PdfTaggedBlockPlacement,
+    pub fragment: Fragment,
+    pub continuation_markers: Vec<ContinuationMarker>,
+    pub items: Vec<PdfTaggedItem>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct PdfTaggedItem {
+    pub element_id: String,
+    pub role: PdfTaggedRole,
+    pub fragment: Fragment,
+    pub line_range: Option<(u32, u32)>,
+    pub continuation_markers: Vec<ContinuationMarker>,
+    pub artifact: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) enum PdfTaggedBlockPlacement {
+    Flow,
+    DualDialogue { group_id: String, side: u8 },
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum PdfTaggedRole {
+    Title,
+    SceneHeading,
+    Action,
+    Character,
+    Dialogue,
+    Parenthetical,
+    Transition,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum PdfTitleBlockKind {
     Title,
@@ -126,6 +244,7 @@ pub(crate) struct PdfRenderLine {
 pub(crate) struct PdfRenderFragment {
     pub text: String,
     pub styles: Vec<String>,
+    pub actual_text: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -198,6 +317,8 @@ struct StyleFlags {
 struct ResolvedRun {
     text: String,
     styles: StyleFlags,
+    actual_text: Option<String>,
+    tagged_span: bool,
 }
 
 #[derive(Clone, Copy)]
@@ -283,11 +404,25 @@ pub(crate) fn render(screenplay: &Screenplay) -> Vec<u8> {
 
 pub(crate) fn render_with_options(screenplay: &Screenplay, options: PdfRenderOptions) -> Vec<u8> {
     let document = build_render_document(screenplay, options);
+    let tagged_document = build_tagged_document(screenplay);
+    let document_language = document_language(&screenplay.metadata);
+    let render_timestamp = OffsetDateTime::now_utc();
+    let mut structure_pages = Vec::new();
+    if let Some(title_page) = &tagged_document.title_page {
+        structure_pages.push(build_title_structure_page(title_page));
+    }
+    structure_pages.extend(build_body_structure_pages(
+        &tagged_document,
+        &document.body_pages,
+    ));
     let profile = ScreenplayLayoutProfile::from_metadata(&screenplay.metadata);
     let geometry = profile.to_pagination_geometry();
     let fonts = EmbeddedFonts::new(&document);
     let body_page_count = document.body_pages.len() as i32;
     let page_count = body_page_count + i32::from(document.title_page.is_some());
+    let struct_parent_keys = (0..page_count).collect::<Vec<_>>();
+    let struct_element_plans = build_struct_element_plans(&structure_pages);
+    let page_label_plans = build_page_label_plans(&document);
 
     let catalog_id = Ref::new(1);
     let page_tree_id = Ref::new(2);
@@ -295,18 +430,73 @@ pub(crate) fn render_with_options(screenplay: &Screenplay, options: PdfRenderOpt
     let bold_font_ids = font_object_ids(9);
     let italic_font_ids = font_object_ids(15);
     let bold_italic_font_ids = font_object_ids(21);
+    let document_info_id = Ref::new(27);
+    let metadata_id = Ref::new(28);
     let page_ids = (0..page_count)
-        .map(|index| Ref::new(27 + index))
+        .map(|index| Ref::new(29 + index))
         .collect::<Vec<_>>();
     let content_ids = (0..page_count)
-        .map(|index| Ref::new(27 + page_count + index))
+        .map(|index| Ref::new(29 + page_count + index))
+        .collect::<Vec<_>>();
+    let mut next_object_id = 29 + (2 * page_count);
+    let struct_tree_root_id = Ref::new(next_object_id);
+    next_object_id += 1;
+    let parent_tree_array_ids = (0..page_count)
+        .map(|_| {
+            let id = Ref::new(next_object_id);
+            next_object_id += 1;
+            id
+        })
+        .collect::<Vec<_>>();
+    let struct_element_ids = struct_element_plans
+        .iter()
+        .map(|_| {
+            let id = Ref::new(next_object_id);
+            next_object_id += 1;
+            id
+        })
+        .collect::<Vec<_>>();
+    let page_label_ids = page_label_plans
+        .iter()
+        .map(|_| {
+            let id = Ref::new(next_object_id);
+            next_object_id += 1;
+            id
+        })
         .collect::<Vec<_>>();
 
     let mut pdf = Pdf::new();
-    pdf.catalog(catalog_id).pages(page_tree_id);
+    {
+        let mut catalog = pdf.catalog(catalog_id);
+        catalog.pages(page_tree_id);
+        catalog.lang(TextStr(&document_language));
+        catalog.mark_info().marked(true);
+        catalog.metadata(metadata_id);
+        catalog.viewer_preferences().display_doc_title(true);
+        catalog.pair(Name(b"StructTreeRoot"), struct_tree_root_id);
+        if !page_label_plans.is_empty() {
+            let mut page_labels = catalog.page_labels();
+            let mut nums = page_labels.nums();
+            for (plan, label_id) in page_label_plans.iter().zip(page_label_ids.iter().copied()) {
+                nums.insert(plan.page_index, label_id);
+            }
+        }
+        catalog.finish();
+    }
     pdf.pages(page_tree_id)
         .kids(page_ids.iter().copied())
         .count(page_count);
+    {
+        let mut info = pdf.document_info(document_info_id);
+        info.producer(TextStr(TOOL_IDENTITY));
+        let render_date = pdf_date(render_timestamp);
+        info.creation_date(render_date).modified_date(render_date);
+        if let Some(title) = document_title(&screenplay.metadata) {
+            info.title(TextStr(&title));
+        }
+    }
+    let xmp_metadata = build_xmp_metadata(&screenplay.metadata, &document_language, render_timestamp);
+    pdf.metadata(metadata_id, xmp_metadata.as_bytes());
     write_embedded_font_objects(&mut pdf, &fonts.regular, regular_font_ids);
     write_embedded_font_objects(&mut pdf, &fonts.bold, bold_font_ids);
     write_embedded_font_objects(&mut pdf, &fonts.italic, italic_font_ids);
@@ -316,7 +506,8 @@ pub(crate) fn render_with_options(screenplay: &Screenplay, options: PdfRenderOpt
         let mut page = pdf.page(page_id);
         page.parent(page_tree_id)
             .media_box(Rect::new(0.0, 0.0, LETTER_WIDTH, LETTER_HEIGHT))
-            .contents(content_ids[index]);
+            .contents(content_ids[index])
+            .struct_parents(struct_parent_keys[index]);
         page.resources()
             .fonts()
             .pair(fonts.regular.resource_name, regular_font_ids.type0_font_id)
@@ -330,10 +521,10 @@ pub(crate) fn render_with_options(screenplay: &Screenplay, options: PdfRenderOpt
     }
 
     let mut content_index = 0usize;
-    if let Some(title_page) = &document.title_page {
+    if let (Some(title_page), Some(tagged_title_page)) = (&document.title_page, &tagged_document.title_page) {
         pdf.stream(
             content_ids[content_index],
-            &render_title_page_content(title_page, &fonts),
+            &render_title_page_content(title_page, tagged_title_page, &fonts),
         );
         content_index += 1;
     }
@@ -346,7 +537,201 @@ pub(crate) fn render_with_options(screenplay: &Screenplay, options: PdfRenderOpt
         content_index += 1;
     }
 
+    {
+        let mut struct_tree_root: pdf_writer::writers::StructTreeRoot<'_> =
+            pdf.indirect(struct_tree_root_id).start();
+        {
+            let mut children = struct_tree_root.children();
+            children.items(struct_element_ids.iter().copied());
+        }
+        {
+            let mut parent_tree = struct_tree_root.parent_tree();
+            let mut parent_tree_nums = parent_tree.nums();
+            for (key, array_id) in struct_parent_keys
+                .iter()
+                .copied()
+                .zip(parent_tree_array_ids.iter().copied())
+            {
+                parent_tree_nums.insert(key, array_id);
+            }
+        }
+        struct_tree_root.parent_tree_next_key(struct_parent_keys.len() as i32);
+        write_tagged_pdf_role_map(&mut struct_tree_root);
+    }
+
+    for (page_index, parent_ids) in build_parent_tree_entries(
+        &structure_pages,
+        &struct_element_plans,
+        &struct_element_ids,
+    )
+    .into_iter()
+    .enumerate()
+    {
+        let mut parent_array = pdf.indirect(parent_tree_array_ids[page_index]).array();
+        parent_array.items(parent_ids);
+    }
+
+    for (plan, struct_element_id) in struct_element_plans.iter().zip(struct_element_ids.iter().copied()) {
+        let mut struct_element = pdf.struct_element(struct_element_id);
+        let first_ref = plan
+            .refs
+            .first()
+            .expect("expected at least one marked-content ref per struct element plan");
+        struct_element
+            .custom_kind(tagged_role_name(plan.role))
+            .parent(struct_tree_root_id)
+            .page(page_ids[first_ref.page_index]);
+
+        if plan.refs.len() == 1 {
+            struct_element
+                .marked_content_child()
+                .page(page_ids[first_ref.page_index])
+                .marked_content_id(first_ref.mcid);
+        } else {
+            let mut children = struct_element.children();
+            for marked_ref in &plan.refs {
+                children
+                    .marked_content_ref()
+                    .page(page_ids[marked_ref.page_index])
+                    .marked_content_id(marked_ref.mcid);
+            }
+        }
+    }
+
+    for (plan, page_label_id) in page_label_plans.iter().zip(page_label_ids.iter().copied()) {
+        let mut page_label: pdf_writer::writers::PageLabel<'_> = pdf.indirect(page_label_id).start();
+        if let PdfPageLabelStyle::Arabic { offset } = plan.style {
+            page_label.style(NumberingStyle::Arabic).offset(offset);
+        }
+    }
+
     pdf.finish()
+}
+
+fn write_tagged_pdf_role_map(struct_tree_root: &mut pdf_writer::writers::StructTreeRoot<'_>) {
+    let mut role_map = struct_tree_root.role_map();
+    role_map.insert(Name(b"Title"), StructRole::P);
+    role_map.insert(Name(b"SceneHeading"), StructRole::H1);
+    role_map.insert(Name(b"Action"), StructRole::P);
+    role_map.insert(Name(b"Character"), StructRole::P);
+    role_map.insert(Name(b"Dialogue"), StructRole::P);
+    role_map.insert(Name(b"Parenthetical"), StructRole::P);
+    role_map.insert(Name(b"Transition"), StructRole::P);
+}
+
+fn document_title(metadata: &Metadata) -> Option<String> {
+    let title = metadata
+        .get("title")
+        .into_iter()
+        .flatten()
+        .map(ElementText::plain_text)
+        .collect::<Vec<_>>()
+        .join(" ")
+        .trim()
+        .to_string();
+
+    if title.is_empty() {
+        None
+    } else {
+        Some(title)
+    }
+}
+
+fn document_language(metadata: &Metadata) -> String {
+    metadata
+        .get("lang")
+        .or_else(|| metadata.get("language"))
+        .and_then(|values| {
+            let language = values
+                .iter()
+                .map(ElementText::plain_text)
+                .collect::<Vec<_>>()
+                .join(" ")
+                .trim()
+                .replace('_', "-");
+            sanitize_language_tag(&language)
+        })
+        .unwrap_or_else(|| DEFAULT_DOCUMENT_LANGUAGE.to_string())
+}
+
+fn sanitize_language_tag(language: &str) -> Option<String> {
+    let trimmed = language.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    trimmed
+        .chars()
+        .all(|character| character.is_ascii_alphanumeric() || character == '-')
+        .then(|| trimmed.to_string())
+}
+
+fn build_xmp_metadata(
+    metadata: &Metadata,
+    document_language: &str,
+    render_timestamp: OffsetDateTime,
+) -> String {
+    let title_entries = document_title(metadata).map(|title| {
+        let escaped_title = escape_xml_text(&title);
+        let escaped_language = escape_xml_text(document_language);
+        format!(
+            "<dc:title><rdf:Alt>\
+             <rdf:li xml:lang=\"x-default\">{escaped_title}</rdf:li>\
+             <rdf:li xml:lang=\"{escaped_language}\">{escaped_title}</rdf:li>\
+             </rdf:Alt></dc:title>",
+            escaped_title = escaped_title,
+            escaped_language = escaped_language,
+        )
+    });
+    let escaped_language = escape_xml_text(document_language);
+    let escaped_tool_identity = escape_xml_text(TOOL_IDENTITY);
+    let render_timestamp = render_timestamp
+        .format(&Rfc3339)
+        .expect("expected RFC3339 render timestamp");
+
+    format!(
+        "<?xpacket begin=\"\u{feff}\" id=\"W5M0MpCehiHzreSzNTczkc9d\"?>\n\
+         <x:xmpmeta xmlns:x=\"adobe:ns:meta/\">\n\
+           <rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\">\n\
+             <rdf:Description rdf:about=\"\" \
+         xmlns:dc=\"http://purl.org/dc/elements/1.1/\" \
+         xmlns:xmp=\"http://ns.adobe.com/xap/1.0/\" \
+         xmlns:pdf=\"http://ns.adobe.com/pdf/1.3/\">\n\
+               {title_entries}\
+               <dc:language><rdf:Bag><rdf:li>{escaped_language}</rdf:li></rdf:Bag></dc:language>\n\
+               <xmp:CreatorTool>{escaped_tool_identity}</xmp:CreatorTool>\n\
+               <pdf:Producer>{escaped_tool_identity}</pdf:Producer>\n\
+               <xmp:CreateDate>{render_timestamp}</xmp:CreateDate>\n\
+               <xmp:ModifyDate>{render_timestamp}</xmp:ModifyDate>\n\
+               <xmp:MetadataDate>{render_timestamp}</xmp:MetadataDate>\n\
+             </rdf:Description>\n\
+           </rdf:RDF>\n\
+         </x:xmpmeta>\n\
+         <?xpacket end=\"w\"?>",
+        escaped_language = escaped_language,
+        escaped_tool_identity = escaped_tool_identity,
+        render_timestamp = render_timestamp,
+        title_entries = title_entries.unwrap_or_default(),
+    )
+}
+
+fn escape_xml_text(value: &str) -> String {
+    value
+        .replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+        .replace('\'', "&apos;")
+}
+
+fn pdf_date(timestamp: OffsetDateTime) -> Date {
+    Date::new(timestamp.year() as u16)
+        .month(timestamp.month() as u8)
+        .day(timestamp.day())
+        .hour(timestamp.hour())
+        .minute(timestamp.minute())
+        .second(timestamp.second())
+        .utc_offset_hour(0)
 }
 
 fn render_body_page_content(
@@ -357,16 +742,19 @@ fn render_body_page_content(
 ) -> Vec<u8> {
     let mut content = Content::new();
     let mut underlines = Vec::new();
+    let mut next_mcid = 0i32;
     content.begin_text();
     content.set_font(FONT_REGULAR_NAME, BODY_TEXT_FONT_SIZE);
     let line_step = body_line_step_points();
 
     if let Some(display_page_number) = page.display_page_number {
         let page_number = format!("{display_page_number}.");
-        render_fixed_cell_runs(
+        render_artifact_runs(
             &mut content,
             fonts,
             &[ResolvedRun {
+                actual_text: None,
+                tagged_span: false,
                 text: page_number,
                 styles: StyleFlags::default(),
             }],
@@ -393,6 +781,7 @@ fn render_body_page_content(
                 line_y,
                 &mut underlines,
                 profile,
+                &mut next_mcid,
             );
             continue;
         }
@@ -401,12 +790,14 @@ fn render_body_page_content(
         // matching the word stream order of Final Draft reference PDFs.
         if let Some(scene_number) = &line.scene_number {
             let plain_run = [ResolvedRun {
+                actual_text: None,
+                tagged_span: false,
                 text: scene_number.clone(),
                 styles: StyleFlags::default(),
             }];
             // Left scene number first (at 0.75" from page left)
             let scene_y = line_y + SCENE_NUMBER_Y_OFFSET;
-            render_fixed_cell_runs(
+            render_artifact_runs(
                 &mut content,
                 fonts,
                 &plain_run,
@@ -418,9 +809,13 @@ fn render_body_page_content(
             // Heading text in the middle
             let fragments = displayed_body_fragments(line, geometry);
             let defaults = default_body_line_styles(line.kind, profile);
-            render_fixed_cell_runs(
+            render_body_line_runs(
                 &mut content,
                 fonts,
+                line.kind
+                    .and_then(tagged_role_for_line_kind)
+                    .filter(|_| line.counted),
+                &mut next_mcid,
                 &resolve_runs(&fragments, defaults),
                 body_line_left(line, geometry),
                 line_y,
@@ -431,7 +826,7 @@ fn render_body_page_content(
             let scene_number_right_x = geometry.scene_number_right * 72.0;
             let right_x =
                 scene_number_right_x - (scene_number.chars().count() as f32 * BODY_TEXT_CELL_WIDTH);
-            render_fixed_cell_runs(
+            render_artifact_runs(
                 &mut content,
                 fonts,
                 &plain_run,
@@ -440,12 +835,29 @@ fn render_body_page_content(
                 BODY_TEXT_FONT_SIZE,
                 &mut underlines,
             );
+        } else if !line.counted {
+            render_artifact_runs(
+                &mut content,
+                fonts,
+                &resolve_runs(
+                    &displayed_body_fragments(line, geometry),
+                    default_body_line_styles(line.kind, profile),
+                ),
+                body_line_left(line, geometry),
+                line_y,
+                BODY_TEXT_FONT_SIZE,
+                &mut underlines,
+            );
         } else {
             let fragments = displayed_body_fragments(line, geometry);
             let defaults = default_body_line_styles(line.kind, profile);
-            render_fixed_cell_runs(
+            render_body_line_runs(
                 &mut content,
                 fonts,
+                line.kind
+                    .and_then(tagged_role_for_line_kind)
+                    .filter(|_| line.counted),
+                &mut next_mcid,
                 &resolve_runs(&fragments, defaults),
                 body_line_left(line, geometry),
                 line_y,
@@ -468,11 +880,14 @@ fn render_dual_body_line(
     line_y: f32,
     underlines: &mut Vec<UnderlineSegment>,
     profile: &ScreenplayLayoutProfile,
+    next_mcid: &mut i32,
 ) {
     if let Some(left) = &dual.left {
-        render_fixed_cell_runs(
+        render_body_line_runs(
             content,
             fonts,
+            tagged_role_for_line_kind(left.kind),
+            next_mcid,
             &resolve_runs(
                 &left.fragments,
                 default_body_line_styles(Some(left.kind), profile),
@@ -485,9 +900,11 @@ fn render_dual_body_line(
     }
 
     if let Some(right) = &dual.right {
-        render_fixed_cell_runs(
+        render_body_line_runs(
             content,
             fonts,
+            tagged_role_for_line_kind(right.kind),
+            next_mcid,
             &resolve_runs(
                 &right.fragments,
                 default_body_line_styles(Some(right.kind), profile),
@@ -496,6 +913,109 @@ fn render_dual_body_line(
             line_y,
             BODY_TEXT_FONT_SIZE,
             underlines,
+        );
+    }
+}
+
+fn render_artifact_runs(
+    content: &mut Content,
+    fonts: &EmbeddedFonts,
+    runs: &[ResolvedRun],
+    line_left: f32,
+    line_y: f32,
+    font_size: f32,
+    underlines: &mut Vec<UnderlineSegment>,
+) {
+    let is_page_number = line_y == page_number_y() && line_left >= page_number_x(10);
+    if is_page_number {
+        let mut marked_content = content.begin_marked_content_with_properties(Name(b"Artifact"));
+        marked_content
+            .properties()
+            .artifact()
+            .kind(ArtifactType::Pagination)
+            .subtype(ArtifactSubtype::PageNumber)
+            .attached([ArtifactAttachment::Top, ArtifactAttachment::Right]);
+    } else {
+        content.begin_marked_content(Name(b"Artifact"));
+    }
+    render_fixed_cell_runs(
+        content, fonts, runs, line_left, line_y, font_size, underlines,
+    );
+    content.end_marked_content();
+}
+
+fn build_page_label_plans(document: &PdfRenderDocument) -> Vec<PdfPageLabelPlan> {
+    let page_label_styles = document
+        .title_page
+        .iter()
+        .map(|_| PdfPageLabelStyle::Blank)
+        .chain(document.body_pages.iter().map(|page| {
+            page.display_page_number
+                .map(|number| PdfPageLabelStyle::Arabic {
+                    offset: number as i32,
+                })
+                .unwrap_or(PdfPageLabelStyle::Blank)
+        }))
+        .collect::<Vec<_>>();
+
+    if !page_label_styles
+        .iter()
+        .any(|style| matches!(style, PdfPageLabelStyle::Arabic { .. }))
+    {
+        return Vec::new();
+    }
+
+    let mut plans = Vec::new();
+    let mut current_arabic_start = None;
+
+    for (page_index, style) in page_label_styles.iter().copied().enumerate() {
+        let page_index = page_index as i32;
+        let should_start_new_plan = match (current_arabic_start, style) {
+            (Some((start_page_index, start_offset)), PdfPageLabelStyle::Arabic { offset }) => {
+                offset != start_offset + (page_index - start_page_index)
+            }
+            (Some(_), PdfPageLabelStyle::Blank) => true,
+            (None, PdfPageLabelStyle::Blank) => plans.is_empty(),
+            (None, PdfPageLabelStyle::Arabic { .. }) => true,
+        };
+
+        if should_start_new_plan {
+            plans.push(PdfPageLabelPlan { page_index, style });
+        }
+
+        current_arabic_start = match style {
+            PdfPageLabelStyle::Arabic { offset } => Some((page_index, offset)),
+            PdfPageLabelStyle::Blank => None,
+        };
+    }
+
+    plans
+}
+
+fn render_body_line_runs(
+    content: &mut Content,
+    fonts: &EmbeddedFonts,
+    role: Option<PdfTaggedRole>,
+    next_mcid: &mut i32,
+    runs: &[ResolvedRun],
+    line_left: f32,
+    line_y: f32,
+    font_size: f32,
+    underlines: &mut Vec<UnderlineSegment>,
+) {
+    if let Some(role) = role {
+        content
+            .begin_marked_content_with_properties(tagged_role_name(role))
+            .properties()
+            .identify(*next_mcid);
+        render_fixed_cell_runs(
+            content, fonts, runs, line_left, line_y, font_size, underlines,
+        );
+        content.end_marked_content();
+        *next_mcid += 1;
+    } else {
+        render_fixed_cell_runs(
+            content, fonts, runs, line_left, line_y, font_size, underlines,
         );
     }
 }
@@ -512,6 +1032,14 @@ fn render_fixed_cell_runs(
     let mut cell_index = 0usize;
 
     for run in runs {
+        if run.tagged_span {
+            let mut marked_content = content.begin_marked_content_with_properties(Name(b"Span"));
+            let mut properties = marked_content.properties();
+            if let Some(actual_text) = &run.actual_text {
+                properties.actual_text(TextStr(actual_text.as_str()));
+            }
+        }
+
         let font = fonts.for_styles(run.styles);
         content.set_font(font.resource_name, font_size);
         let run_start_cell = cell_index;
@@ -542,6 +1070,10 @@ fn render_fixed_cell_runs(
                     y: line_y,
                 });
             }
+        }
+
+        if run.tagged_span {
+            content.end_marked_content();
         }
     }
 }
@@ -579,31 +1111,47 @@ fn page_number_x(display_page_number: u32) -> f32 {
     PAGE_NUMBER_LEFT - (extra_digits * BODY_TEXT_CELL_WIDTH)
 }
 
-fn render_title_page_content(title_page: &PdfTitlePage, fonts: &EmbeddedFonts) -> Vec<u8> {
+fn render_title_page_content(
+    title_page: &PdfTitlePage,
+    tagged_title_page: &PdfTaggedTitlePage,
+    fonts: &EmbeddedFonts,
+) -> Vec<u8> {
     let mut content = Content::new();
     let mut underlines = Vec::new();
+    let mut next_mcid = 0i32;
     content.begin_text();
     content.set_font(FONT_REGULAR_NAME, TITLE_META_FONT_SIZE);
 
     render_title_page_region(
         &mut content,
         title_page,
+        tagged_title_page,
         fonts,
         PdfTitleBlockRegion::CenterTitle,
         TITLE_TITLE_TOP,
         TITLE_FONT_SIZE,
         &mut underlines,
+        &mut next_mcid,
     );
     render_title_page_region(
         &mut content,
         title_page,
+        tagged_title_page,
         fonts,
         PdfTitleBlockRegion::CenterMeta,
         TITLE_META_TOP,
         TITLE_META_FONT_SIZE,
         &mut underlines,
+        &mut next_mcid,
     );
-    render_title_page_bottom_regions(&mut content, title_page, fonts, &mut underlines);
+    render_title_page_bottom_regions(
+        &mut content,
+        title_page,
+        tagged_title_page,
+        fonts,
+        &mut underlines,
+        &mut next_mcid,
+    );
 
     content.end_text();
     render_underlines(&mut content, &underlines);
@@ -613,11 +1161,13 @@ fn render_title_page_content(title_page: &PdfTitlePage, fonts: &EmbeddedFonts) -
 fn render_title_page_region(
     content: &mut Content,
     title_page: &PdfTitlePage,
+    tagged_title_page: &PdfTaggedTitlePage,
     fonts: &EmbeddedFonts,
     region: PdfTitleBlockRegion,
     top_y: f32,
     font_size: f32,
     underlines: &mut Vec<UnderlineSegment>,
+    next_mcid: &mut i32,
 ) {
     let mut line_index = 0usize;
 
@@ -626,11 +1176,17 @@ fn render_title_page_region(
         .iter()
         .filter(|block| block.region == region)
     {
+        let tagged_block = tagged_title_page
+            .blocks
+            .iter()
+            .find(|candidate| candidate.kind == block.kind && candidate.region == block.region)
+            .expect("missing tagged title-page block for rendered region block");
         for line in &block.lines {
             let text = line.plain_text();
             let y = top_y - (line_index as f32 * TITLE_BLOCK_LINE_STEP);
-            render_fixed_cell_runs(
+            render_title_page_line_runs(
                 content,
+                tagged_block,
                 fonts,
                 &resolve_runs(
                     &title_page_fragments(title_page, block.kind, line),
@@ -640,6 +1196,7 @@ fn render_title_page_region(
                 y,
                 font_size,
                 underlines,
+                next_mcid,
             );
             line_index += 1;
         }
@@ -650,20 +1207,42 @@ fn render_title_page_region(
 fn render_title_page_bottom_regions(
     content: &mut Content,
     title_page: &PdfTitlePage,
+    tagged_title_page: &PdfTaggedTitlePage,
     fonts: &EmbeddedFonts,
     underlines: &mut Vec<UnderlineSegment>,
+    next_mcid: &mut i32,
 ) {
     let left_lines = title_page
         .blocks
         .iter()
         .filter(|block| block.region == PdfTitleBlockRegion::BottomLeft)
-        .flat_map(|block| block.lines.iter().map(move |line| (block.kind, line)))
+        .flat_map(|block| {
+            let tagged_block = tagged_title_page
+                .blocks
+                .iter()
+                .find(|candidate| candidate.kind == block.kind && candidate.region == block.region)
+                .expect("missing tagged title-page block for bottom-left region block");
+            block
+                .lines
+                .iter()
+                .map(move |line| (block.kind, tagged_block, line))
+        })
         .collect::<Vec<_>>();
     let right_lines = title_page
         .blocks
         .iter()
         .filter(|block| block.region == PdfTitleBlockRegion::BottomRight)
-        .flat_map(|block| block.lines.iter().map(move |line| (block.kind, line)))
+        .flat_map(|block| {
+            let tagged_block = tagged_title_page
+                .blocks
+                .iter()
+                .find(|candidate| candidate.kind == block.kind && candidate.region == block.region)
+                .expect("missing tagged title-page block for bottom-right region block");
+            block
+                .lines
+                .iter()
+                .map(move |line| (block.kind, tagged_block, line))
+        })
         .collect::<Vec<_>>();
 
     let max_lines = left_lines.len().max(right_lines.len());
@@ -674,6 +1253,7 @@ fn render_title_page_bottom_regions(
         &left_lines,
         max_lines,
         underlines,
+        next_mcid,
     );
     render_title_page_bottom_region_lines(
         content,
@@ -682,6 +1262,7 @@ fn render_title_page_bottom_regions(
         &right_lines,
         max_lines,
         underlines,
+        next_mcid,
     );
 }
 
@@ -689,17 +1270,19 @@ fn render_title_page_bottom_region_lines(
     content: &mut Content,
     fonts: &EmbeddedFonts,
     region: PdfTitleBlockRegion,
-    lines: &[(PdfTitleBlockKind, &ElementText)],
+    lines: &[(PdfTitleBlockKind, &PdfTaggedTitleBlock, &ElementText)],
     max_lines: usize,
     underlines: &mut Vec<UnderlineSegment>,
+    next_mcid: &mut i32,
 ) {
     let line_offset = max_lines.saturating_sub(lines.len()) as f32 * TITLE_BLOCK_LINE_STEP;
 
-    for (line_index, (kind, line)) in lines.iter().enumerate() {
+    for (line_index, (kind, tagged_block, line)) in lines.iter().enumerate() {
         let text = line.plain_text();
         let y = TITLE_BOTTOM_TOP - line_offset - (line_index as f32 * TITLE_BLOCK_LINE_STEP);
-        render_fixed_cell_runs(
+        render_title_page_line_runs(
             content,
+            tagged_block,
             fonts,
             &resolve_runs(
                 &title_page_fragments_for_kind(*kind, line),
@@ -709,8 +1292,38 @@ fn render_title_page_bottom_region_lines(
             y,
             TITLE_META_FONT_SIZE,
             underlines,
+            next_mcid,
         );
     }
+}
+
+fn render_title_page_line_runs(
+    content: &mut Content,
+    tagged_block: &PdfTaggedTitleBlock,
+    fonts: &EmbeddedFonts,
+    runs: &[ResolvedRun],
+    line_left: f32,
+    line_y: f32,
+    font_size: f32,
+    underlines: &mut Vec<UnderlineSegment>,
+    next_mcid: &mut i32,
+) {
+    if tagged_block.artifact {
+        render_fixed_cell_runs(
+            content, fonts, runs, line_left, line_y, font_size, underlines,
+        );
+        return;
+    }
+
+    content
+        .begin_marked_content_with_properties(tagged_role_name(tagged_block.role))
+        .properties()
+        .identify(*next_mcid);
+    render_fixed_cell_runs(
+        content, fonts, runs, line_left, line_y, font_size, underlines,
+    );
+    content.end_marked_content();
+    *next_mcid += 1;
 }
 
 fn title_page_bottom_line_left(text: &str, region: PdfTitleBlockRegion) -> f32 {
@@ -1102,21 +1715,81 @@ fn title_page_fragments_for_kind_and_caps(
     plain_title_all_caps: bool,
 ) -> Vec<PdfRenderFragment> {
     match line {
-        ElementText::Plain(text) => vec![PdfRenderFragment {
-            text: if kind == PdfTitleBlockKind::Title && plain_title_all_caps {
+        ElementText::Plain(text) => {
+            let displayed_text = if kind == PdfTitleBlockKind::Title && plain_title_all_caps {
                 text.to_ascii_uppercase()
             } else {
                 text.clone()
-            },
-            styles: Vec::new(),
-        }],
+            };
+            vec![PdfRenderFragment {
+                actual_text: None,
+                text: displayed_text,
+                styles: Vec::new(),
+            }]
+        }
         ElementText::Styled(runs) => runs
             .iter()
             .map(|run| PdfRenderFragment {
+                actual_text: None,
                 text: run.content.clone(),
                 styles: sorted_run_styles(run.text_style.iter().cloned()),
             })
             .collect(),
+    }
+}
+
+pub(crate) fn build_tagged_document(screenplay: &Screenplay) -> PdfTaggedDocument {
+    let title_page =
+        TitlePage::from_metadata(&screenplay.metadata).map(|title_page| PdfTaggedTitlePage {
+            blocks: title_page
+                .blocks
+                .into_iter()
+                .enumerate()
+                .map(|(index, block)| PdfTaggedTitleBlock {
+                    id: format!("title-page-{:02}-{:02}", index + 1, block.kind.sort_order()),
+                    kind: block.kind.into(),
+                    role: PdfTaggedRole::Title,
+                    region: block.region.into(),
+                    lines: block.lines,
+                    artifact: false,
+                })
+                .collect(),
+        });
+
+    let paginated = PaginatedScreenplay::from_screenplay(
+        "screenplay",
+        screenplay,
+        BODY_LINES_PER_PAGE,
+        pdf_pagination_scope(screenplay),
+    );
+    let body_pages = paginated
+        .pages
+        .into_iter()
+        .map(|page| PdfTaggedPage {
+            page_number: page.metadata.number,
+            body_page_number: page.metadata.body_page_number,
+            blocks: page
+                .blocks
+                .into_iter()
+                .map(|block| PdfTaggedBlock {
+                    id: block.id,
+                    source_block_id: block.source_block_id,
+                    placement: block.placement.into(),
+                    fragment: block.fragment,
+                    continuation_markers: block.continuation_markers,
+                    items: block
+                        .item_ids
+                        .iter()
+                        .map(|item_id| tagged_item_for_page_item(item_id, &page.items))
+                        .collect(),
+                })
+                .collect(),
+        })
+        .collect();
+
+    PdfTaggedDocument {
+        title_page,
+        body_pages,
     }
 }
 
@@ -1173,6 +1846,7 @@ fn trim_leading_fragment_spaces(
         spaces_to_trim = spaces_to_trim.saturating_sub(skipped);
         if !text.is_empty() {
             trimmed.push(PdfRenderFragment {
+                actual_text: fragment.actual_text.clone(),
                 text,
                 styles: fragment.styles.clone(),
             });
@@ -1189,6 +1863,8 @@ fn resolve_runs(fragments: &[PdfRenderFragment], default_styles: StyleFlags) -> 
             continue;
         }
         runs.push(ResolvedRun {
+            actual_text: fragment.actual_text.clone(),
+            tagged_span: !fragment.styles.is_empty() || fragment.actual_text.is_some(),
             text: fragment.text.clone(),
             styles: merge_style_flags(default_styles, style_flags_from_names(&fragment.styles)),
         });
@@ -1336,6 +2012,433 @@ impl From<TitlePageRegion> for PdfTitleBlockRegion {
     }
 }
 
+impl From<BlockPlacement> for PdfTaggedBlockPlacement {
+    fn from(value: BlockPlacement) -> Self {
+        match value {
+            BlockPlacement::Flow => Self::Flow,
+            BlockPlacement::DualDialogue { group_id, side } => {
+                Self::DualDialogue { group_id, side }
+            }
+        }
+    }
+}
+
+impl PdfTaggedRole {
+    fn from_page_item_kind(kind: &str) -> Self {
+        match kind {
+            "Scene Heading" => Self::SceneHeading,
+            "Character" => Self::Character,
+            "Dialogue" => Self::Dialogue,
+            "Parenthetical" => Self::Parenthetical,
+            "Transition" => Self::Transition,
+            "Action" | "Lyric" | "Cold Opening" | "New Act" | "End of Act" => Self::Action,
+            other => panic!("unsupported tagged PDF role kind: {other}"),
+        }
+    }
+}
+
+impl TitlePageBlockKind {
+    fn sort_order(self) -> u8 {
+        match self {
+            Self::Title => 1,
+            Self::Credit => 2,
+            Self::Author => 3,
+            Self::Source => 4,
+            Self::Contact => 5,
+            Self::Draft => 6,
+            Self::DraftDate => 7,
+        }
+    }
+}
+
+fn pdf_pagination_scope(screenplay: &Screenplay) -> PaginationScope {
+    if TitlePage::from_metadata(&screenplay.metadata).is_some() {
+        PaginationScope {
+            title_page_count: Some(1),
+            body_start_page: Some(2),
+        }
+    } else {
+        PaginationScope {
+            title_page_count: None,
+            body_start_page: None,
+        }
+    }
+}
+
+fn tagged_item_for_page_item(item_id: &str, page_items: &[PageItem]) -> PdfTaggedItem {
+    let item = page_items
+        .iter()
+        .find(|item| item.element_id == item_id)
+        .unwrap_or_else(|| panic!("missing page item for tagged block item id {item_id}"));
+
+    PdfTaggedItem {
+        element_id: item.element_id.clone(),
+        role: PdfTaggedRole::from_page_item_kind(&item.kind),
+        fragment: item.fragment.clone(),
+        line_range: item.line_range,
+        continuation_markers: item.continuation_markers.clone(),
+        artifact: false,
+    }
+}
+
+fn build_title_structure_page(title_page: &PdfTaggedTitlePage) -> PdfBodyStructPage {
+    let mut tagged_lines = Vec::new();
+    let mut next_mcid = 0i32;
+
+    for region in [
+        PdfTitleBlockRegion::CenterTitle,
+        PdfTitleBlockRegion::CenterMeta,
+        PdfTitleBlockRegion::BottomLeft,
+        PdfTitleBlockRegion::BottomRight,
+    ] {
+        for block in title_page.blocks.iter().filter(|block| block.region == region) {
+            if block.artifact {
+                continue;
+            }
+
+            for _ in &block.lines {
+                tagged_lines.push(PdfBodyStructLine {
+                    mcid: next_mcid,
+                    role: block.role,
+                    structure_key: block.id.clone(),
+                });
+                next_mcid += 1;
+            }
+        }
+    }
+
+    PdfBodyStructPage { tagged_lines }
+}
+
+fn build_body_structure_pages(
+    tagged_document: &PdfTaggedDocument,
+    body_pages: &[PdfRenderPage],
+) -> Vec<PdfBodyStructPage> {
+    tagged_document
+        .body_pages
+        .iter()
+        .zip(body_pages.iter())
+        .map(|(tagged_page, rendered_page)| {
+            let emitted_lines = emitted_structure_lines_for_page(rendered_page);
+            let tagged_lines = reorder_emitted_lines_with_tagged_page(tagged_page, &emitted_lines);
+            PdfBodyStructPage { tagged_lines }
+        })
+        .collect()
+}
+
+fn build_struct_element_plans(body_structure_pages: &[PdfBodyStructPage]) -> Vec<PdfStructElementPlan> {
+    let mut plans: Vec<PdfStructElementPlan> = Vec::new();
+    let mut plan_index_by_key: BTreeMap<String, usize> = BTreeMap::new();
+
+    for (page_index, page) in body_structure_pages.iter().enumerate() {
+        for line in &page.tagged_lines {
+            let marked_ref = PdfMarkedContentRef {
+                page_index,
+                mcid: line.mcid,
+            };
+            if let Some(&plan_index) = plan_index_by_key.get(&line.structure_key) {
+                plans[plan_index].refs.push(marked_ref);
+            } else {
+                plan_index_by_key.insert(line.structure_key.clone(), plans.len());
+                plans.push(PdfStructElementPlan {
+                    key: line.structure_key.clone(),
+                    role: line.role,
+                    refs: vec![marked_ref],
+                });
+            }
+        }
+    }
+
+    plans
+}
+
+fn build_parent_tree_entries(
+    body_structure_pages: &[PdfBodyStructPage],
+    struct_element_plans: &[PdfStructElementPlan],
+    struct_element_ids: &[Ref],
+) -> Vec<Vec<Ref>> {
+    let struct_id_by_key = struct_element_plans
+        .iter()
+        .zip(struct_element_ids.iter().copied())
+        .map(|(plan, id)| (plan.key.clone(), id))
+        .collect::<BTreeMap<_, _>>();
+
+    body_structure_pages
+        .iter()
+        .map(|page| {
+            let mut entries = page
+                .tagged_lines
+                .iter()
+                .map(|line| {
+                    (
+                        line.mcid,
+                        *struct_id_by_key
+                            .get(&line.structure_key)
+                            .expect("missing struct element id for structure key"),
+                    )
+                })
+                .collect::<Vec<_>>();
+            entries.sort_by_key(|(mcid, _)| *mcid);
+            entries.into_iter().map(|(_, id)| id).collect()
+        })
+        .collect()
+}
+
+fn emitted_structure_lines_for_page(page: &PdfRenderPage) -> Vec<PdfEmittedStructLine> {
+    let mut next_mcid = 0i32;
+    let mut emitted = Vec::new();
+    let mut line_index = 0usize;
+
+    while line_index < page.lines.len() {
+        let line = &page.lines[line_index];
+        if line.text.is_empty() {
+            line_index += 1;
+            continue;
+        }
+
+        if line.dual.is_some() {
+            while line_index < page.lines.len() {
+                let line = &page.lines[line_index];
+                let Some(dual) = &line.dual else {
+                    break;
+                };
+
+                if let Some(left) = &dual.left {
+                    if let Some(role) = tagged_role_for_line_kind(left.kind) {
+                        emitted.push(PdfEmittedStructLine {
+                            mcid: next_mcid,
+                            role,
+                            dual_side: Some(1),
+                        });
+                        next_mcid += 1;
+                    }
+                }
+
+                if let Some(right) = &dual.right {
+                    if let Some(role) = tagged_role_for_line_kind(right.kind) {
+                        emitted.push(PdfEmittedStructLine {
+                            mcid: next_mcid,
+                            role,
+                            dual_side: Some(2),
+                        });
+                        next_mcid += 1;
+                    }
+                }
+
+                line_index += 1;
+            }
+            continue;
+        }
+
+        if !line.counted {
+            line_index += 1;
+            continue;
+        }
+
+        if let Some(role) = line.kind.and_then(tagged_role_for_line_kind) {
+            emitted.push(PdfEmittedStructLine {
+                mcid: next_mcid,
+                role,
+                dual_side: None,
+            });
+            next_mcid += 1;
+        }
+
+        line_index += 1;
+    }
+
+    emitted
+}
+
+fn reorder_emitted_lines_with_tagged_page(
+    tagged_page: &PdfTaggedPage,
+    emitted_lines: &[PdfEmittedStructLine],
+) -> Vec<PdfBodyStructLine> {
+    let mut remaining = emitted_lines.to_vec();
+    let mut ordered = Vec::new();
+
+    for block in &tagged_page.blocks {
+        match block.placement {
+            PdfTaggedBlockPlacement::DualDialogue { side, .. } => {
+                ordered.extend(take_dual_side_lines_for_block(&mut remaining, block, side));
+            }
+            PdfTaggedBlockPlacement::Flow => {
+                if should_use_tagged_block_mapping(block) {
+                    ordered.extend(take_non_dual_lines_for_block(
+                        tagged_page,
+                        &mut remaining,
+                        block,
+                    ));
+                } else {
+                    let leading_non_dual = take_leading_non_dual_lines(&mut remaining);
+                    ordered.extend(leading_non_dual.into_iter().map(|line| PdfBodyStructLine {
+                        mcid: line.mcid,
+                        role: line.role,
+                        structure_key: synthetic_structure_key(tagged_page.page_number, line.mcid),
+                    }));
+                }
+            }
+        }
+    }
+
+    ordered.extend(remaining.into_iter().map(|line| PdfBodyStructLine {
+        mcid: line.mcid,
+        role: line.role,
+        structure_key: synthetic_structure_key(tagged_page.page_number, line.mcid),
+    }));
+    ordered
+}
+
+fn take_dual_side_lines_for_block(
+    remaining: &mut Vec<PdfEmittedStructLine>,
+    block: &PdfTaggedBlock,
+    side: u8,
+) -> Vec<PdfBodyStructLine> {
+    let mut taken = Vec::new();
+
+    for item in &block.items {
+        let mut taken_for_item = Vec::new();
+        let mut matching_positions = remaining
+            .iter()
+            .enumerate()
+            .filter(|(_, line)| line.dual_side == Some(side) && line.role == item.role)
+            .map(|(index, _)| index)
+            .collect::<Vec<_>>();
+
+        let lines_to_take = item
+            .line_range
+            .map(|(start, end)| (end - start + 1) as usize)
+            .unwrap_or_else(|| matching_positions.len());
+
+        matching_positions.truncate(lines_to_take);
+        for index in matching_positions.into_iter().rev() {
+            let line = remaining.remove(index);
+            taken_for_item.push(PdfBodyStructLine {
+                mcid: line.mcid,
+                role: line.role,
+                structure_key: item.element_id.clone(),
+            });
+        }
+        taken_for_item.reverse();
+        taken.extend(taken_for_item);
+    }
+    taken
+}
+
+fn take_leading_non_dual_lines(remaining: &mut Vec<PdfEmittedStructLine>) -> Vec<PdfEmittedStructLine> {
+    let mut take_count = 0usize;
+    let mut first_role = None;
+
+    for line in remaining.iter() {
+        if line.dual_side.is_some() {
+            break;
+        }
+        if let Some(role) = first_role {
+            if line.role != role {
+                break;
+            }
+        } else {
+            first_role = Some(line.role);
+        }
+        take_count += 1;
+    }
+
+    remaining.drain(..take_count).collect()
+}
+
+fn take_non_dual_lines_for_block(
+    tagged_page: &PdfTaggedPage,
+    remaining: &mut Vec<PdfEmittedStructLine>,
+    block: &PdfTaggedBlock,
+) -> Vec<PdfBodyStructLine> {
+    let mut taken = Vec::new();
+    let leading_non_dual = take_leading_non_dual_lines(remaining);
+    let mut cursor = 0usize;
+
+    for item in &block.items {
+        let line_count = item
+            .line_range
+            .map(|(start, end)| (end - start + 1) as usize)
+            .unwrap_or_else(|| {
+                leading_non_dual[cursor..]
+                    .iter()
+                    .take_while(|line| line.role == item.role)
+                    .count()
+            });
+
+        for line in leading_non_dual
+            .iter()
+            .skip(cursor)
+            .take(line_count)
+            .copied()
+        {
+            taken.push(PdfBodyStructLine {
+                mcid: line.mcid,
+                role: line.role,
+                structure_key: item.element_id.clone(),
+            });
+        }
+        cursor += line_count;
+    }
+
+    if taken.is_empty() {
+        return leading_non_dual
+            .into_iter()
+            .map(|line| PdfBodyStructLine {
+                mcid: line.mcid,
+                role: line.role,
+                structure_key: synthetic_structure_key(tagged_page.page_number, line.mcid),
+            })
+            .collect();
+    }
+
+    remaining.splice(0..0, leading_non_dual.into_iter().skip(cursor));
+    taken
+}
+
+fn should_use_tagged_block_mapping(block: &PdfTaggedBlock) -> bool {
+    block.items.len() > 1
+        || !block.continuation_markers.is_empty()
+        || block.items.iter().any(|item| item.line_range.is_some())
+}
+
+fn synthetic_structure_key(page_number: u32, mcid: i32) -> String {
+    format!("page-{page_number}-mcid-{mcid}")
+}
+
+fn tagged_role_for_line_kind(kind: PdfLineKind) -> Option<PdfTaggedRole> {
+    match kind {
+        PdfLineKind::Action
+        | PdfLineKind::ColdOpening
+        | PdfLineKind::NewAct
+        | PdfLineKind::EndOfAct
+        | PdfLineKind::Lyric => Some(PdfTaggedRole::Action),
+        PdfLineKind::SceneHeading => Some(PdfTaggedRole::SceneHeading),
+        PdfLineKind::Character
+        | PdfLineKind::DualDialogueCharacterLeft
+        | PdfLineKind::DualDialogueCharacterRight => Some(PdfTaggedRole::Character),
+        PdfLineKind::Dialogue | PdfLineKind::DualDialogueLeft | PdfLineKind::DualDialogueRight => {
+            Some(PdfTaggedRole::Dialogue)
+        }
+        PdfLineKind::Parenthetical
+        | PdfLineKind::DualDialogueParentheticalLeft
+        | PdfLineKind::DualDialogueParentheticalRight => Some(PdfTaggedRole::Parenthetical),
+        PdfLineKind::Transition => Some(PdfTaggedRole::Transition),
+    }
+}
+
+fn tagged_role_name(role: PdfTaggedRole) -> Name<'static> {
+    match role {
+        PdfTaggedRole::Title => Name(b"Title"),
+        PdfTaggedRole::SceneHeading => Name(b"SceneHeading"),
+        PdfTaggedRole::Action => Name(b"Action"),
+        PdfTaggedRole::Character => Name(b"Character"),
+        PdfTaggedRole::Dialogue => Name(b"Dialogue"),
+        PdfTaggedRole::Parenthetical => Name(b"Parenthetical"),
+        PdfTaggedRole::Transition => Name(b"Transition"),
+    }
+}
+
 impl From<ElementType> for PdfLineKind {
     fn from(value: ElementType) -> Self {
         match value {
@@ -1362,6 +2465,7 @@ impl From<ElementType> for PdfLineKind {
 impl From<VisualFragment> for PdfRenderFragment {
     fn from(value: VisualFragment) -> Self {
         Self {
+            actual_text: None,
             text: value.text,
             styles: value.styles,
         }
@@ -1390,7 +2494,320 @@ impl From<VisualDualSide> for PdfRenderDualSide {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::parse;
     use crate::{blank_attributes, p, tr, Attributes, Element, Metadata};
+    use regex::Regex;
+    use std::fs;
+
+    #[derive(Debug)]
+    struct TaggedPdfInspection {
+        has_mark_info: bool,
+        has_struct_tree_root: bool,
+        has_parent_tree: bool,
+        has_role_map: bool,
+        catalog_language: Option<String>,
+        parent_tree_next_key: Option<i32>,
+        role_map_entries: BTreeMap<String, String>,
+        struct_parents: Vec<i32>,
+        mcids: Vec<i32>,
+        artifact_marked_content_count: usize,
+        pagination_artifact_count: usize,
+        page_number_artifact_count: usize,
+        struct_elem_count: usize,
+        mcr_count: usize,
+        shared_struct_element_count: usize,
+        page_labels: Vec<InspectedPageLabel>,
+        property_artifacts: Vec<InspectedArtifact>,
+        property_marked_content: Vec<InspectedMarkedContent>,
+        xmp_metadata: Option<String>,
+    }
+
+    #[derive(Debug, PartialEq, Eq)]
+    struct InspectedPageLabel {
+        page_index: i32,
+        style: Option<String>,
+        offset: Option<i32>,
+    }
+
+    #[derive(Debug, PartialEq, Eq)]
+    struct InspectedArtifact {
+        kind: Option<String>,
+        subtype: Option<String>,
+        attached: Vec<String>,
+    }
+
+    #[derive(Debug, PartialEq, Eq)]
+    struct InspectedMarkedContent {
+        tag: String,
+        mcid: Option<i32>,
+        actual_text: Option<String>,
+    }
+
+    fn inspect_tagged_pdf(pdf: &[u8]) -> TaggedPdfInspection {
+        let pdf_text = String::from_utf8_lossy(pdf);
+        let role_map_entries = extract_name_pairs_from_dict(&pdf_text, "/RoleMap");
+        let struct_elem_objects = pdf_text
+            .split("endobj")
+            .filter(|object| object.contains("/Type /StructElem"))
+            .collect::<Vec<_>>();
+        let shared_struct_element_count = struct_elem_objects
+            .iter()
+            .filter(|object| object.matches("/Type /MCR").count() > 1)
+            .count();
+
+        TaggedPdfInspection {
+            has_mark_info: pdf_text.contains("/MarkInfo"),
+            has_struct_tree_root: pdf_text.contains("/StructTreeRoot")
+                && pdf_text.contains("/Type /StructTreeRoot"),
+            has_parent_tree: pdf_text.contains("/ParentTree"),
+            has_role_map: pdf_text.contains("/RoleMap"),
+            catalog_language: extract_literal_string_value(&pdf_text, "/Lang "),
+            parent_tree_next_key: extract_first_marker_int(&pdf_text, "/ParentTreeNextKey "),
+            role_map_entries,
+            struct_parents: extract_marker_ints(&pdf_text, "/StructParents "),
+            mcids: extract_marker_ints(&pdf_text, "/MCID "),
+            artifact_marked_content_count: pdf_text.matches("/Artifact BMC").count()
+                + pdf_text.matches("/Artifact <<").count(),
+            pagination_artifact_count: pdf_text.matches("/Type /Pagination").count(),
+            page_number_artifact_count: pdf_text.matches("/Subtype /PageNum").count(),
+            struct_elem_count: struct_elem_objects.len(),
+            mcr_count: pdf_text.matches("/Type /MCR").count(),
+            shared_struct_element_count,
+            page_labels: extract_page_labels(&pdf_text),
+            property_artifacts: extract_property_artifacts(&pdf_text),
+            property_marked_content: extract_property_marked_content(&pdf_text),
+            xmp_metadata: extract_metadata_stream(&pdf_text),
+        }
+    }
+
+    fn inspect_artifact_properties(stream: &[u8]) -> Vec<InspectedArtifact> {
+        extract_property_artifacts(&String::from_utf8_lossy(stream))
+    }
+
+    fn inspect_property_marked_content(stream: &[u8]) -> Vec<InspectedMarkedContent> {
+        extract_property_marked_content(&String::from_utf8_lossy(stream))
+    }
+
+    fn extract_name_pairs_from_dict(pdf_text: &str, marker: &str) -> BTreeMap<String, String> {
+        let Some(marker_index) = pdf_text.find(marker) else {
+            return BTreeMap::new();
+        };
+        let dict_text = &pdf_text[marker_index..];
+        let Some(dict_start) = dict_text.find("<<") else {
+            return BTreeMap::new();
+        };
+        let dict_text = &dict_text[dict_start + 2..];
+        let Some(dict_end) = dict_text.find(">>") else {
+            return BTreeMap::new();
+        };
+        let tokens = dict_text[..dict_end].split_whitespace().collect::<Vec<_>>();
+        let mut pairs = BTreeMap::new();
+        let mut index = 0usize;
+
+        while index + 1 < tokens.len() {
+            let key = tokens[index];
+            let value = tokens[index + 1];
+            if key.starts_with('/') && value.starts_with('/') {
+                pairs.insert(
+                    key.trim_start_matches('/').to_string(),
+                    value.trim_start_matches('/').to_string(),
+                );
+                index += 2;
+            } else {
+                index += 1;
+            }
+        }
+
+        pairs
+    }
+
+    fn extract_marker_ints(pdf_text: &str, marker: &str) -> Vec<i32> {
+        let mut ints = Vec::new();
+        let mut remaining = pdf_text;
+
+        while let Some(index) = remaining.find(marker) {
+            let after_marker = &remaining[index + marker.len()..];
+            let digits = after_marker
+                .chars()
+                .take_while(|character| character.is_ascii_digit())
+                .collect::<String>();
+            if let Ok(value) = digits.parse::<i32>() {
+                ints.push(value);
+            }
+            remaining = after_marker;
+        }
+
+        ints
+    }
+
+    fn extract_first_marker_int(pdf_text: &str, marker: &str) -> Option<i32> {
+        extract_marker_ints(pdf_text, marker).into_iter().next()
+    }
+
+    fn extract_page_labels(pdf_text: &str) -> Vec<InspectedPageLabel> {
+        let object_bodies = pdf_object_bodies_by_id(pdf_text);
+        let Some(page_labels_index) = pdf_text.find("/PageLabels") else {
+            return Vec::new();
+        };
+        let page_labels_text = &pdf_text[page_labels_index..];
+        let Some(nums_index) = page_labels_text.find("/Nums [") else {
+            return Vec::new();
+        };
+        let nums_text = &page_labels_text[nums_index + "/Nums [".len()..];
+        let Some(nums_end) = nums_text.find(']') else {
+            return Vec::new();
+        };
+        let tokens = nums_text[..nums_end].split_whitespace().collect::<Vec<_>>();
+        let mut labels = Vec::new();
+        let mut index = 0usize;
+
+        while index + 3 < tokens.len() {
+            let Ok(page_index) = tokens[index].parse::<i32>() else {
+                index += 1;
+                continue;
+            };
+            let Ok(object_id) = tokens[index + 1].parse::<i32>() else {
+                index += 1;
+                continue;
+            };
+            let body = object_bodies
+                .get(&object_id)
+                .expect("expected page label object body");
+            labels.push(InspectedPageLabel {
+                page_index,
+                style: extract_name_value(body, "/S "),
+                offset: extract_first_marker_int(body, "/St "),
+            });
+            index += 4;
+        }
+
+        labels
+    }
+
+    fn pdf_object_bodies_by_id(pdf_text: &str) -> BTreeMap<i32, String> {
+        let mut bodies = BTreeMap::new();
+
+        for object in pdf_text.split("endobj") {
+            let trimmed = object.trim_start();
+            let mut tokens = trimmed.split_whitespace();
+            let Some(id_token) = tokens.next() else {
+                continue;
+            };
+            let Some(gen_token) = tokens.next() else {
+                continue;
+            };
+            let Some(obj_token) = tokens.next() else {
+                continue;
+            };
+            if gen_token != "0" || obj_token != "obj" {
+                continue;
+            }
+            let Ok(object_id) = id_token.parse::<i32>() else {
+                continue;
+            };
+            bodies.insert(object_id, trimmed.to_string());
+        }
+
+        bodies
+    }
+
+    fn extract_name_value(pdf_text: &str, marker: &str) -> Option<String> {
+        let marker_index = pdf_text.find(marker)?;
+        let after_marker = &pdf_text[marker_index + marker.len()..];
+        let name = after_marker
+            .split_whitespace()
+            .next()?
+            .trim_start_matches('/')
+            .to_string();
+        Some(name)
+    }
+
+    fn extract_literal_string_value(pdf_text: &str, marker: &str) -> Option<String> {
+        let marker_index = pdf_text.find(marker)?;
+        let after_marker = &pdf_text[marker_index + marker.len()..];
+        let string_end = after_marker.find(')')?;
+        after_marker
+            .strip_prefix('(')
+            .map(|text| text[..string_end - 1].to_string())
+    }
+
+    fn extract_metadata_stream(pdf_text: &str) -> Option<String> {
+        let object_bodies = pdf_object_bodies_by_id(pdf_text);
+        let metadata_index = pdf_text.find("/Metadata ")?;
+        let metadata_text = &pdf_text[metadata_index + "/Metadata ".len()..];
+        let object_id = metadata_text
+            .split_whitespace()
+            .next()?
+            .parse::<i32>()
+            .ok()?;
+        let body = object_bodies.get(&object_id)?;
+        let stream_start = body.find("stream\n")?;
+        let stream_body = &body[stream_start + "stream\n".len()..];
+        let stream_end = stream_body.find("\nendstream")?;
+        Some(stream_body[..stream_end].to_string())
+    }
+
+    fn extract_property_artifacts(pdf_text: &str) -> Vec<InspectedArtifact> {
+        let mut artifacts = Vec::new();
+        let mut remaining = pdf_text;
+
+        while let Some(index) = remaining.find("/Artifact <<") {
+            let after_start = &remaining[index + "/Artifact <<".len()..];
+            let Some(dict_end) = after_start.find(">> BDC") else {
+                break;
+            };
+            let dict = &after_start[..dict_end];
+            artifacts.push(InspectedArtifact {
+                kind: extract_name_value(dict, "/Type "),
+                subtype: extract_name_value(dict, "/Subtype "),
+                attached: extract_name_array(dict, "/Attached ["),
+            });
+            remaining = &after_start[dict_end + ">> BDC".len()..];
+        }
+
+        artifacts
+    }
+
+    fn extract_property_marked_content(pdf_text: &str) -> Vec<InspectedMarkedContent> {
+        let pattern =
+            Regex::new(r"(?s)/([^[:space:]<]+)[[:space:]]*<<(.*?)>>[[:space:]]*BDC")
+                .expect("expected marked-content regex");
+
+        pattern
+            .captures_iter(pdf_text)
+            .map(|captures| {
+                let tag = captures
+                    .get(1)
+                    .expect("expected marked-content tag")
+                    .as_str()
+                    .to_string();
+                let dict = captures
+                    .get(2)
+                    .expect("expected marked-content property dictionary")
+                    .as_str();
+
+                InspectedMarkedContent {
+                    tag,
+                    mcid: extract_first_marker_int(dict, "/MCID "),
+                    actual_text: extract_literal_string_value(dict, "/ActualText "),
+                }
+            })
+            .collect()
+    }
+
+    fn extract_name_array(pdf_text: &str, marker: &str) -> Vec<String> {
+        let Some(marker_index) = pdf_text.find(marker) else {
+            return Vec::new();
+        };
+        let after_marker = &pdf_text[marker_index + marker.len()..];
+        let Some(array_end) = after_marker.find(']') else {
+            return Vec::new();
+        };
+        after_marker[..array_end]
+            .split_whitespace()
+            .map(|value| value.trim_start_matches('/').to_string())
+            .collect()
+    }
 
     #[test]
     fn pdf_render_document_is_derived_from_real_title_page_and_paginated_visual_pages() {
@@ -1453,6 +2870,160 @@ mod tests {
     }
 
     #[test]
+    fn tagged_pdf_plan_is_derived_from_real_pipeline_for_split_dialogue() {
+        let fountain =
+            fs::read_to_string("tests/fixtures/corpus/public/big-fish/source/source.fountain")
+                .expect("expected big-fish corpus fixture");
+        let screenplay = parse(&fountain);
+        let tagged = build_tagged_document(&screenplay);
+
+        let split_blocks = tagged
+            .body_pages
+            .iter()
+            .flat_map(|page| {
+                page.blocks
+                    .iter()
+                    .map(move |block| (page.page_number, page.body_page_number, block))
+            })
+            .filter(|(_, _, block)| !block.continuation_markers.is_empty())
+            .collect::<Vec<_>>();
+
+        let [(first_page_number, first_body_page_number, outgoing), (second_page_number, second_body_page_number, incoming)] =
+            split_blocks
+                .windows(2)
+                .find(|pair| {
+                    pair[0].2.id == pair[1].2.id
+                        && pair[0].2.continuation_markers == vec![ContinuationMarker::More]
+                        && pair[1].2.continuation_markers == vec![ContinuationMarker::Continued]
+                        && pair[0]
+                            .2
+                            .items
+                            .iter()
+                            .any(|item| item.role == PdfTaggedRole::Dialogue)
+                        && pair[1]
+                            .2
+                            .items
+                            .iter()
+                            .any(|item| item.role == PdfTaggedRole::Dialogue)
+                })
+                .map(|pair| [pair[0], pair[1]])
+                .expect("expected a split dialogue block in the real corpus screenplay");
+
+        assert!(tagged.title_page.is_some());
+        assert_eq!(outgoing.id, incoming.id);
+        assert_eq!(outgoing.fragment, Fragment::ContinuedToNext);
+        assert_eq!(incoming.fragment, Fragment::ContinuedFromPrev);
+        assert_eq!(
+            outgoing.continuation_markers,
+            vec![ContinuationMarker::More]
+        );
+        assert_eq!(
+            incoming.continuation_markers,
+            vec![ContinuationMarker::Continued]
+        );
+        assert!(first_page_number < second_page_number);
+        assert!(first_body_page_number < second_body_page_number);
+
+        let outgoing_dialogue = outgoing
+            .items
+            .iter()
+            .find(|item| item.role == PdfTaggedRole::Dialogue)
+            .expect("expected outgoing dialogue item");
+        let incoming_dialogue = incoming
+            .items
+            .iter()
+            .find(|item| item.role == PdfTaggedRole::Dialogue)
+            .expect("expected incoming dialogue item");
+        assert_eq!(outgoing_dialogue.element_id, incoming_dialogue.element_id);
+        assert!(outgoing_dialogue.line_range.is_some());
+        assert!(incoming_dialogue.line_range.is_some());
+        assert_eq!(
+            outgoing_dialogue.continuation_markers,
+            vec![ContinuationMarker::More]
+        );
+        assert_eq!(
+            incoming_dialogue.continuation_markers,
+            vec![ContinuationMarker::Continued]
+        );
+        assert_eq!(outgoing_dialogue.artifact, false);
+        assert_eq!(incoming_dialogue.artifact, false);
+    }
+
+    #[test]
+    fn tagged_pdf_plan_preserves_source_order_for_dual_dialogue_blocks() {
+        let screenplay = Screenplay {
+            metadata: Metadata::new(),
+            elements: vec![Element::DualDialogueBlock(vec![
+                Element::DialogueBlock(vec![
+                    Element::Character(p("BRICK"), blank_attributes()),
+                    Element::Dialogue(p("Left side."), blank_attributes()),
+                ]),
+                Element::DialogueBlock(vec![
+                    Element::Character(p("STEEL"), blank_attributes()),
+                    Element::Dialogue(p("Right side."), blank_attributes()),
+                ]),
+            ])],
+        };
+
+        let tagged = build_tagged_document(&screenplay);
+        let page = tagged
+            .body_pages
+            .first()
+            .expect("expected a body page for dual dialogue");
+
+        assert_eq!(page.blocks.len(), 2);
+
+        let left = &page.blocks[0];
+        let right = &page.blocks[1];
+
+        match (&left.placement, &right.placement) {
+            (
+                PdfTaggedBlockPlacement::DualDialogue {
+                    group_id: left_group_id,
+                    side: left_side,
+                },
+                PdfTaggedBlockPlacement::DualDialogue {
+                    group_id: right_group_id,
+                    side: right_side,
+                },
+            ) => {
+                assert_eq!(left_side, &1);
+                assert_eq!(right_side, &2);
+                assert_eq!(left_group_id, right_group_id);
+            }
+            other => panic!("expected dual dialogue placements, got {other:?}"),
+        }
+
+        assert_eq!(
+            left.items.iter().map(|item| &item.role).collect::<Vec<_>>(),
+            vec![&PdfTaggedRole::Character, &PdfTaggedRole::Dialogue]
+        );
+        assert_eq!(
+            right
+                .items
+                .iter()
+                .map(|item| &item.role)
+                .collect::<Vec<_>>(),
+            vec![&PdfTaggedRole::Character, &PdfTaggedRole::Dialogue]
+        );
+        assert_eq!(
+            left.items
+                .iter()
+                .map(|item| item.element_id.as_str())
+                .collect::<Vec<_>>(),
+            vec!["el-00001", "el-00002"]
+        );
+        assert_eq!(
+            right
+                .items
+                .iter()
+                .map(|item| item.element_id.as_str())
+                .collect::<Vec<_>>(),
+            vec!["el-00003", "el-00004"]
+        );
+    }
+
+    #[test]
     fn pdf_render_output_emits_valid_pdf_bytes_with_expected_page_count() {
         let mut metadata = Metadata::new();
         metadata.insert("title".into(), vec![p("MY SCREENPLAY")]);
@@ -1481,6 +3052,526 @@ mod tests {
         assert!(pdf_text.contains("/Subtype /Type0"));
         assert!(pdf_text.contains("/FontFile2"));
         assert!(pdf_text.contains("/BaseFont /CourierPrime-Regular"));
+    }
+
+    #[test]
+    fn pdf_render_output_emits_catalog_level_tagged_pdf_scaffolding() {
+        let mut metadata = Metadata::new();
+        metadata.insert("title".into(), vec![p("MY SCREENPLAY")]);
+
+        let screenplay = Screenplay {
+            metadata,
+            elements: vec![Element::Action(p("BODY PAGE"), blank_attributes())],
+        };
+
+        let pdf = render(&screenplay);
+        let inspection = inspect_tagged_pdf(&pdf);
+        let pdf_text = String::from_utf8_lossy(&pdf);
+
+        assert!(inspection.has_mark_info);
+        assert!(pdf_text.contains("/Marked true"));
+        assert!(inspection.has_struct_tree_root);
+        assert!(inspection.has_parent_tree);
+        assert_eq!(inspection.parent_tree_next_key, Some(2));
+        assert!(inspection.has_role_map);
+        assert_eq!(inspection.role_map_entries.get("Title"), Some(&"P".into()));
+        assert_eq!(inspection.role_map_entries.get("SceneHeading"), Some(&"H1".into()));
+        assert_eq!(inspection.role_map_entries.get("Dialogue"), Some(&"P".into()));
+        assert_eq!(inspection.catalog_language, Some("en-US".into()));
+        assert!(pdf_text.contains("/ViewerPreferences"));
+        assert!(pdf_text.contains("/DisplayDocTitle true"));
+        assert!(pdf_text.contains("/Title (MY SCREENPLAY)"));
+    }
+
+    #[test]
+    fn pdf_render_output_emits_xmp_metadata_stream() {
+        let mut metadata = Metadata::new();
+        metadata.insert("title".into(), vec![p("My Screenplay")]);
+
+        let screenplay = Screenplay {
+            metadata,
+            elements: vec![Element::Action(p("BODY PAGE"), blank_attributes())],
+        };
+
+        let pdf = render(&screenplay);
+        let pdf_text = String::from_utf8_lossy(&pdf);
+        let inspection = inspect_tagged_pdf(&pdf);
+        let xmp = inspection
+            .xmp_metadata
+            .as_deref()
+            .expect("expected XMP metadata stream");
+
+        assert!(pdf_text.contains("/Metadata "));
+        assert!(pdf_text.contains("/Type /Metadata"));
+        assert!(pdf_text.contains("/Subtype /XML"));
+        assert!(xmp.contains("<dc:title><rdf:Alt>"));
+        assert!(xmp.contains("<rdf:li xml:lang=\"x-default\">My Screenplay</rdf:li>"));
+        assert!(xmp.contains("<xmp:CreatorTool>JumpCut 1.0.0-alpha.2</xmp:CreatorTool>"));
+        assert!(xmp.contains("<pdf:Producer>JumpCut 1.0.0-alpha.2</pdf:Producer>"));
+        assert!(xmp.contains("<xmp:CreateDate>"));
+        assert!(xmp.contains("<xmp:ModifyDate>"));
+        assert!(xmp.contains("<xmp:MetadataDate>"));
+    }
+
+    #[test]
+    fn pdf_render_output_defaults_document_language_to_en_us() {
+        let screenplay = Screenplay {
+            metadata: Metadata::new(),
+            elements: vec![Element::Action(p("BODY PAGE"), blank_attributes())],
+        };
+
+        let inspection = inspect_tagged_pdf(&render(&screenplay));
+        let xmp = inspection
+            .xmp_metadata
+            .as_deref()
+            .expect("expected XMP metadata stream");
+
+        assert_eq!(inspection.catalog_language, Some("en-US".into()));
+        assert!(xmp.contains("<dc:language><rdf:Bag><rdf:li>en-US</rdf:li></rdf:Bag></dc:language>"));
+    }
+
+    #[test]
+    fn pdf_render_output_uses_metadata_language_override_in_catalog_and_xmp() {
+        let mut metadata = Metadata::new();
+        metadata.insert("lang".into(), vec![p("fr-CA")]);
+
+        let screenplay = Screenplay {
+            metadata,
+            elements: vec![Element::Action(p("BODY PAGE"), blank_attributes())],
+        };
+
+        let inspection = inspect_tagged_pdf(&render(&screenplay));
+        let xmp = inspection
+            .xmp_metadata
+            .as_deref()
+            .expect("expected XMP metadata stream");
+
+        assert_eq!(inspection.catalog_language, Some("fr-CA".into()));
+        assert!(xmp.contains("<dc:language><rdf:Bag><rdf:li>fr-CA</rdf:li></rdf:Bag></dc:language>"));
+    }
+
+    #[test]
+    fn pdf_render_output_emits_page_level_struct_parent_and_mcid_markers() {
+        let screenplay = Screenplay {
+            metadata: Metadata::new(),
+            elements: vec![
+                Element::Action(p("FIRST BODY PAGE"), blank_attributes()),
+                Element::DialogueBlock(vec![
+                    Element::Character(p("ALEX"), blank_attributes()),
+                    Element::Dialogue(p("HELLO FROM PAGE ONE"), blank_attributes()),
+                ]),
+            ],
+        };
+
+        let pdf = render(&screenplay);
+        let inspection = inspect_tagged_pdf(&pdf);
+        let unique_mcids = inspection
+            .mcids
+            .iter()
+            .copied()
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect::<Vec<_>>();
+
+        assert_eq!(inspection.struct_parents, vec![0]);
+        assert_eq!(unique_mcids, vec![0, 1, 2]);
+        assert!(inspection.mcids.len() >= 6);
+        assert_eq!(
+            inspection
+                .property_marked_content
+                .iter()
+                .filter_map(|content| content.mcid)
+                .collect::<Vec<_>>(),
+            vec![0, 1, 2]
+        );
+    }
+
+    #[test]
+    fn pdf_render_output_emits_body_structure_roles_for_main_screenplay_content() {
+        let screenplay = Screenplay {
+            metadata: Metadata::new(),
+            elements: vec![
+                Element::SceneHeading(p("INT. LAB - DAY"), blank_attributes()),
+                Element::Action(p("Machines hum."), blank_attributes()),
+                Element::DialogueBlock(vec![
+                    Element::Character(p("MARA"), blank_attributes()),
+                    Element::Parenthetical(p("(quietly)"), blank_attributes()),
+                    Element::Dialogue(p("Start the sequence."), blank_attributes()),
+                ]),
+                Element::Transition(p("CUT TO:"), blank_attributes()),
+            ],
+        };
+
+        let pdf = render(&screenplay);
+        let pdf_text = String::from_utf8_lossy(&pdf);
+
+        assert!(pdf_text.contains("/Type /StructElem"));
+        assert!(pdf_text.contains("/S /SceneHeading"));
+        assert!(pdf_text.contains("/S /Action"));
+        assert!(pdf_text.contains("/S /Character"));
+        assert!(pdf_text.contains("/S /Parenthetical"));
+        assert!(pdf_text.contains("/S /Dialogue"));
+        assert!(pdf_text.contains("/S /Transition"));
+        assert!(pdf_text.contains("/Type /MCR"));
+        assert!(pdf_text.contains("/K ["));
+
+        let role_positions = [
+            pdf_text.find("/S /SceneHeading"),
+            pdf_text.find("/S /Action"),
+            pdf_text.find("/S /Character"),
+            pdf_text.find("/S /Parenthetical"),
+            pdf_text.find("/S /Dialogue"),
+            pdf_text.find("/S /Transition"),
+        ];
+        assert!(role_positions.iter().all(Option::is_some));
+
+        let role_positions = role_positions.map(Option::unwrap);
+        assert!(role_positions.windows(2).all(|pair| pair[0] < pair[1]));
+    }
+
+    #[test]
+    fn title_page_structure_page_is_built_from_tagged_title_blocks() {
+        let mut metadata = Metadata::new();
+        metadata.insert("title".into(), vec![p("SAMPLE SCRIPT")]);
+        metadata.insert("credit".into(), vec![p("written by")]);
+        metadata.insert("author".into(), vec![p("Alan Smithee")]);
+        metadata.insert("contact".into(), vec![p("WME"), p("Los Angeles")]);
+
+        let screenplay = Screenplay {
+            metadata,
+            elements: vec![Element::Action(p("BODY PAGE"), blank_attributes())],
+        };
+
+        let tagged = build_tagged_document(&screenplay);
+        let title_page = tagged.title_page.as_ref().expect("expected tagged title page");
+        let structure_page = build_title_structure_page(title_page);
+
+        assert_eq!(
+            structure_page
+                .tagged_lines
+                .iter()
+                .map(|line| line.structure_key.as_str())
+                .collect::<Vec<_>>(),
+            vec![
+                "title-page-01-01",
+                "title-page-02-02",
+                "title-page-03-03",
+                "title-page-04-05",
+                "title-page-04-05",
+            ]
+        );
+        assert!(structure_page
+            .tagged_lines
+            .iter()
+            .all(|line| line.role == PdfTaggedRole::Title));
+        assert_eq!(
+            structure_page
+                .tagged_lines
+                .iter()
+                .map(|line| line.mcid)
+                .collect::<Vec<_>>(),
+            vec![0, 1, 2, 3, 4]
+        );
+    }
+
+    #[test]
+    fn pdf_render_output_emits_title_page_structure_roles() {
+        let mut metadata = Metadata::new();
+        metadata.insert("title".into(), vec![p("SAMPLE SCRIPT")]);
+        metadata.insert("credit".into(), vec![p("written by")]);
+        metadata.insert("author".into(), vec![p("Alan Smithee")]);
+        metadata.insert("contact".into(), vec![p("WME"), p("Los Angeles")]);
+
+        let screenplay = Screenplay {
+            metadata,
+            elements: vec![Element::Action(p("BODY PAGE"), blank_attributes())],
+        };
+
+        let pdf = render(&screenplay);
+        let pdf_text = String::from_utf8_lossy(&pdf);
+
+        assert!(pdf_text.contains("/StructParents 0"));
+        assert!(pdf_text.contains("/StructParents 1"));
+        assert!(pdf_text.contains("/S /Title"));
+        assert!(pdf_text.contains("/K ["));
+        assert!(pdf_text.contains("/Type /MCR"));
+        assert!(pdf_text.contains("/Pg "));
+        assert!(pdf_text.matches("/S /Title").count() >= 4);
+    }
+
+    #[test]
+    fn body_structure_pages_keep_dual_dialogue_in_authored_reading_order() {
+        let screenplay = Screenplay {
+            metadata: Metadata::new(),
+            elements: vec![Element::DualDialogueBlock(vec![
+                Element::DialogueBlock(vec![
+                    Element::Character(p("BRICK"), blank_attributes()),
+                    Element::Parenthetical(p("(whispering)"), blank_attributes()),
+                    Element::Dialogue(
+                        p("Left side gets the longer speech so it wraps onto another line in the dual dialogue lane."),
+                        blank_attributes(),
+                    ),
+                ]),
+                Element::DialogueBlock(vec![
+                    Element::Character(p("STEEL"), blank_attributes()),
+                    Element::Dialogue(p("Right side stays short."), blank_attributes()),
+                ]),
+            ])],
+        };
+
+        let document = build_render_document(&screenplay, PdfRenderOptions::default());
+        let tagged = build_tagged_document(&screenplay);
+        assert!(
+            document.body_pages[0]
+                .lines
+                .iter()
+                .filter(|line| line.dual.is_some())
+                .count()
+                >= 2
+        );
+        let body_structure_pages = build_body_structure_pages(&tagged, &document.body_pages);
+        let tagged_lines = &body_structure_pages[0].tagged_lines;
+
+        assert_eq!(
+            tagged_lines,
+            &vec![
+                PdfBodyStructLine {
+                    mcid: 0,
+                    role: PdfTaggedRole::Character,
+                    structure_key: "el-00001".into(),
+                },
+                PdfBodyStructLine {
+                    mcid: 2,
+                    role: PdfTaggedRole::Parenthetical,
+                    structure_key: "el-00002".into(),
+                },
+                PdfBodyStructLine {
+                    mcid: 4,
+                    role: PdfTaggedRole::Dialogue,
+                    structure_key: "el-00003".into(),
+                },
+                PdfBodyStructLine {
+                    mcid: 5,
+                    role: PdfTaggedRole::Dialogue,
+                    structure_key: "el-00003".into(),
+                },
+                PdfBodyStructLine {
+                    mcid: 6,
+                    role: PdfTaggedRole::Dialogue,
+                    structure_key: "el-00003".into(),
+                },
+                PdfBodyStructLine {
+                    mcid: 7,
+                    role: PdfTaggedRole::Dialogue,
+                    structure_key: "el-00003".into(),
+                },
+                PdfBodyStructLine {
+                    mcid: 1,
+                    role: PdfTaggedRole::Character,
+                    structure_key: "el-00004".into(),
+                },
+                PdfBodyStructLine {
+                    mcid: 3,
+                    role: PdfTaggedRole::Dialogue,
+                    structure_key: "el-00005".into(),
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn body_structure_pages_keep_split_dialogue_on_one_structure_key_across_pages() {
+        let fountain =
+            fs::read_to_string("tests/fixtures/corpus/public/big-fish/source/source.fountain")
+                .expect("expected big-fish corpus fixture");
+        let screenplay = parse(&fountain);
+
+        let document = build_render_document(&screenplay, PdfRenderOptions::default());
+        let tagged = build_tagged_document(&screenplay);
+        let body_structure_pages = build_body_structure_pages(&tagged, &document.body_pages);
+
+        let matching_keys = body_structure_pages
+            .windows(2)
+            .find_map(|pair| {
+                let left_dialogue_keys = pair[0]
+                    .tagged_lines
+                    .iter()
+                    .filter(|line| line.role == PdfTaggedRole::Dialogue)
+                    .map(|line| line.structure_key.as_str())
+                    .collect::<Vec<_>>();
+                let right_dialogue_keys = pair[1]
+                    .tagged_lines
+                    .iter()
+                    .filter(|line| line.role == PdfTaggedRole::Dialogue)
+                    .map(|line| line.structure_key.as_str())
+                    .collect::<Vec<_>>();
+
+                left_dialogue_keys
+                    .iter()
+                    .copied()
+                    .find(|key| right_dialogue_keys.contains(key))
+                    .map(|key| (left_dialogue_keys, right_dialogue_keys, key.to_string()))
+            })
+            .expect("expected adjacent pages with a continued dialogue structure key");
+
+        assert!(matching_keys.0.contains(&matching_keys.2.as_str()));
+        assert!(matching_keys.1.contains(&matching_keys.2.as_str()));
+    }
+
+    #[test]
+    fn struct_element_plans_collapse_repeated_structure_keys_across_pages() {
+        let fountain =
+            fs::read_to_string("tests/fixtures/corpus/public/big-fish/source/source.fountain")
+                .expect("expected big-fish corpus fixture");
+        let screenplay = parse(&fountain);
+
+        let document = build_render_document(&screenplay, PdfRenderOptions::default());
+        let tagged = build_tagged_document(&screenplay);
+        let body_structure_pages = build_body_structure_pages(&tagged, &document.body_pages);
+        let struct_element_plans = build_struct_element_plans(&body_structure_pages);
+
+        let repeated_dialogue_plan = struct_element_plans
+            .iter()
+            .find(|plan| {
+                plan.role == PdfTaggedRole::Dialogue
+                    && plan.refs.len() > 1
+                    && plan.refs.windows(2).any(|pair| pair[0].page_index != pair[1].page_index)
+            })
+            .expect("expected a dialogue struct element plan spanning multiple pages");
+
+        assert!(repeated_dialogue_plan.refs.len() >= 2);
+    }
+
+    #[test]
+    fn pdf_render_output_collapses_split_dialogue_into_shared_struct_elements() {
+        let fountain =
+            fs::read_to_string("tests/fixtures/corpus/public/big-fish/source/source.fountain")
+                .expect("expected big-fish corpus fixture");
+        let screenplay = parse(&fountain);
+
+        let document = build_render_document(&screenplay, PdfRenderOptions::default());
+        let tagged = build_tagged_document(&screenplay);
+        let mut structure_pages = Vec::new();
+        if let Some(title_page) = &tagged.title_page {
+            structure_pages.push(build_title_structure_page(title_page));
+        }
+        structure_pages.extend(build_body_structure_pages(&tagged, &document.body_pages));
+        let struct_element_plans = build_struct_element_plans(&structure_pages);
+        let total_tagged_lines: usize = structure_pages
+            .iter()
+            .map(|page| page.tagged_lines.len())
+            .sum();
+
+        let repeated_dialogue_plan = struct_element_plans
+            .iter()
+            .find(|plan| {
+                plan.role == PdfTaggedRole::Dialogue
+                    && plan.refs.len() > 1
+                    && plan.refs.windows(2).any(|pair| pair[0].page_index != pair[1].page_index)
+            })
+            .expect("expected a multi-page dialogue struct element plan");
+
+        let pdf = render(&screenplay);
+        let inspection = inspect_tagged_pdf(&pdf);
+
+        assert!(repeated_dialogue_plan.refs.len() >= 2);
+        assert_eq!(inspection.struct_elem_count, struct_element_plans.len());
+        assert!(inspection.struct_elem_count < total_tagged_lines);
+        assert!(inspection.mcr_count > inspection.struct_elem_count);
+        assert!(inspection.shared_struct_element_count >= 1);
+    }
+
+    #[test]
+    fn tagged_pdf_inspection_reports_core_tagged_pdf_signals() {
+        let mut metadata = Metadata::new();
+        metadata.insert("title".into(), vec![p("MY SCREENPLAY")]);
+
+        let screenplay = Screenplay {
+            metadata,
+            elements: vec![
+                Element::Action(p("FIRST BODY PAGE"), blank_attributes()),
+                Element::SceneHeading(
+                    p("INT. LAB - DAY"),
+                    Attributes {
+                        scene_number: Some("12A".into()),
+                        starts_new_page: true,
+                        ..blank_attributes()
+                    },
+                ),
+                Element::Action(p("Machines hum."), blank_attributes()),
+            ],
+        };
+
+        let inspection = inspect_tagged_pdf(&render(&screenplay));
+        let unique_mcids = inspection
+            .mcids
+            .iter()
+            .copied()
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect::<Vec<_>>();
+
+        assert!(inspection.has_mark_info);
+        assert!(inspection.has_struct_tree_root);
+        assert!(inspection.has_parent_tree);
+        assert!(inspection.has_role_map);
+        assert_eq!(inspection.parent_tree_next_key, Some(3));
+        assert_eq!(inspection.role_map_entries.get("SceneHeading"), Some(&"H1".into()));
+        assert_eq!(inspection.role_map_entries.get("Title"), Some(&"P".into()));
+        assert_eq!(inspection.struct_parents, vec![0, 1, 2]);
+        assert_eq!(unique_mcids, vec![0, 1]);
+        assert!(inspection.mcids.len() >= 8);
+        assert_eq!(inspection.artifact_marked_content_count, 3);
+        assert_eq!(inspection.pagination_artifact_count, 1);
+        assert_eq!(inspection.page_number_artifact_count, 1);
+        assert_eq!(
+            inspection.property_artifacts,
+            vec![InspectedArtifact {
+                kind: Some("Pagination".into()),
+                subtype: Some("PageNum".into()),
+                attached: vec!["Top".into(), "Right".into()],
+            }]
+        );
+        assert!(inspection.struct_elem_count >= 4);
+        assert!(inspection.mcr_count >= unique_mcids.len());
+    }
+
+    #[test]
+    fn pdf_render_output_emits_page_labels_matching_visible_screenplay_numbers() {
+        let mut metadata = Metadata::new();
+        metadata.insert("title".into(), vec![p("TITLE PAGE")]);
+
+        let screenplay = Screenplay {
+            metadata,
+            elements: vec![
+                Element::Action(p("FIRST BODY PAGE"), blank_attributes()),
+                Element::Action(
+                    p("SECOND BODY PAGE"),
+                    Attributes {
+                        starts_new_page: true,
+                        ..blank_attributes()
+                    },
+                ),
+            ],
+        };
+
+        let inspection = inspect_tagged_pdf(&render(&screenplay));
+
+        assert_eq!(
+            inspection.page_labels,
+            vec![
+                InspectedPageLabel {
+                    page_index: 0,
+                    style: None,
+                    offset: None,
+                },
+                InspectedPageLabel {
+                    page_index: 2,
+                    style: Some("D".into()),
+                    offset: Some(2),
+                },
+            ]
+        );
     }
 
     #[test]
@@ -1636,6 +3727,146 @@ mod tests {
     }
 
     #[test]
+    fn body_page_artifacts_wrap_page_numbers_scene_numbers_and_split_contd_cues() {
+        let document = PdfRenderDocument {
+            title_page: None,
+            body_pages: vec![PdfRenderPage {
+                page_number: 35,
+                display_page_number: Some(34),
+                lines: vec![
+                    PdfRenderLine {
+                        text: "MAYOR (CONT'D)".into(),
+                        counted: false,
+                        centered: false,
+                        kind: Some(PdfLineKind::Character),
+                        fragments: vec![PdfRenderFragment {
+                            actual_text: None,
+                            text: "MAYOR (CONT'D)".into(),
+                            styles: Vec::new(),
+                        }],
+                        dual: None,
+                        scene_number: None,
+                    },
+                    PdfRenderLine {
+                        text: "INT. HALLWAY - NIGHT".into(),
+                        counted: true,
+                        centered: false,
+                        kind: Some(PdfLineKind::SceneHeading),
+                        fragments: vec![PdfRenderFragment {
+                            actual_text: None,
+                            text: "INT. HALLWAY - NIGHT".into(),
+                            styles: Vec::new(),
+                        }],
+                        dual: None,
+                        scene_number: Some("12A".into()),
+                    },
+                ],
+            }],
+        };
+        let fonts = EmbeddedFonts::new(&document);
+        let content = render_body_page_content(
+            &document.body_pages[0],
+            &LayoutGeometry::default(),
+            &fonts,
+            &ScreenplayLayoutProfile::from_metadata(&Metadata::new()),
+        );
+        let pdf_text = String::from_utf8_lossy(&content);
+        let artifacts = inspect_artifact_properties(&content);
+        let marked_content = inspect_property_marked_content(&content)
+            .into_iter()
+            .filter(|content| content.tag != "Artifact")
+            .collect::<Vec<_>>();
+
+        assert_eq!(pdf_text.matches("/Artifact BMC").count(), 3);
+        assert_eq!(
+            artifacts,
+            vec![InspectedArtifact {
+                kind: Some("Pagination".into()),
+                subtype: Some("PageNum".into()),
+                attached: vec!["Top".into(), "Right".into()],
+            }]
+        );
+        assert_eq!(
+            marked_content,
+            vec![InspectedMarkedContent {
+                tag: "SceneHeading".into(),
+                mcid: Some(0),
+                actual_text: None,
+            }]
+        );
+    }
+
+    #[test]
+    fn body_page_artifacts_wrap_more_markers() {
+        let document = PdfRenderDocument {
+            title_page: None,
+            body_pages: vec![PdfRenderPage {
+                page_number: 12,
+                display_page_number: Some(11),
+                lines: vec![
+                    PdfRenderLine {
+                        text: "        (MORE)".into(),
+                        counted: false,
+                        centered: false,
+                        kind: Some(PdfLineKind::Character),
+                        fragments: vec![PdfRenderFragment {
+                            actual_text: None,
+                            text: "        (MORE)".into(),
+                            styles: Vec::new(),
+                        }],
+                        dual: None,
+                        scene_number: None,
+                    },
+                    PdfRenderLine {
+                        text: "HELLO".into(),
+                        counted: true,
+                        centered: false,
+                        kind: Some(PdfLineKind::Dialogue),
+                        fragments: vec![PdfRenderFragment {
+                            actual_text: None,
+                            text: "HELLO".into(),
+                            styles: Vec::new(),
+                        }],
+                        dual: None,
+                        scene_number: None,
+                    },
+                ],
+            }],
+        };
+        let fonts = EmbeddedFonts::new(&document);
+        let content = render_body_page_content(
+            &document.body_pages[0],
+            &LayoutGeometry::default(),
+            &fonts,
+            &ScreenplayLayoutProfile::from_metadata(&Metadata::new()),
+        );
+        let pdf_text = String::from_utf8_lossy(&content);
+        let artifacts = inspect_artifact_properties(&content);
+        let marked_content = inspect_property_marked_content(&content)
+            .into_iter()
+            .filter(|content| content.tag != "Artifact")
+            .collect::<Vec<_>>();
+
+        assert_eq!(pdf_text.matches("/Artifact BMC").count(), 1);
+        assert_eq!(
+            artifacts,
+            vec![InspectedArtifact {
+                kind: Some("Pagination".into()),
+                subtype: Some("PageNum".into()),
+                attached: vec!["Top".into(), "Right".into()],
+            }]
+        );
+        assert_eq!(
+            marked_content,
+            vec![InspectedMarkedContent {
+                tag: "Dialogue".into(),
+                mcid: Some(0),
+                actual_text: None,
+            }]
+        );
+    }
+
+    #[test]
     fn pdf_render_output_includes_title_page_text_regions() {
         let mut metadata = Metadata::new();
         metadata.insert("title".into(), vec![p("SAMPLE SCRIPT")]);
@@ -1655,9 +3886,14 @@ mod tests {
         };
 
         let document = build_render_document(&screenplay, PdfRenderOptions::default());
+        let tagged_document = build_tagged_document(&screenplay);
         let fonts = EmbeddedFonts::new(&document);
         let content = render_title_page_content(
             document.title_page.as_ref().expect("expected title page"),
+            tagged_document
+                .title_page
+                .as_ref()
+                .expect("expected tagged title page"),
             &fonts,
         );
 
@@ -1730,18 +3966,25 @@ mod tests {
         };
 
         let document = build_render_document(&screenplay, PdfRenderOptions::default());
+        let tagged_document = build_tagged_document(&screenplay);
         let fonts = EmbeddedFonts::new(&document);
         let mut content = Content::new();
         let mut underlines = Vec::new();
+        let mut next_mcid = 0i32;
         content.begin_text();
         render_title_page_region(
             &mut content,
             document.title_page.as_ref().expect("expected title page"),
+            tagged_document
+                .title_page
+                .as_ref()
+                .expect("expected tagged title page"),
             &fonts,
             PdfTitleBlockRegion::CenterTitle,
             TITLE_TITLE_TOP,
             TITLE_FONT_SIZE,
             &mut underlines,
+            &mut next_mcid,
         );
         content.end_text();
         render_underlines(&mut content, &underlines);
@@ -1771,18 +4014,25 @@ mod tests {
         };
 
         let document = build_render_document(&screenplay, PdfRenderOptions::default());
+        let tagged_document = build_tagged_document(&screenplay);
         let fonts = EmbeddedFonts::new(&document);
         let mut content = Content::new();
         let mut underlines = Vec::new();
+        let mut next_mcid = 0i32;
         content.begin_text();
         render_title_page_region(
             &mut content,
             document.title_page.as_ref().expect("expected title page"),
+            tagged_document
+                .title_page
+                .as_ref()
+                .expect("expected tagged title page"),
             &fonts,
             PdfTitleBlockRegion::CenterTitle,
             TITLE_TITLE_TOP,
             TITLE_FONT_SIZE,
             &mut underlines,
+            &mut next_mcid,
         );
         content.end_text();
         let stream = content.finish().to_vec();
@@ -1795,6 +4045,157 @@ mod tests {
             TITLE_TITLE_TOP,
         );
         assert_stream_lacks_text(&stream, &fonts.bold, "SAMPLE SCRIPT");
+    }
+
+    #[test]
+    fn pdf_render_output_wraps_styled_inline_fragments_in_span_marked_content() {
+        let screenplay = Screenplay {
+            metadata: Metadata::new(),
+            elements: vec![Element::Action(
+                ElementText::Styled(vec![
+                    tr("PLAIN ", vec![]),
+                    tr("BOLD ", vec!["Bold"]),
+                    tr("ITALIC ", vec!["Italic"]),
+                    tr("BOTH ", vec!["Bold", "Italic"]),
+                    tr("UNDER", vec!["Underline"]),
+                ]),
+                blank_attributes(),
+            )],
+        };
+
+        let document = build_render_document(&screenplay, PdfRenderOptions::default());
+        let fonts = EmbeddedFonts::new(&document);
+        let content = render_body_page_content(
+            &document.body_pages[0],
+            &LayoutGeometry::default(),
+            &fonts,
+            &ScreenplayLayoutProfile::from_metadata(&screenplay.metadata),
+        );
+        let marked_content = inspect_property_marked_content(&content);
+
+        assert_eq!(
+            marked_content,
+            vec![
+                InspectedMarkedContent {
+                    tag: "Action".into(),
+                    mcid: Some(0),
+                    actual_text: None,
+                },
+                InspectedMarkedContent {
+                    tag: "Span".into(),
+                    mcid: None,
+                    actual_text: None,
+                },
+                InspectedMarkedContent {
+                    tag: "Span".into(),
+                    mcid: None,
+                    actual_text: None,
+                },
+                InspectedMarkedContent {
+                    tag: "Span".into(),
+                    mcid: None,
+                    actual_text: None,
+                },
+                InspectedMarkedContent {
+                    tag: "Span".into(),
+                    mcid: None,
+                    actual_text: None,
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn pdf_render_output_forced_uppercase_plain_title_does_not_override_extraction_casing() {
+        let mut metadata = Metadata::new();
+        metadata.insert("title".into(), vec![p("Sample Script")]);
+
+        let screenplay = Screenplay {
+            metadata,
+            elements: vec![Element::Action(p("BODY PAGE"), blank_attributes())],
+        };
+
+        let document = build_render_document(&screenplay, PdfRenderOptions::default());
+        let tagged_document = build_tagged_document(&screenplay);
+        let fonts = EmbeddedFonts::new(&document);
+        let mut content = Content::new();
+        let mut underlines = Vec::new();
+        let mut next_mcid = 0i32;
+        content.begin_text();
+        render_title_page_region(
+            &mut content,
+            document.title_page.as_ref().expect("expected title page"),
+            tagged_document
+                .title_page
+                .as_ref()
+                .expect("expected tagged title page"),
+            &fonts,
+            PdfTitleBlockRegion::CenterTitle,
+            TITLE_TITLE_TOP,
+            TITLE_FONT_SIZE,
+            &mut underlines,
+            &mut next_mcid,
+        );
+        content.end_text();
+        render_underlines(&mut content, &underlines);
+        let stream = content.finish().to_vec();
+        let stream_text = String::from_utf8_lossy(&stream);
+
+        assert!(!stream_text.contains("/ActualText"));
+        assert_stream_contains_fixed_cell_text_at(
+            &stream,
+            &fonts.bold,
+            "SAMPLE SCRIPT",
+            title_page_line_left("SAMPLE SCRIPT", PdfTitleBlockRegion::CenterTitle),
+            TITLE_TITLE_TOP,
+        );
+    }
+
+    #[test]
+    fn pdf_render_output_allow_lowercase_title_keeps_authored_title_case() {
+        let mut metadata = Metadata::new();
+        metadata.insert("title".into(), vec![p("Sample Script")]);
+        metadata.insert("fmt".into(), vec![p("allow-lowercase-title")]);
+
+        let screenplay = Screenplay {
+            metadata,
+            elements: vec![Element::Action(p("BODY PAGE"), blank_attributes())],
+        };
+
+        let document = build_render_document(&screenplay, PdfRenderOptions::default());
+        let tagged_document = build_tagged_document(&screenplay);
+        let fonts = EmbeddedFonts::new(&document);
+        let mut content = Content::new();
+        let mut underlines = Vec::new();
+        let mut next_mcid = 0i32;
+        content.begin_text();
+        render_title_page_region(
+            &mut content,
+            document.title_page.as_ref().expect("expected title page"),
+            tagged_document
+                .title_page
+                .as_ref()
+                .expect("expected tagged title page"),
+            &fonts,
+            PdfTitleBlockRegion::CenterTitle,
+            TITLE_TITLE_TOP,
+            TITLE_FONT_SIZE,
+            &mut underlines,
+            &mut next_mcid,
+        );
+        content.end_text();
+        render_underlines(&mut content, &underlines);
+        let stream = content.finish().to_vec();
+        let stream_text = String::from_utf8_lossy(&stream);
+
+        assert!(!stream_text.contains("/ActualText"));
+        assert_stream_contains_fixed_cell_text_at(
+            &stream,
+            &fonts.bold,
+            "Sample Script",
+            title_page_line_left("Sample Script", PdfTitleBlockRegion::CenterTitle),
+            TITLE_TITLE_TOP,
+        );
     }
 
     #[test]
@@ -1892,6 +4293,8 @@ mod tests {
             &mut content,
             &fonts,
             &[ResolvedRun {
+                actual_text: None,
+                tagged_span: false,
                 text: "FALL ".into(),
                 styles: StyleFlags {
                     underline: true,
