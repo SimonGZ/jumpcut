@@ -52,6 +52,8 @@ pub struct ScreenplayLayoutProfile {
     pub page_height: f32,
     pub top_margin: f32,
     pub bottom_margin: f32,
+    pub header_margin: f32,
+    pub footer_margin: f32,
     pub lines_per_page: f32,
 }
 
@@ -161,6 +163,8 @@ impl ScreenplayLayoutProfile {
         geometry.page_height = self.page_height;
         geometry.top_margin = self.top_margin;
         geometry.bottom_margin = self.bottom_margin;
+        geometry.header_margin = self.header_margin;
+        geometry.footer_margin = self.footer_margin;
         geometry.lines_per_page = self.lines_per_page;
 
         geometry
@@ -353,6 +357,8 @@ impl ScreenplayLayoutProfile {
             page_height: 11.0,
             top_margin: 1.0,
             bottom_margin: 1.0,
+            header_margin: 0.5,
+            footer_margin: 0.5,
             lines_per_page: 54.0,
         }
     }
@@ -367,7 +373,7 @@ fn apply_fmt_template_option(profile: &mut ScreenplayLayoutProfile, option: &str
         profile.styles.parenthetical.left_indent = 2.75;
         profile.styles.transition.right_indent = 7.25;
     } else if option.eq_ignore_ascii_case("a4") {
-        profile.page_width = 8.27;
+        profile.page_width = 8.26;
         profile.page_height = 11.69;
         profile.lines_per_page = 58.0;
     } else if option.eq_ignore_ascii_case("balanced") {
@@ -410,6 +416,14 @@ fn apply_fmt_geometry_override_option(profile: &mut ScreenplayLayoutProfile, opt
     } else if let Some(value) = option.strip_prefix("bm-") {
         if let Ok(margin) = value.parse::<f32>() {
             profile.bottom_margin = margin;
+        }
+    } else if let Some(value) = option.strip_prefix("hm-") {
+        if let Ok(margin) = value.parse::<f32>() {
+            profile.header_margin = margin;
+        }
+    } else if let Some(value) = option.strip_prefix("fm-") {
+        if let Ok(margin) = value.parse::<f32>() {
+            profile.footer_margin = margin;
         }
     } else if let Some(value) = option.strip_prefix("lpp-") {
         if let Ok(lpp) = value.parse::<f32>() {

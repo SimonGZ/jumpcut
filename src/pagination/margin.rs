@@ -109,6 +109,8 @@ pub struct LayoutGeometry {
     pub page_height: f32,
     pub top_margin: f32,
     pub bottom_margin: f32,
+    pub header_margin: f32,
+    pub footer_margin: f32,
     pub lines_per_page: f32,
 }
 
@@ -187,6 +189,8 @@ impl Default for LayoutGeometry {
             page_height: 11.0,
             top_margin: 1.0,
             bottom_margin: 1.0,
+            header_margin: 0.5,
+            footer_margin: 0.5,
             lines_per_page: 54.0,
         }
     }

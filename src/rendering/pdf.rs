@@ -24,8 +24,9 @@ use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 use ttf_parser::Face;
 
 const BODY_TEXT_FONT_SIZE: f32 = 12.0;
-const PAGE_NUMBER_LEFT: f32 = 7.0625 * 72.0;
+const BODY_PAGE_NUMBER_X: f32 = 508.5;
 const PAGE_NUMBER_BASELINE_Y: f32 = 747.0;
+const PAGE_NUMBER_LEFT: f32 = 508.5;
 const TITLE_FONT_SIZE: f32 = 12.0;
 const TITLE_META_FONT_SIZE: f32 = 12.0;
 const DEFAULT_DOCUMENT_LANGUAGE: &str = "en-US";
@@ -1143,7 +1144,7 @@ fn page_starts_with_split_contd_character(page: &PdfRenderPage) -> bool {
 }
 
 fn page_number_y(geometry: &LayoutGeometry) -> f32 {
-    (geometry.page_height * 72.0) - (geometry.top_margin * 72.0) + 27.0
+    (geometry.page_height * 72.0) - (geometry.header_margin * 72.0) - 9.0
 }
 
 fn page_number_x(display_page_number: u32, geometry: &LayoutGeometry) -> f32 {

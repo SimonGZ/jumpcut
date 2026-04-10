@@ -19,6 +19,8 @@ pub(crate) fn render_document(screenplay: &Screenplay) -> String {
     out.push_str("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\" ?>\n<FinalDraft DocumentType=\"Script\" Template=\"No\" Version=\"4\">\n    <Content>\n");
     render_content(&mut out, screenplay);
     out.push_str("    </Content>\n\n");
+    render_page_layout(&mut out, &layout_profile);
+    out.push('\n');
     render_header_and_footer(&mut out, &screenplay.metadata);
     out.push('\n');
     render_element_settings(&mut out, &screenplay.metadata, &layout_profile);
@@ -205,6 +207,28 @@ fn render_header_and_footer(out: &mut String, metadata: &Metadata) {
     out.push_str("                <Tabstops>\n                    <Tabstop Position=\"4.50\" Type=\"Center\"/>\n                    <Tabstop Position=\"7.25\" Type=\"Right\"/>\n                </Tabstops>\n            </Paragraph>\n        </Header>\n        <Footer>\n            <Paragraph Alignment=\"Right\" FirstIndent=\"0.00\" Leading=\"Regular\" LeftIndent=\"1.25\" RightIndent=\"-1.25\" SpaceBefore=\"0\" Spacing=\"1\" StartsNewPage=\"No\">\n");
     write!(out, "                <Text AdornmentStyle=\"0\" Background=\"#FFFFFFFFFFFF\" Color=\"#000000000000\" Font=\"{}\" RevisionID=\"0\" Size=\"12\" Style=\"\"> </Text>\n", font).unwrap();
     out.push_str("            </Paragraph>\n        </Footer>\n    </HeaderAndFooter>\n");
+}
+
+fn render_page_layout(out: &mut String, layout_profile: &ScreenplayLayoutProfile) {
+    let top_margin = (layout_profile.top_margin * 72.0).round() as i32;
+    let bottom_margin = (layout_profile.bottom_margin * 72.0).round() as i32;
+    let header_margin = (layout_profile.header_margin * 72.0).round() as i32;
+    let footer_margin = (layout_profile.footer_margin * 72.0).round() as i32;
+
+    writeln!(
+        out,
+        "    <PageLayout BackgroundColor=\"#FFFFFFFFFFFF\" BottomMargin=\"{}\" BreakDialogueAndActionAtSentences=\"Yes\" DocumentLeading=\"Normal\" FooterMargin=\"{}\" ForegroundColor=\"#000000000000\" HeaderMargin=\"{}\" InvisiblesColor=\"#C0C0C0C0C0C0\" TopMargin=\"{}\" UsesSmartQuotes=\"Yes\">",
+        bottom_margin, footer_margin, header_margin, top_margin
+    )
+    .unwrap();
+    writeln!(
+        out,
+        "      <PageSize Height=\"{:.2}\" Width=\"{:.2}\"/>",
+        layout_profile.page_height, layout_profile.page_width
+    )
+    .unwrap();
+    out.push_str("      <AutoCastList AddParentheses=\"Yes\" AutomaticallyGenerate=\"Yes\" CastListElement=\"Cast List\"/>\n");
+    out.push_str("    </PageLayout>\n");
 }
 
 fn render_element_settings(
