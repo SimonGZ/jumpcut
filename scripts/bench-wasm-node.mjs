@@ -107,6 +107,11 @@ async function main() {
       fn: bindings.parse_to_fdx_string,
       args: (text) => [text],
     },
+    {
+      name: "parse_to_pdf_bytes",
+      fn: bindings.parse_to_pdf_bytes,
+      args: (text) => [text],
+    },
   ].filter((operation) => typeof operation.fn === "function");
 
   if (operations.length === 0) {

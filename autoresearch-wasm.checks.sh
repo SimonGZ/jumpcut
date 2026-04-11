@@ -9,4 +9,5 @@ cargo check -p jumpcut-wasm --target wasm32-unknown-unknown --release
 cargo check -p jumpcut-wasm --target wasm32-unknown-unknown --release --no-default-features
 cargo check -p jumpcut-wasm --target wasm32-unknown-unknown --release --no-default-features --features html
 cargo check -p jumpcut-wasm --target wasm32-unknown-unknown --release --no-default-features --features fdx
+cargo check -p jumpcut-wasm --target wasm32-unknown-unknown --release --no-default-features --features pdf
 ./generate-wasm-package.sh --smoke >/dev/null

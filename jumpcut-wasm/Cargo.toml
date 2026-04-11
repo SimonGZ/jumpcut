@@ -10,9 +10,10 @@ description = "wasm-bindgen wrapper crate for JumpCut"
 crate-type = ["cdylib", "rlib"]
 
 [features]
-default = ["html", "fdx"]
+default = ["html", "fdx", "pdf"]
 html = ["jumpcut/html"]
 fdx = ["jumpcut/fdx"]
+pdf = ["jumpcut/pdf"]
 
 [dependencies]
 jumpcut = { path = "..", default-features = false }

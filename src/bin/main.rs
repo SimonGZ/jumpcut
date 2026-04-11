@@ -17,7 +17,7 @@ use std::path::{Path, PathBuf};
 #[derive(Parser)]
 #[command(
     name = "JumpCut",
-    about = "A tool for converting Fountain screenplay documents into Final Draft (FDX), HTML, and text formats.",
+    about = "A tool for converting Fountain screenplay documents into Final Draft (FDX), HTML, JSON, text, and optional PDF formats.",
     version
 )]
 #[cfg(feature = "cli")]
@@ -165,8 +165,11 @@ fn main() {
         std::process::exit(2);
     }
 
-    if format != "html" && format != "pdf" && opt.no_title_page {
-        eprintln!("Error: --no-title-page is only supported with --format html or --format pdf.");
+    if format != "html" && (!pdf_output_enabled() || format != "pdf") && opt.no_title_page {
+        eprintln!(
+            "Error: --no-title-page is only supported with --format html{}.",
+            if pdf_output_enabled() { " or --format pdf" } else { "" }
+        );
         std::process::exit(2);
     }
 
@@ -197,6 +200,7 @@ fn main() {
                 render_continueds: !opt.no_continueds,
             })
             .into_bytes(),
+        #[cfg(feature = "pdf")]
         "pdf" => screenplay.to_pdf_with_options(jumpcut::rendering::pdf::PdfRenderOptions {
             render_continueds: !opt.no_continueds,
             render_title_page: !opt.no_title_page,
@@ -222,6 +226,7 @@ fn infer_format(format_opt: Option<&str>, output_opt: Option<&PathBuf>) -> Strin
         Some(f) => f.to_lowercase(),
         None => match output_opt {
             Some(out) => match out.extension().and_then(|e| e.to_str()) {
+                #[cfg(feature = "pdf")]
                 Some("pdf") => "pdf".to_string(),
                 Some("html") | Some("htm") => "html".to_string(),
                 Some("txt") | Some("text") => "text".to_string(),
@@ -262,12 +267,18 @@ fn auto_output_path(input: &Path, format: &str) -> Option<PathBuf> {
 #[cfg(feature = "cli")]
 fn default_extension_for_format(format: &str) -> &'static str {
     match format {
+        #[cfg(feature = "pdf")]
         "pdf" => "pdf",
         "html" => "html",
         "text" => "txt",
         "json" => "json",
         _ => "fdx",
     }
+}
+
+#[cfg(feature = "cli")]
+fn pdf_output_enabled() -> bool {
+    cfg!(feature = "pdf")
 }
 
 #[cfg(feature = "cli")]
@@ -311,9 +322,9 @@ fn apply_render_profile_override(metadata: &mut jumpcut::Metadata, render_profil
 
 #[cfg(all(test, feature = "cli"))]
 mod tests {
-    use super::{
-        apply_render_profile_override, infer_format, resolve_output_path, Args, RenderProfile,
-    };
+    use super::{apply_render_profile_override, infer_format, resolve_output_path, Args, RenderProfile};
+    #[cfg(not(feature = "pdf"))]
+    use super::pdf_output_enabled;
     use jumpcut::{ElementText, Metadata};
     use clap::Parser;
     use std::path::PathBuf;
@@ -366,7 +377,10 @@ mod tests {
 
     #[test]
     fn format_inference_falls_back_to_extension() {
+        #[cfg(feature = "pdf")]
         assert_eq!(infer_format(None, Some(&PathBuf::from("out.pdf"))), "pdf");
+        #[cfg(not(feature = "pdf"))]
+        assert_eq!(infer_format(None, Some(&PathBuf::from("out.pdf"))), "fdx");
         assert_eq!(infer_format(None, Some(&PathBuf::from("out.html"))), "html");
         assert_eq!(infer_format(None, Some(&PathBuf::from("out.htm"))), "html");
         assert_eq!(infer_format(None, Some(&PathBuf::from("out.txt"))), "text");
@@ -391,6 +405,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "pdf")]
     #[test]
     fn cli_accepts_write_flag_with_explicit_pdf_format() {
         let parsed = Args::try_parse_from(["jumpcut", "big fish.fountain", "-w", "-f", "pdf"]);
@@ -400,10 +415,18 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "pdf")]
     #[test]
     fn cli_accepts_no_title_page_for_html_and_pdf() {
         assert!(Args::try_parse_from(["jumpcut", "script.fountain", "-f", "html", "--no-title-page"]).is_ok());
         assert!(Args::try_parse_from(["jumpcut", "script.fountain", "-f", "pdf", "--no-title-page"]).is_ok());
+    }
+
+    #[cfg(not(feature = "pdf"))]
+    #[test]
+    fn cli_only_accepts_no_title_page_for_html_when_pdf_output_is_disabled() {
+        assert!(Args::try_parse_from(["jumpcut", "script.fountain", "-f", "html", "--no-title-page"]).is_ok());
+        assert!(!pdf_output_enabled());
     }
 
     #[test]
@@ -419,6 +442,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "pdf")]
     #[test]
     fn write_flag_uses_explicit_pdf_format_for_extension() {
         let args = Args::try_parse_from(["jumpcut", "big fish.fountain", "-w", "-f", "pdf"]).unwrap();
@@ -442,6 +466,7 @@ mod tests {
         assert_eq!(error, "cannot auto-derive an output path when input is stdin");
     }
 
+    #[cfg(feature = "pdf")]
     #[test]
     fn positional_output_path_still_parses_and_controls_format() {
         let args = Args::try_parse_from(["jumpcut", "input.fountain", "output.pdf"]).unwrap();

@@ -13,6 +13,13 @@ pub fn parse_to_fdx_string(text: &str) -> String {
     screenplay.to_final_draft()
 }
 
+#[cfg(feature = "pdf")]
+#[wasm_bindgen]
+pub fn parse_to_pdf_bytes(text: &str) -> Vec<u8> {
+    let screenplay = jumpcut::parse(text);
+    screenplay.to_pdf()
+}
+
 #[cfg(feature = "html")]
 #[wasm_bindgen]
 pub fn parse_to_html_string(text: &str, include_head: bool) -> String {

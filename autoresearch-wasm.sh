@@ -62,6 +62,7 @@ emit_variant_metrics full
 emit_variant_metrics json_only --no-default-features
 emit_variant_metrics html_only --no-default-features --features html
 emit_variant_metrics fdx_only --no-default-features --features fdx
+emit_variant_metrics pdf_only --no-default-features --features pdf
 
 cargo run --release --quiet --bin autoresearch_native_bench
 ./generate-wasm-package.sh --out-dir "$TARGET_DIR/node-full"

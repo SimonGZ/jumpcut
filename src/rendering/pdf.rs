@@ -415,7 +415,7 @@ pub(crate) fn render_with_options(screenplay: &Screenplay, options: PdfRenderOpt
         tagged_document.title_page = None;
     }
     let document_language = document_language(&screenplay.metadata);
-    let render_timestamp = OffsetDateTime::now_utc();
+    let render_timestamp = current_render_timestamp();
     let mut structure_pages = Vec::new();
     if let Some(title_page) = &tagged_document.title_page {
         structure_pages.push(build_title_structure_page(title_page));
@@ -773,6 +773,20 @@ fn pdf_date(timestamp: OffsetDateTime) -> Date {
         .minute(timestamp.minute())
         .second(timestamp.second())
         .utc_offset_hour(0)
+}
+
+fn current_render_timestamp() -> OffsetDateTime {
+    #[cfg(target_arch = "wasm32")]
+    {
+        // `wasm32-unknown-unknown` does not provide a wall-clock source through `std`.
+        // Use a stable fallback so PDF generation still works in size-sensitive wasm builds.
+        OffsetDateTime::UNIX_EPOCH
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        OffsetDateTime::now_utc()
+    }
 }
 
 fn render_body_page_content(

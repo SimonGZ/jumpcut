@@ -53,11 +53,12 @@ regex = { version = "1.10.5", default-features = false, features = ["std", "perf
 regex = { version = "1.10.5", default-features = false, features = ["std", "perf-dfa"] }
 
 [features]
-default = ["html", "fdx", "cli"]
+default = ["html", "fdx", "pdf", "cli"]
 html = []
 fdx = []
+pdf = []
 cli = ["clap"]
-lib-only = ["html", "fdx"]
+lib-only = ["html", "fdx", "pdf"]
 
 [dev-dependencies]
 criterion = "0.5.1"

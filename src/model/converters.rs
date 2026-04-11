@@ -31,10 +31,12 @@ impl Screenplay {
         crate::rendering::text::render(self, options)
     }
 
+    #[cfg(feature = "pdf")]
     pub fn to_pdf(&self) -> Vec<u8> {
         crate::rendering::pdf::render(self)
     }
 
+    #[cfg(feature = "pdf")]
     pub fn to_pdf_with_options(&self, options: crate::rendering::pdf::PdfRenderOptions) -> Vec<u8> {
         crate::rendering::pdf::render_with_options(self, options)
     }

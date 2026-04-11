@@ -22,13 +22,16 @@ To use JumpCut as a library, you can specify the following in your Cargo.toml so
 
 JumpCut also ships an in-repo wasm wrapper crate at [jumpcut-wasm](jumpcut-wasm).
 
-That wrapper exposes three JS-facing functions:
+That wrapper exposes these JS-facing functions:
 
 - `parse_to_json_string(text)`
 - `parse_to_html_string(text, include_head)`
 - `parse_to_html_string_with_options(text, include_head, exact_wraps, paginated)`
 - `parse_to_html_string_with_embedded_courier_prime(text, include_head, exact_wraps, paginated, regular_ttf_base64, italic_ttf_base64, bold_ttf_base64, bold_italic_ttf_base64)`
 - `parse_to_fdx_string(text)`
+- `parse_to_pdf_bytes(text)`
+
+JSON is always available. HTML, FDX, and PDF are separate wasm feature slices, and the default wasm build includes all three.
 
 ### Build The WASM Wrapper
 
@@ -99,7 +102,7 @@ The repo includes helper scripts for the wasm workflow:
   - runs the smoke package-generation path
 - `./autoresearch-wasm.sh`
   - repo-internal benchmark/size-report helper
-  - emits bundle-size metrics, feature-slice metrics, native guardrail metrics, and Node-side wasm runtime metrics
+  - emits bundle-size metrics, feature-slice metrics (`json_only`, `html_only`, `fdx_only`, `pdf_only`), native guardrail metrics, and Node-side wasm runtime metrics
 
 The `autoresearch` scripts are historical research tooling. Use `./generate-wasm-package.sh` for normal package generation.
 
