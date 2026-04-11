@@ -84,19 +84,15 @@ pub(crate) fn render_document(screenplay: &Screenplay, options: HtmlRenderOption
             "title",
             " ",
         )));
-        out.push_str("</title>\n\n  <style type=\"text/css\" media=\"screen\">\n   ");
-        if let Some(font_css) = embedded_courier_prime_font_css(&options) {
-            out.push_str(&font_css);
-            out.push('\n');
-        }
-        out.push_str(HTML_STYLE);
-        out.push('\n');
-        out.push_str(&layout_profile_css(&layout_profile));
-        out.push_str("\n  </style>\n</head>\n\n<body");
+        out.push_str("</title>\n\n");
+        write_style_block(&mut out, &options, &layout_profile);
+        out.push_str("</head>\n\n<body");
         if options.paginated {
             out.push_str(" class=\"paginatedHtmlView\"");
         }
         out.push_str(">\n");
+    } else {
+        write_style_block(&mut out, &options, &layout_profile);
     }
 
     write!(
@@ -113,6 +109,28 @@ pub(crate) fn render_document(screenplay: &Screenplay, options: HtmlRenderOption
     }
 
     out
+}
+
+fn write_style_block(
+    out: &mut String,
+    options: &HtmlRenderOptions,
+    layout_profile: &ScreenplayLayoutProfile,
+) {
+    out.push_str("  <style type=\"text/css\">\n");
+    out.push_str(&stylesheet_css(options, layout_profile));
+    out.push_str("  </style>\n");
+}
+
+fn stylesheet_css(options: &HtmlRenderOptions, layout_profile: &ScreenplayLayoutProfile) -> String {
+    let mut css = String::new();
+    if let Some(font_css) = embedded_courier_prime_font_css(options) {
+        css.push_str(&font_css);
+        css.push('\n');
+    }
+    css.push_str(HTML_STYLE);
+    css.push('\n');
+    css.push_str(&layout_profile_css(layout_profile));
+    css
 }
 
 fn layout_profile_css(layout_profile: &ScreenplayLayoutProfile) -> String {
@@ -736,6 +754,33 @@ mod tests {
     }
 
     #[test]
+    fn headless_html_fragment_includes_a_style_block() {
+        let screenplay = Screenplay {
+            metadata: Metadata::new(),
+            elements: vec![],
+        };
+
+        let output = render_document(&screenplay, html_options(false, false, false));
+
+        assert!(output.starts_with("  <style type=\"text/css\">"));
+        assert!(output.contains(".screenplay {"));
+        assert!(output.contains("<section class=\"screenplay\">"));
+    }
+
+    #[test]
+    fn html_stylesheet_is_not_screen_only() {
+        let screenplay = Screenplay {
+            metadata: Metadata::new(),
+            elements: vec![],
+        };
+
+        let output = render_document(&screenplay, html_options(true, false, false));
+
+        assert!(output.contains("<style type=\"text/css\">"));
+        assert!(!output.contains("media=\"screen\""));
+    }
+
+    #[test]
     fn html_can_embed_courier_prime_font_data() {
         let screenplay = Screenplay {
             metadata: Metadata::new(),
@@ -1072,6 +1117,23 @@ mod tests {
         assert!(output.contains("min-height: 11.69in;"));
         assert!(output.contains("padding-right: 0.76in;"));
         assert!(output.contains(".screenplay .title-page {"));
+    }
+
+    #[test]
+    fn headless_paginated_html_includes_a4_layout_css() {
+        let mut metadata = Metadata::new();
+        metadata.insert("fmt".into(), vec!["a4".into()]);
+        let screenplay = Screenplay {
+            metadata,
+            elements: vec![Element::Action(p("FIRST PAGE"), blank_attributes())],
+        };
+
+        let output = render_document(&screenplay, html_options(false, false, true));
+
+        assert!(output.starts_with("  <style type=\"text/css\">"));
+        assert!(output.contains("size: 8.26in 11.69in;"));
+        assert!(output.contains("width: 8.26in;"));
+        assert!(output.contains("<section class=\"screenplay exactWraps paginatedHtml\">"));
     }
 
     #[test]
