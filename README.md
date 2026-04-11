@@ -115,6 +115,7 @@ FLAGS:
 
 OPTIONS:
     -f, --format <format>    Formats (FDX, HTML, JSON, text, PDF) [default: fdx]
+    -o, --output [<FILE>]    Output file. Pass bare -o/--output to auto-derive a path from the input stem and format.
     -m, --metadata <FILE>    Optional Fountain file to prepend as metadata. Defaults to "metadata.fountain" if flag is present without a value.
         --paginate           Render paginated text or exact-wrap paginated HTML
         --line-numbers       Show line numbers in text output
@@ -154,118 +155,24 @@ let output_html: String = screenplay.to_html();
 
 ### CLI Render Profile Override
 
-The CLI can override the metadata-driven render profile for `pdf`, `text`, or `html` output:
+Formatting and metadata details now live in [`docs/formatting-and-metadata.md`](docs/formatting-and-metadata.md), including:
 
-```sh
-jumpcut -f pdf --render-profile final-draft script.fountain script.pdf
-jumpcut -f text --render-profile balanced --paginate script.fountain
-```
+- `--render-profile`
+- `--no-continueds`
+- `fmt` metadata tokens
+- `--metadata` / `-m`
 
-If both Fountain metadata and `--render-profile` are present, the CLI option wins. The override only replaces profile-related `fmt` tokens such as `balanced`, `clean-dashes`, and `no-dual-contds`; unrelated `fmt` knobs like `allow-lowercase-title` or `dl-*` / `dr-*` are preserved.
+## Formatting Metadata (`fmt`)
 
-You can also suppress continued markers from the CLI:
+`fmt` metadata controls shared layout and rendering behavior across pagination and multiple output formats.
 
-```sh
-jumpcut -f text --paginate --no-continueds script.fountain
-jumpcut -f pdf --render-profile balanced --no-continueds script.fountain script.pdf
-```
-
-## Custom Formatting for Final Draft (FDX) Export
-
-When converting your screenplay to **Final Draft (FDX)** format, you can specify custom formatting options using the `fmt` metadata key. This allows you to control various aspects of the FDX output, such as text styles, spacing, and margins.
-
-To use these options, add a `fmt` key to your screenplay's metadata (optional `key: value` statements placed at the top of a document), followed by a space-separated list of options.
-
-JumpCut treats `fmt` options in two layers:
-
-- template options such as `multicam` establish a base layout/style profile
-- explicit geometry knobs such as `ssbsh`, `dsd`, `dl-*`, and `dr-*` then override that base, regardless of where they appear in the `fmt` string
-- render/style options such as `allow-lowercase-title` and `clean-dashes` adjust output behavior without changing the shared page geometry
-
-**Example:**
-
-```
-Title: My Awesome Screenplay
-Author: John Doe
-Fmt: bsh ush acat dsd dl-1.5 dr-7.0
-```
-
-### Available `fmt` Options
-
-  * **`multicam`**: **Multicam Base Template**. Applies JumpCut's shared multicam layout profile as a starting point for pagination/FDX formatting.
-  * **`bsh`**: **Bold Scene Headings**. Makes all scene headings bold.
-  * **`ush`**: **Underlined Scene Headings**. Underlines all scene headings.
-      * Note: `bsh` and `ush` can be combined (e.g., `bsh ush` for bold and underlined scene headings).
-  * **`acat`**: **All Caps Action Text**. Converts all action text to uppercase.
-  * **`ssbsh`**: **Single Space Before Scene Headings**. Reduces the space before scene headings from the default (24 points) to 12 points.
-  * **`dsd`**: **Double-Spaced Dialogue**. Changes dialogue spacing from single to double.
-  * **`cfd`**: **Courier Final Draft Font**. Uses "Courier Final Draft" as the primary font instead of the default "Courier Prime".
-  * **`dl-X.XX`**: **Custom Dialogue Left Indent**. Sets the left indent for dialogue blocks. Replace `X.XX` with a numerical value (e.g., `dl-1.25`). The default is 2.50 inches.
-  * **`dr-X.XX`**: **Custom Dialogue Right Indent**. Sets the right indent for dialogue blocks. Replace `X.XX` with a numerical value (e.g., `dr-6.00`). The default is 6.00 inches.
-  * **`allow-lowercase-title`**: **Preserve Plain Title Casing**. By default, an unstylized title-page title is rendered in the usual all-caps Final Draft style. This option keeps the original title casing instead.
-  * **`clean-dashes`**: **Cleaner Dash Wrapping**. Disables Final Draft-compatible dash splitting for interruption marks and trailing `--` word endings, keeping those double dashes together at line wraps instead.
-
-### Combined Example
-
-To start from the multicam template, keep its double-spaced dialogue, and then override the dialogue margins explicitly:
-
-```
-Fmt: multicam bsh ush acat dsd dl-2.0 dr-5.5
-```
-
-### Title And Dash Examples
-
-Preserve the original title casing for a plain title page:
-
-```
-Fmt: allow-lowercase-title
-```
-
-Keep interruption dashes together instead of following Final Draft's line-wrap behavior:
-
-```
-Fmt: clean-dashes
-```
+For the full token reference and examples, see [`docs/formatting-and-metadata.md`](docs/formatting-and-metadata.md).
 
 ## Prepending Metadata
 
-JumpCut allows you to prepend content from a separate Fountain file as metadata to your main screenplay. This is useful for managing common metadata (like title, author, copyright, fmt) across multiple screenplay files without duplicating it in each one.
+JumpCut can prepend metadata from a separate Fountain file via `--metadata` / `-m`.
 
-You can use the `--metadata` (or `-m`) option to specify a metadata file.
-
-### Usage
-
-To use this feature, add the `--metadata` flag to your command.
-
-```
-jumpcut <screenplay-file> --metadata <metadata-file>
-jumpcut <screenplay-file> -m <metadata-file>
-```
-
-If you provide the `--metadata` flag without a file path, JumpCut will look for a file named `metadata.fountain`. The location of this default file depends on your input:
-
-*   **If your input is a file:** JumpCut will look for `metadata.fountain` in the same directory as your input screenplay.
-*   **If your input is from stdin (`-`):** JumpCut will look for `metadata.fountain` in the current working directory.
-
-### Examples
-
-*   **Using a default metadata file alongside an input file:**
-    ```sh
-    jumpcut -m my_screenplay.fountain -f fdx > my_screenplay.fdx
-    # Looks for 'metadata.fountain' in the same directory as 'my_screenplay.fountain'
-    ```
-
-*   **Using a default metadata file with stdin input:**
-    ```sh
-    cat my_screenplay.fountain | jumpcut -m -f html > my_screenplay.html
-    # Looks for 'metadata.fountain' in the current working directory
-    ```
-
-*   **Specifying a custom metadata file:**
-    ```sh
-    jumpcut -m ~/my_templates/common_header.fountain my_screenplay.fountain -f json > my_screenplay.json
-    # Uses 'common_header.fountain' from your templates directory
-    ```
+For default-file lookup rules and runnable examples, see [`docs/formatting-and-metadata.md`](docs/formatting-and-metadata.md).
 
 ## Pagination Diagnostics
 
