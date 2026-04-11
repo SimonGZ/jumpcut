@@ -127,7 +127,7 @@ OPTIONS:
         --line-numbers       Show line numbers in text output
         --exact-wraps        Render HTML with exact Final Draft-style wraps
         --render-profile <render-profile>
-                             Override metadata-driven render profile [possible values: final-draft, balanced]
+                             Override metadata-driven render profile [possible values: industry, balanced]
         --no-continueds      Suppress (CONT'D)/(MORE) style continued markers in text, HTML, or PDF output
         --no-title-page      Suppress title-page output for HTML and PDF renders
 
@@ -169,7 +169,7 @@ JumpCut gives you two main ways to control how a script comes out:
 
 The built-in profiles are aimed at different goals:
 
-- `final-draft`: the default. This tries to match Final Draft's pagination and continuation behavior as closely as possible.
+- `industry`: the default. This aims for the kind of screenplay pagination and continuation behavior used by major industry tools (like Final Draft).
 - `balanced`: a more opinionated profile that aims for cleaner-looking page breaks, dash wrapping, and `(MORE)` / `(CONT'D)` choices.
 
 If you want the full reference for `fmt`, profile overrides, and `--metadata` / `-m`, use [`docs/formatting-and-metadata.md`](docs/formatting-and-metadata.md).

@@ -9,13 +9,13 @@ Render profiles are the quickest way to change the overall feel of a screenplay 
 The CLI can override the metadata-driven render profile for `pdf`, `text`, or `html` output:
 
 ```sh
-jumpcut -f pdf --render-profile final-draft script.fountain script.pdf
+jumpcut -f pdf --render-profile industry script.fountain script.pdf
 jumpcut -f text --render-profile balanced --paginate script.fountain
 ```
 
 The two built-in profiles are:
 
-- `final-draft`: the default behavior. This aims to match Final Draft's industry-standard pagination, page-break decisions, and `(MORE)` / `(CONT'D)` behavior as closely as possible.
+- `industry`: the default behavior. This aims for the kind of pagination, page-break decisions, and `(MORE)` / `(CONT'D)` behavior used by major industry tools (like Final Draft).
 - `balanced`: a more opinionated profile. This keeps JumpCut in the same general screenplay format, but prefers cleaner dash wrapping and less intrusive continuation behavior when that produces nicer-looking pages.
 
 If both Fountain metadata and `--render-profile` are present, the CLI option wins. The override only replaces profile-level `fmt` tokens such as `balanced`, `clean-dashes`, and `no-dual-contds`; unrelated knobs like `allow-lowercase-title` or `dl-*` / `dr-*` are left alone.

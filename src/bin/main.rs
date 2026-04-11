@@ -77,7 +77,7 @@ struct Args {
 #[cfg(feature = "cli")]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, ValueEnum)]
 enum RenderProfile {
-    FinalDraft,
+    Industry,
     Balanced,
 }
 
@@ -339,7 +339,7 @@ mod tests {
             )],
         );
 
-        apply_render_profile_override(&mut metadata, RenderProfile::FinalDraft);
+        apply_render_profile_override(&mut metadata, RenderProfile::Industry);
 
         let fmt = metadata
             .get("fmt")
@@ -365,6 +365,28 @@ mod tests {
             .map(|value| value.plain_text())
             .unwrap();
         assert_eq!(fmt, "allow-lowercase-title dl-2.0 balanced");
+    }
+
+    #[test]
+    fn cli_accepts_industry_render_profile_name() {
+        let parsed = Args::try_parse_from([
+            "jumpcut",
+            "script.fountain",
+            "--render-profile",
+            "industry",
+        ]);
+        assert!(parsed.is_ok());
+    }
+
+    #[test]
+    fn cli_rejects_removed_final_draft_render_profile_name() {
+        let parsed = Args::try_parse_from([
+            "jumpcut",
+            "script.fountain",
+            "--render-profile",
+            "final-draft",
+        ]);
+        assert!(parsed.is_err());
     }
 
     #[test]
