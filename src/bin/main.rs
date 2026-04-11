@@ -50,6 +50,10 @@ struct Args {
     #[arg(long)]
     no_continueds: bool,
 
+    /// Suppress title-page output for HTML and PDF renders
+    #[arg(long)]
+    no_title_page: bool,
+
     /// Input file, pass a dash ("-") to receive stdin
     input: PathBuf,
 
@@ -161,6 +165,11 @@ fn main() {
         std::process::exit(2);
     }
 
+    if format != "html" && format != "pdf" && opt.no_title_page {
+        eprintln!("Error: --no-title-page is only supported with --format html or --format pdf.");
+        std::process::exit(2);
+    }
+
     let output_bytes = match format.as_str() {
         "json" => match serde_json::to_string_pretty(&screenplay) {
             Ok(json) => json.into_bytes(),
@@ -176,6 +185,7 @@ fn main() {
                 exact_wraps: opt.exact_wraps || opt.paginate,
                 paginated: opt.paginate,
                 render_continueds: !opt.no_continueds,
+                render_title_page: !opt.no_title_page,
                 embed_courier_prime: opt.embed_courier_prime,
                 embedded_courier_prime_css: None,
             })
@@ -189,6 +199,7 @@ fn main() {
             .into_bytes(),
         "pdf" => screenplay.to_pdf_with_options(jumpcut::rendering::pdf::PdfRenderOptions {
             render_continueds: !opt.no_continueds,
+            render_title_page: !opt.no_title_page,
         }),
         _ => b"nothing".to_vec(),
     };
@@ -387,6 +398,12 @@ mod tests {
             parsed.is_ok(),
             "expected -w with -f pdf to parse as an auto-output flag"
         );
+    }
+
+    #[test]
+    fn cli_accepts_no_title_page_for_html_and_pdf() {
+        assert!(Args::try_parse_from(["jumpcut", "script.fountain", "-f", "html", "--no-title-page"]).is_ok());
+        assert!(Args::try_parse_from(["jumpcut", "script.fountain", "-f", "pdf", "--no-title-page"]).is_ok());
     }
 
     #[test]

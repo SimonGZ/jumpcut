@@ -33,6 +33,7 @@ pub fn parse_to_html_string_with_options(
         head: include_head,
         exact_wraps: exact_wraps || paginated,
         paginated,
+        render_title_page: true,
         embed_courier_prime: false,
         embedded_courier_prime_css: None,
         ..Default::default()
@@ -56,6 +57,7 @@ pub fn parse_to_html_string_with_embedded_courier_prime(
         head: include_head,
         exact_wraps: exact_wraps || paginated,
         paginated,
+        render_title_page: true,
         embed_courier_prime: false,
         embedded_courier_prime_css: Some(
             jumpcut::rendering::html::embedded_courier_prime_css_from_base64(

@@ -31,6 +31,7 @@ pub struct HtmlRenderOptions {
     pub exact_wraps: bool,
     pub paginated: bool,
     pub render_continueds: bool,
+    pub render_title_page: bool,
     pub embed_courier_prime: bool,
     pub embedded_courier_prime_css: Option<String>,
 }
@@ -42,6 +43,7 @@ impl Default for HtmlRenderOptions {
             exact_wraps: false,
             paginated: false,
             render_continueds: true,
+            render_title_page: true,
             embed_courier_prime: false,
             embedded_courier_prime_css: None,
         }
@@ -177,8 +179,10 @@ fn render_body(
     options: &HtmlRenderOptions,
     layout_profile: &ScreenplayLayoutProfile,
 ) {
-    if let Some(title_page) = TitlePage::from_metadata(&screenplay.metadata) {
-        render_title_page(out, &title_page, options.paginated);
+    if options.render_title_page {
+        if let Some(title_page) = TitlePage::from_metadata(&screenplay.metadata) {
+            render_title_page(out, &title_page, options.paginated);
+        }
     }
 
     if options.paginated {
@@ -231,6 +235,7 @@ fn render_exact_wrap_body(
         screenplay,
         VisualRenderOptions {
             render_continueds: options.render_continueds,
+            render_title_page: options.render_title_page,
         },
     ) {
         render_visual_line(out, &line, layout_profile);
@@ -250,6 +255,7 @@ fn render_paginated_body(
         screenplay,
         VisualRenderOptions {
             render_continueds: options.render_continueds,
+            render_title_page: options.render_title_page,
         },
     ) {
         write!(
@@ -715,6 +721,7 @@ mod tests {
             exact_wraps,
             paginated,
             render_continueds: true,
+            render_title_page: true,
             embed_courier_prime: false,
             embedded_courier_prime_css: None,
         }
@@ -1034,6 +1041,26 @@ mod tests {
 
         assert!(styled_output.contains("<h1><span class=\"italic\">Big Fish</span></h1>"));
         assert!(!styled_output.contains("<h1 class=\"defaultTitleText\">"));
+    }
+
+    #[test]
+    fn html_render_options_can_suppress_title_page() {
+        let mut metadata = Metadata::new();
+        metadata.insert("title".into(), vec!["Big Fish".into()]);
+
+        let output = render_document(
+            &Screenplay {
+                metadata,
+                elements: vec![Element::Action(p("BODY"), blank_attributes())],
+            },
+            HtmlRenderOptions {
+                render_title_page: false,
+                ..html_options(false, false, false)
+            },
+        );
+
+        assert!(!output.contains("<section class=\"title-page"));
+        assert!(output.contains("BODY"));
     }
 
     #[test]

@@ -16,12 +16,14 @@ use crate::Screenplay;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct VisualRenderOptions {
     pub render_continueds: bool,
+    pub render_title_page: bool,
 }
 
 impl Default for VisualRenderOptions {
     fn default() -> Self {
         Self {
             render_continueds: true,
+            render_title_page: true,
         }
     }
 }
@@ -66,7 +68,7 @@ pub(crate) fn render_paginated_visual_pages_with_options(
     options: VisualRenderOptions,
 ) -> Vec<VisualPage> {
     let screenplay_id = "screenplay";
-    let scope = default_pagination_scope(screenplay);
+    let scope = default_pagination_scope(screenplay, options);
     let layout_profile = ScreenplayLayoutProfile::from_metadata(&screenplay.metadata);
     let style_profile = style_profile_name(&layout_profile);
     let normalized = normalize_screenplay(screenplay_id, screenplay);
@@ -141,8 +143,8 @@ fn style_profile_name(layout_profile: &ScreenplayLayoutProfile) -> &'static str 
     }
 }
 
-fn default_pagination_scope(screenplay: &Screenplay) -> PaginationScope {
-    if has_title_page_metadata(screenplay) {
+fn default_pagination_scope(screenplay: &Screenplay, options: VisualRenderOptions) -> PaginationScope {
+    if options.render_title_page && has_title_page_metadata(screenplay) {
         PaginationScope {
             title_page_count: Some(1),
             body_start_page: Some(2),

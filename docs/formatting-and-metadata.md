@@ -20,6 +20,13 @@ jumpcut -f text --paginate --no-continueds script.fountain
 jumpcut -f pdf --render-profile balanced --no-continueds script.fountain script.pdf
 ```
 
+You can also suppress title-page output for HTML and PDF without removing title-page metadata from the source:
+
+```sh
+jumpcut -f html --no-title-page script.fountain
+jumpcut -f pdf --no-title-page script.fountain script.pdf
+```
+
 ## Formatting Metadata (`fmt`)
 
 JumpCut uses the `fmt` metadata key to control shared layout and rendering behavior. These options affect pagination and can also influence FDX, HTML, text, and PDF output, depending on the option.

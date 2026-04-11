@@ -62,12 +62,14 @@ const ADOBE_IDENTITY: SystemInfo<'static> = SystemInfo {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PdfRenderOptions {
     pub render_continueds: bool,
+    pub render_title_page: bool,
 }
 
 impl Default for PdfRenderOptions {
     fn default() -> Self {
         Self {
             render_continueds: true,
+            render_title_page: true,
         }
     }
 }
@@ -346,7 +348,7 @@ pub(crate) fn build_render_document(
     options: PdfRenderOptions,
     _geometry: &LayoutGeometry,
 ) -> PdfRenderDocument {
-    let title_page =
+    let title_page = if options.render_title_page {
         TitlePage::from_metadata(&screenplay.metadata).map(|title_page| PdfTitlePage {
             plain_title_all_caps: plain_title_uses_all_caps(&screenplay.metadata),
             blocks: title_page
@@ -358,12 +360,16 @@ pub(crate) fn build_render_document(
                     lines: block.lines,
                 })
                 .collect(),
-        });
+        })
+    } else {
+        None
+    };
 
     let body_pages = render_paginated_visual_pages_with_options(
         screenplay,
         VisualRenderOptions {
             render_continueds: options.render_continueds,
+            render_title_page: options.render_title_page,
         },
     )
     .into_iter()
@@ -404,7 +410,10 @@ pub(crate) fn render_with_options(screenplay: &Screenplay, options: PdfRenderOpt
     let profile = ScreenplayLayoutProfile::from_metadata(&screenplay.metadata);
     let geometry = profile.to_pagination_geometry();
     let document = build_render_document(screenplay, options, &geometry);
-    let tagged_document = build_tagged_document(screenplay, &geometry);
+    let mut tagged_document = build_tagged_document(screenplay, &geometry);
+    if !options.render_title_page {
+        tagged_document.title_page = None;
+    }
     let document_language = document_language(&screenplay.metadata);
     let render_timestamp = OffsetDateTime::now_utc();
     let mut structure_pages = Vec::new();
@@ -2967,6 +2976,32 @@ mod tests {
             document.body_pages[1].lines[0].kind,
             Some(PdfLineKind::Action)
         );
+    }
+
+    #[test]
+    fn pdf_render_options_can_suppress_title_page() {
+        let mut metadata = Metadata::new();
+        metadata.insert("title".into(), vec![p("MY SCREENPLAY")]);
+
+        let screenplay = Screenplay {
+            metadata,
+            elements: vec![Element::Action(p("FIRST BODY PAGE"), blank_attributes())],
+        };
+
+        let geometry = LayoutGeometry::default();
+        let document = build_render_document(
+            &screenplay,
+            PdfRenderOptions {
+                render_title_page: false,
+                ..PdfRenderOptions::default()
+            },
+            &geometry,
+        );
+
+        assert!(document.title_page.is_none());
+        assert_eq!(document.body_pages.len(), 1);
+        assert_eq!(document.body_pages[0].page_number, 1);
+        assert_eq!(document.body_pages[0].display_page_number, None);
     }
 
     #[test]

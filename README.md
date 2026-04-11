@@ -124,6 +124,7 @@ OPTIONS:
         --render-profile <render-profile>
                              Override metadata-driven render profile [possible values: final-draft, balanced]
         --no-continueds      Suppress (CONT'D)/(MORE) style continued markers in text, HTML, or PDF output
+        --no-title-page      Suppress title-page output for HTML and PDF renders
 
 ARGS:
     <input>     Input file, pass a dash ("-") to receive stdin
