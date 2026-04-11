@@ -128,6 +128,22 @@ ARGS:
     <output>    Output file, stdout if not present
 ```
 
+Output path forms:
+
+```sh
+# Legacy positional output path
+jumpcut script.fountain script.fdx
+
+# Explicit output flag
+jumpcut script.fountain -o script.fdx
+
+# Auto-derive the output path from the input stem and format
+jumpcut script.fountain -o
+jumpcut script.fountain -o -f pdf   # writes script.pdf
+```
+
+When using bare `-o`, keep `-f` separate. `-of pdf` is not treated as shorthand for `-o -f pdf`.
+
 To use JumpCut within a Rust program, you can examine the [main.rs](src/bin/main.rs) file for an example of calling the library, but the basics are depicted below:
 
 ```rust

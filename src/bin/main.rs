@@ -11,7 +11,10 @@ use std::fs;
 #[cfg(feature = "cli")]
 use std::io::{self, Read, Write};
 #[cfg(feature = "cli")]
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+
+#[cfg(feature = "cli")]
+const AUTO_OUTPUT_SENTINEL: &str = "__jumpcut_auto_output__";
 
 #[cfg(feature = "cli")]
 #[derive(Parser)]
@@ -53,8 +56,13 @@ struct Args {
     /// Input file, pass a dash ("-") to receive stdin
     input: PathBuf,
 
-    /// Output file, stdout if not present
+    /// Output file in the legacy positional form.
+    #[arg(conflicts_with = "output_flag")]
     output: Option<PathBuf>,
+
+    /// Output file. Pass bare -o/--output to auto-derive a file name from the input and format.
+    #[arg(short = 'o', long = "output", value_name = "FILE", num_args = 0..=1, default_missing_value = AUTO_OUTPUT_SENTINEL, conflicts_with = "output")]
+    output_flag: Option<PathBuf>,
 
     /// Optional Fountain file to prepend as metadata. Defaults to "metadata.fountain" if flag is present without a value.
     #[arg(short, long, value_name = "FILE", num_args = 0..=1, default_missing_value = "metadata.fountain")]
@@ -129,7 +137,13 @@ fn main() {
 
     let mut screenplay = parse(&content);
     apply_cli_render_overrides(&mut screenplay, &opt);
-    let format = infer_format(opt.format.as_deref(), opt.output.as_ref());
+    let requested_output = opt.output_flag.as_ref().or(opt.output.as_ref());
+    let explicit_output = requested_output.filter(|path| !is_auto_output_marker(path));
+    let format = infer_format(opt.format.as_deref(), explicit_output);
+    let output_path = resolve_output_path(&opt.input, requested_output, &format).unwrap_or_else(|error| {
+        eprintln!("Error: {error}");
+        std::process::exit(2);
+    });
 
     if format != "text" && format != "html" && opt.paginate {
         eprintln!("Error: --paginate is only supported with --format text or --format html.");
@@ -178,7 +192,7 @@ fn main() {
         _ => b"nothing".to_vec(),
     };
 
-    match opt.output {
+    match output_path {
         Some(outfile) => fs::write(outfile, output_bytes).expect("Unable to write file."),
         None => {
             let stdout = io::stdout();
@@ -206,6 +220,46 @@ fn infer_format(format_opt: Option<&str>, output_opt: Option<&PathBuf>) -> Strin
             None => "fdx".to_string(),
         },
     }
+}
+
+#[cfg(feature = "cli")]
+fn resolve_output_path(
+    input: &Path,
+    output_opt: Option<&PathBuf>,
+    format: &str,
+) -> Result<Option<PathBuf>, String> {
+    match output_opt {
+        Some(path) if is_auto_output_marker(path) => auto_output_path(input, format)
+            .map(Some)
+            .ok_or_else(|| "cannot auto-derive an output path when input is stdin".to_string()),
+        Some(path) => Ok(Some(path.clone())),
+        None => Ok(None),
+    }
+}
+
+#[cfg(feature = "cli")]
+fn auto_output_path(input: &Path, format: &str) -> Option<PathBuf> {
+    if input == Path::new("-") {
+        return None;
+    }
+
+    Some(input.with_extension(default_extension_for_format(format)))
+}
+
+#[cfg(feature = "cli")]
+fn default_extension_for_format(format: &str) -> &'static str {
+    match format {
+        "pdf" => "pdf",
+        "html" => "html",
+        "text" => "txt",
+        "json" => "json",
+        _ => "fdx",
+    }
+}
+
+#[cfg(feature = "cli")]
+fn is_auto_output_marker(path: &Path) -> bool {
+    path.to_str() == Some(AUTO_OUTPUT_SENTINEL)
 }
 
 #[cfg(feature = "cli")]
@@ -249,8 +303,13 @@ fn apply_render_profile_override(metadata: &mut jumpcut::Metadata, render_profil
 
 #[cfg(all(test, feature = "cli"))]
 mod tests {
-    use super::{apply_render_profile_override, RenderProfile};
+    use super::{
+        apply_render_profile_override, infer_format, is_auto_output_marker, resolve_output_path,
+        Args, RenderProfile,
+    };
     use jumpcut::{ElementText, Metadata};
+    use clap::Parser;
+    use std::path::PathBuf;
 
     #[test]
     fn render_profile_override_replaces_balanced_family_tokens_only() {
@@ -292,9 +351,6 @@ mod tests {
 
     #[test]
     fn format_inference_uses_explicit_format_arg_first() {
-        use super::infer_format;
-        use std::path::PathBuf;
-
         assert_eq!(
             infer_format(Some("HTML"), Some(&PathBuf::from("out.pdf"))),
             "html"
@@ -303,9 +359,6 @@ mod tests {
 
     #[test]
     fn format_inference_falls_back_to_extension() {
-        use super::infer_format;
-        use std::path::PathBuf;
-
         assert_eq!(infer_format(None, Some(&PathBuf::from("out.pdf"))), "pdf");
         assert_eq!(infer_format(None, Some(&PathBuf::from("out.html"))), "html");
         assert_eq!(infer_format(None, Some(&PathBuf::from("out.htm"))), "html");
@@ -317,11 +370,80 @@ mod tests {
 
     #[test]
     fn format_inference_defaults_to_fdx_if_no_extension_or_unknown() {
-        use super::infer_format;
-        use std::path::PathBuf;
-
         assert_eq!(infer_format(None, Some(&PathBuf::from("out"))), "fdx");
         assert_eq!(infer_format(None, Some(&PathBuf::from("out.mp3"))), "fdx");
         assert_eq!(infer_format(None, None), "fdx");
+    }
+
+    #[test]
+    fn cli_accepts_bare_output_flag_for_auto_output_path() {
+        let parsed = Args::try_parse_from(["jumpcut", "big fish.fountain", "-o"]);
+        assert!(
+            parsed.is_ok(),
+            "expected bare -o to parse as an auto-output flag"
+        );
+    }
+
+    #[test]
+    fn cli_accepts_bare_output_flag_with_explicit_pdf_format() {
+        let parsed = Args::try_parse_from(["jumpcut", "big fish.fountain", "-o", "-f", "pdf"]);
+        assert!(
+            parsed.is_ok(),
+            "expected bare -o with -f pdf to parse as an auto-output flag"
+        );
+    }
+
+    #[test]
+    fn bare_output_flag_uses_input_stem_and_default_fdx_extension() {
+        let args = Args::try_parse_from(["jumpcut", "big fish.fountain", "-o"]).unwrap();
+        let requested_output = args.output_flag.as_ref().or(args.output.as_ref());
+        let explicit_output = requested_output.filter(|path| !is_auto_output_marker(path));
+        let format = infer_format(args.format.as_deref(), explicit_output);
+
+        assert_eq!(format, "fdx");
+        assert_eq!(
+            resolve_output_path(&args.input, requested_output, &format).unwrap(),
+            Some(PathBuf::from("big fish.fdx"))
+        );
+    }
+
+    #[test]
+    fn bare_output_flag_uses_explicit_pdf_format_for_extension() {
+        let args = Args::try_parse_from(["jumpcut", "big fish.fountain", "-o", "-f", "pdf"]).unwrap();
+        let requested_output = args.output_flag.as_ref().or(args.output.as_ref());
+        let explicit_output = requested_output.filter(|path| !is_auto_output_marker(path));
+        let format = infer_format(args.format.as_deref(), explicit_output);
+
+        assert_eq!(format, "pdf");
+        assert_eq!(
+            resolve_output_path(&args.input, requested_output, &format).unwrap(),
+            Some(PathBuf::from("big fish.pdf"))
+        );
+    }
+
+    #[test]
+    fn bare_output_flag_cannot_auto_derive_from_stdin() {
+        let args = Args::try_parse_from(["jumpcut", "-", "-o"]).unwrap();
+        let requested_output = args.output_flag.as_ref().or(args.output.as_ref());
+        let explicit_output = requested_output.filter(|path| !is_auto_output_marker(path));
+        let format = infer_format(args.format.as_deref(), explicit_output);
+
+        let error = resolve_output_path(&args.input, requested_output, &format).unwrap_err();
+        assert_eq!(error, "cannot auto-derive an output path when input is stdin");
+    }
+
+    #[test]
+    fn positional_output_path_still_parses_and_controls_format() {
+        let args = Args::try_parse_from(["jumpcut", "input.fountain", "output.pdf"]).unwrap();
+        let requested_output = args.output_flag.as_ref().or(args.output.as_ref());
+        let explicit_output = requested_output.filter(|path| !is_auto_output_marker(path));
+        let format = infer_format(args.format.as_deref(), explicit_output);
+
+        assert_eq!(requested_output, Some(&PathBuf::from("output.pdf")));
+        assert_eq!(format, "pdf");
+        assert_eq!(
+            resolve_output_path(&args.input, requested_output, &format).unwrap(),
+            Some(PathBuf::from("output.pdf"))
+        );
     }
 }
