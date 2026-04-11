@@ -1,1 +1,507 @@
-@page screenplay,screenplay-title{size:letter;margin-top:1in;margin-right:1in;margin-bottom:.75in;margin-left:1.5in}@page screenplay{@top-right-corner{font-family:"Courier Prime","Courier","Courier Final Draft","Courier New";font-size:12pt;content:counter(page) ".";vertical-align:bottom;padding-bottom:1em}}@page screenplay:first{@top-right-corner{content:normal}}.screenplay{page:screenplay;counter-reset:page;font-family:"Courier Prime",Courier,"Courier Final Draft","Courier New";font-size:12pt;line-height:1;max-width:6in;margin:1em auto;-webkit-text-size-adjust:none;page:screenplay;counter-reset:page;font-family:"Courier Prime",Courier,"Courier Final Draft","Courier New";font-size:12pt;line-height:1;max-width:6in;margin:1em auto;-webkit-text-size-adjust:none}.screenplay .title-page{display:block;page:screenplay-title;page-break-after:always;margin:0 auto 1em}.screenplay .title-page .title{text-align:center}@media print{.screenplay .title-page .title{margin-top:3.5in;margin-bottom:4in}}.screenplay .title-page .title h1{text-transform:uppercase;text-decoration:underline}.screenplay hr{page-break-after:always}@media print{.screenplay hr{visibility:hidden}}.screenplay mark{background-color:#ff0}.screenplay mark:before{content:"*";width:.5in;position:absolute;right:0}.screenplay del:before{content:"*";width:.5in;position:absolute;right:0}.screenplay .section{width:100%;margin:0;clear:both}.screenplay .section-heading{display:block;text-align:center}.screenplay .section-heading:hover{background-color:#fff}.screenplay .scene{margin-top:2em;width:100%}.screenplay .scene-heading,.screenplay .sceneHeading{margin-bottom:0;clear:both;page-break-after:avoid}.screenplay .scene-heading:hover,.screenplay .sceneHeading:hover{background-color:#fff}.screenplay .action{margin:1em 0;clear:both;white-space:pre-wrap;orphans:2;widows:2}.screenplay .dialog,.screenplay .dialogueBlock{width:75%;max-width:4in;margin-top:1em;margin-bottom:1em;margin-left:17%;clear:both}.screenplay .dialog .character,.screenplay .dialogueBlock .character{margin-top:0;margin-bottom:0;margin-left:25%}.screenplay .dialog .dialogue,.screenplay .dialog .lines,.screenplay .dialogueBlock .dialogue,.screenplay .dialogueBlock .lines{max-width:3.5in;margin-top:0;margin-bottom:0;white-space:pre-wrap;orphans:2;widows:2}.screenplay .dialog .paren,.screenplay .dialog .parenthetical,.screenplay .dialogueBlock .paren,.screenplay .dialogueBlock .parenthetical{max-width:2in;margin-top:0;margin-bottom:0;margin-left:15%;text-indent:-.6em;page-break-inside:avoid;page-break-after:avoid}.screenplay .dual-dialog,.screenplay .dualDialogueBlock{width:100%;margin:1em 0}.screenplay .dual-dialog .dialog,.screenplay .dual-dialog .dialogueBlock,.screenplay .dualDialogueBlock .dialog,.screenplay .dualDialogueBlock .dialogueBlock{max-width:50%;margin-top:0;margin-left:0;margin-right:0;float:left;clear:none}.screenplay .dual-dialog .dialog .dialogue,.screenplay .dual-dialog .dialog .lines,.screenplay .dual-dialog .dialogueBlock .dialogue,.screenplay .dual-dialog .dialogueBlock .lines,.screenplay .dualDialogueBlock .dialog .dialogue,.screenplay .dualDialogueBlock .dialog .lines,.screenplay .dualDialogueBlock .dialogueBlock .dialogue,.screenplay .dualDialogueBlock .dialogueBlock .lines{width:95%}.screenplay .trans,.screenplay .transition{max-width:2in;margin-left:63%;clear:both;page-break-before:avoid}.screenplay .note{display:block;font-size:11pt;font-family:"Comic Sans MS","Marker Felt",sans-serif;line-height:1.5;background-color:#fafad2;padding:1em}.screenplay .synopsis{display:block;margin-top:0;color:grey;font-style:italic}.screenplay .center{text-align:center;width:100%;white-space:pre-wrap}.screenplay h1,.screenplay h2,.screenplay h3,.screenplay h4,.screenplay h5,.screenplay h6{font-weight:inherit;font-size:inherit}.screenplay a{color:inherit;text-decoration:none}.screenplay .underline{text-decoration:underline}.screenplay .title-page{display:block;page:screenplay-title;page-break-after:always;margin:0 auto 1em}.screenplay .title-page .title{text-align:center}@media print{.screenplay .title-page .title{margin-top:3.5in;margin-bottom:4in}}.screenplay .title-page .title h1{text-transform:uppercase;text-decoration:underline}.screenplay hr{page-break-after:always}@media print{.screenplay hr{visibility:hidden}}.screenplay mark{background-color:#ff0}.screenplay mark:before{content:"*";width:.5in;position:absolute;right:0}.screenplay del:before{content:"*";width:.5in;position:absolute;right:0}.screenplay .section{width:100%;margin:0;clear:both}.screenplay .section-heading{display:block;text-align:center}.screenplay .section-heading:hover{color:#fff;background-color:#000}.screenplay .scene{margin-top:2em;width:100%}.screenplay .scene-heading,.screenplay .sceneHeading{margin-bottom:0;clear:both;page-break-after:avoid}.screenplay .scene-heading:hover,.screenplay .sceneHeading:hover{color:#fff;background-color:#000}.screenplay .action{margin:1em 0;clear:both;white-space:pre-wrap;orphans:2;widows:2}.screenplay .dialog,.screenplay .dialogueBlock{width:75%;max-width:4in;margin-top:0;margin-bottom:1em;margin-left:17%;clear:both}.screenplay .dialog .character,.screenplay .dialogueBlock .character{margin-top:0;margin-bottom:0;margin-left:25%}.screenplay .dialog .dialogue,.screenplay .dialog .lines,.screenplay .dialogueBlock .dialogue,.screenplay .dialogueBlock .lines{max-width:3.5in;margin-top:0;margin-bottom:0;white-space:pre-wrap;orphans:2;widows:2}.screenplay .dialog .paren,.screenplay .dialog .parenthetical,.screenplay .dialogueBlock .paren,.screenplay .dialogueBlock .parenthetical{max-width:2in;margin-top:0;margin-bottom:0;margin-left:15%;text-indent:-.6em;page-break-inside:avoid;page-break-after:avoid}.screenplay .dual-dialog,.screenplay .dualDialogueBlock{display:inline-block;width:100%}.screenplay .dual-dialog .dialog,.screenplay .dual-dialog .dialogueBlock,.screenplay .dualDialogueBlock .dialog,.screenplay .dualDialogueBlock .dialogueBlock{max-width:50%;margin-left:0;float:left;clear:none}.screenplay .dual-dialog .dialog .dialogue,.screenplay .dual-dialog .dialog .lines,.screenplay .dual-dialog .dialogueBlock .dialogue,.screenplay .dual-dialog .dialogueBlock .lines,.screenplay .dualDialogueBlock .dialog .dialogue,.screenplay .dualDialogueBlock .dialog .lines,.screenplay .dualDialogueBlock .dialogueBlock .dialogue,.screenplay .dualDialogueBlock .dialogueBlock .lines{width:95%}.screenplay .trans,.screenplay .transition{max-width:2in;margin-left:63%;clear:both;page-break-before:avoid}.screenplay .note{display:block;font-size:11pt;font-family:"Comic Sans MS","Marker Felt",sans-serif;line-height:1.5;background-color:#fafad2;padding:1em}.screenplay .synopsis{display:block;margin-top:0;color:grey;font-style:italic}.screenplay .center{text-align:center;width:100%;white-space:pre-wrap}.bold{font-weight:700}.italic{font-style:italic}.underline{text-decoration:underline}.allcaps{text-transform:uppercase}
+@font-face {
+  font-family: "Courier Prime";
+  src: local("Courier Prime"), local("CourierPrime"), local("CourierPrime-Regular");
+  font-weight: 400;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: "Courier Prime";
+  src: local("Courier Prime Italic"), local("CourierPrime-Italic");
+  font-weight: 400;
+  font-style: italic;
+}
+
+@font-face {
+  font-family: "Courier Prime";
+  src: local("Courier Prime Bold"), local("CourierPrime-Bold");
+  font-weight: 700;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: "Courier Prime";
+  src: local("Courier Prime Bold Italic"), local("CourierPrime-BoldItalic");
+  font-weight: 700;
+  font-style: italic;
+}
+
+@page screenplay, screenplay-title {
+  size: letter;
+  margin-top: 1in;
+  margin-right: 1in;
+  margin-bottom: 0.75in;
+  margin-left: 1.5in;
+}
+
+@page screenplay {
+  @top-right-corner {
+    font-family: "Courier Prime", "Courier", "Courier Final Draft", "Courier New";
+    font-size: 12pt;
+    content: counter(page) ".";
+    vertical-align: bottom;
+    padding-bottom: 1em;
+  }
+}
+
+@page screenplay:first {
+  @top-right-corner {
+    content: normal;
+  }
+}
+
+.screenplay {
+  page: screenplay;
+  counter-reset: page;
+  font-family: "Courier Prime", "Courier", "Courier Final Draft", "Courier New";
+  font-size: 12pt;
+  line-height: 1;
+  max-width: 6in;
+  margin: 1em auto;
+  -webkit-text-size-adjust: none;
+}
+
+.screenplay h1,
+.screenplay h2,
+.screenplay h3,
+.screenplay h4,
+.screenplay h5,
+.screenplay h6 {
+  font-weight: inherit;
+  font-size: inherit;
+}
+
+.screenplay a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.screenplay hr {
+  page-break-after: always;
+}
+
+@media print {
+  .screenplay hr {
+    visibility: hidden;
+  }
+}
+
+.screenplay mark {
+  background-color: #ff0;
+}
+
+.screenplay mark:before,
+.screenplay del:before {
+  content: "*";
+  width: 0.5in;
+  position: absolute;
+  right: 0;
+}
+
+.screenplay .section {
+  width: 100%;
+  margin: 0;
+  clear: both;
+}
+
+.screenplay .section-heading {
+  display: block;
+  text-align: center;
+}
+
+.screenplay .section-heading:hover,
+.screenplay .scene-heading:hover,
+.screenplay .sceneHeading:hover {
+  background-color: #fff;
+}
+
+.screenplay .scene {
+  margin-top: 2em;
+  width: 100%;
+}
+
+.screenplay .scene-heading,
+.screenplay .sceneHeading {
+  margin-bottom: 0;
+  clear: both;
+  page-break-after: avoid;
+  position: relative;
+}
+
+.screenplay .sceneNumberLeft,
+.screenplay .sceneNumberRight {
+  position: absolute;
+}
+
+.screenplay .sceneNumberLeft {
+  left: -0.75in;
+}
+
+.screenplay .sceneNumberRight {
+  left: 5.875in;
+}
+
+.screenplay .action {
+  margin: 1em 0;
+  clear: both;
+  white-space: pre-wrap;
+  orphans: 2;
+  widows: 2;
+}
+
+.screenplay .dialog,
+.screenplay .dialogueBlock {
+  width: 75%;
+  max-width: 4in;
+  margin-top: 0;
+  margin-bottom: 1em;
+  margin-left: 17%;
+  clear: both;
+}
+
+.screenplay .dialog .character,
+.screenplay .dialogueBlock .character {
+  margin-top: 0;
+  margin-bottom: 0;
+  margin-left: 25%;
+}
+
+.screenplay .dialog .dialogue,
+.screenplay .dialog .lines,
+.screenplay .dialogueBlock .dialogue,
+.screenplay .dialogueBlock .lines {
+  max-width: 3.5in;
+  margin-top: 0;
+  margin-bottom: 0;
+  white-space: pre-wrap;
+  orphans: 2;
+  widows: 2;
+}
+
+.screenplay .dialog .paren,
+.screenplay .dialog .parenthetical,
+.screenplay .dialogueBlock .paren,
+.screenplay .dialogueBlock .parenthetical {
+  max-width: 2in;
+  margin-top: 0;
+  margin-bottom: 0;
+  margin-left: 15%;
+  text-indent: -1ch;
+  page-break-inside: avoid;
+  page-break-after: avoid;
+}
+
+.screenplay .dual-dialog,
+.screenplay .dualDialogueBlock {
+  display: inline-block;
+  width: 100%;
+}
+
+.screenplay .dual-dialog .dialog,
+.screenplay .dual-dialog .dialogueBlock,
+.screenplay .dualDialogueBlock .dialog,
+.screenplay .dualDialogueBlock .dialogueBlock {
+  max-width: 50%;
+  margin-left: 0;
+  float: left;
+  clear: none;
+}
+
+.screenplay .dual-dialog .dialog .dialogue,
+.screenplay .dual-dialog .dialog .lines,
+.screenplay .dual-dialog .dialogueBlock .dialogue,
+.screenplay .dual-dialog .dialogueBlock .lines,
+.screenplay .dualDialogueBlock .dialog .dialogue,
+.screenplay .dualDialogueBlock .dialog .lines,
+.screenplay .dualDialogueBlock .dialogueBlock .dialogue,
+.screenplay .dualDialogueBlock .dialogueBlock .lines {
+  width: 95%;
+}
+
+.screenplay .trans,
+.screenplay .transition {
+  max-width: 2in;
+  margin-left: 63%;
+  clear: both;
+  page-break-before: avoid;
+}
+
+.screenplay .note {
+  display: block;
+  font-size: 11pt;
+  font-family: "Comic Sans MS", "Marker Felt", sans-serif;
+  line-height: 1.5;
+  background-color: #fafad2;
+  padding: 1em;
+}
+
+.screenplay .synopsis {
+  display: block;
+  margin-top: 0;
+  color: grey;
+  font-style: italic;
+}
+
+.screenplay .center {
+  text-align: center;
+  width: 100%;
+  white-space: pre-wrap;
+}
+
+.screenplay.exactWraps .visualLine,
+.screenplay.paginatedHtml .visualLine {
+  margin: 0;
+  min-height: 1em;
+  line-height: 1;
+  white-space: pre;
+  position: relative;
+}
+
+.screenplay.exactWraps .blankLine,
+.screenplay.paginatedHtml .blankLine {
+  min-height: 1em;
+}
+
+.screenplay.exactWraps .centeredLine,
+.screenplay.paginatedHtml .centeredLine {
+  text-align: center;
+  width: calc(100% + 0.5in);
+  max-width: calc(100% + 0.5in);
+  margin-left: -0.5in;
+}
+
+.screenplay.exactWraps .dualDialogueLine,
+.screenplay.paginatedHtml .dualDialogueLine {
+  position: relative;
+  width: 6in;
+  max-width: 6in;
+  white-space: normal;
+}
+
+.screenplay.exactWraps .dualDialogueLine .dualSegment,
+.screenplay.paginatedHtml .dualDialogueLine .dualSegment {
+  position: absolute;
+  top: 0;
+  white-space: pre;
+}
+
+.paginatedHtmlView {
+  margin: 0;
+  background: #dfe4ea;
+  padding: 1rem 0 2rem;
+}
+
+.screenplay.paginatedHtml {
+  max-width: none;
+}
+
+.screenplay.paginatedHtml .paginatedBody {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.screenplay.paginatedHtml .page {
+  width: 8.5in;
+  min-height: 11in;
+  box-sizing: border-box;
+  margin: 0 auto;
+  padding: 0.5in 1in 0.75in 1.5in;
+  background: #fff;
+  box-shadow: 0 0 0 1px rgba(71, 85, 105, 0.18), 0 0.35rem 1.5rem rgba(15, 23, 42, 0.08);
+}
+
+.screenplay.paginatedHtml .pageHeader {
+  height: 0.5in;
+  text-align: right;
+}
+
+.screenplay.paginatedHtml .pageNumber {
+  display: inline-block;
+  min-width: 3ch;
+}
+
+.screenplay.paginatedHtml .pageBody {
+  max-width: 6in;
+}
+
+.screenplay.paginatedHtml .firstPage .pageHeader {
+  visibility: hidden;
+}
+
+@media print {
+  .paginatedHtmlView {
+    background: none;
+    padding: 0;
+  }
+
+  .screenplay.paginatedHtml .paginatedBody {
+    gap: 0;
+  }
+
+  .screenplay.paginatedHtml .page {
+    margin: 0;
+    box-shadow: none;
+    page-break-after: always;
+    break-after: page;
+  }
+}
+
+.screenplay .title-page {
+  position: relative;
+  box-sizing: border-box;
+  width: 8.5in;
+  min-height: 11in;
+  max-width: none;
+  margin: 0 auto 1em;
+  padding: 1in 1in 1.25in 1.5in;
+  background: #fff;
+  box-shadow: 0 0 0 1px rgba(71, 85, 105, 0.18), 0 0.35rem 1.5rem rgba(15, 23, 42, 0.08);
+  display: block;
+  page: screenplay-title;
+  page-break-after: always;
+}
+
+.screenplay .title-page.unpaginatedTitlePage {
+  position: static;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-areas:
+    "title title"
+    "meta meta"
+    "left right";
+  column-gap: 1.5in;
+  row-gap: 0;
+  width: auto;
+  min-height: 0;
+  max-width: 6in;
+  margin: 0 auto 2em;
+  padding: 0 0 2em;
+  background: transparent;
+  box-shadow: none;
+  page: auto;
+  page-break-after: auto;
+}
+
+.screenplay .titlePageBlock {
+  position: absolute;
+  left: 1.5in;
+  right: 1in;
+}
+
+.screenplay .unpaginatedTitlePage .titlePageBlock {
+  position: static;
+  left: auto;
+  right: auto;
+  width: auto;
+  max-width: none;
+}
+
+.screenplay .titlePageTitle {
+  top: 3.5in;
+  left: 1in;
+  right: auto;
+  width: calc(6in + 0.5in);
+  max-width: calc(6in + 0.5in);
+  text-align: center;
+}
+
+.screenplay .titlePageTitle h1 {
+  margin: 0;
+}
+
+.screenplay .unpaginatedTitlePage .titlePageTitle {
+  grid-area: title;
+  margin: 0 0 3em;
+}
+
+.screenplay .titlePageTitle .defaultTitleText {
+  font-weight: 700;
+  text-decoration: underline;
+}
+
+.screenplay .titlePageCenterMeta {
+  top: 4.75in;
+  left: 1in;
+  right: auto;
+  width: calc(6in + 0.5in);
+  max-width: calc(6in + 0.5in);
+  text-align: center;
+}
+
+.screenplay .titlePageCenterMeta p {
+  margin: 0 0 1em;
+}
+
+.screenplay .unpaginatedTitlePage .titlePageCenterMeta {
+  grid-area: meta;
+  margin: 0 0 4em;
+}
+
+.screenplay .titlePageBottom {
+  bottom: 1.25in;
+}
+
+.screenplay .unpaginatedTitlePage .titlePageBottom {
+  bottom: auto;
+}
+
+.screenplay .titlePageBottom p {
+  margin: 0;
+}
+
+.screenplay .titlePageBottomLeft {
+  left: 1in;
+  right: auto;
+  width: 3.75in;
+  text-align: left;
+}
+
+.screenplay .unpaginatedTitlePage .titlePageBottomLeft {
+  grid-area: left;
+  margin: 0 0 1.5em;
+}
+
+.screenplay .titlePageBottomRight {
+  left: auto;
+  right: 1in;
+  width: 2.5in;
+  text-align: right;
+}
+
+.screenplay .unpaginatedTitlePage .titlePageBottomRight {
+  grid-area: right;
+  width: auto;
+  text-align: right;
+}
+
+.screenplay .titlePageBottomRight p + p {
+  margin-top: 0.2em;
+}
+
+@media print {
+  .screenplay .title-page {
+    margin: 0;
+    box-shadow: none;
+  }
+
+  .screenplay .title-page.unpaginatedTitlePage {
+    padding: 0 0 2em;
+  }
+}
+
+.bold {
+  font-weight: 700;
+}
+
+.italic {
+  font-style: italic;
+}
+
+.underline {
+  text-decoration: underline;
+}
+
+.allcaps {
+  text-transform: uppercase;
+}

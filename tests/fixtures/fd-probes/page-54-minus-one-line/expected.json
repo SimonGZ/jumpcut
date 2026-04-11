@@ -1,0 +1,22 @@
+{
+  "probe_id": "page-54-minus-one-line",
+  "description": "Page 54 control probe with one fewer rendered line before the target dialogue block.",
+  "status": "active",
+  "lines_per_page": 54,
+  "target": {
+    "kind": "dialogue",
+    "speaker": "EDWARD",
+    "contains_text": "Probably just as well."
+  },
+  "expected": {
+    "kind": "push-whole",
+    "absent_from_page": 2,
+    "whole_on_page": 1,
+    "starts_with": "Will never told you that?"
+
+  },
+  "final_draft_notes": [
+    "Question: if one earlier action line is removed without changing the dialogue shape, does Final Draft still split after 'Probably just as well.' or does it keep more text on page one?",
+      "Answer: It pulls the dialogue block up to stay on one page."
+  ]
+}

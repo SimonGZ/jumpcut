@@ -6,14 +6,23 @@ pub(crate) fn sorted_style_names(run: &TextRun, preserve_case: bool) -> Vec<Stri
     if preserve_case {
         styles
     } else {
-        styles.into_iter().map(|style| style.to_lowercase()).collect()
+        styles
+            .into_iter()
+            .map(|style| style.to_lowercase())
+            .collect()
     }
 }
 
 pub(crate) fn join_metadata(metadata: &Metadata, key: &str, separator: &str) -> String {
     metadata
         .get(key)
-        .map(|values| values.join(separator))
+        .map(|values| {
+            values
+                .iter()
+                .map(|value| value.plain_text())
+                .collect::<Vec<_>>()
+                .join(separator)
+        })
         .unwrap_or_default()
 }
 

@@ -1,0 +1,21 @@
+{
+  "probe_id": "page-54-parenthetical-vs-first-sentence",
+  "description": "Page 54 control probe where the same crowded page offers both a part-boundary split after a parenthetical and a sentence-boundary split after a short first sentence.",
+  "status": "draft",
+  "lines_per_page": 54,
+  "target": {
+    "kind": "dialogue",
+    "speaker": "EDWARD",
+    "contains_text": "Fuck it."
+  },
+      "expected": {
+    "kind": "push-whole",
+    "absent_from_page": 2,
+    "whole_on_page": 1,
+    "starts_with": "Fuck it."
+  },
+  "final_draft_notes": [
+      "Question: in the original page-54 context, does Final Draft split at the part boundary after the parenthetical or after the first short sentence once both are legal options?",
+      "Answer: It pulls the whole block up because the whole block is now short enough to fit."
+  ]
+}

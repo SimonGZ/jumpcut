@@ -1,0 +1,100 @@
+{
+  "document": {
+    "font": "Courier Prime",
+    "font_size": 12.0,
+    "page_size": null
+  },
+  "title_page_present": true,
+  "header_footer": {
+    "FooterFirstPage": "Yes",
+    "FooterVisible": "No",
+    "HeaderFirstPage": "No",
+    "HeaderVisible": "Yes",
+    "StartingPage": "1"
+  },
+  "paragraph_styles": {
+    "General": {
+      "left_indent": 1.5,
+      "right_indent": 7.5,
+      "space_before": 0.0,
+      "spacing": 1.0
+    },
+    "Scene Heading": {
+      "left_indent": 1.5,
+      "right_indent": 7.5,
+      "space_before": 12.0,
+      "spacing": 1.0
+    },
+    "Action": {
+      "left_indent": 1.5,
+      "right_indent": 7.5,
+      "space_before": 12.0,
+      "spacing": 1.0
+    },
+    "Character": {
+      "left_indent": 3.5,
+      "right_indent": 6.25,
+      "space_before": 12.0,
+      "spacing": 1.0
+    },
+    "Parenthetical": {
+      "left_indent": 2.75,
+      "right_indent": 5.5,
+      "space_before": 0.0,
+      "spacing": 1.0
+    },
+    "Dialogue": {
+      "left_indent": 2.25,
+      "right_indent": 6.0,
+      "space_before": 0.0,
+      "spacing": 2.0
+    },
+    "Transition": {
+      "left_indent": 5.5,
+      "right_indent": 7.25,
+      "space_before": 12.0,
+      "spacing": 1.0
+    },
+    "Shot": {
+      "left_indent": 1.5,
+      "right_indent": 7.5,
+      "space_before": 12.0,
+      "spacing": 1.0
+    },
+    "Cast List": {
+      "left_indent": 1.5,
+      "right_indent": 7.5,
+      "space_before": 0.0,
+      "spacing": 1.0
+    },
+    "New Act": {
+      "left_indent": 1.5,
+      "right_indent": 7.5,
+      "space_before": 0.0,
+      "spacing": 1.0
+    },
+    "End of Act": {
+      "left_indent": 1.5,
+      "right_indent": 7.5,
+      "space_before": 24.0,
+      "spacing": 1.0
+    },
+    "Cold Opening": {
+      "left_indent": 1.0,
+      "right_indent": 7.5,
+      "space_before": 12.0,
+      "spacing": 1.0
+    },
+    "Lyric": {
+      "left_indent": 2.5,
+      "right_indent": 7.38,
+      "space_before": 12.0,
+      "spacing": 1.0
+    }
+  },
+  "raw_metadata": {
+    "DocumentType": "Script",
+    "Template": "No",
+    "Version": "4"
+  }
+}

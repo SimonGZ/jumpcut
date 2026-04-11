@@ -1,9 +1,9 @@
 [package]
 name = "jumpcut"
-version = "0.8.1"
+version = "1.0.0-beta"
 edition = "2021"
 license = "MIT"
-description = "JumpCut is a library and CLI for converting Fountain-formatted text files into FDX and HTML formats."
+description = "JumpCut is a library and CLI for converting Fountain-formatted text files into FDX, HTML, JSON, text, and PDF formats."
 homepage = "https://github.com/SimonGZ/jumpcut"
 repository = "https://github.com/SimonGZ/jumpcut"
 keywords = ["fountain", "screenwriting"]
@@ -15,12 +15,17 @@ include = [
     "Cargo.toml",
     "LICENSE",
     "README.md",
+    "docs/*.md",
     "src/bin/main.rs",
     "src/converters.rs",
+    "src/html_output.rs",
     "src/lib.rs",
     "src/rendering/*.rs",
+    "src/templates/fonts/*.ttf",
     "src/templates/html_style.css",
+    "src/text_output.rs",
     "src/text_style_parser.rs",
+    "src/visual_lines.rs",
 ]
 
 [workspace]
@@ -32,9 +37,13 @@ name = "jumpcut"
 path = "src/bin/main.rs"
 
 [dependencies]
+base64 = "0.22.1"
 lazy_static = "1.4.0"
+pdf-writer = "0.14.0"
 serde = { version = "1.0.203", features = ["derive"] }
 serde_json = "1.0.117"
+time = { version = "0.3.44", features = ["formatting"] }
+ttf-parser = "0.25.1"
 clap = { version = "4.5.7", features = ["derive"], optional = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]

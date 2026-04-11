@@ -70,10 +70,7 @@ fn it_trims_leading_whitespace_from_dialogue_with_markup() {
     let expected = vec![Element::DialogueBlock(vec![
         Element::Character(p("DAN"), blank_attributes()),
         Element::Dialogue(
-            Styled(vec![
-                tr("Permanently", vec!["Underline"]),
-                tr(".", vec![]),
-            ]),
+            Styled(vec![tr("Permanently", vec!["Underline"]), tr(".", vec![])]),
             blank_attributes(),
         ),
     ])];
@@ -124,14 +121,16 @@ fn it_trims_leading_whitespace_from_multi_line_dialogue() {
 #[test]
 fn it_handles_brick_n_steel_indented_dialogue_block() {
     // Full JACK dialogue block from Brick-n-Steel.fountain (lines 57-59)
-    let text = "\t\t\tJACK\n\t\t(in Vietnamese, subtitled)\n\t*Did you know Brick and Steel are retired?*";
+    let text =
+        "\t\t\tJACK\n\t\t(in Vietnamese, subtitled)\n\t*Did you know Brick and Steel are retired?*";
     let expected = vec![Element::DialogueBlock(vec![
         Element::Character(p("JACK"), blank_attributes()),
         Element::Parenthetical(p("(in Vietnamese, subtitled)"), blank_attributes()),
         Element::Dialogue(
-            Styled(vec![
-                tr("Did you know Brick and Steel are retired?", vec!["Italic"]),
-            ]),
+            Styled(vec![tr(
+                "Did you know Brick and Steel are retired?",
+                vec!["Italic"],
+            )]),
             blank_attributes(),
         ),
     ])];

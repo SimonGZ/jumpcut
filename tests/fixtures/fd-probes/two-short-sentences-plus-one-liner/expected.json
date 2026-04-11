@@ -1,0 +1,20 @@
+{
+  "probe_id": "two-short-sentences-plus-one-liner",
+  "description": "Draft probe for two short sentences plus a one liner.",
+  "status": "active",
+  "lines_per_page": 54,
+  "target": {
+    "kind": "dialogue",
+    "contains_text": "Fuck it."
+  },
+  "expected": {
+    "kind": "split",
+    "top_page": 1,
+    "bottom_page": 2,
+    "top_fragment_ends_with": "(she shakes her head)",
+    "bottom_fragment_starts_with": "Fuck it."
+  },
+  "final_draft_notes": [
+    "Final draft pushed everything after the parenthetical down once we would've had only one-line of dialogue at the top of the next page."
+  ]
+}

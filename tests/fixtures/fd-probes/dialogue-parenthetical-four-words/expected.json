@@ -1,0 +1,19 @@
+{
+  "probe_id": "dialogue-parenthetical-four-word",
+  "description": "Template probe for a dialogue split where the bottom (MORE) line may change which sentence boundary Final Draft chooses.",
+  "status": "active",
+  "lines_per_page": 54,
+  "target": {
+    "kind": "dialogue",
+    "speaker": "EDWARD",
+    "contains_text": "Probably just as well."
+  },
+  "expected": {
+    "kind": "split",
+    "top_page": 1,
+    "bottom_page": 2,
+    "top_fragment_ends_with": "Probably just as well.",
+    "bottom_fragment_starts_with": "He would have told it wrong anyway."
+  },
+  "final_draft_notes": ["Page 54/55 split in original script."]
+}

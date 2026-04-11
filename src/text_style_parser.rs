@@ -36,12 +36,12 @@ impl Element {
 
 fn convert_plain_to_styled(plain: &mut ElementText) -> ElementText {
     match plain {
-        Plain(txt) => create_styled_from_string(txt),
+        Plain(txt) => parse_plain_text_markup(txt),
         _ => unreachable!(),
     }
 }
 
-fn create_styled_from_string(txt: &mut String) -> ElementText {
+pub(crate) fn parse_plain_text_markup(txt: &mut String) -> ElementText {
     lazy_static! {
         static ref RE_BOLD_ITALIC: Regex = Regex::new(r"\*{3}([^*\n]*[^ \\])\*{3}").unwrap();
         static ref RE_BOLD: Regex = Regex::new(r"\*{2}([^*\n]*[^ \\])\*{2}").unwrap();
@@ -64,8 +64,7 @@ fn create_styled_from_string(txt: &mut String) -> ElementText {
     let has_italic = has_star && RE_ITALIC.is_match(txt);
     let has_underline = has_underscore && RE_UNDERLINE.is_match(txt);
 
-    if !has_bold_italic && !has_bold && !has_italic && !has_underline
-    {
+    if !has_bold_italic && !has_bold && !has_italic && !has_underline {
         // If none of the regexes match, just return a Plain(txt)
         if txt.contains('\\') {
             *txt = txt.replace("\\*", "*").replace("\\_", "_");
@@ -98,9 +97,7 @@ fn create_styled_from_string(txt: &mut String) -> ElementText {
         for ch in prepared_text.chars() {
             match ch {
                 '⏋' => {
-                    if current_styles.contains("Bold")
-                        && current_styles.contains("Italic")
-                    {
+                    if current_styles.contains("Bold") && current_styles.contains("Italic") {
                         // Time to end Bold/Italic style
                         if current_text.is_empty() {
                             // Current text is empty but this style hunk is ending.
@@ -615,8 +612,7 @@ mod tests {
 
     #[test]
     fn test_parse_emphasis_with_emoji_sequence() {
-        let mut element =
-            Action(p("Family *👨‍👩‍👧‍👦* dinner"), blank_attributes());
+        let mut element = Action(p("Family *👨‍👩‍👧‍👦* dinner"), blank_attributes());
         element.parse_and_convert_markup();
         assert_eq!(
             element,
@@ -633,8 +629,7 @@ mod tests {
 
     #[test]
     fn test_parse_bold_with_combining_mark_text() {
-        let mut element =
-            Action(p("Mix **Cafe\u{301} noir** tonight"), blank_attributes());
+        let mut element = Action(p("Mix **Cafe\u{301} noir** tonight"), blank_attributes());
         element.parse_and_convert_markup();
         assert_eq!(
             element,
@@ -651,8 +646,7 @@ mod tests {
 
     #[test]
     fn test_parse_underline_with_non_latin_text() {
-        let mut element =
-            Action(p("Cue _Привет мир_ แล้วต่อ"), blank_attributes());
+        let mut element = Action(p("Cue _Привет мир_ แล้วต่อ"), blank_attributes());
         element.parse_and_convert_markup();
         assert_eq!(
             element,

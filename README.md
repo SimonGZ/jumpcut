@@ -1,8 +1,10 @@
 # JumpCut
 
-JumpCut is a Rust utility designed to convert the [Fountain screenwriting markup format][fountain] into [Final Draft FDX files][FDX] (the industry standard in Hollywood) or into HTML.
+JumpCut is a Rust utility designed to convert the [Fountain screenwriting markup format][fountain] into [Final Draft FDX files][FDX] (the industry standard in Hollywood), HTML, JSON, text, and PDF.
 
 JumpCut can be used as a command-line utility, a Rust library, or as a WASM package. Because of this, the project utilizes cargo [features][] so that different parts like the command-line utility can be turned off to save binary size.
+
+Embedded Courier Prime HTML export is documented in [docs/html-embedded-fonts.md](docs/html-embedded-fonts.md).
 
 ## Installation
 
@@ -14,7 +16,7 @@ cargo install jumpcut
 
 To use JumpCut as a library, you can specify the following in your Cargo.toml so that the command-line features are not added to your project:
 
-`jumpcut = { version = "0.7", default-features = false, features = ["lib-only"] }`
+`jumpcut = { version = "1.0.0-beta", default-features = false, features = ["lib-only"] }`
 
 ## WASM Package
 
@@ -24,6 +26,8 @@ That wrapper exposes three JS-facing functions:
 
 - `parse_to_json_string(text)`
 - `parse_to_html_string(text, include_head)`
+- `parse_to_html_string_with_options(text, include_head, exact_wraps, paginated)`
+- `parse_to_html_string_with_embedded_courier_prime(text, include_head, exact_wraps, paginated, regular_ttf_base64, italic_ttf_base64, bold_ttf_base64, bold_italic_ttf_base64)`
 - `parse_to_fdx_string(text)`
 
 ### Build The WASM Wrapper
@@ -99,7 +103,7 @@ Those scripts are what the repo currently uses to validate wasm changes.
 
 ## Usage
 
-Once installed, you can pass JumpCut a text file and it will parse it and output it as either an FDX, HTML, or JSON. The full options from the help text are listed below.
+Once installed, you can pass JumpCut a text file and it will parse it and output it as FDX, HTML, JSON, text, or PDF. The full options from the help text are listed below.
 
 ```
 USAGE:
@@ -110,13 +114,37 @@ FLAGS:
     -V, --version    Prints version information
 
 OPTIONS:
-    -f, --format <format>    Formats (FDX, HTML, JSON) [default: fdx]
+    -f, --format <format>    Formats (FDX, HTML, JSON, text, PDF) [default: fdx]
+    -o, --output <FILE>      Output file.
+    -w, --write              Auto-derive an output path from the input stem and format.
     -m, --metadata <FILE>    Optional Fountain file to prepend as metadata. Defaults to "metadata.fountain" if flag is present without a value.
+        --paginate           Render paginated text or exact-wrap paginated HTML
+        --line-numbers       Show line numbers in text output
+        --exact-wraps        Render HTML with exact Final Draft-style wraps
+        --render-profile <render-profile>
+                             Override metadata-driven render profile [possible values: final-draft, balanced]
+        --no-continueds      Suppress (CONT'D)/(MORE) style continued markers in text, HTML, or PDF output
 
 ARGS:
     <input>     Input file, pass a dash ("-") to receive stdin
     <output>    Output file, stdout if not present
 ```
+
+Output path forms:
+
+```sh
+# Legacy positional output path
+jumpcut script.fountain script.fdx
+
+# Explicit output flag
+jumpcut script.fountain -o script.fdx
+
+# Auto-derive the output path from the input stem and format
+jumpcut script.fountain -w
+jumpcut script.fountain -w -f pdf   # writes script.pdf
+```
+
+`-w` is the explicit "write next to the source" mode. `-o` always expects a file path.
 
 To use JumpCut within a Rust program, you can examine the [main.rs](src/bin/main.rs) file for an example of calling the library, but the basics are depicted below:
 
@@ -126,79 +154,108 @@ let output_fdx: String = screenplay.to_final_draft();
 let output_html: String = screenplay.to_html();
 ```
 
-## Custom Formatting for Final Draft (FDX) Export
+### CLI Render Profile Override
 
-When converting your screenplay to **Final Draft (FDX)** format, you can specify custom formatting options using the `fmt` metadata key. This allows you to control various aspects of the FDX output, such as text styles, spacing, and margins.
+Formatting and metadata details now live in [`docs/formatting-and-metadata.md`](docs/formatting-and-metadata.md), including:
 
-To use these options, add a `fmt` key to your screenplay's metadata (optional `key: value` statements placed at the top of a document), followed by a space-separated list of options.
+- `--render-profile`
+- `--no-continueds`
+- `fmt` metadata tokens
+- `--metadata` / `-m`
 
-**Example:**
+## Formatting Metadata (`fmt`)
 
-```
-Title: My Awesome Screenplay
-Author: John Doe
-Fmt: bsh ush acat dsd dl-1.5 dr-7.0
-```
+`fmt` metadata controls shared layout and rendering behavior across pagination and multiple output formats.
 
-### Available `fmt` Options
-
-  * **`bsh`**: **Bold Scene Headings**. Makes all scene headings bold.
-  * **`ush`**: **Underlined Scene Headings**. Underlines all scene headings.
-      * Note: `bsh` and `ush` can be combined (e.g., `bsh ush` for bold and underlined scene headings).
-  * **`acat`**: **All Caps Action Text**. Converts all action text to uppercase.
-  * **`ssbsh`**: **Single Space Before Scene Headings**. Reduces the space before scene headings from the default (24 points) to 12 points.
-  * **`dsd`**: **Double-Spaced Dialogue**. Changes dialogue spacing from single to double.
-  * **`cfd`**: **Courier Final Draft Font**. Uses "Courier Final Draft" as the primary font instead of the default "Courier Prime".
-  * **`dl-X.XX`**: **Custom Dialogue Left Indent**. Sets the left indent for dialogue blocks. Replace `X.XX` with a numerical value (e.g., `dl-1.25`). The default is 2.50 inches.
-  * **`dr-X.XX`**: **Custom Dialogue Right Indent**. Sets the right indent for dialogue blocks. Replace `X.XX` with a numerical value (e.g., `dr-6.00`). The default is 6.00 inches.
-
-### Combined Example
-
-To have bold and underlined scene headings, all caps action text, double-spaced dialogue, and custom dialogue margins:
-
-```
-Fmt: bsh ush acat dsd dl-2.0 dr-5.5
-```
+For the full token reference and examples, see [`docs/formatting-and-metadata.md`](docs/formatting-and-metadata.md).
 
 ## Prepending Metadata
 
-JumpCut allows you to prepend content from a separate Fountain file as metadata to your main screenplay. This is useful for managing common metadata (like title, author, copyright, fmt) across multiple screenplay files without duplicating it in each one.
+JumpCut can prepend metadata from a separate Fountain file via `--metadata` / `-m`.
 
-You can use the `--metadata` (or `-m`) option to specify a metadata file.
+For default-file lookup rules and runnable examples, see [`docs/formatting-and-metadata.md`](docs/formatting-and-metadata.md).
 
-### Usage
+## Pagination Diagnostics
 
-To use this feature, add the `--metadata` flag to your command.
+The pagination/parity harness includes several ignored tests that generate review packets and debug artifacts under `target/pagination-debug/`.
 
+If you want a single command that rebuilds all of those diagnostics, install [`just`](https://github.com/casey/just):
+
+```sh
+cargo install just
 ```
-jumpcut <screenplay-file> --metadata <metadata-file>
-jumpcut <screenplay-file> -m <metadata-file>
+
+Then run:
+
+```sh
+just pagination-diagnostics
 ```
 
-If you provide the `--metadata` flag without a file path, JumpCut will look for a file named `metadata.fountain`. The location of this default file depends on your input:
+That recipe calls the dedicated Rust diagnostics tool:
 
-*   **If your input is a file:** JumpCut will look for `metadata.fountain` in the same directory as your input screenplay.
-*   **If your input is from stdin (`-`):** JumpCut will look for `metadata.fountain` in the current working directory.
+```sh
+cargo run --bin pagination-diagnostics -- all
+```
 
-### Examples
+The tool currently regenerates:
 
-*   **Using a default metadata file alongside an input file:**
-    ```sh
-    jumpcut -m my_screenplay.fountain -f fdx > my_screenplay.fdx
-    # Looks for 'metadata.fountain' in the same directory as 'my_screenplay.fountain'
-    ```
+- Big Fish review packet
+- Big Fish full-script page-break review packet
+- Big Fish line-break parity packet
+- Little Women windowed review packet
+- Little Women full-script page-break review packet
+- Little Women line-break parity packet
+- Mostly Genius full-script page-break review packet
 
-*   **Using a default metadata file with stdin input:**
-    ```sh
-    cat my_screenplay.fountain | jumpcut -m -f html > my_screenplay.html
-    # Looks for 'metadata.fountain' in the current working directory
-    ```
+## PDF Parity Checks
 
-*   **Specifying a custom metadata file:**
-    ```sh
-    jumpcut -m ~/my_templates/common_header.fountain my_screenplay.fountain -f json > my_screenplay.json
-    # Uses 'common_header.fountain' from your templates directory
-    ```
+The repo also includes a PDF word-position parity checker:
+
+```sh
+python3 tools/check_corpus_pdf_parity.py
+```
+
+That runs the wired corpus PDF checks and writes reports under:
+
+```text
+target/pdf-placement-diagnostics/
+```
+
+If you want to compare an ad hoc script without adding it to the permanent corpus, use one or more `--case` entries:
+
+```sh
+python3 tools/check_corpus_pdf_parity.py \
+  --no-default-cases \
+  --case my-script /abs/path/to/script.fountain /abs/path/to/reference.pdf
+```
+
+You can provide `--case` more than once in the same run. The script generates a PDF with JumpCut, compares it against the supplied reference PDF using `pdftotext -bbox-layout`, and writes a report packet for each case.
+
+If a reference differs only in letter case, you can opt into case-insensitive text matching before geometry comparison:
+
+```sh
+python3 tools/check_corpus_pdf_parity.py \
+  --no-default-cases \
+  --ignore-case \
+  --case mostly-genius /abs/path/to/mostly-genius.fountain /abs/path/to/mostly-genius.pdf
+```
+
+Local dependency:
+
+```sh
+sudo apt install poppler-utils
+```
+
+That provides `pdftotext`, which the parity checker requires.
+- Mostly Genius line-break parity packet
+- the extra paginated-output JSON dumps and visual-comparison export used for manual debugging
+
+There are also narrower convenience tasks:
+
+```sh
+just big-fish-diagnostics
+just mostly-genius-diagnostics
+```
 
 ## Development Plans
 

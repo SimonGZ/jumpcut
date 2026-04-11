@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-alpha.1] - 2026-03-31
+
+### Added (Major Rewrite)
+- Initial alpha release of the major rewrite focusing on geometry-driven fractional pagination.
+- Transitioned pagination engine to rely exclusively on `LayoutGeometry` for layout measurements.
+- Implemented robust, space-preserving greedy wrapping algorithm for dialogue and action blocks.
+- Added parity-harness verification tools for Big Fish, Little Women, and Mostly Genius screenplay baselines.
+
 ## [0.8.1] - 2026-03-22
 
 ### Fixed

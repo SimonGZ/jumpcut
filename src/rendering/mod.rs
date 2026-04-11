@@ -1,6 +1,8 @@
 #[cfg(feature = "fdx")]
-pub(crate) mod fdx;
+pub mod fdx;
 #[cfg(feature = "html")]
-pub(crate) mod html;
+pub mod html;
+pub mod pdf;
 #[cfg(any(feature = "fdx", feature = "html"))]
 pub(crate) mod shared;
+pub mod text;

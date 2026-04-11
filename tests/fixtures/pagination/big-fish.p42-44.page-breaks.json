@@ -1,0 +1,750 @@
+{
+  "screenplay": "big-fish",
+  "style_profile": "standard",
+  "source": {
+    "fountain": "source/source.fountain",
+    "fdx": "source/source.fdx",
+    "pdf": "source/source.pdf"
+  },
+  "scope": {
+    "title_page_count": 1,
+    "body_start_page": 2
+  },
+  "pages": [
+    {
+      "number": 42,
+      "items": [
+        {
+          "element_id": "el-00873",
+          "kind": "Character",
+          "text_preview": "EDWARD (V.O.)",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00258",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00874",
+          "kind": "Dialogue",
+          "text_preview": "A man might travel his entire life and never find a place so inviting. My journe",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00258",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00875",
+          "kind": "Action",
+          "text_preview": "Norther hands him his noteboook.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00876",
+          "kind": "Character",
+          "text_preview": "NORTHER WINSLOW",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00259",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00877",
+          "kind": "Dialogue",
+          "text_preview": "I've been working on this poem for 12 years.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00259",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00878",
+          "kind": "Character",
+          "text_preview": "EDWARD",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00260",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00879",
+          "kind": "Dialogue",
+          "text_preview": "Really.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00260",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00880",
+          "kind": "Character",
+          "text_preview": "NORTHER WINSLOW",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00261",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00881",
+          "kind": "Dialogue",
+          "text_preview": "There's a lot of expectation. I don't want to disappoint my fans.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00261",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00882",
+          "kind": "Action",
+          "text_preview": "A beat.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00883",
+          "kind": "Character",
+          "text_preview": "EDWARD",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00262",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00884",
+          "kind": "Dialogue",
+          "text_preview": "It's only three lines long.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00262",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00885",
+          "kind": "Action",
+          "text_preview": "Norther grabs his notebook back.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00886",
+          "kind": "Character",
+          "text_preview": "NORTHER WINSLOW",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00263",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00887",
+          "kind": "Dialogue",
+          "text_preview": "This is why you don't show work in progress.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00263",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00888",
+          "kind": "Character",
+          "text_preview": "EDWARD",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00264",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00889",
+          "kind": "Dialogue",
+          "text_preview": "Norther, do you ever regret not making it to Paris?",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00264",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00890",
+          "kind": "Character",
+          "text_preview": "NORTHER WINSLOW",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00265",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00891",
+          "kind": "Dialogue",
+          "text_preview": "I can't imagine any place better than here.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00265",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00892",
+          "kind": "Character",
+          "text_preview": "EDWARD",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00266",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00893",
+          "kind": "Dialogue",
+          "text_preview": "You're a poet. You oughta be able to. And maybe if you'd seen more, you could.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00266",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00894",
+          "kind": "Action",
+          "text_preview": "Norther doesn't answer. Just goes back to his notebook.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00895",
+          "kind": "Scene Heading",
+          "text_preview": "EXT. BY THE RIVER - NIGHT",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00896",
+          "kind": "Action",
+          "text_preview": "By the light of the full moon, Edward soaks his feet in the water, trying to mak",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00897",
+          "kind": "Action",
+          "text_preview": "He stares at himself in the reflection. He smiles.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        }
+      ]
+    },
+    {
+      "number": 43,
+      "items": [
+        {
+          "element_id": "el-00898",
+          "kind": "Action",
+          "text_preview": "It's then that a WOMAN emerges at the far side of the river. No telling where sh",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00899",
+          "kind": "Action",
+          "text_preview": "She stands in the river with her bare back to Edward, squeezing the water out of",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00900",
+          "kind": "Action",
+          "text_preview": "Then he sees the snake.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00901",
+          "kind": "Action",
+          "text_preview": "It's a cottonmouth, has to be. It leaves a break in the water, its small reptili",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00902",
+          "kind": "Action",
+          "text_preview": "GRABBING THE SNAKE",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00903",
+          "kind": "Action",
+          "text_preview": "just as it's about to strike.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00904",
+          "kind": "Action",
+          "text_preview": "The woman dives back underwater, understandably terrified that a man is coming a",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00905",
+          "kind": "Character",
+          "text_preview": "EDWARD",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00267",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00906",
+          "kind": "Dialogue",
+          "text_preview": "No, it's okay! I got it. I got the snake.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00267",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00907",
+          "kind": "Action",
+          "text_preview": "As the splashing subsides, Edward looks at what he holds in his hands. Which isn",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00908",
+          "kind": "Action",
+          "text_preview": "While Edward ponders his mistake, he looks around to discover that the Girl in t",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00909",
+          "kind": "Character",
+          "text_preview": "EDWARD (CONT'D)",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00268",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00910",
+          "kind": "Dialogue",
+          "text_preview": "Wait! I'm sorry. Hello?!",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00268",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00911",
+          "kind": "Action",
+          "text_preview": "Edward keeps expecting her to surface, somewhere, but she never does. He stands ",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00912",
+          "kind": "Scene Heading",
+          "text_preview": "EXT. BY THE RIVER - NIGHT - CONTINUOUS",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00913",
+          "kind": "Character",
+          "text_preview": "A GIRL'S VOICE (O.S.)",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00269",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00914",
+          "kind": "Dialogue",
+          "text_preview": "There's leeches in there!",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00269",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00915",
+          "kind": "Action",
+          "text_preview": "Edward looks to the bank, where young Jenny Hill is watching him.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00916",
+          "kind": "Character",
+          "text_preview": "EDWARD",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00270",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00917",
+          "kind": "Dialogue",
+          "text_preview": "Did you see that woman?",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00270",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        }
+      ]
+    },
+    {
+      "number": 44,
+      "items": [
+        {
+          "element_id": "el-00918",
+          "kind": "Character",
+          "text_preview": "JENNY",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00271",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00919",
+          "kind": "Dialogue",
+          "text_preview": "What did she look like?",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00271",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00920",
+          "kind": "Character",
+          "text_preview": "EDWARD",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00272",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00921",
+          "kind": "Dialogue",
+          "text_preview": "Well, she...uh...",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00272",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00922",
+          "kind": "Character",
+          "text_preview": "JENNY",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00273",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00923",
+          "kind": "Dialogue",
+          "text_preview": "Was she nekkid?",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00273",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00924",
+          "kind": "Action",
+          "text_preview": "Embarrassed to admit it...",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00925",
+          "kind": "Character",
+          "text_preview": "EDWARD",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00274",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00926",
+          "kind": "Dialogue",
+          "text_preview": "Yeah.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00274",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00927",
+          "kind": "Character",
+          "text_preview": "JENNY",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00275",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00928",
+          "kind": "Parenthetical",
+          "text_preview": "(matter-of-fact)",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00275",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00929",
+          "kind": "Dialogue",
+          "text_preview": "It's not a woman, it's a fish. No one ever catches her.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00275",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00930",
+          "kind": "Action",
+          "text_preview": "Given the day he's had so far, Edward isn't inclined to follow up on the issue. ",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00931",
+          "kind": "Character",
+          "text_preview": "JENNY (CONT'D)",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00276",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00932",
+          "kind": "Dialogue",
+          "text_preview": "Fish looks diff'rent to diff'rent people. My daddy said it looked like the coon ",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00276",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00933",
+          "kind": "Action",
+          "text_preview": "Edward climbs up onto the shore, completely drenched. He pulls up his pant legs ",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00934",
+          "kind": "Character",
+          "text_preview": "EDWARD",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00277",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00935",
+          "kind": "Dialogue",
+          "text_preview": "Shoot.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00277",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00936",
+          "kind": "Action",
+          "text_preview": "He starts to work pulling them off.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00937",
+          "kind": "Scene Heading",
+          "text_preview": "EXT. PATH BACK TO TOWN - NIGHT",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00938",
+          "kind": "Action",
+          "text_preview": "Edward and Jenny walk back.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00939",
+          "kind": "Character",
+          "text_preview": "JENNY",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00278",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00940",
+          "kind": "Dialogue",
+          "text_preview": "How old are you?",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00278",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00941",
+          "kind": "Character",
+          "text_preview": "EDWARD",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00279",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00942",
+          "kind": "Dialogue",
+          "text_preview": "Eighteen.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00279",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00943",
+          "kind": "Character",
+          "text_preview": "JENNY",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00280",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00944",
+          "kind": "Dialogue",
+          "text_preview": "I'm eight. That means when I'm eighteen, you'll be 28. And when I'm 28, you'll o",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00280",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        }
+      ]
+    }
+  ]
+}

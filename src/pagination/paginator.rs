@@ -1,0 +1,592 @@
+use crate::pagination::composer::LayoutBlock;
+use crate::pagination::dialogue_split::{
+    plan_dialogue_split, plan_dialogue_split_parts, DialogueSplitPlan, DialogueTextPart,
+};
+use crate::pagination::fixtures::Fragment;
+use crate::pagination::flow_split::{
+    choose_flow_split, choose_flow_split_allow_exact_fit_sentence_runt, FlowSplitPlan,
+};
+use crate::pagination::margin::line_height_for_element_type;
+use crate::pagination::wrapping::{
+    wrap_text_for_element, ElementType, InterruptionDashWrap, WrapConfig,
+};
+use crate::pagination::LayoutGeometry;
+use crate::pagination::SemanticUnit;
+
+pub struct Page<'a> {
+    pub blocks: Vec<LayoutBlock<'a>>,
+}
+
+struct SplitDecision {
+    top_lines: f32,
+    bottom_lines: f32,
+    dialogue_split: Option<DialogueSplitPlan>,
+    flow_split: Option<FlowSplitPlan>,
+}
+
+struct KeepWithNextSplitDecision<'a> {
+    lead_block: &'a LayoutBlock<'a>,
+    lead_spacing: f32,
+    split_block: &'a LayoutBlock<'a>,
+    split: SplitDecision,
+}
+
+/// An atomic group of blocks that absolutely cannot be split across a page boundary.
+struct Chunk<'a> {
+    blocks: Vec<&'a LayoutBlock<'a>>,
+}
+
+pub fn paginate<'a>(
+    blocks: &'a [LayoutBlock<'a>],
+    page_limit_lines: f32,
+    geometry: &LayoutGeometry,
+) -> Vec<Page<'a>> {
+    paginate_with_mode(
+        blocks,
+        page_limit_lines,
+        geometry,
+        InterruptionDashWrap::FinalDraft,
+    )
+}
+
+pub fn paginate_with_mode<'a>(
+    blocks: &'a [LayoutBlock<'a>],
+    page_limit_lines: f32,
+    geometry: &LayoutGeometry,
+    interruption_dash_wrap: InterruptionDashWrap,
+) -> Vec<Page<'a>> {
+    let mut chunks: Vec<Chunk<'a>> = Vec::new();
+    let mut current_chunk: Vec<&LayoutBlock<'a>> = Vec::new();
+
+    for block in blocks {
+        current_chunk.push(block);
+        if !block.keep_with_next {
+            chunks.push(Chunk {
+                blocks: current_chunk,
+            });
+            current_chunk = Vec::new();
+        }
+    }
+
+    if !current_chunk.is_empty() {
+        chunks.push(Chunk {
+            blocks: current_chunk,
+        });
+    }
+
+    let mut pages: Vec<Page<'a>> = Vec::new();
+    let mut current_page_blocks = Vec::new();
+    let mut current_page_lines: f32 = 0.0;
+
+    for chunk in chunks {
+        if chunk.blocks.len() == 1 && matches!(chunk.blocks[0].unit, SemanticUnit::PageStart(_)) {
+            if current_page_blocks.iter().any(block_has_visible_content) {
+                pages.push(Page {
+                    blocks: current_page_blocks,
+                });
+                current_page_blocks = Vec::new();
+                current_page_lines = 0.0;
+            }
+
+            current_page_blocks.push(LayoutBlock {
+                unit: chunk.blocks[0].unit,
+                fragment: chunk.blocks[0].fragment.clone(),
+                spacing_above: 0.0,
+                content_lines: 0.0,
+                dialogue_split: None,
+                flow_split: None,
+                keep_with_next: false,
+                can_split: false,
+                widow_penalty: 0.0,
+            });
+            continue;
+        }
+
+        let mut chunk_height: f32 = 0.0;
+        let mut page_has_visible_content =
+            current_page_blocks.iter().any(block_has_visible_content);
+
+        for block in &chunk.blocks {
+            let effective_spacing = if !page_has_visible_content && block_has_visible_content(block)
+            {
+                0.0
+            } else {
+                block.spacing_above
+            };
+            chunk_height += effective_spacing + block.content_lines;
+            if block_has_visible_content(block) {
+                page_has_visible_content = true;
+            }
+        }
+
+        if current_page_lines + chunk_height > page_limit_lines {
+            if chunk.blocks.len() == 2 {
+                if let Some(split) = choose_keep_with_next_split(
+                    chunk.blocks[0],
+                    chunk.blocks[1],
+                    current_page_blocks.iter().any(block_has_visible_content),
+                    current_page_lines,
+                    page_limit_lines,
+                    geometry,
+                    interruption_dash_wrap,
+                ) {
+                    current_page_blocks.push(LayoutBlock {
+                        unit: split.lead_block.unit,
+                        fragment: split.lead_block.fragment.clone(),
+                        spacing_above: split.lead_spacing,
+                        content_lines: split.lead_block.content_lines,
+                        dialogue_split: split.lead_block.dialogue_split.clone(),
+                        flow_split: split.lead_block.flow_split.clone(),
+                        keep_with_next: false,
+                        can_split: false,
+                        widow_penalty: split.lead_block.widow_penalty,
+                    });
+                    current_page_blocks.push(LayoutBlock {
+                        unit: split.split_block.unit,
+                        fragment: Fragment::ContinuedToNext,
+                        spacing_above: split.split_block.spacing_above,
+                        content_lines: split.split.top_lines,
+                        dialogue_split: split.split.dialogue_split.clone(),
+                        flow_split: split.split.flow_split.clone(),
+                        keep_with_next: false,
+                        can_split: false,
+                        widow_penalty: 0.0,
+                    });
+
+                    pages.push(Page {
+                        blocks: current_page_blocks,
+                    });
+
+                    current_page_blocks = vec![LayoutBlock {
+                        unit: split.split_block.unit,
+                        fragment: Fragment::ContinuedFromPrev,
+                        spacing_above: 0.0,
+                        content_lines: split.split.bottom_lines + split.split_block.widow_penalty,
+                        dialogue_split: split.split.dialogue_split,
+                        flow_split: split.split.flow_split,
+                        keep_with_next: split.split_block.keep_with_next,
+                        can_split: split.split_block.can_split,
+                        widow_penalty: 0.0,
+                    }];
+                    current_page_lines = current_page_blocks[0].content_lines;
+                    continue;
+                }
+            }
+
+            if chunk.blocks.len() == 1 && chunk.blocks[0].can_split {
+                let block = chunk.blocks[0];
+                let effective_spacing = if current_page_blocks.iter().any(block_has_visible_content)
+                {
+                    block.spacing_above
+                } else {
+                    0.0
+                };
+                let available_lines = (page_limit_lines - current_page_lines).max(0.0);
+
+                if let Some(split) = choose_split_lines(
+                    block,
+                    available_lines,
+                    effective_spacing,
+                    geometry,
+                    interruption_dash_wrap,
+                    false,
+                ) {
+                    current_page_blocks.push(LayoutBlock {
+                        unit: block.unit,
+                        fragment: Fragment::ContinuedToNext,
+                        spacing_above: effective_spacing,
+                        content_lines: split.top_lines,
+                        dialogue_split: split.dialogue_split.clone(),
+                        flow_split: split.flow_split.clone(),
+                        keep_with_next: false,
+                        can_split: false,
+                        widow_penalty: 0.0,
+                    });
+
+                    pages.push(Page {
+                        blocks: current_page_blocks,
+                    });
+
+                    current_page_blocks = vec![LayoutBlock {
+                        unit: block.unit,
+                        fragment: Fragment::ContinuedFromPrev,
+                        spacing_above: 0.0,
+                        content_lines: split.bottom_lines + block.widow_penalty,
+                        dialogue_split: split.dialogue_split,
+                        flow_split: split.flow_split,
+                        keep_with_next: block.keep_with_next,
+                        can_split: block.can_split,
+                        widow_penalty: 0.0,
+                    }];
+                    current_page_lines = split.bottom_lines + block.widow_penalty;
+                    continue;
+                }
+            }
+
+            if chunk_starts_with_transition(&chunk)
+                && current_page_blocks.iter().any(block_has_visible_content)
+            {
+                if let Some(moved_block) =
+                    pull_last_visible_block_for_transition(&mut current_page_blocks)
+                {
+                    if !current_page_blocks.is_empty() {
+                        pages.push(Page {
+                            blocks: current_page_blocks,
+                        });
+                    }
+
+                    current_page_blocks = vec![LayoutBlock {
+                        unit: moved_block.unit,
+                        fragment: moved_block.fragment,
+                        spacing_above: 0.0,
+                        content_lines: moved_block.content_lines,
+                        dialogue_split: moved_block.dialogue_split,
+                        flow_split: moved_block.flow_split,
+                        keep_with_next: moved_block.keep_with_next,
+                        can_split: moved_block.can_split,
+                        widow_penalty: moved_block.widow_penalty,
+                    }];
+                    current_page_lines = current_page_blocks[0].content_lines;
+
+                    let mut page_has_visible_content = true;
+                    for block in &chunk.blocks {
+                        let effective_spacing =
+                            if !page_has_visible_content && block_has_visible_content(block) {
+                                0.0
+                            } else {
+                                block.spacing_above
+                            };
+
+                        current_page_blocks.push(LayoutBlock {
+                            unit: block.unit,
+                            fragment: block.fragment.clone(),
+                            spacing_above: effective_spacing,
+                            content_lines: block.content_lines,
+                            dialogue_split: block.dialogue_split.clone(),
+                            flow_split: block.flow_split.clone(),
+                            keep_with_next: block.keep_with_next,
+                            can_split: block.can_split,
+                            widow_penalty: block.widow_penalty,
+                        });
+
+                        current_page_lines += effective_spacing + block.content_lines;
+                        if block_has_visible_content(block) {
+                            page_has_visible_content = true;
+                        }
+                    }
+                    continue;
+                }
+            }
+
+            if !current_page_blocks.is_empty() {
+                pages.push(Page {
+                    blocks: current_page_blocks,
+                });
+            }
+
+            current_page_blocks = Vec::new();
+            current_page_lines = 0.0;
+
+            let mut page_has_visible_content = false;
+
+            for block in &chunk.blocks {
+                let effective_spacing =
+                    if !page_has_visible_content && block_has_visible_content(block) {
+                        0.0
+                    } else {
+                        block.spacing_above
+                    };
+
+                current_page_blocks.push(LayoutBlock {
+                    unit: block.unit,
+                    fragment: block.fragment.clone(),
+                    spacing_above: effective_spacing,
+                    content_lines: block.content_lines,
+                    dialogue_split: block.dialogue_split.clone(),
+                    flow_split: block.flow_split.clone(),
+                    keep_with_next: block.keep_with_next,
+                    can_split: block.can_split,
+                    widow_penalty: block.widow_penalty,
+                });
+
+                current_page_lines += effective_spacing + block.content_lines;
+                if block_has_visible_content(block) {
+                    page_has_visible_content = true;
+                }
+            }
+        } else {
+            let mut page_has_visible_content =
+                current_page_blocks.iter().any(block_has_visible_content);
+
+            for block in &chunk.blocks {
+                let effective_spacing =
+                    if !page_has_visible_content && block_has_visible_content(block) {
+                        0.0
+                    } else {
+                        block.spacing_above
+                    };
+
+                current_page_blocks.push(LayoutBlock {
+                    unit: block.unit,
+                    fragment: block.fragment.clone(),
+                    spacing_above: effective_spacing,
+                    content_lines: block.content_lines,
+                    dialogue_split: block.dialogue_split.clone(),
+                    flow_split: block.flow_split.clone(),
+                    keep_with_next: block.keep_with_next,
+                    can_split: block.can_split,
+                    widow_penalty: block.widow_penalty,
+                });
+
+                current_page_lines += effective_spacing + block.content_lines;
+                if block_has_visible_content(block) {
+                    page_has_visible_content = true;
+                }
+            }
+        }
+    }
+
+    if !current_page_blocks.is_empty() {
+        pages.push(Page {
+            blocks: current_page_blocks,
+        });
+    }
+
+    pages
+}
+
+fn block_has_visible_content(block: &LayoutBlock<'_>) -> bool {
+    !matches!(block.unit, SemanticUnit::PageStart(_)) || block.content_lines > 0.0
+}
+
+fn choose_split_lines(
+    block: &LayoutBlock<'_>,
+    available_lines: f32,
+    effective_spacing: f32,
+    geometry: &LayoutGeometry,
+    interruption_dash_wrap: InterruptionDashWrap,
+    allow_exact_fit_sentence_runt: bool,
+) -> Option<SplitDecision> {
+    if !has_room_for_minimum_top_fragment(available_lines, effective_spacing, geometry) {
+        return None;
+    }
+
+    let decision = match block.unit {
+        SemanticUnit::Dialogue(dialogue) => {
+            let max_top_height = available_lines - effective_spacing;
+
+            let plan = match (&block.fragment, block.dialogue_split.as_ref()) {
+                (Fragment::ContinuedFromPrev, Some(previous_plan)) => {
+                    let current_parts = dialogue
+                        .parts
+                        .iter()
+                        .zip(previous_plan.parts.iter())
+                        .map(|(part, split)| DialogueTextPart {
+                            kind: part.kind.clone(),
+                            text: split.bottom_text.clone(),
+                        })
+                        .collect::<Vec<_>>();
+
+                    plan_dialogue_split_parts(
+                        dialogue,
+                        &current_parts,
+                        geometry,
+                        interruption_dash_wrap,
+                        max_top_height,
+                        geometry.orphan_limit,
+                        geometry.widow_limit,
+                    )?
+                }
+                _ => plan_dialogue_split(
+                    dialogue,
+                    geometry,
+                    interruption_dash_wrap,
+                    max_top_height,
+                    geometry.orphan_limit,
+                    geometry.widow_limit,
+                )?,
+            };
+            let top_lines = plan.top_height;
+            let bottom_lines = plan.bottom_height;
+            Some(SplitDecision {
+                top_lines,
+                bottom_lines,
+                dialogue_split: Some(plan),
+                flow_split: None,
+            })
+        }
+        _ => {
+            let SemanticUnit::Flow(flow) = block.unit else {
+                return None;
+            };
+            let element_type = match flow.kind {
+                crate::pagination::FlowKind::Action => ElementType::Action,
+                crate::pagination::FlowKind::SceneHeading => ElementType::SceneHeading,
+                crate::pagination::FlowKind::Transition => ElementType::Transition,
+                crate::pagination::FlowKind::ColdOpening => ElementType::ColdOpening,
+                crate::pagination::FlowKind::NewAct => ElementType::NewAct,
+                crate::pagination::FlowKind::EndOfAct => ElementType::EndOfAct,
+                crate::pagination::FlowKind::Section => ElementType::Action,
+                crate::pagination::FlowKind::Synopsis => ElementType::Action,
+            };
+            let element_line_height = line_height_for_element_type(geometry, element_type);
+            let target_line_count = (block.content_lines / element_line_height).round() as usize;
+            let max_top_lines =
+                max_top_wrapped_lines(available_lines, effective_spacing, element_line_height);
+            let config =
+                WrapConfig::from_geometry_with_mode(geometry, element_type, interruption_dash_wrap);
+            let wrapped_lines = wrap_text_for_element(&flow.text, &config);
+            if wrapped_lines.len() != target_line_count {
+                let lines_that_fit = available_lines - effective_spacing;
+                let lines_remaining = block.content_lines - lines_that_fit;
+
+                if lines_remaining >= geometry.widow_limit as f32 * element_line_height {
+                    return Some(SplitDecision {
+                        top_lines: lines_that_fit,
+                        bottom_lines: lines_remaining,
+                        dialogue_split: None,
+                        flow_split: None,
+                    });
+                }
+                return None;
+            }
+
+            let plan = if allow_exact_fit_sentence_runt {
+                choose_flow_split_allow_exact_fit_sentence_runt(
+                    &flow.text,
+                    &config,
+                    max_top_lines,
+                    geometry.orphan_limit,
+                    geometry.widow_limit,
+                )?
+            } else {
+                choose_flow_split(
+                    &flow.text,
+                    &config,
+                    max_top_lines,
+                    geometry.orphan_limit,
+                    geometry.widow_limit,
+                )?
+            };
+            let top_lines = plan.top_line_count as f32 * element_line_height;
+            let bottom_lines = plan.bottom_line_count as f32 * element_line_height;
+            Some(SplitDecision {
+                top_lines,
+                bottom_lines,
+                dialogue_split: None,
+                flow_split: Some(plan),
+            })
+        }
+    };
+    decision
+}
+
+fn choose_keep_with_next_split<'a>(
+    lead_block: &'a LayoutBlock<'a>,
+    split_block: &'a LayoutBlock<'a>,
+    page_has_visible_content: bool,
+    current_page_lines: f32,
+    page_limit_lines: f32,
+    geometry: &LayoutGeometry,
+    interruption_dash_wrap: InterruptionDashWrap,
+) -> Option<KeepWithNextSplitDecision<'a>> {
+    if !lead_block.keep_with_next || !split_block.can_split {
+        return None;
+    }
+
+    if !matches!(
+        lead_block.unit,
+        SemanticUnit::Flow(crate::pagination::FlowUnit {
+            kind: crate::pagination::FlowKind::SceneHeading,
+            ..
+        })
+    ) {
+        return None;
+    }
+
+    let lead_spacing = if page_has_visible_content && block_has_visible_content(lead_block) {
+        lead_block.spacing_above
+    } else {
+        0.0
+    };
+    let lead_height = lead_spacing + lead_block.content_lines;
+
+    if current_page_lines + lead_height > page_limit_lines {
+        return None;
+    }
+
+    // The split block must have enough content that both fragments are substantial.
+    // With fewer than orphan_limit + widow_limit + 1 lines, sentence-boundary
+    // re-wrapping can inflate the fragment count just enough to pass orphan/widow
+    // checks, but the result is too thin — Final Draft pushes the entire scene to
+    // the next page instead of splitting.
+    let min_splittable_lines = (geometry.orphan_limit + geometry.widow_limit + 1) as f32;
+    if split_block.content_lines < min_splittable_lines {
+        return None;
+    }
+
+    let available_lines = (page_limit_lines - current_page_lines - lead_height).max(0.0);
+    let split = choose_split_lines(
+        split_block,
+        available_lines,
+        split_block.spacing_above,
+        geometry,
+        interruption_dash_wrap,
+        true,
+    )?;
+
+    Some(KeepWithNextSplitDecision {
+        lead_block,
+        lead_spacing,
+        split_block,
+        split,
+    })
+}
+
+fn has_room_for_minimum_top_fragment(
+    available_lines: f32,
+    effective_spacing: f32,
+    geometry: &LayoutGeometry,
+) -> bool {
+    // This is the paginator's physical-space preflight: if the remaining page
+    // budget cannot host spacing plus the minimum top fragment, there is no
+    // reason to ask split planners for a candidate.
+    available_lines >= effective_spacing + geometry.orphan_limit as f32
+}
+
+fn max_top_wrapped_lines(available_lines: f32, effective_spacing: f32, line_height: f32) -> usize {
+    ((available_lines - effective_spacing) / line_height).floor() as usize
+}
+
+fn chunk_starts_with_transition(chunk: &Chunk<'_>) -> bool {
+    chunk
+        .blocks
+        .iter()
+        .find(|block| block_has_visible_content(block))
+        .is_some_and(|block| {
+            matches!(
+                block.unit,
+                SemanticUnit::Flow(crate::pagination::FlowUnit {
+                    kind: crate::pagination::FlowKind::Transition,
+                    ..
+                })
+            )
+        })
+}
+
+fn pull_last_visible_block_for_transition<'a>(
+    current_page_blocks: &mut Vec<LayoutBlock<'a>>,
+) -> Option<LayoutBlock<'a>> {
+    let last_visible_index = current_page_blocks
+        .iter()
+        .rposition(block_has_visible_content)?;
+    let has_earlier_visible_content = current_page_blocks[..last_visible_index]
+        .iter()
+        .any(block_has_visible_content);
+
+    if !has_earlier_visible_content {
+        return None;
+    }
+
+    Some(current_page_blocks.remove(last_visible_index))
+}

@@ -1,0 +1,20 @@
+{
+  "probe_id": "very-long-sentence-22-padding",
+  "description": "Draft probe for very long sentence 22 padding.",
+  "status": "active",
+  "lines_per_page": 54,
+  "target": {
+    "kind": "dialogue",
+    "contains_text": "vagaries"
+  },
+  "expected": {
+    "kind": "split",
+    "top_page": 1,
+    "bottom_page": 2,
+    "top_fragment_ends_with": "particularly vulnerable.",
+    "bottom_fragment_starts_with": "Hearing this news,"
+  },
+  "final_draft_notes": [
+    "This example is really just a counterpoint for the more interesting very-long-sentence-23-padding"
+  ]
+}

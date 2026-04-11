@@ -1,0 +1,265 @@
+{
+  "screenplay": "big-fish",
+  "style_profile": "standard",
+  "source": {
+    "fountain": "source/source.fountain",
+    "fdx": "source/source.fdx",
+    "pdf": "source/source.pdf"
+  },
+  "scope": {
+    "title_page_count": 1,
+    "body_start_page": 2
+  },
+  "pages": [
+    {
+      "number": 18,
+      "items": [
+        {
+          "element_id": "el-00328",
+          "kind": "Scene Heading",
+          "text_preview": "INT. FRATERNITY HOUSE BATHROOM - DAY",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00329",
+          "kind": "Action",
+          "text_preview": "Twenty-year old Don Price falls face-forward on the tile, face mushed in the gro",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00330",
+          "kind": "Scene Heading",
+          "text_preview": "EXT. AT THE GATE - NIGHT",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00331",
+          "kind": "Action",
+          "text_preview": "Don and Zacky both tremble with fear. The latter has tears in his eyes.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00332",
+          "kind": "Character",
+          "text_preview": "ZACKY",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00091",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00333",
+          "kind": "Dialogue",
+          "text_preview": "I saw how I was gonna die. I was old, and I fell.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00091",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00334",
+          "kind": "Character",
+          "text_preview": "DON PRICE",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00092",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00335",
+          "kind": "Dialogue",
+          "text_preview": "I wasn't old at all.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00092",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00336",
+          "kind": "Action",
+          "text_preview": "The brothers suddenly bolt. Still standing next to the Old Woman, Edward smiles.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00337",
+          "kind": "Scene Heading",
+          "text_preview": "EXT. AT THE OLD WOMAN'S DOOR - NIGHT",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00338",
+          "kind": "Action",
+          "text_preview": "Edward helps her back inside. He could leave now, but curiosity gets the better ",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00339",
+          "kind": "Character",
+          "text_preview": "EDWARD",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00093",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00340",
+          "kind": "Dialogue",
+          "text_preview": "I was thinking about death and all. About seeing how you're gonna die.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00093",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00341",
+          "kind": "Action",
+          "text_preview": "The Old Woman turns to him slightly, still not facing him.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00342",
+          "kind": "Character",
+          "text_preview": "EDWARD (CONT'D)",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00094",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00343",
+          "kind": "Dialogue",
+          "text_preview": "I mean, on one hand, if dying was all you thought about, it could kind of screw ",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00094",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00344",
+          "kind": "Action",
+          "text_preview": "The Old Woman smiles a little, a crooked grin of broken teeth.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00345",
+          "kind": "Character",
+          "text_preview": "EDWARD (CONT'D)",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00095",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00346",
+          "kind": "Dialogue",
+          "text_preview": "I guess I'm saying, I'd like to know.",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00095",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00347",
+          "kind": "Action",
+          "text_preview": "The Old Woman turns leaning her face right in front of his. And on a silent coun",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00348",
+          "kind": "Action",
+          "text_preview": "This time we don't cut. Instead, we HOLD ON Edward as he witnesses his death. He",
+          "fragment": "continued-to-next",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        }
+      ]
+    },
+    {
+      "number": 19,
+      "items": [
+        {
+          "element_id": "el-00348",
+          "kind": "Action",
+          "text_preview": "This time we don't cut. Instead, we HOLD ON Edward as he witnesses his death. He",
+          "fragment": "continued-from-prev",
+          "line_range": null,
+          "block_id": null,
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00349",
+          "kind": "Character",
+          "text_preview": "EDWARD (CONT'D)",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00096",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        },
+        {
+          "element_id": "el-00350",
+          "kind": "Dialogue",
+          "text_preview": "Huh. That's how I go?",
+          "fragment": "whole",
+          "line_range": null,
+          "block_id": "block-00096",
+          "dual_dialogue_group": null,
+          "dual_dialogue_side": null
+        }
+      ]
+    }
+  ]
+}
