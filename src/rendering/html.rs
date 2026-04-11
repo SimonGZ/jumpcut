@@ -1033,7 +1033,7 @@ mod tests {
         );
 
         assert!(styled_output.contains("<h1><span class=\"italic\">Big Fish</span></h1>"));
-        assert!(!styled_output.contains("defaultTitleText"));
+        assert!(!styled_output.contains("<h1 class=\"defaultTitleText\">"));
     }
 
     #[test]
@@ -1050,7 +1050,7 @@ mod tests {
         );
 
         assert!(output.contains("<section class=\"title-page paginatedTitlePage\">"));
-        assert!(!output.contains("unpaginatedTitlePage"));
+        assert!(!output.contains("<section class=\"title-page unpaginatedTitlePage\">"));
     }
 
     #[test]

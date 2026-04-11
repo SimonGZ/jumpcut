@@ -32,9 +32,9 @@ const TITLE_META_FONT_SIZE: f32 = 12.0;
 const DEFAULT_DOCUMENT_LANGUAGE: &str = "en-US";
 const TOOL_IDENTITY: &str = concat!("JumpCut ", env!("CARGO_PKG_VERSION"));
 const TITLE_BLOCK_LINE_STEP: f32 = 12.0;
-const TITLE_TITLE_TOP: f32 = 495.0;
-const TITLE_META_TOP: f32 = 447.0;
-const TITLE_BOTTOM_TOP: f32 = 135.0;
+const TITLE_TITLE_TOP_OFFSET_LINES_FROM_BODY_START: f32 = 18.0;
+const TITLE_META_TOP_OFFSET_LINES_FROM_BODY_START: f32 = 22.0;
+const TITLE_BOTTOM_TOP_OFFSET_LINES_FROM_BOTTOM_MARGIN: f32 = 5.25;
 const PAGE_SIDE_MARGIN: f32 = 72.0;
 const FONT_REGULAR_NAME: Name<'static> = Name(b"F1");
 const FONT_BOLD_NAME: Name<'static> = Name(b"F2");
@@ -1147,6 +1147,21 @@ fn page_number_y(geometry: &LayoutGeometry) -> f32 {
     (geometry.page_height * 72.0) - (geometry.header_margin * 72.0) - 9.0
 }
 
+fn title_page_center_title_top_y(geometry: &LayoutGeometry) -> f32 {
+    first_body_line_y(geometry)
+        - (TITLE_TITLE_TOP_OFFSET_LINES_FROM_BODY_START * body_line_step_points(geometry))
+}
+
+fn title_page_center_meta_top_y(geometry: &LayoutGeometry) -> f32 {
+    first_body_line_y(geometry)
+        - (TITLE_META_TOP_OFFSET_LINES_FROM_BODY_START * body_line_step_points(geometry))
+}
+
+fn title_page_bottom_top_y(geometry: &LayoutGeometry) -> f32 {
+    (geometry.bottom_margin * 72.0)
+        + (TITLE_BOTTOM_TOP_OFFSET_LINES_FROM_BOTTOM_MARGIN * body_line_step_points(geometry))
+}
+
 fn page_number_x(display_page_number: u32, geometry: &LayoutGeometry) -> f32 {
     let right_inches = geometry.page_width - 1.4375;
     let right_pts = right_inches * 72.0;
@@ -1172,7 +1187,7 @@ fn render_title_page_content(
         tagged_title_page,
         fonts,
         PdfTitleBlockRegion::CenterTitle,
-        geometry.page_height * 72.0 - 297.0,
+        title_page_center_title_top_y(geometry),
         TITLE_FONT_SIZE,
         &mut underlines,
         &mut next_mcid,
@@ -1184,7 +1199,7 @@ fn render_title_page_content(
         tagged_title_page,
         fonts,
         PdfTitleBlockRegion::CenterMeta,
-        geometry.page_height * 72.0 - 345.0,
+        title_page_center_meta_top_y(geometry),
         TITLE_META_FONT_SIZE,
         &mut underlines,
         &mut next_mcid,
@@ -1329,10 +1344,11 @@ fn render_title_page_bottom_region_lines(
     geometry: &LayoutGeometry,
 ) {
     let line_offset = max_lines.saturating_sub(lines.len()) as f32 * TITLE_BLOCK_LINE_STEP;
+    let top_y = title_page_bottom_top_y(geometry);
 
     for (line_index, (kind, tagged_block, line)) in lines.iter().enumerate() {
         let text = line.plain_text();
-        let y = 135.0 - line_offset - (line_index as f32 * TITLE_BLOCK_LINE_STEP);
+        let y = top_y - line_offset - (line_index as f32 * TITLE_BLOCK_LINE_STEP);
         render_title_page_line_runs(
             content,
             tagged_block,
@@ -4039,56 +4055,56 @@ mod tests {
             &fonts.bold,
             "SAMPLE SCRIPT",
             title_page_line_left("SAMPLE SCRIPT", PdfTitleBlockRegion::CenterTitle, &geometry),
-            TITLE_TITLE_TOP,
+            title_page_center_title_top_y(&geometry),
         );
         assert_stream_contains_fixed_cell_text_at(
             &content,
             &fonts.regular,
             "written by",
             title_page_line_left("written by", PdfTitleBlockRegion::CenterMeta, &geometry),
-            TITLE_META_TOP,
+            title_page_center_meta_top_y(&geometry),
         );
         assert_stream_contains_fixed_cell_text_at(
             &content,
             &fonts.regular,
             "Alan Smithee",
             title_page_line_left("Alan Smithee", PdfTitleBlockRegion::CenterMeta, &geometry),
-            TITLE_META_TOP - (TITLE_BLOCK_LINE_STEP * 2.0),
+            title_page_center_meta_top_y(&geometry) - (TITLE_BLOCK_LINE_STEP * 2.0),
         );
         assert_stream_contains_fixed_cell_text_at(
             &content,
             &fonts.regular,
             "based on the novel",
             title_page_line_left("based on the novel", PdfTitleBlockRegion::CenterMeta, &geometry),
-            TITLE_META_TOP - (TITLE_BLOCK_LINE_STEP * 7.0),
+            title_page_center_meta_top_y(&geometry) - (TITLE_BLOCK_LINE_STEP * 7.0),
         );
         assert_stream_contains_fixed_cell_text_at(
             &content,
             &fonts.regular,
             "by J.R.R. Smithee",
             title_page_line_left("by J.R.R. Smithee", PdfTitleBlockRegion::CenterMeta, &geometry),
-            TITLE_META_TOP - (TITLE_BLOCK_LINE_STEP * 8.0),
+            title_page_center_meta_top_y(&geometry) - (TITLE_BLOCK_LINE_STEP * 8.0),
         );
         assert_stream_contains_fixed_cell_text_at(
             &content,
             &fonts.regular,
             "WME",
             title_page_line_left("WME", PdfTitleBlockRegion::BottomLeft, &geometry),
-            TITLE_BOTTOM_TOP,
+            title_page_bottom_top_y(&geometry),
         );
         assert_stream_contains_fixed_cell_text_at(
             &content,
             &fonts.regular,
             "First Draft",
             title_page_bottom_right_left("First Draft", &geometry),
-            TITLE_BOTTOM_TOP,
+            title_page_bottom_top_y(&geometry),
         );
         assert_stream_contains_fixed_cell_text_at(
             &content,
             &fonts.regular,
             "April 6, 1952",
             title_page_bottom_right_left("April 6, 1952", &geometry),
-            TITLE_BOTTOM_TOP - TITLE_BLOCK_LINE_STEP,
+            title_page_bottom_top_y(&geometry) - TITLE_BLOCK_LINE_STEP,
         );
     }
 
@@ -4119,7 +4135,7 @@ mod tests {
                 .expect("expected tagged title page"),
             &fonts,
             PdfTitleBlockRegion::CenterTitle,
-            TITLE_TITLE_TOP,
+            title_page_center_title_top_y(&geometry),
             TITLE_FONT_SIZE,
             &mut underlines,
             &mut next_mcid,
@@ -4135,7 +4151,7 @@ mod tests {
             &fonts.bold,
             "SAMPLE SCRIPT",
             title_page_line_left("SAMPLE SCRIPT", PdfTitleBlockRegion::CenterTitle, &geometry),
-            TITLE_TITLE_TOP,
+            title_page_center_title_top_y(&geometry),
         );
         assert!(stream_text.contains("260.5 493.5 m"));
         assert!(stream_text.contains("351.5 493.5 l"));
@@ -4169,7 +4185,7 @@ mod tests {
                 .expect("expected tagged title page"),
             &fonts,
             PdfTitleBlockRegion::CenterTitle,
-            TITLE_TITLE_TOP,
+            title_page_center_title_top_y(&geometry),
             TITLE_FONT_SIZE,
             &mut underlines,
             &mut next_mcid,
@@ -4183,7 +4199,7 @@ mod tests {
             &fonts.bold,
             "Sample Script",
             title_page_line_left("Sample Script", PdfTitleBlockRegion::CenterTitle, &geometry),
-            TITLE_TITLE_TOP,
+            title_page_center_title_top_y(&geometry),
         );
         assert_stream_lacks_text(&stream, &fonts.bold, "SAMPLE SCRIPT");
     }
@@ -4274,7 +4290,7 @@ mod tests {
                 .expect("expected tagged title page"),
             &fonts,
             PdfTitleBlockRegion::CenterTitle,
-            TITLE_TITLE_TOP,
+            title_page_center_title_top_y(&geometry),
             TITLE_FONT_SIZE,
             &mut underlines,
             &mut next_mcid,
@@ -4291,7 +4307,7 @@ mod tests {
             &fonts.bold,
             "SAMPLE SCRIPT",
             title_page_line_left("SAMPLE SCRIPT", PdfTitleBlockRegion::CenterTitle, &geometry),
-            TITLE_TITLE_TOP,
+            title_page_center_title_top_y(&geometry),
         );
     }
 
@@ -4323,7 +4339,7 @@ mod tests {
                 .expect("expected tagged title page"),
             &fonts,
             PdfTitleBlockRegion::CenterTitle,
-            TITLE_TITLE_TOP,
+            title_page_center_title_top_y(&geometry),
             TITLE_FONT_SIZE,
             &mut underlines,
             &mut next_mcid,
@@ -4340,7 +4356,7 @@ mod tests {
             &fonts.bold,
             "Sample Script",
             title_page_line_left("Sample Script", PdfTitleBlockRegion::CenterTitle, &geometry),
-            TITLE_TITLE_TOP,
+            title_page_center_title_top_y(&geometry),
         );
     }
 
@@ -4606,6 +4622,37 @@ mod tests {
         assert_eq!(body_line_step_points(&geometry), 12.0);
         assert_eq!(first_body_line_y(&geometry), 711.0);
         assert_eq!(page_number_y(&geometry), PAGE_NUMBER_BASELINE_Y);
+    }
+
+    #[test]
+    fn title_page_vertical_metrics_follow_shared_geometry() {
+        let geometry = LayoutGeometry {
+            page_height: 11.69,
+            top_margin: 1.2,
+            bottom_margin: 1.3,
+            lines_per_page: 58.0,
+            ..LayoutGeometry::default()
+        };
+        let expected_step = ((11.69 - 1.2 - 1.3) * 72.0) / 58.0;
+        let expected_first_body_line_y = (11.69 * 72.0) - (1.2 * 72.0) - 9.0;
+
+        assert!((body_line_step_points(&geometry) - expected_step).abs() < 0.001);
+        assert!(
+            (title_page_center_title_top_y(&geometry)
+                - (expected_first_body_line_y - (18.0 * expected_step)))
+                .abs()
+                < 0.001
+        );
+        assert!(
+            (title_page_center_meta_top_y(&geometry)
+                - (expected_first_body_line_y - (22.0 * expected_step)))
+                .abs()
+                < 0.001
+        );
+        assert!(
+            (title_page_bottom_top_y(&geometry) - ((1.3 * 72.0) + (5.25 * expected_step))).abs()
+                < 0.001
+        );
     }
 
     #[test]
