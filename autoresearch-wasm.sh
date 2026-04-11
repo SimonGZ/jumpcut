@@ -64,4 +64,4 @@ emit_variant_metrics html_only --no-default-features --features html
 emit_variant_metrics fdx_only --no-default-features --features fdx
 
 cargo run --release --quiet --bin autoresearch_native_bench
-./autoresearch-wasm.node.sh
+./generate-wasm-package.sh --out-dir "$TARGET_DIR/node-full"

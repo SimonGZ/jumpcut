@@ -41,34 +41,34 @@ cargo build -p jumpcut-wasm --target wasm32-unknown-unknown --release
 To generate a Node-compatible JS package from the compiled `.wasm`, use:
 
 ```sh
-./autoresearch-wasm.node.sh --smoke
+./generate-wasm-package.sh --smoke
 ```
 
 That script will:
 
 - build `jumpcut-wasm`
 - ensure `wasm-bindgen-cli` is available
-- generate a Node-targeted package under `target/autoresearch-wasm/node-full`
+- generate a Node-targeted package under `target/wasm-package/node-full`
 - run a small smoke benchmark
 
 If you want the generated package without the smoke shortcut, run:
 
 ```sh
-./autoresearch-wasm.node.sh
+./generate-wasm-package.sh
 ```
 
 ### Use The Generated Package From Node
 
-After running `./autoresearch-wasm.node.sh`, the generated package lives under:
+After running `./generate-wasm-package.sh`, the generated package lives under:
 
 ```text
-target/autoresearch-wasm/node-full
+target/wasm-package/node-full
 ```
 
 Example:
 
 ```js
-const jumpcut = require("./target/autoresearch-wasm/node-full/jumpcut_wasm.js");
+const jumpcut = require("./target/wasm-package/node-full/jumpcut_wasm.js");
 
 const input = `Title: Example
 
@@ -89,17 +89,19 @@ console.log(fdx.slice(0, 80));
 
 The repo includes helper scripts for the wasm workflow:
 
+- `./generate-wasm-package.sh`
+  - builds the wasm wrapper
+  - generates a Node-targeted JS package
+  - optionally runs a small smoke benchmark
 - `./autoresearch-wasm.checks.sh`
-  - runs tests
-  - checks `jumpcut-wasm` for `wasm32-unknown-unknown`
-  - runs the Node-side smoke path
+  - repo-internal validation helper for wasm changes
+  - runs tests and `wasm32` checks
+  - runs the smoke package-generation path
 - `./autoresearch-wasm.sh`
-  - emits full bundle size metrics
-  - emits `json_only` / `html_only` / `fdx_only` size metrics
-  - emits native parser guardrail metrics
-  - emits Node-side wasm runtime metrics
+  - repo-internal benchmark/size-report helper
+  - emits bundle-size metrics, feature-slice metrics, native guardrail metrics, and Node-side wasm runtime metrics
 
-Those scripts are what the repo currently uses to validate wasm changes.
+The `autoresearch` scripts are historical research tooling. Use `./generate-wasm-package.sh` for normal package generation.
 
 ## Usage
 
