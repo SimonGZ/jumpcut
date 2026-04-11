@@ -1,9 +1,9 @@
 [package]
 name = "jumpcut"
-version = "1.0.0-alpha.2"
+version = "1.0.0-beta"
 edition = "2021"
 license = "MIT"
-description = "JumpCut is a library and CLI for converting Fountain-formatted text files into FDX and HTML formats."
+description = "JumpCut is a library and CLI for converting Fountain-formatted text files into FDX, HTML, JSON, text, and PDF formats."
 homepage = "https://github.com/SimonGZ/jumpcut"
 repository = "https://github.com/SimonGZ/jumpcut"
 keywords = ["fountain", "screenwriting"]
@@ -15,6 +15,7 @@ include = [
     "Cargo.toml",
     "LICENSE",
     "README.md",
+    "docs/*.md",
     "src/bin/main.rs",
     "src/converters.rs",
     "src/html_output.rs",

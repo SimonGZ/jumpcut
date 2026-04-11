@@ -1,6 +1,6 @@
 # JumpCut
 
-JumpCut is a Rust utility designed to convert the [Fountain screenwriting markup format][fountain] into [Final Draft FDX files][FDX] (the industry standard in Hollywood) or into HTML.
+JumpCut is a Rust utility designed to convert the [Fountain screenwriting markup format][fountain] into [Final Draft FDX files][FDX] (the industry standard in Hollywood), HTML, JSON, text, and PDF.
 
 JumpCut can be used as a command-line utility, a Rust library, or as a WASM package. Because of this, the project utilizes cargo [features][] so that different parts like the command-line utility can be turned off to save binary size.
 
@@ -16,7 +16,7 @@ cargo install jumpcut
 
 To use JumpCut as a library, you can specify the following in your Cargo.toml so that the command-line features are not added to your project:
 
-`jumpcut = { version = "1.0.0-alpha.1", default-features = false, features = ["lib-only"] }`
+`jumpcut = { version = "1.0.0-beta", default-features = false, features = ["lib-only"] }`
 
 ## WASM Package
 
