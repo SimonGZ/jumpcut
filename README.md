@@ -115,7 +115,8 @@ FLAGS:
 
 OPTIONS:
     -f, --format <format>    Formats (FDX, HTML, JSON, text, PDF) [default: fdx]
-    -o, --output [<FILE>]    Output file. Pass bare -o/--output to auto-derive a path from the input stem and format.
+    -o, --output <FILE>      Output file.
+    -w, --write              Auto-derive an output path from the input stem and format.
     -m, --metadata <FILE>    Optional Fountain file to prepend as metadata. Defaults to "metadata.fountain" if flag is present without a value.
         --paginate           Render paginated text or exact-wrap paginated HTML
         --line-numbers       Show line numbers in text output
@@ -139,11 +140,11 @@ jumpcut script.fountain script.fdx
 jumpcut script.fountain -o script.fdx
 
 # Auto-derive the output path from the input stem and format
-jumpcut script.fountain -o
-jumpcut script.fountain -o -f pdf   # writes script.pdf
+jumpcut script.fountain -w
+jumpcut script.fountain -w -f pdf   # writes script.pdf
 ```
 
-When using bare `-o`, keep `-f` separate. `-of pdf` is not treated as shorthand for `-o -f pdf`.
+`-w` is the explicit "write next to the source" mode. `-o` always expects a file path.
 
 To use JumpCut within a Rust program, you can examine the [main.rs](src/bin/main.rs) file for an example of calling the library, but the basics are depicted below:
 
