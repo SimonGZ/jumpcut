@@ -160,26 +160,19 @@ let output_fdx: String = screenplay.to_final_draft();
 let output_html: String = screenplay.to_html();
 ```
 
-### CLI Render Profile Override
+## Formatting and Metadata
 
-Formatting and metadata details now live in [`docs/formatting-and-metadata.md`](docs/formatting-and-metadata.md), including:
+JumpCut gives you two main ways to control how a script comes out:
 
-- `--render-profile`
-- `--no-continueds`
-- `fmt` metadata tokens
-- `--metadata` / `-m`
+- CLI render flags such as `--render-profile`, `--no-continueds`, and `--no-title-page`
+- Fountain `fmt` metadata for shared layout, style, and pagination choices
 
-## Formatting Metadata (`fmt`)
+The built-in profiles are aimed at different goals:
 
-`fmt` metadata controls shared layout and rendering behavior across pagination and multiple output formats.
+- `final-draft`: the default. This tries to match Final Draft's pagination and continuation behavior as closely as possible.
+- `balanced`: a more opinionated profile that aims for cleaner-looking page breaks, dash wrapping, and `(MORE)` / `(CONT'D)` choices.
 
-For the full token reference and examples, see [`docs/formatting-and-metadata.md`](docs/formatting-and-metadata.md).
-
-## Prepending Metadata
-
-JumpCut can prepend metadata from a separate Fountain file via `--metadata` / `-m`.
-
-For default-file lookup rules and runnable examples, see [`docs/formatting-and-metadata.md`](docs/formatting-and-metadata.md).
+If you want the full reference for `fmt`, profile overrides, and `--metadata` / `-m`, use [`docs/formatting-and-metadata.md`](docs/formatting-and-metadata.md).
 
 ## Pagination Diagnostics
 
