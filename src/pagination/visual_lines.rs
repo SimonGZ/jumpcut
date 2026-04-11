@@ -103,6 +103,7 @@ pub(crate) fn render_paginated_visual_pages_with_options(
         .collect()
 }
 
+#[cfg(feature = "html")]
 pub(crate) fn render_unpaginated_visual_lines_with_options(
     screenplay: &Screenplay,
     options: VisualRenderOptions,
@@ -176,6 +177,7 @@ fn nonempty_layout_pages<'a>(
         .collect()
 }
 
+#[cfg(feature = "html")]
 fn render_continuous_block_lines(
     block: &LayoutBlock<'_>,
     geometry: &LayoutGeometry,
@@ -1276,6 +1278,7 @@ pub(crate) fn display_page_number(page: &Page) -> Option<u32> {
     Some(display_number)
 }
 
+#[cfg(feature = "html")]
 pub(crate) fn visual_line_class_name(element_type: ElementType) -> &'static str {
     match element_type {
         ElementType::Action => "action",

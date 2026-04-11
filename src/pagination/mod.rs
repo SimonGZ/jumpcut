@@ -11,6 +11,7 @@ pub mod paginator;
 mod semantic;
 mod sentence_boundary;
 mod split_scoring;
+#[cfg(any(feature = "html", feature = "pdf"))]
 pub mod visual_lines;
 pub mod wrapping;
 
