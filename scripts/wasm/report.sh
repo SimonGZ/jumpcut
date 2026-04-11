@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 cd "$ROOT_DIR"
 
-TARGET_DIR="$ROOT_DIR/target/autoresearch-wasm"
+TARGET_DIR="$ROOT_DIR/target/wasm-report"
 mkdir -p "$TARGET_DIR"
 
 gzip_size() {
@@ -65,4 +66,4 @@ emit_variant_metrics fdx_only --no-default-features --features fdx
 emit_variant_metrics pdf_only --no-default-features --features pdf
 
 cargo run --release --quiet --bin autoresearch_native_bench
-./generate-wasm-package.sh --out-dir "$TARGET_DIR/node-full"
+"$SCRIPT_DIR/generate-package.sh" --out-dir "$TARGET_DIR/node-full"

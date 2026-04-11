@@ -44,7 +44,7 @@ cargo build -p jumpcut-wasm --target wasm32-unknown-unknown --release
 To generate a Node-compatible JS package from the compiled `.wasm`, use:
 
 ```sh
-./generate-wasm-package.sh --smoke
+./scripts/wasm/generate-package.sh --smoke
 ```
 
 That script will:
@@ -57,12 +57,12 @@ That script will:
 If you want the generated package without the smoke shortcut, run:
 
 ```sh
-./generate-wasm-package.sh
+./scripts/wasm/generate-package.sh
 ```
 
 ### Use The Generated Package From Node
 
-After running `./generate-wasm-package.sh`, the generated package lives under:
+After running `./scripts/wasm/generate-package.sh`, the generated package lives under:
 
 ```text
 target/wasm-package/node-full
@@ -92,19 +92,19 @@ console.log(fdx.slice(0, 80));
 
 The repo includes helper scripts for the wasm workflow:
 
-- `./generate-wasm-package.sh`
+- `./scripts/wasm/generate-package.sh`
   - builds the wasm wrapper
   - generates a Node-targeted JS package
   - optionally runs a small smoke benchmark
-- `./autoresearch-wasm.checks.sh`
+- `./scripts/wasm/checks.sh`
   - repo-internal validation helper for wasm changes
   - runs tests and `wasm32` checks
   - runs the smoke package-generation path
-- `./autoresearch-wasm.sh`
+- `./scripts/wasm/report.sh`
   - repo-internal benchmark/size-report helper
   - emits bundle-size metrics, feature-slice metrics (`json_only`, `html_only`, `fdx_only`, `pdf_only`), native guardrail metrics, and Node-side wasm runtime metrics
 
-The `autoresearch` scripts are historical research tooling. Use `./generate-wasm-package.sh` for normal package generation.
+For the internal benchmark/baseline notes, see [`docs/wasm.md`](docs/wasm.md).
 
 ## Usage
 

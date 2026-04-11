@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_DIR="$SCRIPT_DIR"
+ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 OUT_DIR=""
 METRIC_PREFIX="wasm_node"
 WARMUP=2
@@ -55,7 +55,7 @@ if [[ -z "$OUT_DIR" ]]; then
     OUT_DIR="$ROOT_DIR/target/wasm-package/node-full"
 fi
 
-WASM_BINDGEN_BIN="$("$SCRIPT_DIR/scripts/ensure-wasm-bindgen-cli.sh")"
+WASM_BINDGEN_BIN="$("$SCRIPT_DIR/ensure-wasm-bindgen-cli.sh")"
 
 cargo build -p jumpcut-wasm --target wasm32-unknown-unknown --release >/dev/null
 
@@ -68,7 +68,7 @@ mkdir -p "$OUT_DIR"
     --out-dir "$OUT_DIR" \
     "$RAW_WASM" >/dev/null
 
-node "$SCRIPT_DIR/scripts/bench-wasm-node.mjs" \
+node "$SCRIPT_DIR/bench-node.mjs" \
     --pkg-dir "$OUT_DIR" \
     --fixtures-dir "$ROOT_DIR/benches" \
     --metric-prefix "$METRIC_PREFIX" \

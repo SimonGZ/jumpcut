@@ -1,4 +1,4 @@
-# Jumpcut WASM Autoresearch Session
+# JumpCut WASM Workflow
 
 Branch:
 
@@ -15,14 +15,14 @@ Current crate shape:
 - core published crate: `jumpcut`
 - wrapper crate: `jumpcut-wasm`
 
-Primary metrics from `./autoresearch-wasm.sh`:
+Primary metrics from `./scripts/wasm/report.sh`:
 
 - `wasm_bytes`
 - `wasm_opt_os_bytes`
 - `wasm_gzip_bytes`
 - `wasm_opt_os_gzip_bytes`
 
-Native guardrail metrics from `./autoresearch-wasm.sh`:
+Native guardrail metrics from `./scripts/wasm/report.sh`:
 
 - `parse_108_ns`
 - `parse_big_fish_ns`
@@ -30,7 +30,7 @@ Native guardrail metrics from `./autoresearch-wasm.sh`:
 
 Validation command:
 
-- `./autoresearch-wasm.checks.sh`
+- `./scripts/wasm/checks.sh`
 
 Current guardrail rule:
 

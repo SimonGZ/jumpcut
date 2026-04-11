@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `--no-title-page` support for HTML and PDF output.
 - Added a dedicated formatting and metadata reference document at [`docs/formatting-and-metadata.md`](docs/formatting-and-metadata.md).
 - Added readable long-form `fmt` aliases such as `bold-scene-headings`, `underline-scene-headings`, and `all-caps-action`.
-- Added a clearer user-facing WASM packaging entrypoint with `generate-wasm-package.sh`.
+- Added a clearer user-facing WASM packaging entrypoint under `scripts/wasm/generate-package.sh`.
 - Added a feature-gated PDF export to the wasm wrapper and extended the wasm size/runtime report to cover `pdf_only`.
 
 ### Changed
