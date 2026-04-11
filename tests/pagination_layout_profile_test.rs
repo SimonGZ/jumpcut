@@ -120,6 +120,23 @@ fn render_only_fmt_options_do_not_change_pagination_geometry() {
 }
 
 #[test]
+fn long_form_style_aliases_match_legacy_geometry_knobs() {
+    let mut metadata: Metadata = HashMap::new();
+    metadata.insert(
+        "fmt".into(),
+        vec!["bold-scene-headings underline-scene-headings single-space-before-scene-headings double-spaced-dialogue".into()],
+    );
+
+    let profile = ScreenplayLayoutProfile::from_metadata(&metadata);
+    let geometry = profile.to_pagination_geometry();
+
+    assert!(profile.styles.scene_heading.bold);
+    assert!(profile.styles.scene_heading.underline);
+    assert_eq!(geometry.scene_heading_spacing_before, 1.0);
+    assert_eq!(geometry.line_height, 2.0);
+}
+
+#[test]
 fn no_auto_act_breaks_fmt_disables_new_act_page_starts_without_changing_geometry() {
     let mut metadata: Metadata = HashMap::new();
     metadata.insert("fmt".into(), vec!["no-auto-act-breaks".into()]);

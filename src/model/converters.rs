@@ -124,6 +124,31 @@ mod tests {
         assert_eq!(metadata, expected, "it should handle font-choice");
 
         metadata = HashMap::new();
+        insert_metadata_value(
+            &mut metadata,
+            "fmt",
+            "bold-scene-headings underline-scene-headings all-caps-action single-space-before-scene-headings courier-final-draft",
+        );
+        for pair in defaults.iter() {
+            insert_metadata_value(&mut expected, pair.0, pair.1);
+        }
+        insert_metadata_value(
+            &mut expected,
+            "scene-heading-style",
+            "AllCaps+Bold+Underline",
+        );
+        insert_metadata_value(&mut expected, "space-before-heading", "12");
+        insert_metadata_value(&mut expected, "action-text-style", "AllCaps");
+        insert_metadata_value(&mut expected, "font-choice", "Courier Final Draft");
+        insert_metadata_value(
+            &mut expected,
+            "fmt",
+            "bold-scene-headings underline-scene-headings all-caps-action single-space-before-scene-headings courier-final-draft",
+        );
+        add_fdx_formatting(&mut metadata);
+        assert_eq!(metadata, expected, "it should accept long-form fmt aliases");
+
+        metadata = HashMap::new();
         insert_metadata_value(&mut metadata, "fmt", "dl-1.25");
         for pair in defaults.iter() {
             insert_metadata_value(&mut expected, pair.0, pair.1);

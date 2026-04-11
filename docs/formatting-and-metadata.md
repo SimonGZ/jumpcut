@@ -36,7 +36,7 @@ To use these options, add a `fmt` key to your screenplay's metadata at the top o
 JumpCut treats `fmt` options in two layers:
 
 - template options such as `multicam` establish a base layout/style profile
-- explicit geometry knobs such as `ssbsh`, `dsd`, `dl-*`, and `dr-*` then override that base, regardless of where they appear in the `fmt` string
+- explicit geometry knobs such as `single-space-before-scene-headings`, `double-spaced-dialogue`, `dl-*`, and `dr-*` then override that base, regardless of where they appear in the `fmt` string
 - render/style options such as `allow-lowercase-title` and `clean-dashes` adjust output behavior without changing the shared page geometry
 
 The `fmt` parser is whitespace-based and case-insensitive for the supported option names, so these are equivalent:
@@ -51,7 +51,7 @@ Example:
 ```text
 Title: My Awesome Screenplay
 Author: John Doe
-Fmt: bsh ush acat dsd dl-1.5 dr-7.0
+Fmt: bold-scene-headings underline-scene-headings all-caps-action double-spaced-dialogue dl-1.5 dr-7.0
 ```
 
 ### Available `fmt` Options
@@ -59,14 +59,14 @@ Fmt: bsh ush acat dsd dl-1.5 dr-7.0
 - `multicam`: Applies JumpCut's shared multicam layout profile as a starting point for pagination and rendering.
 - `a4`: Switches the shared page geometry from US Letter to A4 and updates the default lines-per-page accordingly.
 - `balanced`: Enables cleaner dash wrapping and disables dual-dialogue continuation counting as a combined profile toggle.
-- `bsh`: Makes scene headings bold.
-- `ush`: Underlines scene headings.
-- `acat`: Converts action text to uppercase.
-- `ssbsh`: Reduces the space before scene headings from 24 points to 12 points.
-- `dsd`: Changes dialogue spacing from single to double.
+- `bold-scene-headings`: Makes scene headings bold. Alias: `bsh`.
+- `underline-scene-headings`: Underlines scene headings. Alias: `ush`.
+- `all-caps-action`: Converts action text to uppercase. Alias: `acat`.
+- `single-space-before-scene-headings`: Reduces the space before scene headings from 24 points to 12 points. Alias: `ssbsh`.
+- `double-spaced-dialogue`: Changes dialogue spacing from single to double. Alias: `dsd`.
 - `no-auto-act-breaks`: Keeps `NEW ACT` blocks from forcing a new page.
 - `no-act-underlines`: Removes the default underline styling from cold openings and act markers.
-- `cfd`: Uses "Courier Final Draft" instead of the default "Courier Prime".
+- `courier-final-draft`: Uses "Courier Final Draft" instead of the default "Courier Prime". Alias: `cfd`.
 - `dl-X.XX`: Sets the dialogue left indent in inches.
 - `dr-X.XX`: Sets the dialogue right indent in inches.
 - `tm-X.XX`: Sets the page top margin in inches.
@@ -78,10 +78,12 @@ Fmt: bsh ush acat dsd dl-1.5 dr-7.0
 - `clean-dashes`: Keeps interruption dashes and trailing `--` together instead of following Final Draft-compatible dash splitting.
 - `no-dual-contds`: Prevents dual-dialogue blocks from triggering continuation counting rules.
 
-`bsh` and `ush` can be combined:
+The short forms remain accepted, but the long forms are now the preferred documented names.
+
+Scene-heading style flags can be combined:
 
 ```text
-Fmt: bsh ush
+Fmt: bold-scene-headings underline-scene-headings
 ```
 
 ### Combined Example
@@ -89,7 +91,7 @@ Fmt: bsh ush
 To start from the multicam template, keep its double-spaced dialogue, and then override the dialogue margins explicitly:
 
 ```text
-Fmt: multicam bsh ush acat dsd dl-2.0 dr-5.5
+Fmt: multicam bold-scene-headings underline-scene-headings all-caps-action double-spaced-dialogue dl-2.0 dr-5.5
 ```
 
 ### Page Geometry Examples

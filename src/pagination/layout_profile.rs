@@ -387,13 +387,13 @@ fn apply_fmt_template_option(profile: &mut ScreenplayLayoutProfile, option: &str
 }
 
 fn apply_fmt_geometry_override_option(profile: &mut ScreenplayLayoutProfile, option: &str) {
-    if option.eq_ignore_ascii_case("ssbsh") {
+    if matches_fmt_option(option, &["ssbsh", "single-space-before-scene-headings"]) {
         profile.styles.scene_heading.spacing_before = 1.0;
-    } else if option.eq_ignore_ascii_case("bsh") {
+    } else if matches_fmt_option(option, &["bsh", "bold-scene-headings"]) {
         profile.styles.scene_heading.bold = true;
-    } else if option.eq_ignore_ascii_case("ush") {
+    } else if matches_fmt_option(option, &["ush", "underline-scene-headings"]) {
         profile.styles.scene_heading.underline = true;
-    } else if option.eq_ignore_ascii_case("dsd") {
+    } else if matches_fmt_option(option, &["dsd", "double-spaced-dialogue"]) {
         profile.styles.dialogue.line_spacing = 2.0;
     } else if option.eq_ignore_ascii_case("no-auto-act-breaks") {
         profile.styles.new_act.starts_new_page = false;
@@ -430,4 +430,10 @@ fn apply_fmt_geometry_override_option(profile: &mut ScreenplayLayoutProfile, opt
             profile.lines_per_page = lpp;
         }
     }
+}
+
+fn matches_fmt_option(option: &str, accepted: &[&str]) -> bool {
+    accepted
+        .iter()
+        .any(|candidate| option.eq_ignore_ascii_case(candidate))
 }
