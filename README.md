@@ -2,9 +2,7 @@
 
 JumpCut is a Rust utility designed to convert the [Fountain screenwriting markup format][fountain] into [Final Draft FDX files][FDX] (the industry standard in Hollywood), HTML, JSON, text, and PDF.
 
-JumpCut can be used as a command-line utility, a Rust library, or as a WASM package. Because of this, the project utilizes cargo [features][] so that different parts like the command-line utility can be turned off to save binary size.
-
-Embedded Courier Prime HTML export is documented in [docs/html-embedded-fonts.md](docs/html-embedded-fonts.md).
+JumpCut can be used as a command-line utility, a Rust library, or as a WASM package.
 
 ## Installation
 
@@ -18,93 +16,13 @@ To use JumpCut as a library, you can specify the following in your Cargo.toml so
 
 `jumpcut = { version = "1.0.0-beta", default-features = false, features = ["lib-only"] }`
 
-## WASM Package
+## WASM
 
 JumpCut also ships an in-repo wasm wrapper crate at [jumpcut-wasm](jumpcut-wasm).
 
-That wrapper exposes these JS-facing functions:
+For the wasm wrapper API, Cargo feature model, package-generation workflow, and internal size/report tooling, see [`docs/wasm.md`](docs/wasm.md).
 
-- `parse_to_json_string(text)`
-- `parse_to_html_string(text, include_head)`
-- `parse_to_html_string_with_options(text, include_head, exact_wraps, paginated)`
-- `parse_to_html_string_with_embedded_courier_prime(text, include_head, exact_wraps, paginated, regular_ttf_base64, italic_ttf_base64, bold_ttf_base64, bold_italic_ttf_base64)`
-- `parse_to_fdx_string(text)`
-- `parse_to_pdf_bytes(text)`
-
-JSON is always available. HTML, FDX, and PDF are separate wasm feature slices, and the default wasm build includes all three.
-
-### Build The WASM Wrapper
-
-The low-level Rust build is:
-
-```sh
-cargo build -p jumpcut-wasm --target wasm32-unknown-unknown --release
-```
-
-To generate a Node-compatible JS package from the compiled `.wasm`, use:
-
-```sh
-./scripts/wasm/generate-package.sh --smoke
-```
-
-That script will:
-
-- build `jumpcut-wasm`
-- ensure `wasm-bindgen-cli` is available
-- generate a Node-targeted package under `target/wasm-package/node-full`
-- run a small smoke benchmark
-
-If you want the generated package without the smoke shortcut, run:
-
-```sh
-./scripts/wasm/generate-package.sh
-```
-
-### Use The Generated Package From Node
-
-After running `./scripts/wasm/generate-package.sh`, the generated package lives under:
-
-```text
-target/wasm-package/node-full
-```
-
-Example:
-
-```js
-const jumpcut = require("./target/wasm-package/node-full/jumpcut_wasm.js");
-
-const input = `Title: Example
-
-INT. HOUSE - DAY
-
-Hello, world.`;
-
-const json = jumpcut.parse_to_json_string(input);
-const html = jumpcut.parse_to_html_string(input, true);
-const fdx = jumpcut.parse_to_fdx_string(input);
-
-console.log(json);
-console.log(html.slice(0, 80));
-console.log(fdx.slice(0, 80));
-```
-
-### WASM Checks And Benchmarks
-
-The repo includes helper scripts for the wasm workflow:
-
-- `./scripts/wasm/generate-package.sh`
-  - builds the wasm wrapper
-  - generates a Node-targeted JS package
-  - optionally runs a small smoke benchmark
-- `./scripts/wasm/checks.sh`
-  - repo-internal validation helper for wasm changes
-  - runs tests and `wasm32` checks
-  - runs the smoke package-generation path
-- `./scripts/wasm/report.sh`
-  - repo-internal benchmark/size-report helper
-  - emits bundle-size metrics, feature-slice metrics (`json_only`, `html_only`, `fdx_only`, `pdf_only`), native guardrail metrics, and Node-side wasm runtime metrics
-
-For the internal benchmark/baseline notes, see [`docs/wasm.md`](docs/wasm.md).
+Embedded Courier Prime HTML export is documented in [`docs/html-embedded-fonts.md`](docs/html-embedded-fonts.md).
 
 ## Usage
 
@@ -167,7 +85,7 @@ JumpCut gives you two main ways to control how a script comes out:
 - CLI render flags such as `--render-profile`, `--no-continueds`, and `--no-title-page`
 - Fountain `fmt` metadata for shared layout, style, and pagination choices
 
-The built-in profiles are aimed at different goals:
+The built-in profiles are like presets. They bundle together different pagination and output settings:
 
 - `industry`: the default. This aims for the kind of screenplay pagination and continuation behavior used by major industry tools (like Final Draft).
 - `balanced`: a more opinionated profile that aims for cleaner-looking page breaks, dash wrapping, and `(MORE)` / `(CONT'D)` choices.
@@ -176,7 +94,7 @@ If you want the full reference for `fmt`, profile overrides, and `--metadata` / 
 
 ## Diagnostics
 
-The pagination diagnostics and PDF parity tooling now live in [`docs/diagnostics.md`](docs/diagnostics.md).
+Pagination diagnostics and PDF parity tooling are documented in [`docs/diagnostics.md`](docs/diagnostics.md).
 
 ## Development Plans
 
