@@ -1,6 +1,8 @@
 # JumpCut
 
-JumpCut is a Rust utility designed to convert the [Fountain screenwriting markup format][fountain] into [Final Draft FDX files][FDX] (the industry standard in Hollywood), HTML, JSON, text, and PDF.
+JumpCut is a Rust utility designed to convert the [Fountain screenwriting markup format][fountain] into PDF, FDX (Final Draft), HTML, JSON, and text.
+
+It was created by a working screenwriter to match the industry-standard conventions for Hollywood screenplays (lines per page, margins, dialogue splits, etc).
 
 JumpCut can be used as a command-line utility, a Rust library, or as a WASM package.
 
@@ -16,13 +18,6 @@ To use JumpCut as a library, you can specify the following in your Cargo.toml so
 
 `jumpcut = { version = "1.0.0-beta", default-features = false, features = ["lib-only"] }`
 
-## WASM
-
-JumpCut also ships an in-repo wasm wrapper crate at [jumpcut-wasm](jumpcut-wasm).
-
-For the wasm wrapper API, Cargo feature model, package-generation workflow, and internal size/report tooling, see [`docs/wasm.md`](docs/wasm.md).
-
-Embedded Courier Prime HTML export is documented in [`docs/html-embedded-fonts.md`](docs/html-embedded-fonts.md).
 
 ## Usage
 
@@ -54,43 +49,51 @@ ARGS:
     <output>    Output file, stdout if not present
 ```
 
-Output path forms:
+Examples:
 
 ```sh
-# Legacy positional output path
 jumpcut script.fountain script.fdx
 
 # Explicit output flag
 jumpcut script.fountain -o script.fdx
 
-# Auto-derive the output path from the input stem and format
+# Auto-derive the output path from the input
 jumpcut script.fountain -w
 jumpcut script.fountain -w -f pdf   # writes script.pdf
 ```
 
 `-w` is the explicit "write next to the source" mode. `-o` always expects a file path.
 
-To use JumpCut within a Rust program, you can examine the [main.rs](src/bin/main.rs) file for an example of calling the library, but the basics are depicted below:
+To use JumpCut within a Rust program, look at [main.rs](src/bin/main.rs) file for an example of calling the library, but the basics are...
 
 ```rust
-let mut screenplay: Screenplay = parse(&content); // content is a String provided by your application
+let mut screenplay: Screenplay = parse(&content); // content is a String of fountain text
 let output_fdx: String = screenplay.to_final_draft();
 let output_html: String = screenplay.to_html();
 ```
 
 ## Formatting and Metadata
 
-JumpCut gives you two main ways to control how a script comes out:
+You can customize JumpCut's output.
 
-- CLI render flags such as `--render-profile`, `--no-continueds`, and `--no-title-page`
-- Fountain `fmt` metadata for shared layout, style, and pagination choices
-
-The built-in profiles are like presets. They bundle together different pagination and output settings:
+There are two built-in profiles that act like presets. They bundle together different pagination and output settings:
 
 - `industry`: the default. This aims for the kind of screenplay pagination and continuation behavior used by major industry tools (like Final Draft).
-- `balanced`: a more opinionated profile that aims for cleaner-looking page breaks, dash wrapping, and `(MORE)` / `(CONT'D)` choices.
+- `balanced`: a more opinionated profile that aims for cleaner-looking page breaks, dash wrapping, and `(MORE)` / `(CONT'D)` choices. NOTE: This profile is subject to changes based on the changing opinions of the software's author.
 
-If you want the full reference for `fmt`, profile overrides, and `--metadata` / `-m`, use [`docs/formatting-and-metadata.md`](docs/formatting-and-metadata.md).
+You can set those presets (called render-profiles by the app) and other frequent customizations with CLI flags like `--render-profile`, `--no-continueds`, and `--no-title-page`
+
+More specific formatting, margin, and pagination tweaks can be set in a `fmt` string in the metadata section at the top of a Fountain document.
+
+If you want the full reference for `fmt`, profile overrides, and `--metadata` / `-m`, see [`docs/formatting-and-metadata.md`](docs/formatting-and-metadata.md).
+
+## WASM
+
+JumpCut also ships an in-repo wasm wrapper crate at [jumpcut-wasm](jumpcut-wasm), so that JumpCut can be used in websites.
+
+For the wasm wrapper API, Cargo feature model, package-generation workflow, and internal size/report tooling, see [`docs/wasm.md`](docs/wasm.md).
+
+Embedded Courier Prime HTML export is documented in [`docs/html-embedded-fonts.md`](docs/html-embedded-fonts.md).
 
 ## Diagnostics
 
