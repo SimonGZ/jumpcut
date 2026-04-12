@@ -11,21 +11,14 @@ default-run = "jumpcut"
 readme = "README.md"
 include = [
     "CHANGELOG.md",
-    "Cargo.lock",
     "Cargo.toml",
     "LICENSE",
     "README.md",
     "docs/*.md",
-    "src/bin/main.rs",
-    "src/converters.rs",
-    "src/html_output.rs",
-    "src/lib.rs",
-    "src/rendering/*.rs",
-    "src/templates/fonts/*.ttf",
-    "src/templates/html_style.css",
-    "src/text_output.rs",
-    "src/text_style_parser.rs",
-    "src/visual_lines.rs",
+    "src/**/*.rs",
+    "src/templates/**/*.ttf",
+    "src/templates/*.css",
+    "src/templates/*.hbs",
 ]
 
 [workspace]
