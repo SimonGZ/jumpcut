@@ -56,6 +56,42 @@ fn it_handles_new_act_underlined() {
 }
 
 #[test]
+fn it_handles_tag() {
+    let text = "> TAG <";
+    let expected = vec![Element::NewAct(
+        p("TAG"),
+        Attributes {
+            centered: true,
+            ..Attributes::default()
+        },
+    )];
+
+    assert_eq!(
+        parse(text).elements,
+        expected,
+        "it should handle TAG as an act break"
+    );
+}
+
+#[test]
+fn it_handles_end_of_pilot() {
+    let text = "> END OF PILOT <";
+    let expected = vec![Element::EndOfAct(
+        p("END OF PILOT"),
+        Attributes {
+            centered: true,
+            ..Attributes::default()
+        },
+    )];
+
+    assert_eq!(
+        parse(text).elements,
+        expected,
+        "it should handle END OF PILOT as an end of act"
+    );
+}
+
+#[test]
 fn it_handles_end_act() {
     let text = "> END ACT ONE <";
     let expected = vec![Element::EndOfAct(

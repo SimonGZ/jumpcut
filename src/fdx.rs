@@ -3,6 +3,7 @@ use quick_xml::events::{BytesStart, Event};
 use quick_xml::Reader;
 use std::collections::{BTreeMap, HashSet};
 
+use crate::parser::{is_cold_opening, is_end_act, is_new_act};
 use crate::{
     blank_attributes, Element, ElementText, ImportedAlignment, ImportedDialogueContinueds,
     ImportedElementKind, ImportedElementStyle, ImportedLayoutOverrides, ImportedMoresAndContinueds,
@@ -32,11 +33,13 @@ pub fn parse_fdx(xml: &str) -> Result<Screenplay, FdxParseError> {
             .collect(),
     );
 
-    Ok(Screenplay {
+    let mut screenplay = Screenplay {
         metadata,
         imported_layout,
         elements,
-    })
+    };
+    screenplay.apply_structural_act_break_policy();
+    Ok(screenplay)
 }
 
 #[derive(Debug)]
@@ -1084,7 +1087,7 @@ fn imported_element_kind(name: &str) -> Option<ImportedElementKind> {
         "Lyric" => Some(ImportedElementKind::Lyric),
         "Cold Opening" => Some(ImportedElementKind::ColdOpening),
         "New Act" => Some(ImportedElementKind::NewAct),
-        "End of Act" => Some(ImportedElementKind::EndOfAct),
+        "End of Act" | "End Of Act" => Some(ImportedElementKind::EndOfAct),
         _ => None,
     }
 }
@@ -1122,23 +1125,51 @@ fn collapse_text_chunks(chunks: Vec<TextChunk>) -> ElementText {
 
 fn paragraph_to_element(paragraph: FdxParagraph) -> Option<Element> {
     let mut attributes = blank_attributes();
-    if paragraph.alignment.as_deref() == Some("Center") && paragraph.paragraph_type == "Action" {
+    let is_centered_type = matches!(
+        paragraph.paragraph_type.as_str(),
+        "Action" | "Cold Opening" | "New Act" | "End of Act" | "End Of Act"
+    );
+    if paragraph.alignment.as_deref() == Some("Center") && is_centered_type {
         attributes.centered = true;
     }
     attributes.starts_new_page = paragraph.starts_new_page;
     attributes.scene_number = paragraph.number;
 
+    let text_plain = paragraph.text.plain_text();
+
     match paragraph.paragraph_type.as_str() {
         "Scene Heading" => Some(Element::SceneHeading(paragraph.text, attributes)),
-        "Action" => Some(Element::Action(paragraph.text, attributes)),
+        "Action" => {
+            if attributes.centered {
+                if is_end_act(&text_plain) {
+                    Some(Element::EndOfAct(paragraph.text, attributes))
+                } else if is_cold_opening(&text_plain) {
+                    Some(Element::ColdOpening(paragraph.text, attributes))
+                } else if is_new_act(&text_plain) {
+                    Some(Element::NewAct(paragraph.text, attributes))
+                } else {
+                    Some(Element::Action(paragraph.text, attributes))
+                }
+            } else {
+                Some(Element::Action(paragraph.text, attributes))
+            }
+        }
         "Character" => Some(Element::Character(paragraph.text, attributes)),
         "Dialogue" => Some(Element::Dialogue(paragraph.text, attributes)),
         "Parenthetical" => Some(Element::Parenthetical(paragraph.text, attributes)),
         "Transition" => Some(Element::Transition(paragraph.text, attributes)),
         "Lyric" => Some(Element::Lyric(paragraph.text, attributes)),
         "Cold Opening" => Some(Element::ColdOpening(paragraph.text, attributes)),
-        "New Act" => Some(Element::NewAct(paragraph.text, attributes)),
-        "End of Act" => Some(Element::EndOfAct(paragraph.text, attributes)),
+        "New Act" => {
+            if is_end_act(&text_plain) {
+                Some(Element::EndOfAct(paragraph.text, attributes))
+            } else if is_cold_opening(&text_plain) {
+                Some(Element::ColdOpening(paragraph.text, attributes))
+            } else {
+                Some(Element::NewAct(paragraph.text, attributes))
+            }
+        }
+        "End of Act" | "End Of Act" => Some(Element::EndOfAct(paragraph.text, attributes)),
         _ => None,
     }
 }

@@ -1194,34 +1194,35 @@ fn read_page_mappings(fixture_path: &str) -> PageLabelMap {
 
 fn page_mapping_candidates(fixture_path: &str) -> Vec<PathBuf> {
     let mut candidates = Vec::new();
+
+    // Check for specific mapping files in the same directory as the fixture
     if fixture_path.ends_with("page-breaks.json") {
+        candidates.push(PathBuf::from(
+            fixture_path.replace("page-breaks.json", "page-labels.json"),
+        ));
         candidates.push(PathBuf::from(
             fixture_path.replace("page-breaks.json", "page-mappings.json"),
         ));
     }
 
-    if let Some(canonical_path) = canonical_page_mapping_path_from_fixture(fixture_path) {
-        if !candidates.contains(&canonical_path) {
-            candidates.push(canonical_path);
-        }
+    // Check for canonical mappings based on the screenplay ID
+    if let Some(screenplay_id) = extract_screenplay_id_from_fixture_path(fixture_path) {
+        let base = Path::new("tests/fixtures/corpus/public").join(screenplay_id);
+        candidates.push(base.join("canonical/page-labels.json"));
+        candidates.push(base.join("canonical/page-mappings.json"));
     }
 
     candidates
 }
 
-fn canonical_page_mapping_path_from_fixture(fixture_path: &str) -> Option<PathBuf> {
+fn extract_screenplay_id_from_fixture_path(fixture_path: &str) -> Option<String> {
     let file_name = Path::new(fixture_path).file_name()?.to_str()?;
     let screenplay_id = file_name
         .strip_suffix(".split-page-breaks.json")
         .or_else(|| file_name.strip_suffix(".page-breaks.json"))?
         .split('.')
         .next()?;
-
-    Some(
-        Path::new("tests/fixtures/corpus/public")
-            .join(screenplay_id)
-            .join("canonical/page-mappings.json"),
-    )
+    Some(screenplay_id.to_string())
 }
 
 fn preview_map(normalized: &NormalizedScreenplay) -> HashMap<String, String> {

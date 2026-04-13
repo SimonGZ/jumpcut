@@ -1,7 +1,29 @@
-use crate::Screenplay;
+use crate::pagination::ScreenplayLayoutProfile;
+use crate::{Element, Screenplay};
 use serde_json;
 
 impl Screenplay {
+    pub fn apply_structural_act_break_policy(&mut self) {
+        let mut saw_prior_opener = false;
+        let profile = ScreenplayLayoutProfile::from_screenplay(self);
+        let auto_new_act_page_breaks = profile.styles.new_act.starts_new_page;
+
+        for element in &mut self.elements {
+            match element {
+                Element::ColdOpening(_, _) => {
+                    saw_prior_opener = true;
+                }
+                Element::NewAct(_, attributes) => {
+                    if auto_new_act_page_breaks && saw_prior_opener && !attributes.starts_new_page {
+                        attributes.starts_new_page = true;
+                    }
+                    saw_prior_opener = true;
+                }
+                _ => {}
+            }
+        }
+    }
+
     pub fn to_fountain(&self) -> String {
         crate::rendering::fountain::render(self)
     }

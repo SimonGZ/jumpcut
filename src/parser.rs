@@ -4,7 +4,6 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::str::Lines;
 
-use crate::pagination::ScreenplayLayoutProfile;
 use crate::Element::PageBreak;
 use crate::{
     blank_attributes, text_style_parser, Attributes, Element, ElementText, Metadata, Screenplay,
@@ -48,35 +47,13 @@ pub fn parse(text: &str) -> Screenplay {
     for element in elements.iter_mut() {
         element.parse_and_convert_markup();
     }
-    apply_structural_act_break_policy(&mut elements, &metadata);
-    Screenplay {
+    let mut screenplay = Screenplay {
         metadata,
         imported_layout: None,
         elements,
-    }
-}
-
-fn apply_structural_act_break_policy(elements: &mut [Element], metadata: &Metadata) {
-    let mut saw_prior_opener = false;
-    let auto_new_act_page_breaks = ScreenplayLayoutProfile::from_metadata(metadata)
-        .styles
-        .new_act
-        .starts_new_page;
-
-    for element in elements {
-        match element {
-            Element::ColdOpening(_, _) => {
-                saw_prior_opener = true;
-            }
-            Element::NewAct(_, attributes) => {
-                if auto_new_act_page_breaks && saw_prior_opener && !attributes.starts_new_page {
-                    attributes.starts_new_page = true;
-                }
-                saw_prior_opener = true;
-            }
-            _ => {}
-        }
-    }
+    };
+    screenplay.apply_structural_act_break_policy();
+    screenplay
 }
 
 fn has_key_value(txt: &str) -> bool {
@@ -530,7 +507,7 @@ fn is_transition(line: &str) -> bool {
             .is_some_and(|suffix| suffix.eq_ignore_ascii_case(" TO:"))
 }
 
-fn is_end_act(line: &str) -> bool {
+pub fn is_end_act(line: &str) -> bool {
     let owned = line.to_lowercase();
     let tokens = split_lowercase_tokens(&owned);
     if tokens.first().copied() != Some("end") {
@@ -544,13 +521,13 @@ fn is_end_act(line: &str) -> bool {
     is_act_marker(&tokens[cursor..])
 }
 
-fn is_new_act(line: &str) -> bool {
+pub fn is_new_act(line: &str) -> bool {
     let owned = line.to_lowercase();
     let tokens = split_lowercase_tokens(&owned);
     is_act_marker(&tokens)
 }
 
-fn is_cold_opening(line: &str) -> bool {
+pub fn is_cold_opening(line: &str) -> bool {
     let owned = line.to_lowercase();
     let tokens = split_lowercase_tokens(&owned);
     matches!(
@@ -570,6 +547,8 @@ fn is_act_marker(tokens: &[&str]) -> bool {
         ["teaser", ..] => true,
         ["cold", "open", ..] => true,
         ["cold", "opening", ..] => true,
+        ["tag", ..] => true,
+        ["pilot", ..] => true,
         ["act", label, ..] => is_supported_act_label(label),
         _ => false,
     }

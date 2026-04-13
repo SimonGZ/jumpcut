@@ -407,3 +407,54 @@ fn it_imports_public_vikings_title_page_draft_date() {
     assert!(screenplay.metadata.get("source").is_some());
     assert!(TitlePage::from_metadata(&screenplay.metadata).is_some());
 }
+
+#[test]
+fn it_imports_centered_action_as_structural_act_breaks() {
+    let xml = r#"<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+<FinalDraft DocumentType="Script" Template="No" Version="4">
+  <Content>
+    <Paragraph Type="Action" Alignment="Center">
+      <Text>COLD OPENING</Text>
+    </Paragraph>
+    <Paragraph Type="Action" Alignment="Center">
+      <Text>END OF PILOT</Text>
+    </Paragraph>
+    <Paragraph Type="New Act">
+      <Text>TAG</Text>
+    </Paragraph>
+  </Content>
+</FinalDraft>"#;
+
+    let screenplay = parse_fdx(xml).expect("fdx should parse");
+
+    assert_eq!(
+        screenplay.elements[0],
+        Element::ColdOpening(
+            p("COLD OPENING"),
+            Attributes {
+                centered: true,
+                ..Attributes::default()
+            }
+        )
+    );
+    assert_eq!(
+        screenplay.elements[1],
+        Element::EndOfAct(
+            p("END OF PILOT"),
+            Attributes {
+                centered: true,
+                ..Attributes::default()
+            }
+        )
+    );
+    assert_eq!(
+        screenplay.elements[2],
+        Element::NewAct(
+            p("TAG"),
+            Attributes {
+                starts_new_page: true, // auto-pagination applies here because we saw ColdOpening
+                ..Attributes::default()
+            }
+        )
+    );
+}
