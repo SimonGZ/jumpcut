@@ -1687,7 +1687,7 @@ impl EmbeddedFonts {
             regular: EmbeddedFont::new(
                 document,
                 FONT_REGULAR_NAME,
-                Name(b"CourierPrime-Regular"),
+                Name(b"AAAAAA+CourierPrime-Regular"),
                 b"Courier Prime",
                 COURIER_PRIME_REGULAR_BYTES,
                 Name(b"CourierPrime-Regular-UTF16"),
@@ -1695,26 +1695,26 @@ impl EmbeddedFonts {
             bold: EmbeddedFont::new(
                 document,
                 FONT_BOLD_NAME,
-                Name(b"CourierPrime-Bold"),
+                Name(b"AAAAAB+CourierPrime-Bold"),
                 b"Courier Prime",
                 COURIER_PRIME_BOLD_BYTES,
-                Name(b"CourierPrime-Bold-UTF16"),
+                Name(b"AAAAAB+CourierPrime-Bold-UTF16"),
             ),
             italic: EmbeddedFont::new(
                 document,
                 FONT_ITALIC_NAME,
-                Name(b"CourierPrime-Italic"),
+                Name(b"AAAAAC+CourierPrime-Italic"),
                 b"Courier Prime",
                 COURIER_PRIME_ITALIC_BYTES,
-                Name(b"CourierPrime-Italic-UTF16"),
+                Name(b"AAAAAC+CourierPrime-Italic-UTF16"),
             ),
             bold_italic: EmbeddedFont::new(
                 document,
                 FONT_BOLD_ITALIC_NAME,
-                Name(b"CourierPrime-BoldItalic"),
+                Name(b"AAAAAD+CourierPrime-BoldItalic"),
                 b"Courier Prime",
                 COURIER_PRIME_BOLD_ITALIC_BYTES,
-                Name(b"CourierPrime-BoldItalic-UTF16"),
+                Name(b"AAAAAD+CourierPrime-BoldItalic-UTF16"),
             ),
         }
     }
@@ -3300,7 +3300,7 @@ mod tests {
         assert!(pdf_text.contains("/Count 3"));
         assert!(pdf_text.contains("/Subtype /Type0"));
         assert!(pdf_text.contains("/FontFile2"));
-        assert!(pdf_text.contains("/BaseFont /CourierPrime-Regular"));
+        assert!(pdf_text.contains("/BaseFont /AAAAAA+CourierPrime-Regular"));
     }
 
     #[test]
