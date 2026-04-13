@@ -28,7 +28,7 @@ WORD_Y_BIN = 4.0
 @dataclass(frozen=True)
 class PdfParityCase:
     name: str
-    fountain: Path
+    input_script: Path
     reference_pdf: Path
     report_name: str
     ignore_case: bool
@@ -59,7 +59,7 @@ class WordBox:
 CASES = [
     PdfParityCase(
         name="big-fish",
-        fountain=ROOT / "tests/fixtures/corpus/public/big-fish/source/source.fountain",
+        input_script=ROOT / "tests/fixtures/corpus/public/big-fish/source/source.fountain",
         reference_pdf=ROOT / "tests/fixtures/corpus/public/big-fish/extracted/reference.pdf",
         report_name="verify-big-fish-pdf-parity",
         ignore_case=False,
@@ -70,7 +70,8 @@ CASES = [
     ),
     PdfParityCase(
         name="little-women",
-        fountain=ROOT / "tests/fixtures/corpus/public/little-women/source/source.fountain",
+        input_script=ROOT
+        / "tests/fixtures/corpus/public/little-women/source/source.fountain",
         reference_pdf=ROOT / "tests/fixtures/corpus/public/little-women/extracted/reference.pdf",
         report_name="verify-little-women-pdf-parity",
         ignore_case=False,
@@ -80,10 +81,35 @@ CASES = [
         max_abs_y=0.10,
     ),
     PdfParityCase(
+        name="little-women-fdx",
+        input_script=ROOT
+        / "tests/fixtures/corpus/public/little-women/source/source.fdx",
+        reference_pdf=ROOT / "tests/fixtures/corpus/public/little-women/source/source.pdf",
+        report_name="verify-little-women-fdx-pdf-parity",
+        ignore_case=False,
+        max_mean_x=0.10,
+        max_mean_y=0.10,
+        max_abs_x=2.25,
+        max_abs_y=0.10,
+    ),
+    PdfParityCase(
         name="big-fish-scene-numbers",
-        fountain=ROOT / "tests/fixtures/corpus/public/big-fish-scene-numbers/source/source.fountain",
+        input_script=ROOT
+        / "tests/fixtures/corpus/public/big-fish-scene-numbers/source/source.fountain",
         reference_pdf=ROOT / "tests/fixtures/corpus/public/big-fish-scene-numbers/extracted/reference.pdf",
         report_name="verify-big-fish-scene-numbers-pdf-parity",
+        ignore_case=False,
+        max_mean_x=0.10,
+        max_mean_y=0.10,
+        max_abs_x=2.25,
+        max_abs_y=0.10,
+    ),
+    PdfParityCase(
+        name="big-fish-scene-numbers-fdx",
+        input_script=ROOT
+        / "tests/fixtures/corpus/public/big-fish-scene-numbers/source/source.fdx",
+        reference_pdf=ROOT / "tests/fixtures/corpus/public/big-fish-scene-numbers/extracted/reference.pdf",
+        report_name="verify-big-fish-scene-numbers-fdx-pdf-parity",
         ignore_case=False,
         max_mean_x=0.10,
         max_mean_y=0.10,
@@ -106,7 +132,7 @@ def parse_args() -> argparse.Namespace:
         "--case",
         action="append",
         nargs=3,
-        metavar=("NAME", "FOUNTAIN", "REFERENCE_PDF"),
+        metavar=("NAME", "INPUT_SCRIPT", "REFERENCE_PDF"),
         help=(
             "Add an ad hoc parity case. May be provided more than once. "
             "Reports are written under target/pdf-placement-diagnostics/<NAME>."
@@ -329,7 +355,7 @@ def check_case(case: PdfParityCase) -> list[str]:
             "--",
             "-f",
             "pdf",
-            str(case.fountain),
+            str(case.input_script),
             str(output_pdf),
         ],
         cwd=ROOT,
@@ -382,14 +408,14 @@ def check_case(case: PdfParityCase) -> list[str]:
 def build_cases(args: argparse.Namespace) -> list[PdfParityCase]:
     cases = [] if args.no_default_cases else list(CASES)
 
-    for name, fountain, reference_pdf in args.case or []:
+    for name, input_script, reference_pdf in args.case or []:
         case_name = name.strip()
         cases.append(
             PdfParityCase(
                 name=case_name,
-                fountain=(ROOT / fountain).resolve()
-                if not Path(fountain).is_absolute()
-                else Path(fountain),
+                input_script=(ROOT / input_script).resolve()
+                if not Path(input_script).is_absolute()
+                else Path(input_script),
                 reference_pdf=(ROOT / reference_pdf).resolve()
                 if not Path(reference_pdf).is_absolute()
                 else Path(reference_pdf),

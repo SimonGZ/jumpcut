@@ -71,6 +71,8 @@ python3 tools/check_corpus_pdf_parity.py \
 
 You can provide `--case` more than once in the same run. The script generates a PDF with JumpCut, compares it against the supplied reference PDF using `pdftotext -bbox-layout`, and writes a report packet for each case.
 
+`INPUT_SCRIPT` can be either `.fountain` or `.fdx`, so the same tool can probe both the ordinary Fountain path and imported-FDX parity.
+
 If a reference differs only in letter case, you can opt into case-insensitive text matching before geometry comparison:
 
 ```sh

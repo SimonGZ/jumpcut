@@ -328,6 +328,40 @@ fn it_imports_title_page_content_into_existing_metadata_keys() {
 }
 
 #[test]
+fn it_imports_a_single_credited_author_back_into_author_not_authors() {
+    let xml = r#"<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+<FinalDraft DocumentType="Script" Template="No" Version="4">
+  <TitlePage>
+    <Content>
+      <Paragraph Alignment="Center">
+        <Text Style="Bold+Underline">Brick &amp; Steel</Text>
+      </Paragraph>
+      <Paragraph Alignment="Center">
+        <Text></Text>
+      </Paragraph>
+      <Paragraph Alignment="Center">
+        <Text>Written by</Text>
+      </Paragraph>
+      <Paragraph Alignment="Center">
+        <Text>Stu Maschwitz</Text>
+      </Paragraph>
+    </Content>
+  </TitlePage>
+  <Content>
+    <Paragraph Type="Action"><Text>Body.</Text></Paragraph>
+  </Content>
+</FinalDraft>"#;
+
+    let screenplay = parse_fdx(xml).expect("fdx should parse");
+
+    assert_eq!(
+        screenplay.metadata.get("author"),
+        Some(&vec!["Stu Maschwitz".into()])
+    );
+    assert!(!screenplay.metadata.contains_key("authors"));
+}
+
+#[test]
 fn it_imports_public_big_fish_title_page_metadata() {
     let xml = std::fs::read_to_string(
         "tests/fixtures/corpus/public/big-fish-scene-numbers/source/source.fdx",
@@ -348,7 +382,7 @@ fn it_imports_public_big_fish_title_page_metadata() {
         Some(&vec!["written by".into()])
     );
     assert_eq!(
-        screenplay.metadata.get("authors"),
+        screenplay.metadata.get("author"),
         Some(&vec!["John August".into()])
     );
     assert_eq!(

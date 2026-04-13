@@ -1846,7 +1846,13 @@ fn title_page_fragments_for_kind_and_caps(
             .iter()
             .map(|run| PdfRenderFragment {
                 actual_text: None,
-                text: run.content.clone(),
+                text: if kind == PdfTitleBlockKind::Title
+                    && run.text_style.iter().any(|style| style == "AllCaps")
+                {
+                    run.content.to_ascii_uppercase()
+                } else {
+                    run.content.clone()
+                },
                 styles: sorted_run_styles(run.text_style.iter().cloned()),
             })
             .collect(),
@@ -4494,6 +4500,60 @@ mod tests {
             &fonts.bold,
             "Sample Script",
             title_page_line_left("Sample Script", PdfTitleBlockRegion::CenterTitle, &geometry),
+            title_page_center_title_top_y(&geometry),
+        );
+    }
+
+    #[test]
+    fn pdf_render_output_honors_all_caps_style_on_styled_imported_title_lines() {
+        let mut metadata = Metadata::new();
+        metadata.insert(
+            "title".into(),
+            vec![ElementText::Styled(vec![tr(
+                "Big Fish",
+                vec!["Bold", "Underline", "AllCaps"],
+            )])],
+        );
+        metadata.insert("fmt".into(), vec![p("allow-lowercase-title")]);
+
+        let screenplay = Screenplay {
+            metadata,
+            imported_layout: None,
+            elements: vec![Element::Action(p("BODY PAGE"), blank_attributes())],
+        };
+
+        let geometry = LayoutGeometry::default();
+        let document = build_render_document(&screenplay, PdfRenderOptions::default(), &geometry);
+        let tagged_document = build_tagged_document(&screenplay, &geometry);
+        let fonts = EmbeddedFonts::new(&document);
+        let mut content = Content::new();
+        let mut underlines = Vec::new();
+        let mut next_mcid = 0i32;
+        content.begin_text();
+        render_title_page_region(
+            &mut content,
+            document.title_page.as_ref().expect("expected title page"),
+            tagged_document
+                .title_page
+                .as_ref()
+                .expect("expected tagged title page"),
+            &fonts,
+            PdfTitleBlockRegion::CenterTitle,
+            title_page_center_title_top_y(&geometry),
+            TITLE_FONT_SIZE,
+            &mut underlines,
+            &mut next_mcid,
+            &geometry,
+        );
+        content.end_text();
+        render_underlines(&mut content, &underlines);
+        let stream = content.finish().to_vec();
+
+        assert_stream_contains_fixed_cell_text_at(
+            &stream,
+            &fonts.bold,
+            "BIG FISH",
+            title_page_line_left("BIG FISH", PdfTitleBlockRegion::CenterTitle, &geometry),
             title_page_center_title_top_y(&geometry),
         );
     }

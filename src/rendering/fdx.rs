@@ -561,16 +561,21 @@ fn render_title_blank_paragraph(out: &mut String, font: &str, alignment: &str) {
 }
 
 fn render_title_title_paragraph(out: &mut String, metadata: &Metadata, font: &str) {
-    start_title_paragraph(out, "Center");
-    let style = if plain_title_uses_all_caps(metadata) {
+    let plain_style = if plain_title_uses_all_caps(metadata) {
         "Bold+Underline+AllCaps"
     } else {
         "Bold+Underline"
     };
+    let mut saw_any = false;
     for value in metadata.get("title").into_iter().flatten() {
-        push_title_text(out, font, "0", style, &value.plain_text());
+        saw_any = true;
+        start_title_paragraph(out, "Center");
+        push_title_element_text(out, font, "0", plain_style, value);
+        end_title_paragraph(out);
     }
-    end_title_paragraph(out);
+    if !saw_any {
+        render_title_blank_paragraph(out, font, "Center");
+    }
 }
 
 fn title_page_has_author(metadata: &Metadata) -> bool {
@@ -593,13 +598,18 @@ fn render_title_credit_paragraph(out: &mut String, metadata: &Metadata, font: &s
 }
 
 fn render_title_author_paragraph(out: &mut String, metadata: &Metadata, font: &str) {
-    start_title_paragraph(out, "Center");
+    let mut saw_any = false;
     for key in ["author", "authors"] {
         for value in metadata.get(key).into_iter().flatten() {
-            push_title_text(out, font, "0", "", &value.plain_text());
+            saw_any = true;
+            start_title_paragraph(out, "Center");
+            push_title_element_text(out, font, "0", "", value);
+            end_title_paragraph(out);
         }
     }
-    end_title_paragraph(out);
+    if !saw_any {
+        render_title_blank_paragraph(out, font, "Center");
+    }
 }
 
 fn render_title_source_paragraph(out: &mut String, metadata: &Metadata, font: &str) {
@@ -694,6 +704,24 @@ fn push_title_text(out: &mut String, font: &str, adornment_style: &str, style: &
         escape_xml_text(text)
     )
     .unwrap();
+}
+
+fn push_title_element_text(
+    out: &mut String,
+    font: &str,
+    adornment_style: &str,
+    plain_style: &str,
+    text: &ElementText,
+) {
+    match text {
+        ElementText::Plain(text) => push_title_text(out, font, adornment_style, plain_style, text),
+        ElementText::Styled(runs) => {
+            for run in runs {
+                let styles = sorted_style_names(run, true).join("+");
+                push_title_text(out, font, adornment_style, &styles, &run.content);
+            }
+        }
+    }
 }
 
 fn end_title_paragraph(out: &mut String) {

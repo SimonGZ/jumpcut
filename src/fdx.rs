@@ -454,7 +454,12 @@ fn map_title_page_paragraphs_to_metadata(paragraphs: &[FdxTitlePageParagraph]) -
 
         match middle {
             [only] => {
-                metadata.insert("author".into(), only.lines.clone());
+                if let Some((credit, author_lines)) = split_credit_and_author_lines(&only.lines) {
+                    metadata.insert("credit".into(), vec![credit]);
+                    insert_author_metadata(&mut metadata, author_lines);
+                } else {
+                    insert_author_metadata(&mut metadata, only.lines.clone());
+                }
             }
             [credit, authors @ ..] if !authors.is_empty() => {
                 metadata.insert("credit".into(), credit.lines.clone());
@@ -462,9 +467,7 @@ fn map_title_page_paragraphs_to_metadata(paragraphs: &[FdxTitlePageParagraph]) -
                     .iter()
                     .flat_map(|group| group.lines.clone())
                     .collect::<Vec<_>>();
-                if !author_lines.is_empty() {
-                    metadata.insert("authors".into(), author_lines);
-                }
+                insert_author_metadata(&mut metadata, author_lines);
             }
             _ => {}
         }
@@ -519,6 +522,33 @@ fn map_title_page_paragraphs_to_metadata(paragraphs: &[FdxTitlePageParagraph]) -
 struct TitlePageGroup {
     lines: Vec<ElementText>,
     is_source_like: bool,
+}
+
+fn split_credit_and_author_lines(lines: &[ElementText]) -> Option<(ElementText, Vec<ElementText>)> {
+    let first = lines.first()?;
+    if !is_credit_like(&first.plain_text()) || lines.len() < 2 {
+        return None;
+    }
+    Some((first.clone(), lines[1..].to_vec()))
+}
+
+fn insert_author_metadata(metadata: &mut Metadata, author_lines: Vec<ElementText>) {
+    if author_lines.is_empty() {
+        return;
+    }
+    if author_lines.len() == 1 {
+        metadata.insert("author".into(), author_lines);
+    } else {
+        metadata.insert("authors".into(), author_lines);
+    }
+}
+
+fn is_credit_like(text: &str) -> bool {
+    let normalized = text.trim().to_ascii_lowercase();
+    matches!(
+        normalized.as_str(),
+        "written by" | "by" | "screenplay by" | "story by" | "teleplay by" | "adapted by"
+    )
 }
 
 fn centered_title_page_groups(paragraphs: &[FdxTitlePageParagraph]) -> Vec<TitlePageGroup> {

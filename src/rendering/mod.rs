@@ -1,5 +1,6 @@
 #[cfg(feature = "fdx")]
 pub mod fdx;
+pub mod fountain;
 #[cfg(feature = "html")]
 pub mod html;
 #[cfg(feature = "pdf")]

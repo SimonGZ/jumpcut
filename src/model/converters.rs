@@ -2,6 +2,10 @@ use crate::Screenplay;
 use serde_json;
 
 impl Screenplay {
+    pub fn to_fountain(&self) -> String {
+        crate::rendering::fountain::render(self)
+    }
+
     #[cfg(feature = "fdx")]
     pub fn to_final_draft(&mut self) -> String {
         crate::rendering::fdx::prepare_screenplay(self);
@@ -367,6 +371,33 @@ mod tests {
         ));
         assert!(actual.contains(">by J.R.R. Smithee</Text>"));
         assert!(!actual.contains(">based on the novel</Text>\n        <Text AdornmentStyle=\"-1\""));
+    }
+
+    #[test]
+    fn test_fdx_renderer_writes_each_title_line_as_its_own_paragraph_and_preserves_styles() {
+        let mut metadata = Metadata::new();
+        metadata.insert(
+            "title".into(),
+            vec![
+                ElementText::Styled(vec![tr("BRICK & STEEL", vec!["Bold", "Underline"])]),
+                "FULL RETIRED".into(),
+            ],
+        );
+
+        let mut screenplay = Screenplay {
+            metadata,
+            imported_layout: None,
+            elements: vec![],
+        };
+
+        let actual = screenplay.to_final_draft();
+
+        assert!(actual.contains(
+            "<Paragraph Alignment=\"Center\" FirstIndent=\"0.00\" Leading=\"Regular\" LeftIndent=\"1.00\" RightIndent=\"7.50\" SpaceBefore=\"0\" Spacing=\"1\" StartsNewPage=\"No\">\n        <Text AdornmentStyle=\"0\" Background=\"#FFFFFFFFFFFF\" Color=\"#000000000000\" Font=\"Courier Prime\" RevisionID=\"0\" Size=\"12\" Style=\"Bold+Underline\">BRICK &amp; STEEL</Text>\n      </Paragraph>"
+        ));
+        assert!(actual.contains(
+            "<Paragraph Alignment=\"Center\" FirstIndent=\"0.00\" Leading=\"Regular\" LeftIndent=\"1.00\" RightIndent=\"7.50\" SpaceBefore=\"0\" Spacing=\"1\" StartsNewPage=\"No\">\n        <Text AdornmentStyle=\"0\" Background=\"#FFFFFFFFFFFF\" Color=\"#000000000000\" Font=\"Courier Prime\" RevisionID=\"0\" Size=\"12\" Style=\"Bold+Underline+AllCaps\">FULL RETIRED</Text>\n      </Paragraph>"
+        ));
     }
 
     #[test]

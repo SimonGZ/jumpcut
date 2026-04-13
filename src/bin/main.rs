@@ -17,12 +17,12 @@ use std::path::{Path, PathBuf};
 #[derive(Parser)]
 #[command(
     name = "JumpCut",
-    about = "A tool for converting Fountain and Final Draft screenplay documents into FDX, HTML, JSON, text, and optional PDF formats.",
+    about = "A tool for converting Fountain and Final Draft screenplay documents into Fountain, FDX, HTML, JSON, text, and optional PDF formats.",
     version
 )]
 #[cfg(feature = "cli")]
 struct Args {
-    /// Formats (FDX, HTML, JSON, text, PDF)
+    /// Formats (Fountain, FDX, HTML, JSON, text, PDF)
     #[arg(short, long)]
     format: Option<String>,
 
@@ -141,6 +141,7 @@ fn main() {
     }
 
     let output_bytes = match format.as_str() {
+        "fountain" => screenplay.to_fountain().into_bytes(),
         "json" => match serde_json::to_string_pretty(&screenplay) {
             Ok(json) => json.into_bytes(),
             Err(e) => {
@@ -193,6 +194,7 @@ fn infer_format(format_opt: Option<&str>, output_opt: Option<&PathBuf>) -> Strin
         Some(f) => f.to_lowercase(),
         None => match output_opt {
             Some(out) => match out.extension().and_then(|e| e.to_str()) {
+                Some("fountain") => "fountain".to_string(),
                 #[cfg(feature = "pdf")]
                 Some("pdf") => "pdf".to_string(),
                 Some("html") | Some("htm") => "html".to_string(),
@@ -242,6 +244,7 @@ fn auto_output_path(input: &Path, format: &str) -> Option<PathBuf> {
 #[cfg(feature = "cli")]
 fn default_extension_for_format(format: &str) -> &'static str {
     match format {
+        "fountain" => "fountain",
         #[cfg(feature = "pdf")]
         "pdf" => "pdf",
         "html" => "html",
@@ -460,6 +463,10 @@ mod tests {
         assert_eq!(infer_format(None, Some(&PathBuf::from("out.pdf"))), "pdf");
         #[cfg(not(feature = "pdf"))]
         assert_eq!(infer_format(None, Some(&PathBuf::from("out.pdf"))), "fdx");
+        assert_eq!(
+            infer_format(None, Some(&PathBuf::from("out.fountain"))),
+            "fountain"
+        );
         assert_eq!(infer_format(None, Some(&PathBuf::from("out.html"))), "html");
         assert_eq!(infer_format(None, Some(&PathBuf::from("out.htm"))), "html");
         assert_eq!(infer_format(None, Some(&PathBuf::from("out.txt"))), "text");
@@ -584,6 +591,20 @@ mod tests {
         assert_eq!(
             resolve_output_path(&args.input, explicit_output, args.write, &format).unwrap(),
             Some(PathBuf::from("big fish.pdf"))
+        );
+    }
+
+    #[test]
+    fn write_flag_uses_explicit_fountain_format_for_extension() {
+        let args =
+            Args::try_parse_from(["jumpcut", "big fish.fdx", "-w", "-f", "fountain"]).unwrap();
+        let explicit_output = args.output_flag.as_ref().or(args.output.as_ref());
+        let format = infer_format(args.format.as_deref(), explicit_output);
+
+        assert_eq!(format, "fountain");
+        assert_eq!(
+            resolve_output_path(&args.input, explicit_output, args.write, &format).unwrap(),
+            Some(PathBuf::from("big fish.fountain"))
         );
     }
 
