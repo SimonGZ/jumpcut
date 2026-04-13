@@ -54,6 +54,7 @@ fn shared_layout_profile_can_lower_into_pagination_geometry() {
     assert_eq!(geometry.dual_dialogue_right_parenthetical_right, 7.25);
     assert_eq!(geometry.character_right, 6.25);
     assert_eq!(geometry.parenthetical_left, 2.75);
+    assert_eq!(geometry.parenthetical_first_indent, -0.1);
     assert_eq!(geometry.transition_right, 7.25);
     assert_eq!(geometry.scene_heading_spacing_before, 1.0);
     assert_eq!(geometry.new_act_alignment, Alignment::Center);
@@ -70,6 +71,7 @@ fn pagination_config_can_be_built_from_screenplay_metadata_profile() {
     assert_eq!(config.geometry.dialogue_right, 5.75);
     assert_eq!(config.geometry.character_right, 6.25);
     assert_eq!(config.geometry.parenthetical_left, 2.75);
+    assert_eq!(config.geometry.parenthetical_first_indent, -0.1);
     assert_eq!(config.geometry.transition_right, 7.25);
 }
 
@@ -83,6 +85,7 @@ fn imported_layout_overrides_apply_on_top_of_metadata_defaults_for_render_paths(
             (
                 ImportedElementKind::Dialogue,
                 ImportedElementStyle {
+                    first_indent: Some(-0.14),
                     left_indent: Some(3.25),
                     right_indent: Some(5.5),
                     ..ImportedElementStyle::default()
@@ -116,11 +119,13 @@ fn imported_layout_overrides_apply_on_top_of_metadata_defaults_for_render_paths(
         InterruptionDashWrap::KeepTogether
     );
     assert_eq!(profile.styles.dialogue.left_indent, 3.25);
+    assert_eq!(profile.styles.dialogue.first_indent, -0.14);
     assert_eq!(profile.styles.dialogue.right_indent, 5.5);
     assert_eq!(profile.styles.dialogue.line_spacing, 2.0);
     assert_eq!(profile.styles.transition.alignment, Alignment::Left);
     assert!(!profile.automatic_character_continueds);
     assert_eq!(config.geometry.dialogue_left, 3.25);
+    assert_eq!(config.geometry.dialogue_first_indent, -0.14);
     assert_eq!(config.geometry.dialogue_right, 5.5);
 }
 

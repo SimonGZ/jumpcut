@@ -1214,9 +1214,37 @@ fn indent_spaces_for_rendered_text(
 ) -> usize {
     let base = indent_spaces_for_element_type(element_type, geometry);
     if parenthetical_hangs_opening_paren(element_type, rendered_text) {
-        return base.saturating_sub(1);
+        let hanging_cells = (first_indent_for_element_type(element_type, geometry)
+            .abs()
+            * geometry.cpi)
+            .floor() as usize;
+        return base.saturating_sub(hanging_cells.max(1));
     }
     base
+}
+
+fn first_indent_for_element_type(element_type: ElementType, geometry: &LayoutGeometry) -> f32 {
+    match element_type {
+        ElementType::Action | ElementType::SceneHeading => geometry.action_first_indent,
+        ElementType::ColdOpening => geometry.cold_opening_first_indent,
+        ElementType::NewAct => geometry.new_act_first_indent,
+        ElementType::EndOfAct => geometry.end_of_act_first_indent,
+        ElementType::Character => geometry.character_first_indent,
+        ElementType::Dialogue => geometry.dialogue_first_indent,
+        ElementType::Parenthetical => geometry.parenthetical_first_indent,
+        ElementType::Transition => geometry.transition_first_indent,
+        ElementType::Lyric => geometry.lyric_first_indent,
+        ElementType::DualDialogueLeft => geometry.dual_dialogue_left_first_indent,
+        ElementType::DualDialogueRight => geometry.dual_dialogue_right_first_indent,
+        ElementType::DualDialogueCharacterLeft => geometry.dual_dialogue_left_character_first_indent,
+        ElementType::DualDialogueCharacterRight => geometry.dual_dialogue_right_character_first_indent,
+        ElementType::DualDialogueParentheticalLeft => {
+            geometry.dual_dialogue_left_parenthetical_first_indent
+        }
+        ElementType::DualDialogueParentheticalRight => {
+            geometry.dual_dialogue_right_parenthetical_first_indent
+        }
+    }
 }
 
 fn parenthetical_hangs_opening_paren(element_type: ElementType, rendered_text: &str) -> bool {

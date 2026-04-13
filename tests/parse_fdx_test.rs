@@ -211,6 +211,7 @@ fn it_preserves_richer_imported_layout_overrides_beyond_fmt_metadata() {
         .expect("expected imported action style");
 
     assert_eq!(action_style.left_indent, Some(1.25));
+    assert_eq!(action_style.first_indent, None);
     assert_eq!(action_style.right_indent, Some(7.25));
     assert_eq!(action_style.spacing_before, Some(2.0));
     assert_eq!(action_style.line_spacing, Some(1.5));
@@ -226,6 +227,7 @@ fn it_preserves_richer_imported_layout_overrides_beyond_fmt_metadata() {
 
     let resolved = ScreenplayLayoutProfile::from_screenplay(&screenplay);
     assert_eq!(resolved.styles.action.left_indent, 1.25);
+    assert_eq!(resolved.styles.action.first_indent, 0.0);
     assert_eq!(resolved.styles.action.right_indent, 7.25);
     assert_eq!(resolved.styles.action.spacing_before, 2.0);
     assert_eq!(resolved.styles.action.line_spacing, 1.5);
@@ -234,6 +236,29 @@ fn it_preserves_richer_imported_layout_overrides_beyond_fmt_metadata() {
     assert!(resolved.styles.action.italic);
     assert!(resolved.styles.action.starts_new_page);
     assert!(!resolved.automatic_character_continueds);
+}
+
+#[test]
+fn it_imports_parenthetical_first_indent_from_fdx_settings() {
+    let xml = std::fs::read_to_string(
+        "tests/fixtures/corpus/public/extranormal/source/source.fdx",
+    )
+    .expect("fixture should load");
+
+    let screenplay = parse_fdx(&xml).expect("fdx should parse");
+    let imported_layout = screenplay
+        .imported_layout
+        .as_ref()
+        .expect("expected imported layout overrides");
+    let parenthetical_style = imported_layout
+        .element_styles
+        .get(&ImportedElementKind::Parenthetical)
+        .expect("expected imported parenthetical style");
+
+    assert_eq!(parenthetical_style.first_indent, Some(-0.14));
+
+    let resolved = ScreenplayLayoutProfile::from_screenplay(&screenplay);
+    assert_eq!(resolved.styles.parenthetical.first_indent, -0.14);
 }
 
 #[test]
@@ -452,6 +477,7 @@ fn it_imports_centered_action_as_structural_act_breaks() {
         Element::NewAct(
             p("TAG"),
             Attributes {
+                centered: true,
                 starts_new_page: true, // auto-pagination applies here because we saw ColdOpening
                 ..Attributes::default()
             }

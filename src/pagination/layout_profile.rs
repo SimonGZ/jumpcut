@@ -14,6 +14,7 @@ pub enum StyleProfile {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ScreenplayElementStyle {
+    pub first_indent: f32,
     pub left_indent: f32,
     pub right_indent: f32,
     pub spacing_before: f32,
@@ -118,24 +119,28 @@ impl ScreenplayLayoutProfile {
         let mut geometry = LayoutGeometry::default();
 
         geometry.action_left = self.styles.action.left_indent;
+        geometry.action_first_indent = self.styles.action.first_indent;
         geometry.action_right = self.styles.action.right_indent;
         geometry.action_spacing_before = self.styles.action.spacing_before;
         geometry.action_alignment = self.styles.action.alignment;
         geometry.action_line_height = self.styles.action.line_spacing;
 
         geometry.cold_opening_left = self.styles.cold_opening.left_indent;
+        geometry.cold_opening_first_indent = self.styles.cold_opening.first_indent;
         geometry.cold_opening_right = self.styles.cold_opening.right_indent;
         geometry.cold_opening_spacing_before = self.styles.cold_opening.spacing_before;
         geometry.cold_opening_alignment = self.styles.cold_opening.alignment;
         geometry.cold_opening_line_height = self.styles.cold_opening.line_spacing;
 
         geometry.new_act_left = self.styles.new_act.left_indent;
+        geometry.new_act_first_indent = self.styles.new_act.first_indent;
         geometry.new_act_right = self.styles.new_act.right_indent;
         geometry.new_act_spacing_before = self.styles.new_act.spacing_before;
         geometry.new_act_alignment = self.styles.new_act.alignment;
         geometry.new_act_line_height = self.styles.new_act.line_spacing;
 
         geometry.end_of_act_left = self.styles.end_of_act.left_indent;
+        geometry.end_of_act_first_indent = self.styles.end_of_act.first_indent;
         geometry.end_of_act_right = self.styles.end_of_act.right_indent;
         geometry.end_of_act_spacing_before = self.styles.end_of_act.spacing_before;
         geometry.end_of_act_alignment = self.styles.end_of_act.alignment;
@@ -143,10 +148,16 @@ impl ScreenplayLayoutProfile {
 
         geometry.dual_dialogue_left_character_left =
             self.styles.dual_dialogue_left_character.left_indent;
+        geometry.dual_dialogue_left_character_first_indent =
+            self.styles.dual_dialogue_left_character.first_indent;
         geometry.dual_dialogue_left_character_right =
             self.styles.dual_dialogue_left_character.right_indent;
+        geometry.dual_dialogue_left_first_indent =
+            self.styles.dual_dialogue_left_dialogue.first_indent;
         geometry.dual_dialogue_left_left = self.styles.dual_dialogue_left_dialogue.left_indent;
         geometry.dual_dialogue_left_right = self.styles.dual_dialogue_left_dialogue.right_indent;
+        geometry.dual_dialogue_left_parenthetical_first_indent =
+            self.styles.dual_dialogue_left_parenthetical.first_indent;
         geometry.dual_dialogue_left_parenthetical_left =
             self.styles.dual_dialogue_left_parenthetical.left_indent;
         geometry.dual_dialogue_left_parenthetical_right =
@@ -154,37 +165,48 @@ impl ScreenplayLayoutProfile {
 
         geometry.dual_dialogue_right_character_left =
             self.styles.dual_dialogue_right_character.left_indent;
+        geometry.dual_dialogue_right_character_first_indent =
+            self.styles.dual_dialogue_right_character.first_indent;
         geometry.dual_dialogue_right_character_right =
             self.styles.dual_dialogue_right_character.right_indent;
+        geometry.dual_dialogue_right_first_indent =
+            self.styles.dual_dialogue_right_dialogue.first_indent;
         geometry.dual_dialogue_right_left = self.styles.dual_dialogue_right_dialogue.left_indent;
         geometry.dual_dialogue_right_right = self.styles.dual_dialogue_right_dialogue.right_indent;
+        geometry.dual_dialogue_right_parenthetical_first_indent =
+            self.styles.dual_dialogue_right_parenthetical.first_indent;
         geometry.dual_dialogue_right_parenthetical_left =
             self.styles.dual_dialogue_right_parenthetical.left_indent;
         geometry.dual_dialogue_right_parenthetical_right =
             self.styles.dual_dialogue_right_parenthetical.right_indent;
         geometry.character_left = self.styles.character.left_indent;
+        geometry.character_first_indent = self.styles.character.first_indent;
         geometry.character_right = self.styles.character.right_indent;
         geometry.character_spacing_before = self.styles.character.spacing_before;
         geometry.character_alignment = self.styles.character.alignment;
         geometry.character_line_height = self.styles.character.line_spacing;
 
         geometry.dialogue_left = self.styles.dialogue.left_indent;
+        geometry.dialogue_first_indent = self.styles.dialogue.first_indent;
         geometry.dialogue_right = self.styles.dialogue.right_indent;
         geometry.dialogue_alignment = self.styles.dialogue.alignment;
         geometry.dialogue_line_height = self.styles.dialogue.line_spacing;
 
         geometry.parenthetical_left = self.styles.parenthetical.left_indent;
+        geometry.parenthetical_first_indent = self.styles.parenthetical.first_indent;
         geometry.parenthetical_right = self.styles.parenthetical.right_indent;
         geometry.parenthetical_alignment = self.styles.parenthetical.alignment;
         geometry.parenthetical_line_height = self.styles.parenthetical.line_spacing;
 
         geometry.transition_left = self.styles.transition.left_indent;
+        geometry.transition_first_indent = self.styles.transition.first_indent;
         geometry.transition_right = self.styles.transition.right_indent;
         geometry.transition_spacing_before = self.styles.transition.spacing_before;
         geometry.transition_alignment = self.styles.transition.alignment;
         geometry.transition_line_height = self.styles.transition.line_spacing;
 
         geometry.lyric_left = self.styles.lyric.left_indent;
+        geometry.lyric_first_indent = self.styles.lyric.first_indent;
         geometry.lyric_right = self.styles.lyric.right_indent;
         geometry.lyric_spacing_before = self.styles.lyric.spacing_before;
         geometry.lyric_alignment = self.styles.lyric.alignment;
@@ -214,6 +236,7 @@ impl ScreenplayLayoutProfile {
             automatic_character_continueds: true,
             styles: ScreenplayElementStyles {
                 action: ScreenplayElementStyle {
+                    first_indent: 0.0,
                     left_indent: 1.5,
                     right_indent: 7.5,
                     spacing_before: 1.0,
@@ -225,6 +248,7 @@ impl ScreenplayLayoutProfile {
                     italic: false,
                 },
                 scene_heading: ScreenplayElementStyle {
+                    first_indent: 0.0,
                     left_indent: 1.5,
                     right_indent: 7.5,
                     spacing_before: 2.0,
@@ -236,6 +260,7 @@ impl ScreenplayLayoutProfile {
                     italic: false,
                 },
                 character: ScreenplayElementStyle {
+                    first_indent: 0.0,
                     left_indent: 3.5,
                     right_indent: 7.25,
                     spacing_before: 1.0,
@@ -247,6 +272,7 @@ impl ScreenplayLayoutProfile {
                     italic: false,
                 },
                 dialogue: ScreenplayElementStyle {
+                    first_indent: 0.0,
                     left_indent: 2.5,
                     right_indent: 6.0,
                     spacing_before: 0.0,
@@ -258,6 +284,7 @@ impl ScreenplayLayoutProfile {
                     italic: false,
                 },
                 parenthetical: ScreenplayElementStyle {
+                    first_indent: -0.1,
                     left_indent: 3.0,
                     right_indent: 5.5,
                     spacing_before: 0.0,
@@ -269,6 +296,7 @@ impl ScreenplayLayoutProfile {
                     italic: false,
                 },
                 dual_dialogue_left_character: ScreenplayElementStyle {
+                    first_indent: 0.0,
                     left_indent: 2.5,
                     right_indent: 4.875,
                     spacing_before: 0.0,
@@ -280,6 +308,7 @@ impl ScreenplayLayoutProfile {
                     italic: false,
                 },
                 dual_dialogue_left_dialogue: ScreenplayElementStyle {
+                    first_indent: 0.0,
                     left_indent: 1.5,
                     right_indent: 4.375,
                     spacing_before: 0.0,
@@ -291,6 +320,7 @@ impl ScreenplayLayoutProfile {
                     italic: false,
                 },
                 dual_dialogue_left_parenthetical: ScreenplayElementStyle {
+                    first_indent: -0.1,
                     left_indent: 1.75,
                     right_indent: 4.125,
                     spacing_before: 0.0,
@@ -302,6 +332,7 @@ impl ScreenplayLayoutProfile {
                     italic: false,
                 },
                 dual_dialogue_right_character: ScreenplayElementStyle {
+                    first_indent: 0.0,
                     left_indent: 5.875,
                     right_indent: 7.5,
                     spacing_before: 0.0,
@@ -313,6 +344,7 @@ impl ScreenplayLayoutProfile {
                     italic: false,
                 },
                 dual_dialogue_right_dialogue: ScreenplayElementStyle {
+                    first_indent: 0.0,
                     left_indent: 4.625,
                     right_indent: 7.5,
                     spacing_before: 0.0,
@@ -324,6 +356,7 @@ impl ScreenplayLayoutProfile {
                     italic: false,
                 },
                 dual_dialogue_right_parenthetical: ScreenplayElementStyle {
+                    first_indent: -0.1,
                     left_indent: 4.875,
                     right_indent: 7.25,
                     spacing_before: 0.0,
@@ -335,6 +368,7 @@ impl ScreenplayLayoutProfile {
                     italic: false,
                 },
                 transition: ScreenplayElementStyle {
+                    first_indent: 0.0,
                     left_indent: 5.5,
                     right_indent: 7.1,
                     spacing_before: 1.0,
@@ -346,6 +380,7 @@ impl ScreenplayLayoutProfile {
                     italic: false,
                 },
                 lyric: ScreenplayElementStyle {
+                    first_indent: 0.0,
                     left_indent: 2.5,
                     right_indent: 7.375,
                     spacing_before: 0.0,
@@ -357,6 +392,7 @@ impl ScreenplayLayoutProfile {
                     italic: true,
                 },
                 cold_opening: ScreenplayElementStyle {
+                    first_indent: 0.0,
                     left_indent: 1.5,
                     right_indent: 7.5,
                     spacing_before: 1.0,
@@ -368,6 +404,7 @@ impl ScreenplayLayoutProfile {
                     italic: false,
                 },
                 new_act: ScreenplayElementStyle {
+                    first_indent: 0.0,
                     left_indent: 1.5,
                     right_indent: 7.5,
                     spacing_before: 0.0,
@@ -379,6 +416,7 @@ impl ScreenplayLayoutProfile {
                     italic: false,
                 },
                 end_of_act: ScreenplayElementStyle {
+                    first_indent: 0.0,
                     left_indent: 1.5,
                     right_indent: 7.5,
                     spacing_before: 2.0,
@@ -488,6 +526,9 @@ fn apply_imported_element_style(
 ) {
     if let Some(left_indent) = imported.left_indent {
         target.left_indent = left_indent;
+    }
+    if let Some(first_indent) = imported.first_indent {
+        target.first_indent = first_indent;
     }
     if let Some(right_indent) = imported.right_indent {
         target.right_indent = right_indent;

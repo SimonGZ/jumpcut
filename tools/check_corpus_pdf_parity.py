@@ -32,6 +32,7 @@ class PdfParityCase:
     reference_pdf: Path
     report_name: str
     ignore_case: bool
+    ignored_pages: tuple[int, ...]
     max_mean_x: float
     max_mean_y: float
     max_abs_x: float
@@ -63,6 +64,7 @@ CASES = [
         reference_pdf=ROOT / "tests/fixtures/corpus/public/big-fish/extracted/reference.pdf",
         report_name="verify-big-fish-pdf-parity",
         ignore_case=False,
+        ignored_pages=(),
         max_mean_x=0.10,
         max_mean_y=0.10,
         max_abs_x=3.50,
@@ -75,6 +77,7 @@ CASES = [
         reference_pdf=ROOT / "tests/fixtures/corpus/public/little-women/extracted/reference.pdf",
         report_name="verify-little-women-pdf-parity",
         ignore_case=False,
+        ignored_pages=(),
         max_mean_x=0.10,
         max_mean_y=0.10,
         max_abs_x=2.25,
@@ -87,6 +90,7 @@ CASES = [
         reference_pdf=ROOT / "tests/fixtures/corpus/public/little-women/source/source.pdf",
         report_name="verify-little-women-fdx-pdf-parity",
         ignore_case=False,
+        ignored_pages=(),
         max_mean_x=0.10,
         max_mean_y=0.10,
         max_abs_x=2.25,
@@ -99,6 +103,7 @@ CASES = [
         reference_pdf=ROOT / "tests/fixtures/corpus/public/big-fish-scene-numbers/extracted/reference.pdf",
         report_name="verify-big-fish-scene-numbers-pdf-parity",
         ignore_case=False,
+        ignored_pages=(),
         max_mean_x=0.10,
         max_mean_y=0.10,
         max_abs_x=2.25,
@@ -111,9 +116,24 @@ CASES = [
         reference_pdf=ROOT / "tests/fixtures/corpus/public/big-fish-scene-numbers/extracted/reference.pdf",
         report_name="verify-big-fish-scene-numbers-fdx-pdf-parity",
         ignore_case=False,
+        ignored_pages=(),
         max_mean_x=0.10,
         max_mean_y=0.10,
         max_abs_x=2.25,
+        max_abs_y=0.10,
+    ),
+    PdfParityCase(
+        name="extranormal-fdx-body",
+        input_script=ROOT / "tests/fixtures/corpus/public/extranormal/source/source.fdx",
+        reference_pdf=ROOT / "tests/fixtures/corpus/public/extranormal/extracted/reference.pdf",
+        report_name="verify-extranormal-fdx-body-pdf-parity",
+        ignore_case=False,
+        # Ignore page 1 for now. The known mismatch here is title-page vertical
+        # layout, while this probe exists to catch body margin/centering regressions.
+        ignored_pages=(1,),
+        max_mean_x=0.10,
+        max_mean_y=0.10,
+        max_abs_x=3.50,
         max_abs_y=0.10,
     ),
 ]
@@ -232,6 +252,13 @@ def normalize_word_text(text: str, ignore_case: bool) -> str:
     return text.lower() if ignore_case else text
 
 
+def filter_ignored_pages(boxes: list[WordBox], ignored_pages: tuple[int, ...]) -> list[WordBox]:
+    if not ignored_pages:
+        return boxes
+    ignored = set(ignored_pages)
+    return [box for box in boxes if box.page_number not in ignored]
+
+
 def compare_word_boxes(
     actual: list[WordBox], reference: list[WordBox], ignore_case: bool
 ) -> tuple[dict, list[str]]:
@@ -318,6 +345,11 @@ def write_report(case: PdfParityCase, report: dict) -> Path:
                 f"# {case.name} PDF parity",
                 "",
                 f"- text mismatch: {report['text_mismatch']}",
+                (
+                    f"- ignored pages: {', '.join(map(str, case.ignored_pages))}"
+                    if case.ignored_pages
+                    else "- ignored pages: none"
+                ),
                 f"- word count: {summary['word_count']}",
                 f"- mean word x delta: {summary['mean_word_x_delta']:.4f}pt"
                 if not math.isnan(summary["mean_word_x_delta"])
@@ -362,8 +394,8 @@ def check_case(case: PdfParityCase) -> list[str]:
     )
 
     report, failures = compare_word_boxes(
-        extract_word_boxes(output_pdf),
-        extract_word_boxes(case.reference_pdf),
+        filter_ignored_pages(extract_word_boxes(output_pdf), case.ignored_pages),
+        filter_ignored_pages(extract_word_boxes(case.reference_pdf), case.ignored_pages),
         case.ignore_case,
     )
     report_path = write_report(case, report)
@@ -421,6 +453,7 @@ def build_cases(args: argparse.Namespace) -> list[PdfParityCase]:
                 else Path(reference_pdf),
                 report_name=report_name_for(case_name),
                 ignore_case=args.ignore_case,
+                ignored_pages=(),
                 max_mean_x=args.max_mean_x,
                 max_mean_y=args.max_mean_y,
                 max_abs_x=args.max_abs_x,

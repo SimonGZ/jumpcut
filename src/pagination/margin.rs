@@ -14,6 +14,8 @@ pub struct FdxExtractedSettings {
 
 #[derive(Clone, Debug, Deserialize, PartialEq)]
 pub struct FdxParagraphStyle {
+    #[serde(default)]
+    pub first_indent: f32,
     pub left_indent: f32,
     pub right_indent: f32,
     pub space_before: f32,
@@ -32,6 +34,21 @@ pub enum Alignment {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct LayoutGeometry {
+    pub action_first_indent: f32,
+    pub cold_opening_first_indent: f32,
+    pub new_act_first_indent: f32,
+    pub end_of_act_first_indent: f32,
+    pub dual_dialogue_left_first_indent: f32,
+    pub dual_dialogue_right_first_indent: f32,
+    pub dual_dialogue_left_character_first_indent: f32,
+    pub dual_dialogue_left_parenthetical_first_indent: f32,
+    pub dual_dialogue_right_character_first_indent: f32,
+    pub dual_dialogue_right_parenthetical_first_indent: f32,
+    pub character_first_indent: f32,
+    pub dialogue_first_indent: f32,
+    pub parenthetical_first_indent: f32,
+    pub transition_first_indent: f32,
+    pub lyric_first_indent: f32,
     pub action_left: f32,
     pub action_right: f32,
     pub cold_opening_left: f32,
@@ -117,6 +134,21 @@ pub struct LayoutGeometry {
 impl Default for LayoutGeometry {
     fn default() -> Self {
         Self {
+            action_first_indent: 0.0,
+            cold_opening_first_indent: 0.0,
+            new_act_first_indent: 0.0,
+            end_of_act_first_indent: 0.0,
+            dual_dialogue_left_first_indent: 0.0,
+            dual_dialogue_right_first_indent: 0.0,
+            dual_dialogue_left_character_first_indent: 0.0,
+            dual_dialogue_left_parenthetical_first_indent: -0.1,
+            dual_dialogue_right_character_first_indent: 0.0,
+            dual_dialogue_right_parenthetical_first_indent: -0.1,
+            character_first_indent: 0.0,
+            dialogue_first_indent: 0.0,
+            parenthetical_first_indent: -0.1,
+            transition_first_indent: 0.0,
+            lyric_first_indent: 0.0,
             action_left: 1.5,
             action_right: 7.5,
             cold_opening_left: 1.5,
@@ -203,6 +235,7 @@ impl LayoutGeometry {
         let lpi = 6.0; // Default Final Draft lines per inch
 
         if let Some(style) = settings.paragraph_styles.get("Action") {
+            geometry.action_first_indent = style.first_indent;
             geometry.action_left = style.left_indent;
             geometry.action_right = style.right_indent;
             geometry.action_spacing_before = spacing_lines_from_points(style.space_before, lpi);
@@ -210,6 +243,7 @@ impl LayoutGeometry {
             geometry.action_line_height = style.spacing;
         }
         if let Some(style) = settings.paragraph_styles.get("Cold Opening") {
+            geometry.cold_opening_first_indent = style.first_indent;
             geometry.cold_opening_left = style.left_indent;
             geometry.cold_opening_right = style.right_indent;
             geometry.cold_opening_spacing_before =
@@ -218,6 +252,7 @@ impl LayoutGeometry {
             geometry.cold_opening_line_height = style.spacing;
         }
         if let Some(style) = settings.paragraph_styles.get("New Act") {
+            geometry.new_act_first_indent = style.first_indent;
             geometry.new_act_left = style.left_indent;
             geometry.new_act_right = style.right_indent;
             geometry.new_act_spacing_before = spacing_lines_from_points(style.space_before, lpi);
@@ -225,6 +260,7 @@ impl LayoutGeometry {
             geometry.new_act_line_height = style.spacing;
         }
         if let Some(style) = settings.paragraph_styles.get("End of Act") {
+            geometry.end_of_act_first_indent = style.first_indent;
             geometry.end_of_act_left = style.left_indent;
             geometry.end_of_act_right = style.right_indent;
             geometry.end_of_act_spacing_before = spacing_lines_from_points(style.space_before, lpi);
@@ -238,12 +274,14 @@ impl LayoutGeometry {
             geometry.scene_heading_line_height = style.spacing;
         }
         if let Some(style) = settings.paragraph_styles.get("Dialogue") {
+            geometry.dialogue_first_indent = style.first_indent;
             geometry.dialogue_left = style.left_indent;
             geometry.dialogue_right = style.right_indent;
             geometry.dialogue_alignment = style.alignment;
             geometry.dialogue_line_height = style.spacing;
         }
         if let Some(style) = settings.paragraph_styles.get("Character") {
+            geometry.character_first_indent = style.first_indent;
             geometry.character_left = style.left_indent;
             geometry.character_right = style.right_indent;
             geometry.character_spacing_before = spacing_lines_from_points(style.space_before, lpi);
@@ -251,12 +289,14 @@ impl LayoutGeometry {
             geometry.character_line_height = style.spacing;
         }
         if let Some(style) = settings.paragraph_styles.get("Parenthetical") {
+            geometry.parenthetical_first_indent = style.first_indent;
             geometry.parenthetical_left = style.left_indent;
             geometry.parenthetical_right = style.right_indent;
             geometry.parenthetical_alignment = style.alignment;
             geometry.parenthetical_line_height = style.spacing;
         }
         if let Some(style) = settings.paragraph_styles.get("Lyric") {
+            geometry.lyric_first_indent = style.first_indent;
             geometry.lyric_left = style.left_indent;
             geometry.lyric_right = style.right_indent;
             geometry.lyric_spacing_before = spacing_lines_from_points(style.space_before, lpi);
@@ -264,6 +304,7 @@ impl LayoutGeometry {
             geometry.lyric_line_height = style.spacing;
         }
         if let Some(style) = settings.paragraph_styles.get("Transition") {
+            geometry.transition_first_indent = style.first_indent;
             geometry.transition_left = style.left_indent;
             geometry.transition_right = style.right_indent;
             geometry.transition_spacing_before = spacing_lines_from_points(style.space_before, lpi);

@@ -1529,15 +1529,22 @@ fn body_line_left(line: &PdfRenderLine, geometry: &LayoutGeometry) -> f32 {
             return (geometry.transition_right * 72.0) - rendered_width;
         }
         return line_kind_left(line.kind, geometry)
-            - parenthetical_hang_offset_points(line.kind, rendered_body_line_text(line, geometry));
+            - parenthetical_hang_offset_points(
+                line.kind,
+                rendered_body_line_text(line, geometry),
+                geometry,
+            );
     }
 
-    let action_left = geometry.action_left * 72.0;
-    let action_right = geometry.action_right * 72.0;
-    let rendered_width = line.text.chars().count() as f32 * BODY_TEXT_CELL_WIDTH;
-    let available_width = action_right - action_left;
+    let left_in = line.kind.map(|k| element_left_inches(k, geometry)).unwrap_or(geometry.action_left);
+    let right_in = line.kind.map(|k| element_right_inches(k, geometry)).unwrap_or(geometry.action_right);
 
-    action_left + ((available_width - rendered_width) / 2.0).max(0.0)
+    let left = left_in * 72.0;
+    let right = right_in * 72.0;
+    let rendered_width = line.text.chars().count() as f32 * BODY_TEXT_CELL_WIDTH;
+    let available_width = right - left;
+
+    left + ((available_width - rendered_width) / 2.0).max(0.0)
 }
 
 fn rendered_body_line_text<'a>(line: &'a PdfRenderLine, geometry: &LayoutGeometry) -> &'a str {
@@ -1567,7 +1574,7 @@ fn dual_side_left(side: &PdfRenderDualSide, geometry: &LayoutGeometry) -> f32 {
         }
         _ => line_kind_left(Some(side.kind), geometry),
     };
-    left - parenthetical_hang_offset_points(Some(side.kind), &side.text)
+    left - parenthetical_hang_offset_points(Some(side.kind), &side.text, geometry)
 }
 
 fn synthetic_indent_spaces(kind: PdfLineKind, geometry: &LayoutGeometry) -> usize {
@@ -1607,9 +1614,65 @@ fn element_left_inches(kind: PdfLineKind, geometry: &LayoutGeometry) -> f32 {
     }
 }
 
-fn parenthetical_hang_offset_points(kind: Option<PdfLineKind>, text: &str) -> f32 {
+fn element_right_inches(kind: PdfLineKind, geometry: &LayoutGeometry) -> f32 {
+    match kind {
+        PdfLineKind::Action | PdfLineKind::SceneHeading => geometry.action_right,
+        PdfLineKind::ColdOpening => geometry.cold_opening_right,
+        PdfLineKind::NewAct => geometry.new_act_right,
+        PdfLineKind::EndOfAct => geometry.end_of_act_right,
+        PdfLineKind::Character => geometry.character_right,
+        PdfLineKind::Dialogue => geometry.dialogue_right,
+        PdfLineKind::Parenthetical => geometry.parenthetical_right,
+        PdfLineKind::Transition => geometry.transition_right,
+        PdfLineKind::Lyric => geometry.lyric_right,
+        PdfLineKind::DualDialogueLeft => geometry.dual_dialogue_left_right,
+        PdfLineKind::DualDialogueRight => geometry.dual_dialogue_right_right,
+        PdfLineKind::DualDialogueCharacterLeft => geometry.dual_dialogue_left_character_right,
+        PdfLineKind::DualDialogueCharacterRight => geometry.dual_dialogue_right_character_right,
+        PdfLineKind::DualDialogueParentheticalLeft => {
+            geometry.dual_dialogue_left_parenthetical_right
+        }
+        PdfLineKind::DualDialogueParentheticalRight => {
+            geometry.dual_dialogue_right_parenthetical_right
+        }
+    }
+}
+
+fn element_first_indent_inches(kind: PdfLineKind, geometry: &LayoutGeometry) -> f32 {
+    match kind {
+        PdfLineKind::Action | PdfLineKind::SceneHeading => geometry.action_first_indent,
+        PdfLineKind::ColdOpening => geometry.cold_opening_first_indent,
+        PdfLineKind::NewAct => geometry.new_act_first_indent,
+        PdfLineKind::EndOfAct => geometry.end_of_act_first_indent,
+        PdfLineKind::Character => geometry.character_first_indent,
+        PdfLineKind::Dialogue => geometry.dialogue_first_indent,
+        PdfLineKind::Parenthetical => geometry.parenthetical_first_indent,
+        PdfLineKind::Transition => geometry.transition_first_indent,
+        PdfLineKind::Lyric => geometry.lyric_first_indent,
+        PdfLineKind::DualDialogueLeft => geometry.dual_dialogue_left_first_indent,
+        PdfLineKind::DualDialogueRight => geometry.dual_dialogue_right_first_indent,
+        PdfLineKind::DualDialogueCharacterLeft => geometry.dual_dialogue_left_character_first_indent,
+        PdfLineKind::DualDialogueCharacterRight => {
+            geometry.dual_dialogue_right_character_first_indent
+        }
+        PdfLineKind::DualDialogueParentheticalLeft => {
+            geometry.dual_dialogue_left_parenthetical_first_indent
+        }
+        PdfLineKind::DualDialogueParentheticalRight => {
+            geometry.dual_dialogue_right_parenthetical_first_indent
+        }
+    }
+}
+
+fn parenthetical_hang_offset_points(
+    kind: Option<PdfLineKind>,
+    text: &str,
+    geometry: &LayoutGeometry,
+) -> f32 {
     if hangs_opening_parenthesis(kind, text) {
-        return BODY_TEXT_CELL_WIDTH;
+        return kind
+            .map(|kind| element_first_indent_inches(kind, geometry).abs() * 72.0)
+            .unwrap_or(BODY_TEXT_CELL_WIDTH);
     }
     0.0
 }
@@ -4750,7 +4813,7 @@ mod tests {
     }
 
     #[test]
-    fn body_line_left_hangs_opening_parenthetical_one_cell_left() {
+    fn body_line_left_hangs_opening_parenthetical_by_the_configured_first_indent() {
         let geometry = LayoutGeometry::default();
         let line = PdfRenderLine {
             text: format!("{}(quietly)", " ".repeat(14)),
@@ -4771,10 +4834,28 @@ mod tests {
             scene_number: None,
         };
 
-        assert!((body_line_left(&line, &geometry) - 209.0).abs() < 0.001);
+        assert!((body_line_left(&line, &geometry) - 208.8).abs() < 0.001);
         assert_eq!(rendered_body_line_text(&line, &geometry), "(quietly)");
         assert!((body_line_left(&continuation, &geometry) - 216.0).abs() < 0.001);
         assert_eq!(rendered_body_line_text(&continuation, &geometry), "quietly");
+    }
+
+    #[test]
+    fn body_line_left_uses_parenthetical_first_indent_from_geometry() {
+        let mut geometry = LayoutGeometry::default();
+        geometry.parenthetical_first_indent = -0.14;
+
+        let line = PdfRenderLine {
+            text: format!("{}(quietly)", " ".repeat(14)),
+            counted: true,
+            centered: false,
+            kind: Some(PdfLineKind::Parenthetical),
+            fragments: Vec::new(),
+            dual: None,
+            scene_number: None,
+        };
+
+        assert!((body_line_left(&line, &geometry) - 205.92).abs() < 0.001);
     }
 
     #[test]

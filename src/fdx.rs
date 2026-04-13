@@ -87,6 +87,7 @@ struct ImportedFdxSettings {
 
 #[derive(Clone, Debug, Default)]
 struct ImportedParagraphStyle {
+    first_indent: Option<f32>,
     left_indent: Option<f32>,
     right_indent: Option<f32>,
     space_before: Option<f32>,
@@ -815,6 +816,7 @@ fn parse_paragraph_spec(
     event: &BytesStart<'_>,
 ) -> Result<ImportedParagraphStyle, FdxParseError> {
     Ok(ImportedParagraphStyle {
+        first_indent: parse_attr_f32(reader, event, b"FirstIndent")?,
         left_indent: parse_attr_f32(reader, event, b"LeftIndent")?,
         right_indent: parse_attr_f32(reader, event, b"RightIndent")?,
         space_before: parse_attr_f32(reader, event, b"SpaceBefore")?.map(spacing_lines_from_points),
@@ -828,6 +830,9 @@ fn parse_paragraph_spec(
 }
 
 fn merge_paragraph_style(target: &mut ImportedParagraphStyle, parsed: ImportedParagraphStyle) {
+    if parsed.first_indent.is_some() {
+        target.first_indent = parsed.first_indent;
+    }
     if parsed.left_indent.is_some() {
         target.left_indent = parsed.left_indent;
     }
@@ -1050,6 +1055,7 @@ fn imported_settings_to_layout_overrides(
     for (name, style) in &settings.paragraph_styles {
         if let Some(kind) = imported_element_kind(name) {
             let entry = ImportedElementStyle {
+                first_indent: style.first_indent,
                 left_indent: style.left_indent,
                 right_indent: style.right_indent,
                 spacing_before: style.space_before,

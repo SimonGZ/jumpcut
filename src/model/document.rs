@@ -53,6 +53,7 @@ pub enum ImportedElementKind {
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize)]
 pub struct ImportedElementStyle {
+    pub first_indent: Option<f32>,
     pub left_indent: Option<f32>,
     pub right_indent: Option<f32>,
     pub spacing_before: Option<f32>,

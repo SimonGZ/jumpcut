@@ -99,6 +99,7 @@ fn layout_geometry_tracks_multicam_act_and_cold_opening_styles() {
     styles.insert(
         "Cold Opening".into(),
         FdxParagraphStyle {
+            first_indent: 0.0,
             left_indent: 1.0,
             right_indent: 7.5,
             space_before: 12.0,
@@ -109,6 +110,7 @@ fn layout_geometry_tracks_multicam_act_and_cold_opening_styles() {
     styles.insert(
         "New Act".into(),
         FdxParagraphStyle {
+            first_indent: 0.0,
             left_indent: 1.5,
             right_indent: 7.5,
             space_before: 0.0,
@@ -119,6 +121,7 @@ fn layout_geometry_tracks_multicam_act_and_cold_opening_styles() {
     styles.insert(
         "End of Act".into(),
         FdxParagraphStyle {
+            first_indent: 0.0,
             left_indent: 1.5,
             right_indent: 7.5,
             space_before: 24.0,
