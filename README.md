@@ -1,6 +1,6 @@
 # JumpCut
 
-JumpCut is a Rust utility designed to convert the [Fountain screenwriting markup format][fountain] into PDF, FDX (Final Draft), HTML, JSON, and text.
+JumpCut is a Rust utility designed to convert the [Fountain screenwriting markup format][fountain] and Final Draft documents (FDX) into Fountain, FDX, HTML, JSON, text, and PDF formats.
 
 It was created by a working screenwriter to match the industry-standard conventions for Hollywood screenplays (lines per page, margins, dialogue splits, etc).
 
@@ -24,29 +24,41 @@ To use JumpCut as a library, you can specify the following in your Cargo.toml so
 Once installed, you can pass JumpCut a text file and it will parse it and output it as FDX, HTML, JSON, text, or PDF. The full options from the help text are listed below.
 
 ```
-USAGE:
-    jumpcut [OPTIONS] <input> [output]
+A tool for converting Fountain and Final Draft screenplay documents into Fountain, FDX, HTML, JSON, text, and optional PDF formats.
 
-FLAGS:
-    -h, --help       Prints help information
-    -V, --version    Prints version information
+Usage: jumpcut [OPTIONS] <INPUT> [OUTPUT]
 
-OPTIONS:
-    -f, --format <format>    Formats (FDX, HTML, JSON, text, PDF) [default: fdx]
-    -o, --output <FILE>      Output file.
-    -w, --write              Auto-derive an output path from the input stem and format.
-    -m, --metadata <FILE>    Optional Fountain file to prepend as metadata. Defaults to "metadata.fountain" if flag is present without a value.
-        --paginate           Render paginated text or exact-wrap paginated HTML
-        --line-numbers       Show line numbers in text output
-        --exact-wraps        Render HTML with exact Final Draft-style wraps
-        --render-profile <render-profile>
-                             Override metadata-driven render profile [possible values: industry, balanced]
-        --no-continueds      Suppress (CONT'D)/(MORE) style continued markers in text, HTML, or PDF output
-        --no-title-page      Suppress title-page output for HTML and PDF renders
+Arguments:
+  <INPUT>   Input file, pass a dash ("-") to receive stdin
+  [OUTPUT]  Output file in the legacy positional form
 
-ARGS:
-    <input>     Input file, pass a dash ("-") to receive stdin
-    <output>    Output file, stdout if not present
+Options:
+  -f, --format <FORMAT>
+          Formats (Fountain, FDX, HTML, JSON, text, PDF)
+      --paginate
+          Render text output with pagination
+      --exact-wraps
+          Render HTML output with exact Final Draft-style wraps
+      --embed-courier-prime
+          Embed Courier Prime font files directly into HTML CSS
+      --line-numbers
+          Show line numbers in text output
+      --render-profile <RENDER_PROFILE>
+          Override the layout/render profile instead of using fmt metadata [possible values: industry, balanced]
+      --no-continueds
+          Suppress (CONT'D)/(MORE) style continued markers in render outputs
+      --no-title-page
+          Suppress title-page output for HTML and PDF renders
+  -o, --output <FILE>
+          Output file
+  -w, --write
+          Auto-derive an output file path from the input stem and format
+  -m, --metadata [<FILE>]
+          Optional Fountain file to merge as metadata. Defaults to "metadata.fountain" if flag is present without a value
+  -h, --help
+          Print help
+  -V, --version
+          Print version
 ```
 
 Examples:
