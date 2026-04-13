@@ -182,6 +182,7 @@ fn parsed_dual_dialogue_is_normalized_and_grouped_as_a_dual_dialogue_unit() {
 fn styled_runs_survive_normalization_and_semantic_building() {
     let screenplay = Screenplay {
         metadata: Default::default(),
+        imported_layout: None,
         elements: vec![
             Element::Action(
                 ElementText::Styled(vec![tr("BOLD", vec!["Bold"]), tr(" plain", vec![])]),
@@ -254,6 +255,7 @@ fn styled_runs_survive_normalization_and_semantic_building() {
 fn centered_flag_survives_normalization_and_semantic_building() {
     let screenplay = Screenplay {
         metadata: Default::default(),
+        imported_layout: None,
         elements: vec![Element::Action(
             p("THE END"),
             Attributes {
@@ -277,6 +279,7 @@ fn centered_flag_survives_normalization_and_semantic_building() {
 fn render_attributes_survive_normalization_and_semantic_building() {
     let screenplay = Screenplay {
         metadata: Default::default(),
+        imported_layout: None,
         elements: vec![Element::SceneHeading(
             p("INT. OFFICE - DAY"),
             Attributes {
@@ -432,6 +435,7 @@ fn dual_dialogue_contd_eligibility_can_be_disabled_for_balanced_mode() {
         normalize_screenplay("dual-contd-balanced", &screenplay),
         SemanticOptions {
             dual_dialogue_counts_for_contd: false,
+            automatic_character_continueds: true,
         },
     );
     let dialogue_units = semantic

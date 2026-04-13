@@ -11,8 +11,6 @@ use crate::styled_text::{StyledRun, StyledText};
 use crate::title_page::TitlePage;
 use crate::Screenplay;
 
-
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct VisualRenderOptions {
     pub render_continueds: bool,
@@ -69,13 +67,14 @@ pub(crate) fn render_paginated_visual_pages_with_options(
 ) -> Vec<VisualPage> {
     let screenplay_id = "screenplay";
     let scope = default_pagination_scope(screenplay, options);
-    let layout_profile = ScreenplayLayoutProfile::from_metadata(&screenplay.metadata);
+    let layout_profile = ScreenplayLayoutProfile::from_screenplay(screenplay);
     let style_profile = style_profile_name(&layout_profile);
     let normalized = normalize_screenplay(screenplay_id, screenplay);
     let semantic = build_semantic_screenplay_with_options(
         normalized,
         SemanticOptions {
             dual_dialogue_counts_for_contd: layout_profile.dual_dialogue_counts_for_contd,
+            automatic_character_continueds: layout_profile.automatic_character_continueds,
         },
     );
     let config = PaginationConfig {
@@ -85,7 +84,8 @@ pub(crate) fn render_paginated_visual_pages_with_options(
     let blocks = composer::compose(&semantic.units, &config.geometry);
     let actual =
         PaginatedScreenplay::paginate(semantic.clone(), config.clone(), style_profile, scope);
-    let layout_pages = nonempty_layout_pages(&blocks, &config.geometry, config.geometry.lines_per_page);
+    let layout_pages =
+        nonempty_layout_pages(&blocks, &config.geometry, config.geometry.lines_per_page);
 
     actual
         .pages
@@ -109,7 +109,7 @@ pub(crate) fn render_unpaginated_visual_lines_with_options(
     options: VisualRenderOptions,
 ) -> Vec<VisualLine> {
     let screenplay_id = "screenplay";
-    let layout_profile = ScreenplayLayoutProfile::from_metadata(&screenplay.metadata);
+    let layout_profile = ScreenplayLayoutProfile::from_screenplay(screenplay);
     let config = PaginationConfig {
         geometry: layout_profile.to_pagination_geometry(),
         interruption_dash_wrap: layout_profile.interruption_dash_wrap,
@@ -119,6 +119,7 @@ pub(crate) fn render_unpaginated_visual_lines_with_options(
         normalized,
         SemanticOptions {
             dual_dialogue_counts_for_contd: layout_profile.dual_dialogue_counts_for_contd,
+            automatic_character_continueds: layout_profile.automatic_character_continueds,
         },
     );
     let blocks = composer::compose(&semantic.units, &config.geometry);
@@ -144,7 +145,10 @@ fn style_profile_name(layout_profile: &ScreenplayLayoutProfile) -> &'static str 
     }
 }
 
-fn default_pagination_scope(screenplay: &Screenplay, options: VisualRenderOptions) -> PaginationScope {
+fn default_pagination_scope(
+    screenplay: &Screenplay,
+    options: VisualRenderOptions,
+) -> PaginationScope {
     if options.render_title_page && has_title_page_metadata(screenplay) {
         PaginationScope {
             title_page_count: Some(1),

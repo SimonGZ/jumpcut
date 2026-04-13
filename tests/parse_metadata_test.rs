@@ -28,6 +28,7 @@ fn it_handles_complex_metadata_without_elements() {
     let mut expected = Screenplay {
         elements: vec![],
         metadata: expected_metadata,
+        imported_layout: None,
     };
     assert_eq! {
         parse(text),
@@ -55,6 +56,7 @@ fn it_handles_complex_metadata_without_elements() {
     expected = Screenplay {
         elements: vec![],
         metadata: expected_metadata,
+        imported_layout: None,
     };
 
     assert_eq! {
@@ -90,6 +92,7 @@ fn it_handles_complex_metadata_with_elements() {
     let expected = Screenplay {
         elements: vec![Element::SceneHeading(p("INT. THE ZOO"), blank_attributes())],
         metadata: expected_metadata,
+        imported_layout: None,
     };
 
     assert_eq! {
@@ -109,6 +112,7 @@ fn it_handles_unusual_metadata() {
     let expected = Screenplay {
         elements: vec![],
         metadata: expected_metadata,
+        imported_layout: None,
     };
 
     assert_eq! {

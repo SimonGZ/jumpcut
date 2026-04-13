@@ -98,7 +98,7 @@ impl PaginationConfig {
     }
 
     pub fn from_screenplay(screenplay: &Screenplay, lines_per_page: f32) -> Self {
-        let profile = ScreenplayLayoutProfile::from_metadata(&screenplay.metadata);
+        let profile = ScreenplayLayoutProfile::from_screenplay(screenplay);
         let mut geometry = profile.to_pagination_geometry();
         geometry.lines_per_page = lines_per_page;
         Self {
@@ -220,7 +220,7 @@ impl PaginatedScreenplay {
         lines_per_page: f32,
         scope: PaginationScope,
     ) -> Self {
-        let layout_profile = ScreenplayLayoutProfile::from_metadata(&screenplay.metadata);
+        let layout_profile = ScreenplayLayoutProfile::from_screenplay(screenplay);
         let style_profile = match layout_profile.style_profile {
             crate::pagination::StyleProfile::Screenplay => "standard",
             crate::pagination::StyleProfile::Multicam => "multicam",

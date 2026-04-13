@@ -299,6 +299,7 @@ mod tests {
     fn test_fdx_renderer_does_not_add_extra_space_before_lyric() {
         let mut screenplay = Screenplay {
             metadata: Metadata::new(),
+            imported_layout: None,
             elements: vec![Element::Lyric(p("I love to sing"), blank_attributes())],
         };
 
@@ -318,6 +319,7 @@ mod tests {
 
         let mut screenplay = Screenplay {
             metadata,
+            imported_layout: None,
             elements: vec![],
         };
 
@@ -334,6 +336,7 @@ mod tests {
 
         let mut screenplay = Screenplay {
             metadata,
+            imported_layout: None,
             elements: vec![],
         };
 
@@ -353,6 +356,7 @@ mod tests {
 
         let mut screenplay = Screenplay {
             metadata,
+            imported_layout: None,
             elements: vec![],
         };
 
@@ -481,6 +485,7 @@ mod tests {
 
         let mut screenplay = Screenplay {
             metadata,
+            imported_layout: None,
             elements: vec![],
         };
 
@@ -566,6 +571,7 @@ mod tests {
 
         Screenplay {
             metadata,
+            imported_layout: None,
             elements: vec![
                 Element::SceneHeading(p("INT.KITCHEN"), scene_attrs),
                 Element::Action(styled, blank_attributes()),

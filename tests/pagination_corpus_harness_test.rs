@@ -197,14 +197,16 @@ fn big_fish_pages_38_39_split_beamen_action_at_sentence_boundary() {
         &fixture,
     );
     let config = PaginationConfig {
-        
         geometry: geometry_for_screenplay("big-fish"),
         interruption_dash_wrap: InterruptionDashWrap::FinalDraft,
     };
     let semantic = build_semantic_screenplay(normalized);
     let blocks = jumpcut::pagination::composer::compose(&semantic.units, &config.geometry);
-    let pages =
-        jumpcut::pagination::paginator::paginate(&blocks, config.geometry.lines_per_page, &config.geometry);
+    let pages = jumpcut::pagination::paginator::paginate(
+        &blocks,
+        config.geometry.lines_per_page,
+        &config.geometry,
+    );
 
     let page_38_block = pages
         .iter()
@@ -267,13 +269,15 @@ fn big_fish_pages_53_54_split_el_01146_after_was_gone_for_a_long_time() {
     );
     let semantic = build_semantic_screenplay(normalized);
     let config = PaginationConfig {
-        
         geometry: geometry_for_screenplay("big-fish"),
         interruption_dash_wrap: InterruptionDashWrap::FinalDraft,
     };
     let blocks = jumpcut::pagination::composer::compose(&semantic.units, &config.geometry);
-    let pages =
-        jumpcut::pagination::paginator::paginate(&blocks, config.geometry.lines_per_page, &config.geometry);
+    let pages = jumpcut::pagination::paginator::paginate(
+        &blocks,
+        config.geometry.lines_per_page,
+        &config.geometry,
+    );
 
     let page_53_block = pages
         .iter()
@@ -336,7 +340,6 @@ fn big_fish_pages_81_82_keep_el_01742_whole_on_page_82() {
     );
     let semantic = build_semantic_screenplay(normalized);
     let config = PaginationConfig {
-        
         geometry: geometry_for_screenplay("big-fish"),
         interruption_dash_wrap: InterruptionDashWrap::FinalDraft,
     };
@@ -380,7 +383,6 @@ fn big_fish_pages_93_94_keep_block_00582_whole_on_page_94() {
     );
     let semantic = build_semantic_screenplay(normalized);
     let config = PaginationConfig {
-        
         geometry: geometry_for_screenplay("big-fish"),
         interruption_dash_wrap: InterruptionDashWrap::FinalDraft,
     };
@@ -442,7 +444,6 @@ fn big_fish_pages_89_90_split_hand_around_the_house_after_kittens() {
     );
     let semantic = build_semantic_screenplay(normalized);
     let config = PaginationConfig {
-        
         geometry: geometry_for_screenplay("big-fish"),
         interruption_dash_wrap: InterruptionDashWrap::FinalDraft,
     };
@@ -453,8 +454,11 @@ fn big_fish_pages_89_90_split_hand_around_the_house_after_kittens() {
         fixture.scope.clone(),
     );
     let blocks = jumpcut::pagination::composer::compose(&semantic.units, &config.geometry);
-    let layout_pages =
-        jumpcut::pagination::paginator::paginate(&blocks, config.geometry.lines_per_page, &config.geometry);
+    let layout_pages = jumpcut::pagination::paginator::paginate(
+        &blocks,
+        config.geometry.lines_per_page,
+        &config.geometry,
+    );
 
     let page_89_block = actual
         .pages
@@ -531,13 +535,15 @@ fn big_fish_pages_34_35_split_block_00213_after_go() {
     );
     let semantic = build_semantic_screenplay(normalized);
     let config = PaginationConfig {
-        
         geometry: geometry_for_screenplay("big-fish"),
         interruption_dash_wrap: InterruptionDashWrap::FinalDraft,
     };
     let blocks = jumpcut::pagination::composer::compose(&semantic.units, &config.geometry);
-    let pages =
-        jumpcut::pagination::paginator::paginate(&blocks, config.geometry.lines_per_page, &config.geometry);
+    let pages = jumpcut::pagination::paginator::paginate(
+        &blocks,
+        config.geometry.lines_per_page,
+        &config.geometry,
+    );
 
     let page_34_block = pages
         .iter()
@@ -825,7 +831,6 @@ fn gumshoe_exact_part_boundary_dialogue_split_keeps_whole_parts_whole() {
     );
     let semantic = build_semantic_screenplay(normalized);
     let config = PaginationConfig {
-        
         geometry: geometry_for_screenplay("gumshoe"),
         interruption_dash_wrap: InterruptionDashWrap::FinalDraft,
     };
@@ -952,7 +957,6 @@ fn big_fish_pages_115_116_keep_el_02473_and_el_02474_whole_on_page_116() {
     );
     let semantic = build_semantic_screenplay(normalized);
     let config = PaginationConfig {
-        
         geometry: geometry_for_screenplay("big-fish"),
         interruption_dash_wrap: InterruptionDashWrap::FinalDraft,
     };
@@ -1205,7 +1209,6 @@ fn run_window_parity_check(
 ) -> jumpcut::pagination::ComparisonReport {
     let page_numbers: Vec<u32> = fixture.pages.iter().map(|page| page.number).collect();
     let config = PaginationConfig {
-        
         geometry,
         interruption_dash_wrap: InterruptionDashWrap::FinalDraft,
     };

@@ -34,13 +34,14 @@ impl Default for TextRenderOptions {
 pub fn render(screenplay: &Screenplay, options: &TextRenderOptions) -> String {
     let screenplay_id = "screenplay";
     let scope = default_pagination_scope(screenplay);
-    let layout_profile = ScreenplayLayoutProfile::from_metadata(&screenplay.metadata);
+    let layout_profile = ScreenplayLayoutProfile::from_screenplay(screenplay);
     let style_profile = style_profile_name(&layout_profile);
     let normalized = normalize_screenplay(screenplay_id, screenplay);
     let semantic = build_semantic_screenplay_with_options(
         normalized,
         SemanticOptions {
             dual_dialogue_counts_for_contd: layout_profile.dual_dialogue_counts_for_contd,
+            automatic_character_continueds: layout_profile.automatic_character_continueds,
         },
     );
     let mut geometry = layout_profile.to_pagination_geometry();
@@ -54,7 +55,8 @@ pub fn render(screenplay: &Screenplay, options: &TextRenderOptions) -> String {
     if options.paginated {
         let actual =
             PaginatedScreenplay::paginate(semantic.clone(), config.clone(), style_profile, scope);
-        let layout_pages = nonempty_layout_pages(&blocks, &config.geometry, config.geometry.lines_per_page);
+        let layout_pages =
+            nonempty_layout_pages(&blocks, &config.geometry, config.geometry.lines_per_page);
         render_paginated_text(
             &actual.pages,
             &layout_pages,
@@ -807,6 +809,7 @@ mod tests {
     fn paginated_text_uses_clean_page_headers() {
         let screenplay = Screenplay {
             metadata: Metadata::new(),
+            imported_layout: None,
             elements: vec![
                 Element::Action(p("FIRST PAGE"), blank_attributes()),
                 Element::Action(
@@ -846,6 +849,7 @@ mod tests {
     fn text_output_line_numbers_default_off() {
         let screenplay = Screenplay {
             metadata: Metadata::new(),
+            imported_layout: None,
             elements: vec![Element::Action(p("HELLO"), blank_attributes())],
         };
 
@@ -859,6 +863,7 @@ mod tests {
     fn text_output_can_render_line_numbers() {
         let screenplay = Screenplay {
             metadata: Metadata::new(),
+            imported_layout: None,
             elements: vec![Element::Action(p("HELLO"), blank_attributes())],
         };
 
@@ -881,6 +886,7 @@ mod tests {
         metadata.insert("title".into(), vec!["TITLE".into()]);
         let screenplay = Screenplay {
             metadata,
+            imported_layout: None,
             elements: vec![
                 Element::Action(p("BODY PAGE ONE"), blank_attributes()),
                 Element::Action(

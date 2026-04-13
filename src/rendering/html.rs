@@ -77,7 +77,7 @@ fn embedded_font_face_from_base64(
 }
 
 pub(crate) fn render_document(screenplay: &Screenplay, options: HtmlRenderOptions) -> String {
-    let layout_profile = ScreenplayLayoutProfile::from_metadata(&screenplay.metadata);
+    let layout_profile = ScreenplayLayoutProfile::from_screenplay(screenplay);
     let mut out = String::with_capacity(32 * 1024);
     if options.head {
         out.push_str("<!doctype html>\n\n<html>\n<head>\n  <meta charset=\"utf-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n\n  <title>");
@@ -731,6 +731,7 @@ mod tests {
     fn exact_wrap_html_renders_visual_lines() {
         let screenplay = Screenplay {
             metadata: Metadata::new(),
+            imported_layout: None,
             elements: vec![Element::Action(
                 p("THIS IS A LONG ACTION LINE THAT SHOULD WRAP WHEN EXACT HTML WRAPS ARE ENABLED"),
                 blank_attributes(),
@@ -749,6 +750,7 @@ mod tests {
     fn html_head_includes_local_courier_prime_font_face_by_default() {
         let screenplay = Screenplay {
             metadata: Metadata::new(),
+            imported_layout: None,
             elements: vec![],
         };
 
@@ -764,6 +766,7 @@ mod tests {
     fn headless_html_fragment_includes_a_style_block() {
         let screenplay = Screenplay {
             metadata: Metadata::new(),
+            imported_layout: None,
             elements: vec![],
         };
 
@@ -778,6 +781,7 @@ mod tests {
     fn html_stylesheet_is_not_screen_only() {
         let screenplay = Screenplay {
             metadata: Metadata::new(),
+            imported_layout: None,
             elements: vec![],
         };
 
@@ -791,6 +795,7 @@ mod tests {
     fn html_can_embed_courier_prime_font_data() {
         let screenplay = Screenplay {
             metadata: Metadata::new(),
+            imported_layout: None,
             elements: vec![],
         };
 
@@ -810,6 +815,7 @@ mod tests {
     fn html_can_use_runtime_supplied_embedded_courier_prime_css() {
         let screenplay = Screenplay {
             metadata: Metadata::new(),
+            imported_layout: None,
             elements: vec![],
         };
 
@@ -836,6 +842,7 @@ mod tests {
     fn exact_wrap_html_preserves_styled_spans_for_unsplit_lines() {
         let screenplay = Screenplay {
             metadata: Metadata::new(),
+            imported_layout: None,
             elements: vec![Element::Action(
                 ElementText::Styled(vec![
                     tr("BOLD", vec!["Bold"]),
@@ -857,6 +864,7 @@ mod tests {
     fn exact_wrap_html_marks_centered_lines() {
         let screenplay = Screenplay {
             metadata: Metadata::new(),
+            imported_layout: None,
             elements: vec![Element::Action(
                 p("THE END"),
                 Attributes {
@@ -877,6 +885,7 @@ mod tests {
     fn exact_wrap_html_marks_visual_lines_with_element_classes() {
         let screenplay = Screenplay {
             metadata: Metadata::new(),
+            imported_layout: None,
             elements: vec![Element::NewAct(
                 p("ACT TWO"),
                 Attributes {
@@ -896,6 +905,7 @@ mod tests {
     fn exact_wrap_html_hangs_the_opening_parenthesis_one_cell_left() {
         let screenplay = Screenplay {
             metadata: Metadata::new(),
+            imported_layout: None,
             elements: vec![Element::DialogueBlock(vec![
                 Element::Character(p("ALEX"), blank_attributes()),
                 Element::Parenthetical(p("(quietly)"), blank_attributes()),
@@ -912,6 +922,7 @@ mod tests {
     fn exact_wrap_html_underlines_new_acts_by_default() {
         let screenplay = Screenplay {
             metadata: Metadata::new(),
+            imported_layout: None,
             elements: vec![Element::NewAct(
                 p("ACT TWO"),
                 Attributes {
@@ -931,6 +942,7 @@ mod tests {
     fn exact_wrap_html_underlines_cold_openings_by_default() {
         let screenplay = Screenplay {
             metadata: Metadata::new(),
+            imported_layout: None,
             elements: vec![Element::ColdOpening(
                 p("COLD OPENING"),
                 Attributes {
@@ -951,6 +963,7 @@ mod tests {
         metadata.insert("fmt".into(), vec!["no-act-underlines".into()]);
         let screenplay = Screenplay {
             metadata,
+            imported_layout: None,
             elements: vec![Element::NewAct(
                 p("ACT TWO"),
                 Attributes {
@@ -992,6 +1005,7 @@ mod tests {
 
         let screenplay = Screenplay {
             metadata,
+            imported_layout: None,
             elements: vec![],
         };
 
@@ -1018,6 +1032,7 @@ mod tests {
         let plain_output = render_document(
             &Screenplay {
                 metadata: plain_metadata,
+                imported_layout: None,
                 elements: vec![],
             },
             html_options(false, false, false),
@@ -1034,6 +1049,7 @@ mod tests {
         let styled_output = render_document(
             &Screenplay {
                 metadata: styled_metadata,
+                imported_layout: None,
                 elements: vec![],
             },
             html_options(false, false, false),
@@ -1051,6 +1067,7 @@ mod tests {
         let output = render_document(
             &Screenplay {
                 metadata,
+                imported_layout: None,
                 elements: vec![Element::Action(p("BODY"), blank_attributes())],
             },
             HtmlRenderOptions {
@@ -1071,6 +1088,7 @@ mod tests {
         let output = render_document(
             &Screenplay {
                 metadata,
+                imported_layout: None,
                 elements: vec![],
             },
             html_options(false, false, true),
@@ -1084,6 +1102,7 @@ mod tests {
     fn paginated_html_renders_page_containers_and_hides_first_page_number() {
         let screenplay = Screenplay {
             metadata: Metadata::new(),
+            imported_layout: None,
             elements: vec![
                 Element::Action(p("FIRST PAGE"), blank_attributes()),
                 Element::Action(
@@ -1109,6 +1128,7 @@ mod tests {
     fn paginated_html_preserves_styled_spans_for_split_flow_fragments() {
         let screenplay = Screenplay {
             metadata: Metadata::new(),
+            imported_layout: None,
             elements: vec![Element::Action(
                 ElementText::Styled(vec![tr(&"BOLD SENTENCE. ".repeat(500), vec!["Bold"])]),
                 blank_attributes(),
@@ -1132,6 +1152,7 @@ mod tests {
         metadata.insert("title".into(), vec!["A4 Sample".into()]);
         let screenplay = Screenplay {
             metadata,
+            imported_layout: None,
             elements: vec![Element::Action(p("FIRST PAGE"), blank_attributes())],
         };
 
@@ -1152,6 +1173,7 @@ mod tests {
         metadata.insert("fmt".into(), vec!["a4".into()]);
         let screenplay = Screenplay {
             metadata,
+            imported_layout: None,
             elements: vec![Element::Action(p("FIRST PAGE"), blank_attributes())],
         };
 
@@ -1167,6 +1189,7 @@ mod tests {
     fn paginated_html_preserves_styled_spans_for_dual_dialogue() {
         let screenplay = Screenplay {
             metadata: Metadata::new(),
+            imported_layout: None,
             elements: vec![Element::DualDialogueBlock(vec![
                 Element::DialogueBlock(vec![
                     Element::Character(
@@ -1203,6 +1226,7 @@ mod tests {
     fn paginated_html_uses_distinct_dual_offsets_for_character_dialogue_and_parenthetical() {
         let screenplay = Screenplay {
             metadata: Metadata::new(),
+            imported_layout: None,
             elements: vec![Element::DualDialogueBlock(vec![
                 Element::DialogueBlock(vec![
                     Element::Character(p("BRICK"), blank_attributes()),

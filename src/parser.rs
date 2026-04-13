@@ -49,7 +49,11 @@ pub fn parse(text: &str) -> Screenplay {
         element.parse_and_convert_markup();
     }
     apply_structural_act_break_policy(&mut elements, &metadata);
-    Screenplay { elements, metadata }
+    Screenplay {
+        metadata,
+        imported_layout: None,
+        elements,
+    }
 }
 
 fn apply_structural_act_break_policy(elements: &mut [Element], metadata: &Metadata) {

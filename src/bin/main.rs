@@ -1,7 +1,7 @@
 #[cfg(feature = "cli")]
 use clap::{Parser, ValueEnum};
 #[cfg(feature = "cli")]
-use jumpcut::parse;
+use jumpcut::{parse, parse_fdx};
 #[cfg(feature = "cli")]
 use jumpcut::ElementText;
 #[cfg(feature = "cli")]
@@ -17,7 +17,7 @@ use std::path::{Path, PathBuf};
 #[derive(Parser)]
 #[command(
     name = "JumpCut",
-    about = "A tool for converting Fountain screenplay documents into Final Draft (FDX), HTML, JSON, text, and optional PDF formats.",
+    about = "A tool for converting Fountain and Final Draft screenplay documents into FDX, HTML, JSON, text, and optional PDF formats.",
     version
 )]
 #[cfg(feature = "cli")]
@@ -69,7 +69,7 @@ struct Args {
     #[arg(short = 'w', long = "write", conflicts_with_all = ["output", "output_flag"])]
     write: bool,
 
-    /// Optional Fountain file to prepend as metadata. Defaults to "metadata.fountain" if flag is present without a value.
+    /// Optional Fountain file to merge as metadata. Defaults to "metadata.fountain" if flag is present without a value.
     #[arg(short, long, value_name = "FILE", num_args = 0..=1, default_missing_value = "metadata.fountain")]
     metadata: Option<PathBuf>,
 }
@@ -82,70 +82,33 @@ enum RenderProfile {
 }
 
 #[cfg(feature = "cli")]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum InputFormat {
+    Fountain,
+    Fdx,
+}
+
+#[cfg(feature = "cli")]
 fn main() {
     let opt = Args::parse();
-    let mut content = String::new();
+    let metadata = read_cli_metadata(&opt).unwrap_or_else(|error| {
+        eprintln!("{error}");
+        std::process::exit(1);
+    });
+    let content = read_cli_input(&opt.input).unwrap_or_else(|error| {
+        eprintln!("{error}");
+        std::process::exit(1);
+    });
 
-    // Handle metadata file first
-    if let Some(ref metadata_arg_path) = opt.metadata {
-        let mut actual_metadata_file_path = metadata_arg_path.clone();
-
-        // If the default_missing_value was used, determine the correct path
-        if metadata_arg_path.to_str() == Some("metadata.fountain") {
-            if opt.input.is_file() {
-                // If input is a file, metadata.fountain is relative to input's directory
-                if let Some(parent) = opt.input.parent() {
-                    actual_metadata_file_path = parent.join("metadata.fountain");
-                } else {
-                    // If input has no parent (e.g., just "file.txt" in CWD), use CWD
-                    actual_metadata_file_path = PathBuf::from("metadata.fountain");
-                }
-            } else {
-                // If input is stdin or not a file, metadata.fountain is relative to CWD
-                actual_metadata_file_path = PathBuf::from("metadata.fountain");
-            }
-        }
-        // If metadata_arg_path was not "metadata.fountain", it's an explicit path, use it directly.
-
-        match fs::read_to_string(&actual_metadata_file_path) {
-            Ok(metadata_content) => {
-                content.push_str(&metadata_content);
-                content.push_str("\n"); // Prepend with line break
-            }
-            Err(e) => {
-                eprintln!(
-                    "Error reading metadata file '{}': {}",
-                    actual_metadata_file_path.display(),
-                    e
-                );
-                std::process::exit(1);
-            }
-        }
-    }
-
-    // Now read the main input content
-    if opt.input.is_file() {
-        content.push_str(&std::fs::read_to_string(&opt.input).expect("Could not read file."));
-    } else {
-        if opt.input.to_str() == Some("-") {
-            let mut buffer = String::new();
-            let stdin = io::stdin().read_to_string(&mut buffer);
-            match stdin {
-                Err(_) => panic!("Invalid text piped to function."),
-                Ok(_) => content.push_str(&buffer),
-            }
-        } else {
-            eprintln!("Error: Did not receive a valid file.");
-            std::process::exit(1);
-        }
-    }
-
-    let mut screenplay = parse(&content);
+    let mut screenplay = parse_cli_input(&opt.input, &content, metadata).unwrap_or_else(|error| {
+        eprintln!("Error: {error}");
+        std::process::exit(1);
+    });
     apply_cli_render_overrides(&mut screenplay, &opt);
     let explicit_output = opt.output_flag.as_ref().or(opt.output.as_ref());
     let format = infer_format(opt.format.as_deref(), explicit_output);
-    let output_path =
-        resolve_output_path(&opt.input, explicit_output, opt.write, &format).unwrap_or_else(|error| {
+    let output_path = resolve_output_path(&opt.input, explicit_output, opt.write, &format)
+        .unwrap_or_else(|error| {
             eprintln!("Error: {error}");
             std::process::exit(2);
         });
@@ -168,7 +131,11 @@ fn main() {
     if format != "html" && (!pdf_output_enabled() || format != "pdf") && opt.no_title_page {
         eprintln!(
             "Error: --no-title-page is only supported with --format html{}.",
-            if pdf_output_enabled() { " or --format pdf" } else { "" }
+            if pdf_output_enabled() {
+                " or --format pdf"
+            } else {
+                ""
+            }
         );
         std::process::exit(2);
     }
@@ -248,9 +215,17 @@ fn resolve_output_path(
 ) -> Result<Option<PathBuf>, String> {
     match explicit_output_opt {
         Some(path) => Ok(Some(path.clone())),
-        None if write => auto_output_path(input, format)
-            .map(Some)
-            .ok_or_else(|| "cannot auto-derive an output path when input is stdin".to_string()),
+        None if write => {
+            let output = auto_output_path(input, format)
+                .ok_or_else(|| "cannot auto-derive an output path when input is stdin".to_string())?;
+            if output == input {
+                return Err(
+                    "auto-derived output path matches the input path; specify --format or --output"
+                        .to_string(),
+                );
+            }
+            Ok(Some(output))
+        }
         None => Ok(None),
     }
 }
@@ -320,14 +295,100 @@ fn apply_render_profile_override(metadata: &mut jumpcut::Metadata, render_profil
     }
 }
 
+#[cfg(feature = "cli")]
+fn read_cli_metadata(opt: &Args) -> Result<jumpcut::Metadata, String> {
+    let Some(metadata_arg_path) = &opt.metadata else {
+        return Ok(jumpcut::Metadata::new());
+    };
+    let actual_metadata_file_path = resolve_metadata_path(&opt.input, metadata_arg_path);
+    let metadata_content = fs::read_to_string(&actual_metadata_file_path).map_err(|error| {
+        format!(
+            "Error reading metadata file '{}': {}",
+            actual_metadata_file_path.display(),
+            error
+        )
+    })?;
+    Ok(parse(&metadata_content).metadata)
+}
+
+#[cfg(feature = "cli")]
+fn resolve_metadata_path(input: &Path, metadata_arg_path: &Path) -> PathBuf {
+    if metadata_arg_path.to_str() != Some("metadata.fountain") {
+        return metadata_arg_path.to_path_buf();
+    }
+
+    if input != Path::new("-") {
+        input.parent().unwrap_or_else(|| Path::new("")).join(metadata_arg_path)
+    } else {
+        metadata_arg_path.to_path_buf()
+    }
+}
+
+#[cfg(feature = "cli")]
+fn read_cli_input(input: &Path) -> Result<String, String> {
+    if input.is_file() {
+        fs::read_to_string(input)
+            .map_err(|error| format!("Could not read file '{}': {error}", input.display()))
+    } else if input.to_str() == Some("-") {
+        let mut buffer = String::new();
+        io::stdin()
+            .read_to_string(&mut buffer)
+            .map_err(|_| "Invalid text piped to function.".to_string())?;
+        Ok(buffer)
+    } else {
+        Err("Did not receive a valid file.".to_string())
+    }
+}
+
+#[cfg(feature = "cli")]
+fn parse_cli_input(
+    input: &Path,
+    content: &str,
+    metadata: jumpcut::Metadata,
+) -> Result<jumpcut::Screenplay, String> {
+    let input_format = infer_input_format(input, content);
+    let mut screenplay = match input_format {
+        InputFormat::Fountain => parse(content),
+        InputFormat::Fdx => parse_fdx(content).map_err(|error| error.to_string())?,
+    };
+
+    if !metadata.is_empty() {
+        let mut combined_metadata = metadata;
+        combined_metadata.extend(screenplay.metadata);
+        screenplay.metadata = combined_metadata;
+    }
+
+    Ok(screenplay)
+}
+
+#[cfg(feature = "cli")]
+fn infer_input_format(input: &Path, content: &str) -> InputFormat {
+    match input.extension().and_then(|value| value.to_str()) {
+        Some(ext) if ext.eq_ignore_ascii_case("fdx") => InputFormat::Fdx,
+        _ if looks_like_fdx(content) => InputFormat::Fdx,
+        _ => InputFormat::Fountain,
+    }
+}
+
+#[cfg(feature = "cli")]
+fn looks_like_fdx(content: &str) -> bool {
+    let trimmed = content.trim_start_matches('\u{feff}').trim_start();
+    trimmed.starts_with("<FinalDraft")
+        || (trimmed.starts_with("<?xml") && trimmed.contains("<FinalDraft"))
+}
+
 #[cfg(all(test, feature = "cli"))]
 mod tests {
-    use super::{apply_render_profile_override, infer_format, resolve_output_path, Args, RenderProfile};
     #[cfg(not(feature = "pdf"))]
     use super::pdf_output_enabled;
-    use jumpcut::{ElementText, Metadata};
+    use super::{
+        apply_render_profile_override, infer_format, infer_input_format, looks_like_fdx,
+        parse_cli_input, resolve_metadata_path, resolve_output_path, Args, InputFormat,
+        RenderProfile,
+    };
     use clap::Parser;
-    use std::path::PathBuf;
+    use jumpcut::{ElementText, Metadata};
+    use std::path::{Path, PathBuf};
 
     #[test]
     fn render_profile_override_replaces_balanced_family_tokens_only() {
@@ -369,12 +430,8 @@ mod tests {
 
     #[test]
     fn cli_accepts_industry_render_profile_name() {
-        let parsed = Args::try_parse_from([
-            "jumpcut",
-            "script.fountain",
-            "--render-profile",
-            "industry",
-        ]);
+        let parsed =
+            Args::try_parse_from(["jumpcut", "script.fountain", "--render-profile", "industry"]);
         assert!(parsed.is_ok());
     }
 
@@ -419,6 +476,36 @@ mod tests {
     }
 
     #[test]
+    fn input_format_inference_uses_fdx_extension() {
+        assert_eq!(
+            infer_input_format(Path::new("script.fdx"), "INT. HOUSE - DAY"),
+            InputFormat::Fdx
+        );
+    }
+
+    #[test]
+    fn input_format_inference_detects_fdx_from_xml_content() {
+        assert_eq!(
+            infer_input_format(
+                Path::new("-"),
+                "<?xml version=\"1.0\"?><FinalDraft DocumentType=\"Script\"></FinalDraft>"
+            ),
+            InputFormat::Fdx
+        );
+        assert!(looks_like_fdx(
+            "\u{feff}\n  <FinalDraft DocumentType=\"Script\"></FinalDraft>"
+        ));
+    }
+
+    #[test]
+    fn input_format_inference_keeps_plain_fountain_as_fountain() {
+        assert_eq!(
+            infer_input_format(Path::new("script.fountain"), "Title: Example\n\nINT. HOUSE - DAY"),
+            InputFormat::Fountain
+        );
+    }
+
+    #[test]
     fn cli_accepts_write_flag_for_auto_output_path() {
         let parsed = Args::try_parse_from(["jumpcut", "big fish.fountain", "-w"]);
         assert!(
@@ -440,14 +527,35 @@ mod tests {
     #[cfg(feature = "pdf")]
     #[test]
     fn cli_accepts_no_title_page_for_html_and_pdf() {
-        assert!(Args::try_parse_from(["jumpcut", "script.fountain", "-f", "html", "--no-title-page"]).is_ok());
-        assert!(Args::try_parse_from(["jumpcut", "script.fountain", "-f", "pdf", "--no-title-page"]).is_ok());
+        assert!(Args::try_parse_from([
+            "jumpcut",
+            "script.fountain",
+            "-f",
+            "html",
+            "--no-title-page"
+        ])
+        .is_ok());
+        assert!(Args::try_parse_from([
+            "jumpcut",
+            "script.fountain",
+            "-f",
+            "pdf",
+            "--no-title-page"
+        ])
+        .is_ok());
     }
 
     #[cfg(not(feature = "pdf"))]
     #[test]
     fn cli_only_accepts_no_title_page_for_html_when_pdf_output_is_disabled() {
-        assert!(Args::try_parse_from(["jumpcut", "script.fountain", "-f", "html", "--no-title-page"]).is_ok());
+        assert!(Args::try_parse_from([
+            "jumpcut",
+            "script.fountain",
+            "-f",
+            "html",
+            "--no-title-page"
+        ])
+        .is_ok());
         assert!(!pdf_output_enabled());
     }
 
@@ -467,7 +575,8 @@ mod tests {
     #[cfg(feature = "pdf")]
     #[test]
     fn write_flag_uses_explicit_pdf_format_for_extension() {
-        let args = Args::try_parse_from(["jumpcut", "big fish.fountain", "-w", "-f", "pdf"]).unwrap();
+        let args =
+            Args::try_parse_from(["jumpcut", "big fish.fountain", "-w", "-f", "pdf"]).unwrap();
         let explicit_output = args.output_flag.as_ref().or(args.output.as_ref());
         let format = infer_format(args.format.as_deref(), explicit_output);
 
@@ -484,8 +593,68 @@ mod tests {
         let explicit_output = args.output_flag.as_ref().or(args.output.as_ref());
         let format = infer_format(args.format.as_deref(), explicit_output);
 
-        let error = resolve_output_path(&args.input, explicit_output, args.write, &format).unwrap_err();
-        assert_eq!(error, "cannot auto-derive an output path when input is stdin");
+        let error =
+            resolve_output_path(&args.input, explicit_output, args.write, &format).unwrap_err();
+        assert_eq!(
+            error,
+            "cannot auto-derive an output path when input is stdin"
+        );
+    }
+
+    #[test]
+    fn write_flag_rejects_auto_deriving_same_path_as_fdx_input() {
+        let args = Args::try_parse_from(["jumpcut", "script.fdx", "-w"]).unwrap();
+        let explicit_output = args.output_flag.as_ref().or(args.output.as_ref());
+        let format = infer_format(args.format.as_deref(), explicit_output);
+
+        let error =
+            resolve_output_path(&args.input, explicit_output, args.write, &format).unwrap_err();
+        assert_eq!(
+            error,
+            "auto-derived output path matches the input path; specify --format or --output"
+        );
+    }
+
+    #[test]
+    fn metadata_default_path_is_relative_to_input_directory() {
+        assert_eq!(
+            resolve_metadata_path(
+                Path::new("fixtures/script.fountain"),
+                Path::new("metadata.fountain")
+            ),
+            PathBuf::from("fixtures/metadata.fountain")
+        );
+    }
+
+    #[test]
+    fn parse_cli_input_accepts_fdx_and_merges_metadata_without_corrupting_xml() {
+        let mut metadata = Metadata::new();
+        metadata.insert("contact".into(), vec!["fallback@example.com".into()]);
+        let screenplay = parse_cli_input(
+            Path::new("script.fdx"),
+            r#"<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+<FinalDraft DocumentType="Script" Template="No" Version="4">
+  <TitlePage>
+    <Content>
+      <Paragraph Alignment="Center"><Text>Imported Script</Text></Paragraph>
+    </Content>
+  </TitlePage>
+  <Content>
+    <Paragraph Type="Action"><Text>Body.</Text></Paragraph>
+  </Content>
+</FinalDraft>"#,
+            metadata,
+        )
+        .expect("fdx should parse");
+
+        assert_eq!(
+            screenplay.metadata.get("title"),
+            Some(&vec!["Imported Script".into()])
+        );
+        assert_eq!(
+            screenplay.metadata.get("contact"),
+            Some(&vec!["fallback@example.com".into()])
+        );
     }
 
     #[cfg(feature = "pdf")]

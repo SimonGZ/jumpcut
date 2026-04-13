@@ -407,7 +407,7 @@ pub(crate) fn render(screenplay: &Screenplay) -> Vec<u8> {
 }
 
 pub(crate) fn render_with_options(screenplay: &Screenplay, options: PdfRenderOptions) -> Vec<u8> {
-    let profile = ScreenplayLayoutProfile::from_metadata(&screenplay.metadata);
+    let profile = ScreenplayLayoutProfile::from_screenplay(screenplay);
     let geometry = profile.to_pagination_geometry();
     let document = build_render_document(screenplay, options, &geometry);
     let mut tagged_document = build_tagged_document(screenplay, &geometry);
@@ -443,7 +443,12 @@ pub(crate) fn render_with_options(screenplay: &Screenplay, options: PdfRenderOpt
     let page_ids = (0..page_count)
         .map(|index| Ref::new(29 + index))
         .collect::<Vec<_>>();
-    let _page_rect = Rect::new(0.0, 0.0, geometry.page_width * 72.0, geometry.page_height * 72.0);
+    let _page_rect = Rect::new(
+        0.0,
+        0.0,
+        geometry.page_width * 72.0,
+        geometry.page_height * 72.0,
+    );
 
     let content_ids = (0..page_count)
         .map(|index| Ref::new(29 + page_count + index))
@@ -508,7 +513,8 @@ pub(crate) fn render_with_options(screenplay: &Screenplay, options: PdfRenderOpt
             info.title(TextStr(&title));
         }
     }
-    let xmp_metadata = build_xmp_metadata(&screenplay.metadata, &document_language, render_timestamp);
+    let xmp_metadata =
+        build_xmp_metadata(&screenplay.metadata, &document_language, render_timestamp);
     pdf.metadata(metadata_id, xmp_metadata.as_bytes());
     write_embedded_font_objects(&mut pdf, &fonts.regular, regular_font_ids);
     write_embedded_font_objects(&mut pdf, &fonts.bold, bold_font_ids);
@@ -518,7 +524,12 @@ pub(crate) fn render_with_options(screenplay: &Screenplay, options: PdfRenderOpt
     for (index, page_id) in page_ids.iter().copied().enumerate() {
         let mut page = pdf.page(page_id);
         page.parent(page_tree_id)
-            .media_box(Rect::new(0.0, 0.0, geometry.page_width * 72.0, geometry.page_height * 72.0))
+            .media_box(Rect::new(
+                0.0,
+                0.0,
+                geometry.page_width * 72.0,
+                geometry.page_height * 72.0,
+            ))
             .contents(content_ids[index])
             .struct_parents(struct_parent_keys[index]);
         page.resources()
@@ -534,7 +545,9 @@ pub(crate) fn render_with_options(screenplay: &Screenplay, options: PdfRenderOpt
     }
 
     let mut content_index = 0usize;
-    if let (Some(title_page), Some(tagged_title_page)) = (&document.title_page, &tagged_document.title_page) {
+    if let (Some(title_page), Some(tagged_title_page)) =
+        (&document.title_page, &tagged_document.title_page)
+    {
         pdf.stream(
             content_ids[content_index],
             &render_title_page_content(title_page, tagged_title_page, &fonts, &geometry),
@@ -572,19 +585,19 @@ pub(crate) fn render_with_options(screenplay: &Screenplay, options: PdfRenderOpt
         write_tagged_pdf_role_map(&mut struct_tree_root);
     }
 
-    for (page_index, parent_ids) in build_parent_tree_entries(
-        &structure_pages,
-        &struct_element_plans,
-        &struct_element_ids,
-    )
-    .into_iter()
-    .enumerate()
+    for (page_index, parent_ids) in
+        build_parent_tree_entries(&structure_pages, &struct_element_plans, &struct_element_ids)
+            .into_iter()
+            .enumerate()
     {
         let mut parent_array = pdf.indirect(parent_tree_array_ids[page_index]).array();
         parent_array.items(parent_ids);
     }
 
-    for (plan, struct_element_id) in struct_element_plans.iter().zip(struct_element_ids.iter().copied()) {
+    for (plan, struct_element_id) in struct_element_plans
+        .iter()
+        .zip(struct_element_ids.iter().copied())
+    {
         let mut struct_element = pdf.struct_element(struct_element_id);
         let first_ref = plan
             .refs
@@ -612,7 +625,8 @@ pub(crate) fn render_with_options(screenplay: &Screenplay, options: PdfRenderOpt
     }
 
     for (plan, page_label_id) in page_label_plans.iter().zip(page_label_ids.iter().copied()) {
-        let mut page_label: pdf_writer::writers::PageLabel<'_> = pdf.indirect(page_label_id).start();
+        let mut page_label: pdf_writer::writers::PageLabel<'_> =
+            pdf.indirect(page_label_id).start();
         if let PdfPageLabelStyle::Arabic { offset } = plan.style {
             page_label.style(NumberingStyle::Arabic).offset(offset);
         }
@@ -990,7 +1004,8 @@ fn render_artifact_runs(
     underlines: &mut Vec<UnderlineSegment>,
     geometry: &LayoutGeometry,
 ) {
-    let is_page_number = line_y == page_number_y(geometry) && line_left >= page_number_x(10, geometry);
+    let is_page_number =
+        line_y == page_number_y(geometry) && line_left >= page_number_x(10, geometry);
     if is_page_number {
         let mut marked_content = content.begin_marked_content_with_properties(Name(b"Artifact"));
         marked_content
@@ -1420,7 +1435,11 @@ fn render_title_page_line_runs(
     *next_mcid += 1;
 }
 
-fn title_page_bottom_line_left(text: &str, region: PdfTitleBlockRegion, geometry: &LayoutGeometry) -> f32 {
+fn title_page_bottom_line_left(
+    text: &str,
+    region: PdfTitleBlockRegion,
+    geometry: &LayoutGeometry,
+) -> f32 {
     match region {
         PdfTitleBlockRegion::BottomRight => title_page_bottom_right_left(text, geometry),
         _ => title_page_line_left(text, region, geometry),
@@ -1495,9 +1514,7 @@ fn title_page_line_left(text: &str, region: PdfTitleBlockRegion, geometry: &Layo
             ((geometry.page_width * 72.0 - width) / 2.0).max(72.0)
         }
         PdfTitleBlockRegion::BottomLeft => 72.0,
-        PdfTitleBlockRegion::BottomRight => {
-            ((geometry.page_width * 72.0) - 72.0 - width).max(72.0)
-        }
+        PdfTitleBlockRegion::BottomRight => ((geometry.page_width * 72.0) - 72.0 - width).max(72.0),
     }
 }
 
@@ -2192,7 +2209,11 @@ fn build_title_structure_page(title_page: &PdfTaggedTitlePage) -> PdfBodyStructP
         PdfTitleBlockRegion::BottomLeft,
         PdfTitleBlockRegion::BottomRight,
     ] {
-        for block in title_page.blocks.iter().filter(|block| block.region == region) {
+        for block in title_page
+            .blocks
+            .iter()
+            .filter(|block| block.region == region)
+        {
             if block.artifact {
                 continue;
             }
@@ -2228,7 +2249,9 @@ fn build_body_structure_pages(
         .collect()
 }
 
-fn build_struct_element_plans(body_structure_pages: &[PdfBodyStructPage]) -> Vec<PdfStructElementPlan> {
+fn build_struct_element_plans(
+    body_structure_pages: &[PdfBodyStructPage],
+) -> Vec<PdfStructElementPlan> {
     let mut plans: Vec<PdfStructElementPlan> = Vec::new();
     let mut plan_index_by_key: BTreeMap<String, usize> = BTreeMap::new();
 
@@ -2427,7 +2450,9 @@ fn take_dual_side_lines_for_block(
     taken
 }
 
-fn take_leading_non_dual_lines(remaining: &mut Vec<PdfEmittedStructLine>) -> Vec<PdfEmittedStructLine> {
+fn take_leading_non_dual_lines(
+    remaining: &mut Vec<PdfEmittedStructLine>,
+) -> Vec<PdfEmittedStructLine> {
     let mut take_count = 0usize;
     let mut first_role = None;
 
@@ -2607,6 +2632,7 @@ mod tests {
         metadata.insert("title".into(), vec!["A4 Test".into()]);
         let screenplay = Screenplay {
             metadata,
+            imported_layout: None,
             elements: Vec::new(),
         };
         let geometry = LayoutGeometry::default();
@@ -2891,9 +2917,8 @@ mod tests {
     }
 
     fn extract_property_marked_content(pdf_text: &str) -> Vec<InspectedMarkedContent> {
-        let pattern =
-            Regex::new(r"(?s)/([^[:space:]<]+)[[:space:]]*<<(.*?)>>[[:space:]]*BDC")
-                .expect("expected marked-content regex");
+        let pattern = Regex::new(r"(?s)/([^[:space:]<]+)[[:space:]]*<<(.*?)>>[[:space:]]*BDC")
+            .expect("expected marked-content regex");
 
         pattern
             .captures_iter(pdf_text)
@@ -2943,6 +2968,7 @@ mod tests {
 
         let screenplay = Screenplay {
             metadata,
+            imported_layout: None,
             elements: vec![
                 Element::Action(p("FIRST BODY PAGE"), blank_attributes()),
                 Element::Action(
@@ -2999,6 +3025,7 @@ mod tests {
 
         let screenplay = Screenplay {
             metadata,
+            imported_layout: None,
             elements: vec![Element::Action(p("FIRST BODY PAGE"), blank_attributes())],
         };
 
@@ -3103,6 +3130,7 @@ mod tests {
     fn tagged_pdf_plan_preserves_source_order_for_dual_dialogue_blocks() {
         let screenplay = Screenplay {
             metadata: Metadata::new(),
+            imported_layout: None,
             elements: vec![Element::DualDialogueBlock(vec![
                 Element::DialogueBlock(vec![
                     Element::Character(p("BRICK"), blank_attributes()),
@@ -3181,6 +3209,7 @@ mod tests {
 
         let screenplay = Screenplay {
             metadata,
+            imported_layout: None,
             elements: vec![
                 Element::Action(p("FIRST BODY PAGE"), blank_attributes()),
                 Element::Action(
@@ -3212,6 +3241,7 @@ mod tests {
 
         let screenplay = Screenplay {
             metadata,
+            imported_layout: None,
             elements: vec![Element::Action(p("BODY PAGE"), blank_attributes())],
         };
 
@@ -3226,8 +3256,14 @@ mod tests {
         assert_eq!(inspection.parent_tree_next_key, Some(2));
         assert!(inspection.has_role_map);
         assert_eq!(inspection.role_map_entries.get("Title"), Some(&"P".into()));
-        assert_eq!(inspection.role_map_entries.get("SceneHeading"), Some(&"H1".into()));
-        assert_eq!(inspection.role_map_entries.get("Dialogue"), Some(&"P".into()));
+        assert_eq!(
+            inspection.role_map_entries.get("SceneHeading"),
+            Some(&"H1".into())
+        );
+        assert_eq!(
+            inspection.role_map_entries.get("Dialogue"),
+            Some(&"P".into())
+        );
         assert_eq!(inspection.catalog_language, Some("en-US".into()));
         assert!(pdf_text.contains("/ViewerPreferences"));
         assert!(pdf_text.contains("/DisplayDocTitle true"));
@@ -3241,6 +3277,7 @@ mod tests {
 
         let screenplay = Screenplay {
             metadata,
+            imported_layout: None,
             elements: vec![Element::Action(p("BODY PAGE"), blank_attributes())],
         };
 
@@ -3272,6 +3309,7 @@ mod tests {
 
         let screenplay = Screenplay {
             metadata,
+            imported_layout: None,
             elements: vec![Element::Action(p("BODY PAGE"), blank_attributes())],
         };
 
@@ -3289,6 +3327,7 @@ mod tests {
 
         let screenplay = Screenplay {
             metadata,
+            imported_layout: None,
             elements: vec![Element::Action(p("BODY PAGE"), blank_attributes())],
         };
 
@@ -3308,6 +3347,7 @@ mod tests {
     fn pdf_render_output_defaults_document_language_to_en_us() {
         let screenplay = Screenplay {
             metadata: Metadata::new(),
+            imported_layout: None,
             elements: vec![Element::Action(p("BODY PAGE"), blank_attributes())],
         };
 
@@ -3318,7 +3358,9 @@ mod tests {
             .expect("expected XMP metadata stream");
 
         assert_eq!(inspection.catalog_language, Some("en-US".into()));
-        assert!(xmp.contains("<dc:language><rdf:Bag><rdf:li>en-US</rdf:li></rdf:Bag></dc:language>"));
+        assert!(
+            xmp.contains("<dc:language><rdf:Bag><rdf:li>en-US</rdf:li></rdf:Bag></dc:language>")
+        );
     }
 
     #[test]
@@ -3328,6 +3370,7 @@ mod tests {
 
         let screenplay = Screenplay {
             metadata,
+            imported_layout: None,
             elements: vec![Element::Action(p("BODY PAGE"), blank_attributes())],
         };
 
@@ -3338,13 +3381,16 @@ mod tests {
             .expect("expected XMP metadata stream");
 
         assert_eq!(inspection.catalog_language, Some("fr-CA".into()));
-        assert!(xmp.contains("<dc:language><rdf:Bag><rdf:li>fr-CA</rdf:li></rdf:Bag></dc:language>"));
+        assert!(
+            xmp.contains("<dc:language><rdf:Bag><rdf:li>fr-CA</rdf:li></rdf:Bag></dc:language>")
+        );
     }
 
     #[test]
     fn pdf_render_output_emits_page_level_struct_parent_and_mcid_markers() {
         let screenplay = Screenplay {
             metadata: Metadata::new(),
+            imported_layout: None,
             elements: vec![
                 Element::Action(p("FIRST BODY PAGE"), blank_attributes()),
                 Element::DialogueBlock(vec![
@@ -3381,6 +3427,7 @@ mod tests {
     fn pdf_render_output_emits_body_structure_roles_for_main_screenplay_content() {
         let screenplay = Screenplay {
             metadata: Metadata::new(),
+            imported_layout: None,
             elements: vec![
                 Element::SceneHeading(p("INT. LAB - DAY"), blank_attributes()),
                 Element::Action(p("Machines hum."), blank_attributes()),
@@ -3430,12 +3477,16 @@ mod tests {
 
         let screenplay = Screenplay {
             metadata,
+            imported_layout: None,
             elements: vec![Element::Action(p("BODY PAGE"), blank_attributes())],
         };
 
         let geometry = LayoutGeometry::default();
         let tagged = build_tagged_document(&screenplay, &geometry);
-        let title_page = tagged.title_page.as_ref().expect("expected tagged title page");
+        let title_page = tagged
+            .title_page
+            .as_ref()
+            .expect("expected tagged title page");
         let structure_page = build_title_structure_page(title_page);
 
         assert_eq!(
@@ -3476,6 +3527,7 @@ mod tests {
 
         let screenplay = Screenplay {
             metadata,
+            imported_layout: None,
             elements: vec![Element::Action(p("BODY PAGE"), blank_attributes())],
         };
 
@@ -3495,6 +3547,7 @@ mod tests {
     fn body_structure_pages_keep_dual_dialogue_in_authored_reading_order() {
         let screenplay = Screenplay {
             metadata: Metadata::new(),
+            imported_layout: None,
             elements: vec![Element::DualDialogueBlock(vec![
                 Element::DialogueBlock(vec![
                     Element::Character(p("BRICK"), blank_attributes()),
@@ -3522,7 +3575,8 @@ mod tests {
                 .count()
                 >= 2
         );
-        let body_structure_pages = build_body_structure_pages(&tagged, &document.body_pages, &geometry);
+        let body_structure_pages =
+            build_body_structure_pages(&tagged, &document.body_pages, &geometry);
         let tagged_lines = &body_structure_pages[0].tagged_lines;
 
         assert_eq!(
@@ -3582,7 +3636,8 @@ mod tests {
         let geometry = LayoutGeometry::default();
         let document = build_render_document(&screenplay, PdfRenderOptions::default(), &geometry);
         let tagged = build_tagged_document(&screenplay, &geometry);
-        let body_structure_pages = build_body_structure_pages(&tagged, &document.body_pages, &geometry);
+        let body_structure_pages =
+            build_body_structure_pages(&tagged, &document.body_pages, &geometry);
 
         let matching_keys = body_structure_pages
             .windows(2)
@@ -3622,7 +3677,8 @@ mod tests {
         let geometry = LayoutGeometry::default();
         let document = build_render_document(&screenplay, PdfRenderOptions::default(), &geometry);
         let tagged = build_tagged_document(&screenplay, &geometry);
-        let body_structure_pages = build_body_structure_pages(&tagged, &document.body_pages, &geometry);
+        let body_structure_pages =
+            build_body_structure_pages(&tagged, &document.body_pages, &geometry);
         let struct_element_plans = build_struct_element_plans(&body_structure_pages);
 
         let repeated_dialogue_plan = struct_element_plans
@@ -3630,7 +3686,10 @@ mod tests {
             .find(|plan| {
                 plan.role == PdfTaggedRole::Dialogue
                     && plan.refs.len() > 1
-                    && plan.refs.windows(2).any(|pair| pair[0].page_index != pair[1].page_index)
+                    && plan
+                        .refs
+                        .windows(2)
+                        .any(|pair| pair[0].page_index != pair[1].page_index)
             })
             .expect("expected a dialogue struct element plan spanning multiple pages");
 
@@ -3651,7 +3710,11 @@ mod tests {
         if let Some(title_page) = &tagged.title_page {
             structure_pages.push(build_title_structure_page(title_page));
         }
-        structure_pages.extend(build_body_structure_pages(&tagged, &document.body_pages, &geometry));
+        structure_pages.extend(build_body_structure_pages(
+            &tagged,
+            &document.body_pages,
+            &geometry,
+        ));
         let struct_element_plans = build_struct_element_plans(&structure_pages);
         let total_tagged_lines: usize = structure_pages
             .iter()
@@ -3663,7 +3726,10 @@ mod tests {
             .find(|plan| {
                 plan.role == PdfTaggedRole::Dialogue
                     && plan.refs.len() > 1
-                    && plan.refs.windows(2).any(|pair| pair[0].page_index != pair[1].page_index)
+                    && plan
+                        .refs
+                        .windows(2)
+                        .any(|pair| pair[0].page_index != pair[1].page_index)
             })
             .expect("expected a multi-page dialogue struct element plan");
 
@@ -3684,6 +3750,7 @@ mod tests {
 
         let screenplay = Screenplay {
             metadata,
+            imported_layout: None,
             elements: vec![
                 Element::Action(p("FIRST BODY PAGE"), blank_attributes()),
                 Element::SceneHeading(
@@ -3712,7 +3779,10 @@ mod tests {
         assert!(inspection.has_parent_tree);
         assert!(inspection.has_role_map);
         assert_eq!(inspection.parent_tree_next_key, Some(3));
-        assert_eq!(inspection.role_map_entries.get("SceneHeading"), Some(&"H1".into()));
+        assert_eq!(
+            inspection.role_map_entries.get("SceneHeading"),
+            Some(&"H1".into())
+        );
         assert_eq!(inspection.role_map_entries.get("Title"), Some(&"P".into()));
         assert_eq!(inspection.struct_parents, vec![0, 1, 2]);
         assert_eq!(unique_mcids, vec![0, 1]);
@@ -3739,6 +3809,7 @@ mod tests {
 
         let screenplay = Screenplay {
             metadata,
+            imported_layout: None,
             elements: vec![
                 Element::Action(p("FIRST BODY PAGE"), blank_attributes()),
                 Element::Action(
@@ -3774,6 +3845,7 @@ mod tests {
     fn pdf_render_output_includes_body_page_text_in_content_streams() {
         let screenplay = Screenplay {
             metadata: Metadata::new(),
+            imported_layout: None,
             elements: vec![
                 Element::Action(p("FIRST BODY PAGE"), blank_attributes()),
                 Element::DialogueBlock(vec![
@@ -3817,6 +3889,7 @@ mod tests {
 
         let screenplay = Screenplay {
             metadata,
+            imported_layout: None,
             elements: vec![
                 Element::Action(p("FIRST BODY PAGE"), blank_attributes()),
                 Element::Action(
@@ -3859,6 +3932,7 @@ mod tests {
     fn pdf_render_output_positions_centered_lines_away_from_the_body_left_margin() {
         let screenplay = Screenplay {
             metadata: Metadata::new(),
+            imported_layout: None,
             elements: vec![Element::Action(
                 p("CENTERED LINE"),
                 Attributes {
@@ -3893,6 +3967,7 @@ mod tests {
     fn pdf_render_output_uses_dual_dialogue_margins_for_both_sides() {
         let screenplay = Screenplay {
             metadata: Metadata::new(),
+            imported_layout: None,
             elements: vec![Element::DualDialogueBlock(vec![
                 Element::DialogueBlock(vec![
                     Element::Character(p("BOB"), blank_attributes()),
@@ -4082,6 +4157,7 @@ mod tests {
 
         let screenplay = Screenplay {
             metadata,
+            imported_layout: None,
             elements: vec![Element::Action(p("BODY PAGE"), blank_attributes())],
         };
 
@@ -4124,14 +4200,22 @@ mod tests {
             &content,
             &fonts.regular,
             "based on the novel",
-            title_page_line_left("based on the novel", PdfTitleBlockRegion::CenterMeta, &geometry),
+            title_page_line_left(
+                "based on the novel",
+                PdfTitleBlockRegion::CenterMeta,
+                &geometry,
+            ),
             title_page_center_meta_top_y(&geometry) - (TITLE_BLOCK_LINE_STEP * 7.0),
         );
         assert_stream_contains_fixed_cell_text_at(
             &content,
             &fonts.regular,
             "by J.R.R. Smithee",
-            title_page_line_left("by J.R.R. Smithee", PdfTitleBlockRegion::CenterMeta, &geometry),
+            title_page_line_left(
+                "by J.R.R. Smithee",
+                PdfTitleBlockRegion::CenterMeta,
+                &geometry,
+            ),
             title_page_center_meta_top_y(&geometry) - (TITLE_BLOCK_LINE_STEP * 8.0),
         );
         assert_stream_contains_fixed_cell_text_at(
@@ -4164,6 +4248,7 @@ mod tests {
 
         let screenplay = Screenplay {
             metadata,
+            imported_layout: None,
             elements: vec![Element::Action(p("BODY PAGE"), blank_attributes())],
         };
 
@@ -4214,6 +4299,7 @@ mod tests {
 
         let screenplay = Screenplay {
             metadata,
+            imported_layout: None,
             elements: vec![Element::Action(p("BODY PAGE"), blank_attributes())],
         };
 
@@ -4257,6 +4343,7 @@ mod tests {
     fn pdf_render_output_wraps_styled_inline_fragments_in_span_marked_content() {
         let screenplay = Screenplay {
             metadata: Metadata::new(),
+            imported_layout: None,
             elements: vec![Element::Action(
                 ElementText::Styled(vec![
                     tr("PLAIN ", vec![]),
@@ -4319,6 +4406,7 @@ mod tests {
 
         let screenplay = Screenplay {
             metadata,
+            imported_layout: None,
             elements: vec![Element::Action(p("BODY PAGE"), blank_attributes())],
         };
 
@@ -4368,6 +4456,7 @@ mod tests {
 
         let screenplay = Screenplay {
             metadata,
+            imported_layout: None,
             elements: vec![Element::Action(p("BODY PAGE"), blank_attributes())],
         };
 
@@ -4413,6 +4502,7 @@ mod tests {
     fn pdf_render_output_uses_font_variants_and_underlines_for_styled_fragments() {
         let screenplay = Screenplay {
             metadata: Metadata::new(),
+            imported_layout: None,
             elements: vec![Element::Action(
                 ElementText::Styled(vec![
                     tr("PLAIN ", vec![]),
@@ -4446,6 +4536,7 @@ mod tests {
     fn pdf_render_output_applies_default_scene_heading_and_lyric_styles() {
         let screenplay = Screenplay {
             metadata: Metadata::new(),
+            imported_layout: None,
             elements: vec![
                 Element::SceneHeading(p("INT. OFFICE - DAY"), blank_attributes()),
                 Element::Lyric(p("I love to sing"), blank_attributes()),
@@ -4472,6 +4563,7 @@ mod tests {
         metadata.insert("fmt".into(), vec!["bsh ush".into()]);
         let screenplay = Screenplay {
             metadata,
+            imported_layout: None,
             elements: vec![Element::SceneHeading(
                 p("INT. OFFICE - DAY"),
                 blank_attributes(),
@@ -4536,7 +4628,10 @@ mod tests {
             title_page_line_left("SAMPLE SCRIPT", PdfTitleBlockRegion::CenterTitle, &geometry),
             260.5
         );
-        assert_eq!(title_page_bottom_right_left("April 6, 1952", &geometry), 445.7);
+        assert_eq!(
+            title_page_bottom_right_left("April 6, 1952", &geometry),
+            445.7
+        );
     }
 
     #[test]
@@ -4708,7 +4803,10 @@ mod tests {
     fn page_number_x_keeps_the_period_column_fixed() {
         let geometry = LayoutGeometry::default();
         assert_eq!(page_number_x(2, &geometry), PAGE_NUMBER_LEFT);
-        assert_eq!(page_number_x(34, &geometry), PAGE_NUMBER_LEFT - BODY_TEXT_CELL_WIDTH);
+        assert_eq!(
+            page_number_x(34, &geometry),
+            PAGE_NUMBER_LEFT - BODY_TEXT_CELL_WIDTH
+        );
         assert_eq!(
             page_number_x(100, &geometry),
             PAGE_NUMBER_LEFT - (2.0 * BODY_TEXT_CELL_WIDTH)

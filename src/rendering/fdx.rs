@@ -44,26 +44,29 @@ pub(crate) fn add_fdx_formatting(metadata: &mut Metadata) {
     let mut font_choice = "Courier Prime".to_string();
     let mut style_profile = None;
 
-        if let Some(opts_vec) = metadata.get_mut("fmt") {
-            if let Some(opts_string) = opts_vec.first() {
-                let opts_string = opts_string.plain_text();
-                for option in opts_string.split_whitespace() {
-                    if option.eq_ignore_ascii_case("multicam") {
-                        style_profile = Some("multicam".to_string());
-                    } else if matches_fmt_option(option, &["bsh", "bold-scene-headings"]) {
-                        scene_heading_styles.push("Bold");
-                    } else if matches_fmt_option(option, &["ush", "underline-scene-headings"]) {
-                        scene_heading_styles.push("Underline");
-                    } else if matches_fmt_option(option, &["acat", "all-caps-action"]) {
-                        action_text_style.push_str("AllCaps");
-                    } else if matches_fmt_option(option, &["ssbsh", "single-space-before-scene-headings"]) {
-                        space_before_heading = "12".to_string();
-                    } else if matches_fmt_option(option, &["cfd", "courier-final-draft"]) {
-                        font_choice = "Courier Final Draft".to_string();
-                    }
+    if let Some(opts_vec) = metadata.get_mut("fmt") {
+        if let Some(opts_string) = opts_vec.first() {
+            let opts_string = opts_string.plain_text();
+            for option in opts_string.split_whitespace() {
+                if option.eq_ignore_ascii_case("multicam") {
+                    style_profile = Some("multicam".to_string());
+                } else if matches_fmt_option(option, &["bsh", "bold-scene-headings"]) {
+                    scene_heading_styles.push("Bold");
+                } else if matches_fmt_option(option, &["ush", "underline-scene-headings"]) {
+                    scene_heading_styles.push("Underline");
+                } else if matches_fmt_option(option, &["acat", "all-caps-action"]) {
+                    action_text_style.push_str("AllCaps");
+                } else if matches_fmt_option(
+                    option,
+                    &["ssbsh", "single-space-before-scene-headings"],
+                ) {
+                    space_before_heading = "12".to_string();
+                } else if matches_fmt_option(option, &["cfd", "courier-final-draft"]) {
+                    font_choice = "Courier Final Draft".to_string();
                 }
             }
         }
+    }
 
     let layout_profile = ScreenplayLayoutProfile::from_metadata(metadata);
 

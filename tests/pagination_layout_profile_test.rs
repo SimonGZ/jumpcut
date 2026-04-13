@@ -4,7 +4,10 @@ use jumpcut::pagination::{
     Alignment, InterruptionDashWrap, PaginationConfig, ScreenplayLayoutProfile, StyleProfile,
 };
 use jumpcut::parse;
-use jumpcut::Metadata;
+use jumpcut::{
+    ImportedDialogueContinueds, ImportedElementKind, ImportedElementStyle, ImportedLayoutOverrides,
+    ImportedMoresAndContinueds, Metadata,
+};
 
 #[test]
 fn multicam_fmt_produces_a_shared_layout_profile_from_parser_metadata() {
@@ -68,6 +71,57 @@ fn pagination_config_can_be_built_from_screenplay_metadata_profile() {
     assert_eq!(config.geometry.character_right, 6.25);
     assert_eq!(config.geometry.parenthetical_left, 2.75);
     assert_eq!(config.geometry.transition_right, 7.25);
+}
+
+#[test]
+fn imported_layout_overrides_apply_on_top_of_metadata_defaults_for_render_paths() {
+    let mut screenplay =
+        parse("Title: Demo\nFmt: multicam dr-5.75 balanced\n\nINT. SET - DAY\n\nALICE\nHello.");
+    screenplay.imported_layout = Some(ImportedLayoutOverrides {
+        page: Default::default(),
+        element_styles: [
+            (
+                ImportedElementKind::Dialogue,
+                ImportedElementStyle {
+                    left_indent: Some(3.25),
+                    right_indent: Some(5.5),
+                    ..ImportedElementStyle::default()
+                },
+            ),
+            (
+                ImportedElementKind::Transition,
+                ImportedElementStyle {
+                    alignment: Some(jumpcut::ImportedAlignment::Left),
+                    ..ImportedElementStyle::default()
+                },
+            ),
+        ]
+        .into_iter()
+        .collect(),
+        mores_and_continueds: ImportedMoresAndContinueds {
+            dialogue: ImportedDialogueContinueds {
+                automatic_character_continueds: Some(false),
+                ..ImportedDialogueContinueds::default()
+            },
+            ..ImportedMoresAndContinueds::default()
+        },
+    });
+
+    let profile = ScreenplayLayoutProfile::from_screenplay(&screenplay);
+    let config = PaginationConfig::from_screenplay(&screenplay, 54.0);
+
+    assert_eq!(profile.style_profile, StyleProfile::Multicam);
+    assert_eq!(
+        profile.interruption_dash_wrap,
+        InterruptionDashWrap::KeepTogether
+    );
+    assert_eq!(profile.styles.dialogue.left_indent, 3.25);
+    assert_eq!(profile.styles.dialogue.right_indent, 5.5);
+    assert_eq!(profile.styles.dialogue.line_spacing, 2.0);
+    assert_eq!(profile.styles.transition.alignment, Alignment::Left);
+    assert!(!profile.automatic_character_continueds);
+    assert_eq!(config.geometry.dialogue_left, 3.25);
+    assert_eq!(config.geometry.dialogue_right, 5.5);
 }
 
 #[test]

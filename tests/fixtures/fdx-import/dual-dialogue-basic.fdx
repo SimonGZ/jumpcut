@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+<FinalDraft DocumentType="Script" Template="No" Version="4">
+  <Content>
+    <Paragraph Type="Action">
+      <Text>The men look at each other.</Text>
+    </Paragraph>
+    <Paragraph Alignment="Left" FirstIndent="0.00" Leading="Regular" LeftIndent="1.50" RightIndent="7.50" SpaceBefore="12" Spacing="1" StartsNewPage="No" Type="General">
+      <DualDialogue>
+        <Paragraph Type="Character">
+          <Text>STEEL</Text>
+        </Paragraph>
+        <Paragraph Type="Dialogue">
+          <Text>Screw retirement.</Text>
+        </Paragraph>
+        <Paragraph Type="Character">
+          <Text>BRICK</Text>
+        </Paragraph>
+        <Paragraph Type="Dialogue">
+          <Text>Screw retirement.</Text>
+        </Paragraph>
+      </DualDialogue>
+      <Text></Text>
+    </Paragraph>
+    <Paragraph Type="Transition">
+      <Text>SMASH CUT TO:</Text>
+    </Paragraph>
+  </Content>
+</FinalDraft>

@@ -1,0 +1,1147 @@
+use quick_xml::escape::unescape;
+use quick_xml::events::{BytesStart, Event};
+use quick_xml::Reader;
+use std::collections::{BTreeMap, HashSet};
+
+use crate::{
+    blank_attributes, Element, ElementText, ImportedAlignment, ImportedDialogueContinueds,
+    ImportedElementKind, ImportedElementStyle, ImportedLayoutOverrides, ImportedMoresAndContinueds,
+    ImportedPageLayoutOverrides, ImportedSceneContinueds, Metadata, Screenplay, TextRun,
+};
+
+#[derive(Debug)]
+pub struct FdxParseError(String);
+
+impl std::fmt::Display for FdxParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+impl std::error::Error for FdxParseError {}
+
+pub fn parse_fdx(xml: &str) -> Result<Screenplay, FdxParseError> {
+    let imported_settings = extract_import_settings(xml)?;
+    let mut metadata = extract_import_metadata(&imported_settings);
+    metadata.extend(extract_title_page_metadata(xml)?);
+    let imported_layout = imported_settings_to_layout_overrides(&imported_settings);
+    let elements = group_dialogue_blocks(
+        parse_blocks(xml)?
+            .into_iter()
+            .filter_map(block_to_element)
+            .collect(),
+    );
+
+    Ok(Screenplay {
+        metadata,
+        imported_layout,
+        elements,
+    })
+}
+
+#[derive(Debug)]
+struct FdxParagraph {
+    paragraph_type: String,
+    alignment: Option<String>,
+    starts_new_page: bool,
+    number: Option<String>,
+    text: ElementText,
+}
+
+#[derive(Debug)]
+enum FdxBlock {
+    Paragraph(FdxParagraph),
+    DualDialogue(Vec<FdxParagraph>),
+}
+
+#[derive(Debug)]
+struct TextChunk {
+    content: String,
+    styles: HashSet<String>,
+}
+
+#[derive(Clone, Debug, Default)]
+struct ImportedFdxSettings {
+    page_width: Option<f32>,
+    page_height: Option<f32>,
+    top_margin: Option<f32>,
+    bottom_margin: Option<f32>,
+    header_margin: Option<f32>,
+    footer_margin: Option<f32>,
+    mores_and_continueds: ImportedMoresAndContinueds,
+    paragraph_styles: BTreeMap<String, ImportedParagraphStyle>,
+}
+
+#[derive(Clone, Debug, Default)]
+struct ImportedParagraphStyle {
+    left_indent: Option<f32>,
+    right_indent: Option<f32>,
+    space_before: Option<f32>,
+    spacing: Option<f32>,
+    alignment: Option<ImportedAlignment>,
+    starts_new_page: Option<bool>,
+    underline: Option<bool>,
+    bold: Option<bool>,
+    italic: Option<bool>,
+}
+
+#[derive(Debug)]
+struct FdxTitlePageParagraph {
+    alignment: Option<String>,
+    text: ElementText,
+    adornment_styles: HashSet<String>,
+}
+
+fn parse_blocks(xml: &str) -> Result<Vec<FdxBlock>, FdxParseError> {
+    let mut reader = Reader::from_str(xml);
+    reader.config_mut().trim_text(false);
+
+    let mut buf = Vec::new();
+    let mut in_content = false;
+    let mut paragraph_depth = 0usize;
+    let mut in_text = false;
+    let mut in_dual_dialogue = false;
+
+    let mut paragraph_type = None;
+    let mut paragraph_alignment = None;
+    let mut paragraph_starts_new_page = false;
+    let mut paragraph_number = None;
+    let mut text_chunks: Vec<TextChunk> = Vec::new();
+    let mut text_styles: HashSet<String> = HashSet::new();
+    let mut blocks = Vec::new();
+    let mut dual_dialogue_paragraphs = Vec::new();
+
+    loop {
+        match reader.read_event_into(&mut buf) {
+            Ok(Event::Start(event)) => match event.name().as_ref() {
+                b"Content" if paragraph_depth == 0 => {
+                    in_content = true;
+                }
+                b"Paragraph" if in_content => {
+                    paragraph_depth += 1;
+                    if is_active_paragraph(paragraph_depth, in_dual_dialogue) {
+                        begin_paragraph(
+                            &reader,
+                            &event,
+                            &mut paragraph_type,
+                            &mut paragraph_alignment,
+                            &mut paragraph_starts_new_page,
+                            &mut paragraph_number,
+                            &mut text_chunks,
+                        )?;
+                    }
+                }
+                b"DualDialogue" if in_content => {
+                    in_dual_dialogue = true;
+                    dual_dialogue_paragraphs.clear();
+                }
+                b"Text" if paragraph_depth > 0 => {
+                    in_text = true;
+                    text_styles = parse_style_names(optional_attr(&reader, &event, b"Style")?);
+                }
+                _ => {}
+            },
+            Ok(Event::Empty(event)) => match event.name().as_ref() {
+                b"Paragraph" if in_content => {
+                    let paragraph = FdxParagraph {
+                        paragraph_type: required_attr(&reader, &event, b"Type")?
+                            .unwrap_or_default(),
+                        alignment: optional_attr(&reader, &event, b"Alignment")?,
+                        starts_new_page: optional_attr(&reader, &event, b"StartsNewPage")?
+                            .as_deref()
+                            == Some("Yes"),
+                        number: optional_attr(&reader, &event, b"Number")?,
+                        text: ElementText::Plain(String::new()),
+                    };
+                    if in_dual_dialogue {
+                        dual_dialogue_paragraphs.push(paragraph);
+                    } else {
+                        blocks.push(FdxBlock::Paragraph(paragraph));
+                    }
+                }
+                b"Text" if paragraph_depth > 0 => {
+                    text_chunks.push(TextChunk {
+                        content: String::new(),
+                        styles: parse_style_names(optional_attr(&reader, &event, b"Style")?),
+                    });
+                }
+                _ => {}
+            },
+            Ok(Event::Text(event)) if in_text => {
+                let decoded = event
+                    .decode()
+                    .map_err(|err| FdxParseError(err.to_string()))?;
+                text_chunks.push(TextChunk {
+                    content: unescape(&decoded)
+                        .map_err(|err| FdxParseError(err.to_string()))?
+                        .into_owned(),
+                    styles: text_styles.clone(),
+                });
+            }
+            Ok(Event::GeneralRef(event)) if in_text => {
+                let decoded = event
+                    .decode()
+                    .map_err(|err| FdxParseError(err.to_string()))?;
+                let entity = format!("&{decoded};");
+                text_chunks.push(TextChunk {
+                    content: unescape(&entity)
+                        .map_err(|err| FdxParseError(err.to_string()))?
+                        .into_owned(),
+                    styles: text_styles.clone(),
+                });
+            }
+            Ok(Event::End(event)) => match event.name().as_ref() {
+                b"Text" => {
+                    in_text = false;
+                }
+                b"Paragraph" if paragraph_depth > 0 => {
+                    if is_active_paragraph(paragraph_depth, in_dual_dialogue) {
+                        let paragraph = FdxParagraph {
+                            paragraph_type: paragraph_type.take().unwrap_or_default(),
+                            alignment: paragraph_alignment.take(),
+                            starts_new_page: paragraph_starts_new_page,
+                            number: paragraph_number.take(),
+                            text: collapse_text_chunks(std::mem::take(&mut text_chunks)),
+                        };
+                        if in_dual_dialogue {
+                            dual_dialogue_paragraphs.push(paragraph);
+                        } else {
+                            blocks.push(FdxBlock::Paragraph(paragraph));
+                        }
+                        paragraph_starts_new_page = false;
+                    }
+                    paragraph_depth -= 1;
+                }
+                b"DualDialogue" if in_dual_dialogue => {
+                    blocks.push(FdxBlock::DualDialogue(std::mem::take(
+                        &mut dual_dialogue_paragraphs,
+                    )));
+                    in_dual_dialogue = false;
+                }
+                b"Content" if in_content => {
+                    in_content = false;
+                }
+                _ => {}
+            },
+            Ok(Event::Eof) => break,
+            Err(err) => return Err(FdxParseError(err.to_string())),
+            _ => {}
+        }
+
+        buf.clear();
+    }
+
+    Ok(blocks)
+}
+
+fn begin_paragraph(
+    reader: &Reader<&[u8]>,
+    event: &BytesStart<'_>,
+    paragraph_type: &mut Option<String>,
+    paragraph_alignment: &mut Option<String>,
+    paragraph_starts_new_page: &mut bool,
+    paragraph_number: &mut Option<String>,
+    text_chunks: &mut Vec<TextChunk>,
+) -> Result<(), FdxParseError> {
+    *paragraph_type = required_attr(reader, event, b"Type")?;
+    *paragraph_alignment = optional_attr(reader, event, b"Alignment")?;
+    *paragraph_starts_new_page =
+        optional_attr(reader, event, b"StartsNewPage")?.as_deref() == Some("Yes");
+    *paragraph_number = optional_attr(reader, event, b"Number")?;
+    text_chunks.clear();
+    Ok(())
+}
+
+fn is_active_paragraph(paragraph_depth: usize, in_dual_dialogue: bool) -> bool {
+    (!in_dual_dialogue && paragraph_depth == 1) || (in_dual_dialogue && paragraph_depth == 2)
+}
+
+fn block_to_element(block: FdxBlock) -> Option<Element> {
+    match block {
+        FdxBlock::Paragraph(paragraph) => paragraph_to_element(paragraph),
+        FdxBlock::DualDialogue(paragraphs) => {
+            let dialogue_blocks = group_dialogue_blocks(
+                paragraphs
+                    .into_iter()
+                    .filter_map(paragraph_to_element)
+                    .collect(),
+            )
+            .into_iter()
+            .filter(|element| matches!(element, Element::DialogueBlock(_)))
+            .collect::<Vec<_>>();
+
+            if dialogue_blocks.is_empty() {
+                None
+            } else {
+                Some(Element::DualDialogueBlock(dialogue_blocks))
+            }
+        }
+    }
+}
+
+fn required_attr(
+    reader: &Reader<&[u8]>,
+    event: &BytesStart<'_>,
+    name: &[u8],
+) -> Result<Option<String>, FdxParseError> {
+    optional_attr(reader, event, name)
+}
+
+fn optional_attr(
+    reader: &Reader<&[u8]>,
+    event: &BytesStart<'_>,
+    name: &[u8],
+) -> Result<Option<String>, FdxParseError> {
+    for attr in event.attributes() {
+        let attr = attr.map_err(|err| FdxParseError(err.to_string()))?;
+        if attr.key.as_ref() == name {
+            return attr
+                .decode_and_unescape_value(reader.decoder())
+                .map(|value| Some(value.into_owned()))
+                .map_err(|err| FdxParseError(err.to_string()));
+        }
+    }
+    Ok(None)
+}
+
+fn parse_style_names(style: Option<String>) -> HashSet<String> {
+    style
+        .unwrap_or_default()
+        .split('+')
+        .filter(|part| !part.is_empty())
+        .map(|part| part.to_string())
+        .collect()
+}
+
+fn extract_import_metadata(settings: &ImportedFdxSettings) -> Metadata {
+    let fmt = normalize_settings_to_fmt(settings);
+    let mut metadata = Metadata::new();
+    if !fmt.is_empty() {
+        metadata.insert("fmt".into(), vec![fmt.into()]);
+    }
+    metadata
+}
+
+fn extract_title_page_metadata(xml: &str) -> Result<Metadata, FdxParseError> {
+    let paragraphs = parse_title_page_paragraphs(xml)?;
+    Ok(map_title_page_paragraphs_to_metadata(&paragraphs))
+}
+
+fn parse_title_page_paragraphs(xml: &str) -> Result<Vec<FdxTitlePageParagraph>, FdxParseError> {
+    let mut reader = Reader::from_str(xml);
+    reader.config_mut().trim_text(false);
+
+    let mut buf = Vec::new();
+    let mut in_title_page = false;
+    let mut in_title_content = false;
+    let mut paragraph_depth = 0usize;
+    let mut in_text = false;
+
+    let mut paragraph_alignment = None;
+    let mut text_chunks: Vec<TextChunk> = Vec::new();
+    let mut text_styles: HashSet<String> = HashSet::new();
+    let mut adornment_styles: HashSet<String> = HashSet::new();
+    let mut paragraphs = Vec::new();
+
+    loop {
+        match reader.read_event_into(&mut buf) {
+            Ok(Event::Start(event)) => match event.name().as_ref() {
+                b"TitlePage" => in_title_page = true,
+                b"Content" if in_title_page && paragraph_depth == 0 => in_title_content = true,
+                b"Paragraph" if in_title_content => {
+                    paragraph_depth += 1;
+                    if paragraph_depth == 1 {
+                        paragraph_alignment = optional_attr(&reader, &event, b"Alignment")?;
+                        text_chunks.clear();
+                        adornment_styles.clear();
+                    }
+                }
+                b"Text" if in_title_content && paragraph_depth > 0 => {
+                    in_text = true;
+                    text_styles = parse_style_names(optional_attr(&reader, &event, b"Style")?);
+                    if let Some(adornment) = optional_attr(&reader, &event, b"AdornmentStyle")? {
+                        adornment_styles.insert(adornment);
+                    }
+                }
+                _ => {}
+            },
+            Ok(Event::Empty(event)) => match event.name().as_ref() {
+                b"Text" if in_title_content && paragraph_depth > 0 => {
+                    let styles = parse_style_names(optional_attr(&reader, &event, b"Style")?);
+                    if let Some(adornment) = optional_attr(&reader, &event, b"AdornmentStyle")? {
+                        adornment_styles.insert(adornment);
+                    }
+                    text_chunks.push(TextChunk {
+                        content: String::new(),
+                        styles,
+                    });
+                }
+                _ => {}
+            },
+            Ok(Event::Text(event)) if in_text => {
+                let decoded = event
+                    .decode()
+                    .map_err(|err| FdxParseError(err.to_string()))?;
+                text_chunks.push(TextChunk {
+                    content: unescape(&decoded)
+                        .map_err(|err| FdxParseError(err.to_string()))?
+                        .into_owned(),
+                    styles: text_styles.clone(),
+                });
+            }
+            Ok(Event::GeneralRef(event)) if in_text => {
+                let decoded = event
+                    .decode()
+                    .map_err(|err| FdxParseError(err.to_string()))?;
+                let entity = format!("&{decoded};");
+                text_chunks.push(TextChunk {
+                    content: unescape(&entity)
+                        .map_err(|err| FdxParseError(err.to_string()))?
+                        .into_owned(),
+                    styles: text_styles.clone(),
+                });
+            }
+            Ok(Event::End(event)) => match event.name().as_ref() {
+                b"Text" => in_text = false,
+                b"Paragraph" if in_title_content && paragraph_depth > 0 => {
+                    if paragraph_depth == 1 {
+                        paragraphs.push(FdxTitlePageParagraph {
+                            alignment: paragraph_alignment.take(),
+                            text: collapse_text_chunks(std::mem::take(&mut text_chunks)),
+                            adornment_styles: std::mem::take(&mut adornment_styles),
+                        });
+                    }
+                    paragraph_depth -= 1;
+                }
+                b"Content" if in_title_content => in_title_content = false,
+                b"TitlePage" if in_title_page => in_title_page = false,
+                _ => {}
+            },
+            Ok(Event::Eof) => break,
+            Err(err) => return Err(FdxParseError(err.to_string())),
+            _ => {}
+        }
+
+        buf.clear();
+    }
+
+    Ok(paragraphs)
+}
+
+fn map_title_page_paragraphs_to_metadata(paragraphs: &[FdxTitlePageParagraph]) -> Metadata {
+    let mut metadata = Metadata::new();
+    if paragraphs.is_empty() {
+        return metadata;
+    }
+
+    let center_groups = centered_title_page_groups(paragraphs);
+    if let Some(group) = center_groups.first() {
+        metadata.insert("title".into(), group.lines.clone());
+    }
+    if center_groups.len() > 1 {
+        let remaining = &center_groups[1..];
+        let source_index = remaining
+            .iter()
+            .rposition(|group| group.is_source_like)
+            .or_else(|| (remaining.len() >= 3).then_some(remaining.len() - 1));
+        let middle = match source_index {
+            Some(index) => {
+                metadata.insert("source".into(), remaining[index].lines.clone());
+                &remaining[..index]
+            }
+            None => remaining,
+        };
+
+        match middle {
+            [only] => {
+                metadata.insert("author".into(), only.lines.clone());
+            }
+            [credit, authors @ ..] if !authors.is_empty() => {
+                metadata.insert("credit".into(), credit.lines.clone());
+                let author_lines = authors
+                    .iter()
+                    .flat_map(|group| group.lines.clone())
+                    .collect::<Vec<_>>();
+                if !author_lines.is_empty() {
+                    metadata.insert("authors".into(), author_lines);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    let bottom_start = paragraphs
+        .iter()
+        .rposition(|paragraph| paragraph.alignment.as_deref() == Some("Center"))
+        .map(|index| index + 1)
+        .unwrap_or(0);
+    let mut contact_lines = Vec::new();
+    let mut right_lines = Vec::new();
+    for paragraph in &paragraphs[bottom_start..] {
+        match paragraph.alignment.as_deref() {
+            Some("Left") => {
+                let (left, right) = split_title_page_bottom_columns(&paragraph.text);
+                if let Some(left) = left.filter(|value| !element_text_is_blank(value)) {
+                    contact_lines.push(left);
+                }
+                if let Some(right) = right.filter(|value| !element_text_is_blank(value)) {
+                    right_lines.push(right);
+                }
+            }
+            Some("Right") => {
+                if !element_text_is_blank(&paragraph.text) {
+                    right_lines.push(paragraph.text.clone());
+                }
+            }
+            _ => {}
+        }
+    }
+
+    if !contact_lines.is_empty() {
+        metadata.insert("contact".into(), contact_lines);
+    }
+    if !right_lines.is_empty() {
+        if right_lines.len() == 1 && looks_like_draft_date(&right_lines[0].plain_text()) {
+            metadata.insert("draft date".into(), right_lines);
+        } else if right_lines.len() > 1 && looks_like_draft_date(&right_lines.last().unwrap().plain_text()) {
+            let draft_date = vec![right_lines.pop().unwrap()];
+            metadata.insert("draft".into(), right_lines);
+            metadata.insert("draft date".into(), draft_date);
+        } else {
+            metadata.insert("draft".into(), right_lines);
+        }
+    }
+
+    metadata
+}
+
+#[derive(Clone)]
+struct TitlePageGroup {
+    lines: Vec<ElementText>,
+    is_source_like: bool,
+}
+
+fn centered_title_page_groups(paragraphs: &[FdxTitlePageParagraph]) -> Vec<TitlePageGroup> {
+    let mut groups = Vec::new();
+    let mut current_lines = Vec::new();
+    let mut current_source_like = false;
+
+    for paragraph in paragraphs {
+        if paragraph.alignment.as_deref() == Some("Center") && !element_text_is_blank(&paragraph.text) {
+            current_source_like |= paragraph.adornment_styles.contains("-1");
+            current_lines.push(paragraph.text.clone());
+            continue;
+        }
+
+        if !current_lines.is_empty() {
+            groups.push(TitlePageGroup {
+                lines: std::mem::take(&mut current_lines),
+                is_source_like: current_source_like,
+            });
+            current_source_like = false;
+        }
+    }
+
+    if !current_lines.is_empty() {
+        groups.push(TitlePageGroup {
+            lines: current_lines,
+            is_source_like: current_source_like,
+        });
+    }
+
+    groups
+}
+
+fn element_text_is_blank(text: &ElementText) -> bool {
+    text.plain_text().trim().is_empty()
+}
+
+fn split_title_page_bottom_columns(text: &ElementText) -> (Option<ElementText>, Option<ElementText>) {
+    if !text.plain_text().contains('\t') {
+        return (Some(text.clone()), None);
+    }
+
+    match text {
+        ElementText::Plain(value) => {
+            let mut parts = value.split('\t');
+            let left = parts.next().unwrap_or_default().to_string();
+            let right = parts.filter(|part| !part.is_empty()).next_back().unwrap_or_default().to_string();
+            (
+                (!left.is_empty()).then_some(ElementText::Plain(left)),
+                (!right.is_empty()).then_some(ElementText::Plain(right)),
+            )
+        }
+        ElementText::Styled(runs) => {
+            let mut seen_tab = false;
+            let mut left_runs = Vec::new();
+            let mut right_runs = Vec::new();
+
+            for run in runs {
+                let mut left = String::new();
+                let mut right = String::new();
+                for ch in run.content.chars() {
+                    if ch == '\t' {
+                        seen_tab = true;
+                        continue;
+                    }
+                    if seen_tab {
+                        right.push(ch);
+                    } else {
+                        left.push(ch);
+                    }
+                }
+                if !left.is_empty() {
+                    left_runs.push(TextRun {
+                        content: left,
+                        text_style: run.text_style.clone(),
+                    });
+                }
+                if !right.is_empty() {
+                    right_runs.push(TextRun {
+                        content: right,
+                        text_style: run.text_style.clone(),
+                    });
+                }
+            }
+
+            (
+                (!left_runs.is_empty()).then_some(ElementText::Styled(left_runs)),
+                (!right_runs.is_empty()).then_some(ElementText::Styled(right_runs)),
+            )
+        }
+    }
+}
+
+fn looks_like_draft_date(value: &str) -> bool {
+    let value = value.trim();
+    if value.is_empty() {
+        return false;
+    }
+
+    let has_digit = value.chars().any(|ch| ch.is_ascii_digit());
+    let has_date_separator = value.contains('/') || value.contains('-') || value.contains(',');
+    let has_month_name = [
+        "jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "sept", "oct", "nov",
+        "dec",
+    ]
+    .into_iter()
+    .any(|month| value.to_ascii_lowercase().contains(month));
+
+    has_digit && (has_date_separator || has_month_name)
+}
+
+fn extract_import_settings(xml: &str) -> Result<ImportedFdxSettings, FdxParseError> {
+    let mut reader = Reader::from_str(xml);
+    reader.config_mut().trim_text(false);
+
+    let mut buf = Vec::new();
+    let mut settings = ImportedFdxSettings::default();
+    let mut current_element_settings_type = None;
+    loop {
+        match reader.read_event_into(&mut buf) {
+            Ok(Event::Start(event)) => match event.name().as_ref() {
+                b"PageLayout" => apply_page_layout_attrs(&reader, &event, &mut settings)?,
+                b"PageSize" => apply_page_size_attrs(&reader, &event, &mut settings)?,
+                b"ElementSettings" => {
+                    current_element_settings_type = required_attr(&reader, &event, b"Type")?;
+                }
+                b"FontSpec" => {
+                    if let Some(type_name) = current_element_settings_type.as_deref() {
+                        apply_font_spec_attrs(
+                            &reader,
+                            &event,
+                            settings
+                                .paragraph_styles
+                                .entry(type_name.to_string())
+                                .or_insert_with(|| ImportedParagraphStyle::default()),
+                        )?;
+                    }
+                }
+                b"ParagraphSpec" => {
+                    if let Some(type_name) = current_element_settings_type.as_deref() {
+                        let paragraph_spec = parse_paragraph_spec(&reader, &event)?;
+                        merge_paragraph_style(
+                            settings
+                                .paragraph_styles
+                                .entry(type_name.to_string())
+                                .or_insert_with(ImportedParagraphStyle::default),
+                            paragraph_spec,
+                        );
+                    }
+                }
+                b"DialogueBreaks" => {
+                    apply_dialogue_break_attrs(
+                        &reader,
+                        &event,
+                        &mut settings.mores_and_continueds.dialogue,
+                    )?;
+                }
+                b"SceneBreaks" => {
+                    apply_scene_break_attrs(
+                        &reader,
+                        &event,
+                        &mut settings.mores_and_continueds.scene,
+                    )?;
+                }
+                _ => {}
+            },
+            Ok(Event::Empty(event)) => match event.name().as_ref() {
+                b"PageLayout" => apply_page_layout_attrs(&reader, &event, &mut settings)?,
+                b"PageSize" => apply_page_size_attrs(&reader, &event, &mut settings)?,
+                b"FontSpec" => {
+                    if let Some(type_name) = current_element_settings_type.as_deref() {
+                        apply_font_spec_attrs(
+                            &reader,
+                            &event,
+                            settings
+                                .paragraph_styles
+                                .entry(type_name.to_string())
+                                .or_insert_with(|| ImportedParagraphStyle::default()),
+                        )?;
+                    }
+                }
+                b"ParagraphSpec" => {
+                    if let Some(type_name) = current_element_settings_type.as_deref() {
+                        let paragraph_spec = parse_paragraph_spec(&reader, &event)?;
+                        merge_paragraph_style(
+                            settings
+                                .paragraph_styles
+                                .entry(type_name.to_string())
+                                .or_insert_with(ImportedParagraphStyle::default),
+                            paragraph_spec,
+                        );
+                    }
+                }
+                b"DialogueBreaks" => apply_dialogue_break_attrs(
+                    &reader,
+                    &event,
+                    &mut settings.mores_and_continueds.dialogue,
+                )?,
+                b"SceneBreaks" => apply_scene_break_attrs(
+                    &reader,
+                    &event,
+                    &mut settings.mores_and_continueds.scene,
+                )?,
+                _ => {}
+            },
+            Ok(Event::End(event)) => {
+                if event.name().as_ref() == b"ElementSettings" {
+                    current_element_settings_type = None;
+                }
+            }
+            Ok(Event::Eof) => break,
+            Err(err) => return Err(FdxParseError(err.to_string())),
+            _ => {}
+        }
+
+        buf.clear();
+    }
+
+    Ok(settings)
+}
+
+fn apply_page_layout_attrs(
+    reader: &Reader<&[u8]>,
+    event: &BytesStart<'_>,
+    settings: &mut ImportedFdxSettings,
+) -> Result<(), FdxParseError> {
+    settings.page_width = parse_attr_f32(reader, event, b"Width")?;
+    settings.page_height = parse_attr_f32(reader, event, b"Height")?;
+    settings.top_margin = parse_attr_f32(reader, event, b"TopMargin")?.map(|value| value / 72.0);
+    settings.bottom_margin =
+        parse_attr_f32(reader, event, b"BottomMargin")?.map(|value| value / 72.0);
+    settings.header_margin =
+        parse_attr_f32(reader, event, b"HeaderMargin")?.map(|value| value / 72.0);
+    settings.footer_margin =
+        parse_attr_f32(reader, event, b"FooterMargin")?.map(|value| value / 72.0);
+    Ok(())
+}
+
+fn apply_page_size_attrs(
+    reader: &Reader<&[u8]>,
+    event: &BytesStart<'_>,
+    settings: &mut ImportedFdxSettings,
+) -> Result<(), FdxParseError> {
+    settings.page_width = parse_attr_f32(reader, event, b"Width")?;
+    settings.page_height = parse_attr_f32(reader, event, b"Height")?;
+    Ok(())
+}
+
+fn parse_paragraph_spec(
+    reader: &Reader<&[u8]>,
+    event: &BytesStart<'_>,
+) -> Result<ImportedParagraphStyle, FdxParseError> {
+    Ok(ImportedParagraphStyle {
+        left_indent: parse_attr_f32(reader, event, b"LeftIndent")?,
+        right_indent: parse_attr_f32(reader, event, b"RightIndent")?,
+        space_before: parse_attr_f32(reader, event, b"SpaceBefore")?.map(spacing_lines_from_points),
+        spacing: parse_attr_f32(reader, event, b"Spacing")?,
+        alignment: parse_alignment(reader, event, b"Alignment")?,
+        starts_new_page: parse_yes_no_attr(reader, event, b"StartsNewPage")?,
+        underline: None,
+        bold: None,
+        italic: None,
+    })
+}
+
+fn merge_paragraph_style(target: &mut ImportedParagraphStyle, parsed: ImportedParagraphStyle) {
+    if parsed.left_indent.is_some() {
+        target.left_indent = parsed.left_indent;
+    }
+    if parsed.right_indent.is_some() {
+        target.right_indent = parsed.right_indent;
+    }
+    if parsed.space_before.is_some() {
+        target.space_before = parsed.space_before;
+    }
+    if parsed.spacing.is_some() {
+        target.spacing = parsed.spacing;
+    }
+    if parsed.alignment.is_some() {
+        target.alignment = parsed.alignment;
+    }
+    if parsed.starts_new_page.is_some() {
+        target.starts_new_page = parsed.starts_new_page;
+    }
+}
+
+fn apply_font_spec_attrs(
+    reader: &Reader<&[u8]>,
+    event: &BytesStart<'_>,
+    style: &mut ImportedParagraphStyle,
+) -> Result<(), FdxParseError> {
+    let font_styles = parse_style_names(optional_attr(reader, event, b"Style")?);
+    style.underline = Some(font_styles.contains("Underline"));
+    style.bold = Some(font_styles.contains("Bold"));
+    style.italic = Some(font_styles.contains("Italic"));
+    Ok(())
+}
+
+fn apply_dialogue_break_attrs(
+    reader: &Reader<&[u8]>,
+    event: &BytesStart<'_>,
+    continueds: &mut ImportedDialogueContinueds,
+) -> Result<(), FdxParseError> {
+    continueds.automatic_character_continueds =
+        parse_yes_no_attr(reader, event, b"AutomaticCharacterContinueds")?;
+    continueds.bottom_of_page = parse_yes_no_attr(reader, event, b"BottomOfPage")?;
+    continueds.dialogue_bottom = optional_attr(reader, event, b"DialogueBottom")?;
+    continueds.dialogue_top = optional_attr(reader, event, b"DialogueTop")?;
+    continueds.top_of_next = parse_yes_no_attr(reader, event, b"TopOfNext")?;
+    Ok(())
+}
+
+fn apply_scene_break_attrs(
+    reader: &Reader<&[u8]>,
+    event: &BytesStart<'_>,
+    continueds: &mut ImportedSceneContinueds,
+) -> Result<(), FdxParseError> {
+    continueds.continued_number = parse_yes_no_attr(reader, event, b"ContinuedNumber")?;
+    continueds.scene_bottom = optional_attr(reader, event, b"SceneBottom")?;
+    continueds.bottom_of_page = parse_yes_no_attr(reader, event, b"SceneBottomOfPage")?;
+    continueds.scene_top = optional_attr(reader, event, b"SceneTop")?;
+    continueds.top_of_next = parse_yes_no_attr(reader, event, b"SceneTopOfNext")?;
+    Ok(())
+}
+
+fn parse_attr_f32(
+    reader: &Reader<&[u8]>,
+    event: &BytesStart<'_>,
+    name: &[u8],
+) -> Result<Option<f32>, FdxParseError> {
+    optional_attr(reader, event, name)?
+        .map(|value| {
+            value
+                .parse::<f32>()
+                .map_err(|err| FdxParseError(err.to_string()))
+        })
+        .transpose()
+}
+
+fn parse_yes_no_attr(
+    reader: &Reader<&[u8]>,
+    event: &BytesStart<'_>,
+    name: &[u8],
+) -> Result<Option<bool>, FdxParseError> {
+    optional_attr(reader, event, name)?
+        .map(|value| match value.as_str() {
+            "Yes" => Ok(true),
+            "No" => Ok(false),
+            _ => Err(FdxParseError(format!(
+                "expected Yes/No attribute for {}",
+                String::from_utf8_lossy(name)
+            ))),
+        })
+        .transpose()
+}
+
+fn parse_alignment(
+    reader: &Reader<&[u8]>,
+    event: &BytesStart<'_>,
+    name: &[u8],
+) -> Result<Option<ImportedAlignment>, FdxParseError> {
+    optional_attr(reader, event, name)?
+        .map(|value| match value.as_str() {
+            "Left" => Ok(ImportedAlignment::Left),
+            "Center" => Ok(ImportedAlignment::Center),
+            "Right" => Ok(ImportedAlignment::Right),
+            _ => Err(FdxParseError(format!("unsupported alignment: {value}"))),
+        })
+        .transpose()
+}
+
+fn normalize_settings_to_fmt(settings: &ImportedFdxSettings) -> String {
+    let mut tokens = Vec::new();
+
+    if matches_a4_page(settings) {
+        tokens.push("a4".to_string());
+    }
+    if matches_multicam_profile(settings) {
+        tokens.push("multicam".to_string());
+    }
+
+    if let Some(style) = settings.paragraph_styles.get("Scene Heading") {
+        if style
+            .space_before
+            .is_some_and(|scene_heading_spacing_before| {
+                approx_eq(scene_heading_spacing_before, 1.0)
+            })
+        {
+            tokens.push("ssbsh".to_string());
+        }
+    }
+
+    if let Some(style) = settings.paragraph_styles.get("Dialogue") {
+        if style.spacing.is_some_and(|spacing| approx_eq(spacing, 2.0)) {
+            tokens.push("dsd".to_string());
+        }
+        if let Some(left_indent) = style.left_indent.filter(|value| !approx_eq(*value, 2.5)) {
+            tokens.push(format_numeric_token("dl", left_indent));
+        }
+        if let Some(right_indent) = style.right_indent.filter(|value| !approx_eq(*value, 6.0)) {
+            tokens.push(format_numeric_token("dr", right_indent));
+        }
+    }
+
+    if let Some(margin) = settings.top_margin.filter(|value| !approx_eq(*value, 1.0)) {
+        tokens.push(format_numeric_token("tm", margin));
+    }
+    if let Some(margin) = settings
+        .bottom_margin
+        .filter(|value| !approx_eq(*value, 1.0))
+    {
+        tokens.push(format_numeric_token("bm", margin));
+    }
+    if let Some(margin) = settings
+        .header_margin
+        .filter(|value| !approx_eq(*value, 0.5))
+    {
+        tokens.push(format_numeric_token("hm", margin));
+    }
+    if let Some(margin) = settings
+        .footer_margin
+        .filter(|value| !approx_eq(*value, 0.5))
+    {
+        tokens.push(format_numeric_token("fm", margin));
+    }
+
+    tokens.join(" ")
+}
+
+fn matches_a4_page(settings: &ImportedFdxSettings) -> bool {
+    matches!(
+        (settings.page_width, settings.page_height),
+        (Some(width), Some(height)) if approx_eq(width, 8.26) && approx_eq(height, 11.69)
+    )
+}
+
+fn matches_multicam_profile(settings: &ImportedFdxSettings) -> bool {
+    let Some(dialogue) = settings.paragraph_styles.get("Dialogue") else {
+        return false;
+    };
+    let Some(character) = settings.paragraph_styles.get("Character") else {
+        return false;
+    };
+    let Some(parenthetical) = settings.paragraph_styles.get("Parenthetical") else {
+        return false;
+    };
+    let Some(transition) = settings.paragraph_styles.get("Transition") else {
+        return false;
+    };
+
+    dialogue.spacing.is_some_and(|value| approx_eq(value, 2.0))
+        && dialogue
+            .left_indent
+            .is_some_and(|value| approx_eq(value, 2.25))
+        && character
+            .right_indent
+            .is_some_and(|value| approx_eq(value, 6.25))
+        && parenthetical
+            .left_indent
+            .is_some_and(|value| approx_eq(value, 2.75))
+        && transition
+            .right_indent
+            .is_some_and(|value| approx_eq(value, 7.25))
+}
+
+fn format_numeric_token(prefix: &str, value: f32) -> String {
+    let mut formatted = format!("{value:.2}");
+    while formatted.contains('.') && formatted.ends_with('0') {
+        formatted.pop();
+    }
+    if formatted.ends_with('.') {
+        formatted.pop();
+    }
+    format!("{prefix}-{formatted}")
+}
+
+fn spacing_lines_from_points(space_before_points: f32) -> f32 {
+    space_before_points / 12.0
+}
+
+fn imported_settings_to_layout_overrides(
+    settings: &ImportedFdxSettings,
+) -> Option<ImportedLayoutOverrides> {
+    let imported_layout = ImportedLayoutOverrides {
+        page: ImportedPageLayoutOverrides {
+            page_width: settings.page_width,
+            page_height: settings.page_height,
+            top_margin: settings.top_margin,
+            bottom_margin: settings.bottom_margin,
+            header_margin: settings.header_margin,
+            footer_margin: settings.footer_margin,
+        },
+        element_styles: settings
+            .paragraph_styles
+            .iter()
+            .filter_map(|(name, style)| {
+                imported_element_kind(name).map(|kind| {
+                    (
+                        kind,
+                        ImportedElementStyle {
+                            left_indent: style.left_indent,
+                            right_indent: style.right_indent,
+                            spacing_before: style.space_before,
+                            line_spacing: style.spacing,
+                            alignment: style.alignment,
+                            starts_new_page: style.starts_new_page,
+                            underline: style.underline,
+                            bold: style.bold,
+                            italic: style.italic,
+                        },
+                    )
+                })
+            })
+            .collect(),
+        mores_and_continueds: settings.mores_and_continueds.clone(),
+    };
+
+    if imported_layout.is_empty() {
+        None
+    } else {
+        Some(imported_layout)
+    }
+}
+
+fn imported_element_kind(name: &str) -> Option<ImportedElementKind> {
+    match name {
+        "Action" => Some(ImportedElementKind::Action),
+        "Scene Heading" => Some(ImportedElementKind::SceneHeading),
+        "Character" => Some(ImportedElementKind::Character),
+        "Dialogue" => Some(ImportedElementKind::Dialogue),
+        "Parenthetical" => Some(ImportedElementKind::Parenthetical),
+        "Transition" => Some(ImportedElementKind::Transition),
+        "Lyric" => Some(ImportedElementKind::Lyric),
+        "Cold Opening" => Some(ImportedElementKind::ColdOpening),
+        "New Act" => Some(ImportedElementKind::NewAct),
+        "End of Act" => Some(ImportedElementKind::EndOfAct),
+        _ => None,
+    }
+}
+
+fn approx_eq(left: f32, right: f32) -> bool {
+    (left - right).abs() < 0.01
+}
+
+fn collapse_text_chunks(chunks: Vec<TextChunk>) -> ElementText {
+    if chunks.is_empty() {
+        return ElementText::Plain(String::new());
+    }
+
+    if chunks.iter().all(|chunk| chunk.styles.is_empty()) {
+        return ElementText::Plain(chunks.into_iter().map(|chunk| chunk.content).collect());
+    }
+
+    let mut runs: Vec<TextRun> = Vec::new();
+    for chunk in chunks {
+        if let Some(last) = runs.last_mut() {
+            if last.text_style == chunk.styles {
+                last.content.push_str(&chunk.content);
+                continue;
+            }
+        }
+
+        runs.push(TextRun {
+            content: chunk.content,
+            text_style: chunk.styles,
+        });
+    }
+
+    ElementText::Styled(runs)
+}
+
+fn paragraph_to_element(paragraph: FdxParagraph) -> Option<Element> {
+    let mut attributes = blank_attributes();
+    if paragraph.alignment.as_deref() == Some("Center") && paragraph.paragraph_type == "Action" {
+        attributes.centered = true;
+    }
+    attributes.starts_new_page = paragraph.starts_new_page;
+    attributes.scene_number = paragraph.number;
+
+    match paragraph.paragraph_type.as_str() {
+        "Scene Heading" => Some(Element::SceneHeading(paragraph.text, attributes)),
+        "Action" => Some(Element::Action(paragraph.text, attributes)),
+        "Character" => Some(Element::Character(paragraph.text, attributes)),
+        "Dialogue" => Some(Element::Dialogue(paragraph.text, attributes)),
+        "Parenthetical" => Some(Element::Parenthetical(paragraph.text, attributes)),
+        "Transition" => Some(Element::Transition(paragraph.text, attributes)),
+        "Lyric" => Some(Element::Lyric(paragraph.text, attributes)),
+        "Cold Opening" => Some(Element::ColdOpening(paragraph.text, attributes)),
+        "New Act" => Some(Element::NewAct(paragraph.text, attributes)),
+        "End of Act" => Some(Element::EndOfAct(paragraph.text, attributes)),
+        _ => None,
+    }
+}
+
+fn group_dialogue_blocks(elements: Vec<Element>) -> Vec<Element> {
+    let mut grouped = Vec::new();
+    let mut index = 0;
+
+    while index < elements.len() {
+        if matches!(elements[index], Element::Character(_, _)) {
+            let mut block = vec![elements[index].clone()];
+            index += 1;
+
+            while index < elements.len()
+                && matches!(
+                    elements[index],
+                    Element::Parenthetical(_, _) | Element::Dialogue(_, _) | Element::Lyric(_, _)
+                )
+            {
+                block.push(elements[index].clone());
+                index += 1;
+            }
+
+            if block.len() > 1 {
+                grouped.push(Element::DialogueBlock(block));
+            } else {
+                grouped.extend(block);
+            }
+        } else {
+            grouped.push(elements[index].clone());
+            index += 1;
+        }
+    }
+
+    grouped
+}

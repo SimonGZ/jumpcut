@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+<FinalDraft DocumentType="Script" Template="No" Version="4">
+  <Content>
+    <Paragraph Type="Scene Heading">
+      <Text>EXT. BRICK'S PATIO - DAY</Text>
+    </Paragraph>
+    <Paragraph Type="Action">
+      <Text>A gorgeous day.</Text>
+    </Paragraph>
+    <Paragraph Type="Character">
+      <Text>STEEL</Text>
+    </Paragraph>
+    <Paragraph Type="Dialogue">
+      <Text>Beer's ready!</Text>
+    </Paragraph>
+    <Paragraph Type="Character">
+      <Text>BRICK</Text>
+    </Paragraph>
+    <Paragraph Type="Dialogue">
+      <Text>Are they cold?</Text>
+    </Paragraph>
+    <Paragraph Type="Character">
+      <Text>STEEL</Text>
+    </Paragraph>
+    <Paragraph Type="Parenthetical">
+      <Text>(beer raised)</Text>
+    </Paragraph>
+    <Paragraph Type="Dialogue">
+      <Text>To retirement.</Text>
+    </Paragraph>
+    <Paragraph Type="Character">
+      <Text>JACK</Text>
+    </Paragraph>
+    <Paragraph Type="Parenthetical">
+      <Text>(in Vietnamese, subtitled)</Text>
+    </Paragraph>
+    <Paragraph Type="Dialogue">
+      <Text Style="Italic">Did you know Brick and Steel are retired?</Text>
+    </Paragraph>
+    <Paragraph Type="Character">
+      <Text>DAN</Text>
+    </Paragraph>
+    <Paragraph Type="Dialogue">
+      <Text>Then let's retire them.
+</Text>
+      <Text Style="Underline">Permanently</Text>
+      <Text>.</Text>
+    </Paragraph>
+    <Paragraph Type="Transition">
+      <Text>CUT TO:</Text>
+    </Paragraph>
+  </Content>
+</FinalDraft>

@@ -1,4 +1,7 @@
-use crate::Metadata;
+use crate::{
+    ImportedAlignment, ImportedDialogueContinueds, ImportedElementKind, ImportedElementStyle,
+    ImportedLayoutOverrides, ImportedSceneContinueds, Metadata, Screenplay,
+};
 
 use super::wrapping::InterruptionDashWrap;
 use super::{Alignment, LayoutGeometry};
@@ -47,7 +50,9 @@ pub struct ScreenplayLayoutProfile {
     pub style_profile: StyleProfile,
     pub interruption_dash_wrap: InterruptionDashWrap,
     pub dual_dialogue_counts_for_contd: bool,
+    pub automatic_character_continueds: bool,
     pub styles: ScreenplayElementStyles,
+    pub continueds: ScreenplayContinueds,
     pub page_width: f32,
     pub page_height: f32,
     pub top_margin: f32,
@@ -55,6 +60,29 @@ pub struct ScreenplayLayoutProfile {
     pub header_margin: f32,
     pub footer_margin: f32,
     pub lines_per_page: f32,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ScreenplayContinueds {
+    pub dialogue: DialogueContinueds,
+    pub scene: SceneContinueds,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct DialogueContinueds {
+    pub top_of_next: bool,
+    pub bottom_of_page: bool,
+    pub top_text: String,
+    pub bottom_text: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SceneContinueds {
+    pub top_of_next: bool,
+    pub bottom_of_page: bool,
+    pub continued_number: bool,
+    pub top_text: String,
+    pub bottom_text: String,
 }
 
 impl ScreenplayLayoutProfile {
@@ -75,6 +103,14 @@ impl ScreenplayLayoutProfile {
             }
         }
 
+        profile
+    }
+
+    pub fn from_screenplay(screenplay: &Screenplay) -> Self {
+        let mut profile = Self::from_metadata(&screenplay.metadata);
+        if let Some(imported_layout) = &screenplay.imported_layout {
+            profile.overlay_imported_layout(imported_layout);
+        }
         profile
     }
 
@@ -175,6 +211,7 @@ impl ScreenplayLayoutProfile {
             style_profile: StyleProfile::Screenplay,
             interruption_dash_wrap: InterruptionDashWrap::FinalDraft,
             dual_dialogue_counts_for_contd: true,
+            automatic_character_continueds: true,
             styles: ScreenplayElementStyles {
                 action: ScreenplayElementStyle {
                     left_indent: 1.5,
@@ -353,6 +390,21 @@ impl ScreenplayLayoutProfile {
                     italic: false,
                 },
             },
+            continueds: ScreenplayContinueds {
+                dialogue: DialogueContinueds {
+                    top_of_next: true,
+                    bottom_of_page: true,
+                    top_text: "(CONT'D)".to_string(),
+                    bottom_text: "(MORE)".to_string(),
+                },
+                scene: SceneContinueds {
+                    top_of_next: false,
+                    bottom_of_page: false,
+                    continued_number: false,
+                    top_text: "CONTINUED:".to_string(),
+                    bottom_text: "(CONTINUED)".to_string(),
+                },
+            },
             page_width: 8.5,
             page_height: 11.0,
             top_margin: 1.0,
@@ -361,6 +413,149 @@ impl ScreenplayLayoutProfile {
             footer_margin: 0.5,
             lines_per_page: 54.0,
         }
+    }
+
+    fn overlay_imported_layout(&mut self, imported_layout: &ImportedLayoutOverrides) {
+        if let Some(page_width) = imported_layout.page.page_width {
+            self.page_width = page_width;
+        }
+        if let Some(page_height) = imported_layout.page.page_height {
+            self.page_height = page_height;
+        }
+        if let Some(top_margin) = imported_layout.page.top_margin {
+            self.top_margin = top_margin;
+        }
+        if let Some(bottom_margin) = imported_layout.page.bottom_margin {
+            self.bottom_margin = bottom_margin;
+        }
+        if let Some(header_margin) = imported_layout.page.header_margin {
+            self.header_margin = header_margin;
+        }
+        if let Some(footer_margin) = imported_layout.page.footer_margin {
+            self.footer_margin = footer_margin;
+        }
+
+        for (kind, style) in &imported_layout.element_styles {
+            match kind {
+                ImportedElementKind::Action => {
+                    apply_imported_element_style(&mut self.styles.action, style)
+                }
+                ImportedElementKind::SceneHeading => {
+                    apply_imported_element_style(&mut self.styles.scene_heading, style)
+                }
+                ImportedElementKind::Character => {
+                    apply_imported_element_style(&mut self.styles.character, style)
+                }
+                ImportedElementKind::Dialogue => {
+                    apply_imported_element_style(&mut self.styles.dialogue, style)
+                }
+                ImportedElementKind::Parenthetical => {
+                    apply_imported_element_style(&mut self.styles.parenthetical, style)
+                }
+                ImportedElementKind::Transition => {
+                    apply_imported_element_style(&mut self.styles.transition, style)
+                }
+                ImportedElementKind::Lyric => {
+                    apply_imported_element_style(&mut self.styles.lyric, style)
+                }
+                ImportedElementKind::ColdOpening => {
+                    apply_imported_element_style(&mut self.styles.cold_opening, style)
+                }
+                ImportedElementKind::NewAct => {
+                    apply_imported_element_style(&mut self.styles.new_act, style)
+                }
+                ImportedElementKind::EndOfAct => {
+                    apply_imported_element_style(&mut self.styles.end_of_act, style)
+                }
+            }
+        }
+
+        overlay_dialogue_continueds(
+            &mut self.automatic_character_continueds,
+            &mut self.continueds.dialogue,
+            &imported_layout.mores_and_continueds.dialogue,
+        );
+        overlay_scene_continueds(
+            &mut self.continueds.scene,
+            &imported_layout.mores_and_continueds.scene,
+        );
+    }
+}
+
+fn apply_imported_element_style(
+    target: &mut ScreenplayElementStyle,
+    imported: &ImportedElementStyle,
+) {
+    if let Some(left_indent) = imported.left_indent {
+        target.left_indent = left_indent;
+    }
+    if let Some(right_indent) = imported.right_indent {
+        target.right_indent = right_indent;
+    }
+    if let Some(spacing_before) = imported.spacing_before {
+        target.spacing_before = spacing_before;
+    }
+    if let Some(line_spacing) = imported.line_spacing {
+        target.line_spacing = line_spacing;
+    }
+    if let Some(alignment) = imported.alignment {
+        target.alignment = match alignment {
+            ImportedAlignment::Left => Alignment::Left,
+            ImportedAlignment::Center => Alignment::Center,
+            ImportedAlignment::Right => Alignment::Right,
+        };
+    }
+    if let Some(starts_new_page) = imported.starts_new_page {
+        target.starts_new_page = starts_new_page;
+    }
+    if let Some(underline) = imported.underline {
+        target.underline = underline;
+    }
+    if let Some(bold) = imported.bold {
+        target.bold = bold;
+    }
+    if let Some(italic) = imported.italic {
+        target.italic = italic;
+    }
+}
+
+fn overlay_dialogue_continueds(
+    automatic_character_continueds: &mut bool,
+    target: &mut DialogueContinueds,
+    imported: &ImportedDialogueContinueds,
+) {
+    if let Some(value) = imported.automatic_character_continueds {
+        *automatic_character_continueds = value;
+    }
+    if let Some(value) = imported.top_of_next {
+        target.top_of_next = value;
+    }
+    if let Some(value) = imported.bottom_of_page {
+        target.bottom_of_page = value;
+    }
+    if let Some(value) = &imported.dialogue_top {
+        target.top_text = value.clone();
+    }
+    if let Some(value) = &imported.dialogue_bottom {
+        target.bottom_text = value.clone();
+    }
+}
+
+fn overlay_scene_continueds(target: &mut SceneContinueds, imported: &ImportedSceneContinueds) {
+    if let Some(value) = imported.top_of_next {
+        target.top_of_next = value;
+    }
+    if let Some(value) = imported.bottom_of_page {
+        target.bottom_of_page = value;
+    }
+    if let Some(value) = imported.continued_number {
+        target.continued_number = value;
+    }
+    if let Some(value) = &imported.scene_top {
+        target.top_text = value.clone();
+    }
+    if let Some(value) = &imported.scene_bottom {
+        target.bottom_text = value.clone();
     }
 }
 

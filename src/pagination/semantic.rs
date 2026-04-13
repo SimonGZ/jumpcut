@@ -106,12 +106,14 @@ pub struct LyricUnit {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct SemanticOptions {
     pub dual_dialogue_counts_for_contd: bool,
+    pub automatic_character_continueds: bool,
 }
 
 impl Default for SemanticOptions {
     fn default() -> Self {
         Self {
             dual_dialogue_counts_for_contd: true,
+            automatic_character_continueds: true,
         }
     }
 }
@@ -153,6 +155,7 @@ pub fn build_semantic_screenplay_with_options(
                 group_id,
                 &normalized.elements[start..end],
                 &last_scene_dialogue_speakers,
+                options,
             )));
             last_scene_dialogue_speakers = if options.dual_dialogue_counts_for_contd {
                 last_dual_dialogue_round_speakers(&normalized.elements[start..end])
@@ -176,6 +179,7 @@ pub fn build_semantic_screenplay_with_options(
                 block_id,
                 &normalized.elements[start..end],
                 &last_scene_dialogue_speakers,
+                options,
             );
             last_scene_dialogue_speakers = dialogue_contd_speaker(&dialogue.parts)
                 .into_iter()
@@ -213,6 +217,7 @@ fn build_dual_dialogue_unit(
     group_id: &str,
     elements: &[NormalizedElement],
     previous_block_speakers: &BTreeSet<String>,
+    options: SemanticOptions,
 ) -> DualDialogueUnit {
     let left_blocks = dual_dialogue_blocks_for_side(group_id, elements, 1);
     let right_blocks = dual_dialogue_blocks_for_side(group_id, elements, 2);
@@ -226,14 +231,16 @@ fn build_dual_dialogue_unit(
         let mut current_round_speakers = BTreeSet::new();
 
         if let Some((block_id, block_elements)) = left_blocks.get(round) {
-            let dialogue = build_dialogue_unit(block_id, block_elements, &previous_round_speakers);
+            let dialogue =
+                build_dialogue_unit(block_id, block_elements, &previous_round_speakers, options);
             left_should_append |= dialogue.should_append_contd;
             current_round_speakers.extend(dialogue_contd_speaker(&dialogue.parts));
             left_parts.extend(dialogue.parts);
         }
 
         if let Some((block_id, block_elements)) = right_blocks.get(round) {
-            let dialogue = build_dialogue_unit(block_id, block_elements, &previous_round_speakers);
+            let dialogue =
+                build_dialogue_unit(block_id, block_elements, &previous_round_speakers, options);
             right_should_append |= dialogue.should_append_contd;
             current_round_speakers.extend(dialogue_contd_speaker(&dialogue.parts));
             right_parts.extend(dialogue.parts);
@@ -279,11 +286,12 @@ fn build_dialogue_unit(
     block_id: &str,
     elements: &[NormalizedElement],
     previous_scene_speakers: &BTreeSet<String>,
+    options: SemanticOptions,
 ) -> DialogueUnit {
     let current_speaker = dialogue_contd_speaker_for_elements(elements);
-    let should_append_contd = current_speaker
-        .as_deref()
-        .is_some_and(|current| previous_scene_speakers.contains(current));
+    let should_append_contd = current_speaker.as_deref().is_some_and(|current| {
+        options.automatic_character_continueds && previous_scene_speakers.contains(current)
+    });
     let parts = elements
         .iter()
         .map(|element| DialoguePart {
