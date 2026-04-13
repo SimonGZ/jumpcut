@@ -25,9 +25,19 @@ pub fn parse_fdx(xml: &str) -> Result<Screenplay, FdxParseError> {
     let imported_settings = extract_import_settings(xml)?;
     let mut metadata = extract_import_metadata(&imported_settings);
     metadata.extend(extract_title_page_metadata(xml)?);
-    let imported_layout = imported_settings_to_layout_overrides(&imported_settings);
+
+    let blocks = parse_blocks(xml)?;
+
+    let mut used_paragraph_types = HashSet::new();
+    for block in &blocks {
+        if let FdxBlock::Paragraph(p) = block {
+            used_paragraph_types.insert(p.paragraph_type.clone());
+        }
+    }
+
+    let imported_layout = imported_settings_to_layout_overrides(&imported_settings, &used_paragraph_types);
     let elements = group_dialogue_blocks(
-        parse_blocks(xml)?
+        blocks
             .into_iter()
             .filter_map(block_to_element)
             .collect(),
@@ -1034,7 +1044,38 @@ fn spacing_lines_from_points(space_before_points: f32) -> f32 {
 
 fn imported_settings_to_layout_overrides(
     settings: &ImportedFdxSettings,
+    used_paragraph_types: &HashSet<String>,
 ) -> Option<ImportedLayoutOverrides> {
+    let mut element_styles = std::collections::BTreeMap::new();
+    for (name, style) in &settings.paragraph_styles {
+        if let Some(kind) = imported_element_kind(name) {
+            let entry = ImportedElementStyle {
+                left_indent: style.left_indent,
+                right_indent: style.right_indent,
+                spacing_before: style.space_before,
+                line_spacing: style.spacing,
+                alignment: style.alignment,
+                starts_new_page: style.starts_new_page,
+                underline: style.underline,
+                bold: style.bold,
+                italic: style.italic,
+            };
+
+            if let Some(existing_name) = element_styles.get(&kind).map(|(n, _)| n) {
+                let new_is_used = used_paragraph_types.contains(name);
+                let existing_is_used = used_paragraph_types.contains(*existing_name);
+
+                if new_is_used && !existing_is_used {
+                    element_styles.insert(kind, (name, entry));
+                } else if !new_is_used && !existing_is_used {
+                    element_styles.insert(kind, (name, entry));
+                }
+            } else {
+                element_styles.insert(kind, (name, entry));
+            }
+        }
+    }
+
     let imported_layout = ImportedLayoutOverrides {
         page: ImportedPageLayoutOverrides {
             page_width: settings.page_width,
@@ -1044,27 +1085,9 @@ fn imported_settings_to_layout_overrides(
             header_margin: settings.header_margin,
             footer_margin: settings.footer_margin,
         },
-        element_styles: settings
-            .paragraph_styles
-            .iter()
-            .filter_map(|(name, style)| {
-                imported_element_kind(name).map(|kind| {
-                    (
-                        kind,
-                        ImportedElementStyle {
-                            left_indent: style.left_indent,
-                            right_indent: style.right_indent,
-                            spacing_before: style.space_before,
-                            line_spacing: style.spacing,
-                            alignment: style.alignment,
-                            starts_new_page: style.starts_new_page,
-                            underline: style.underline,
-                            bold: style.bold,
-                            italic: style.italic,
-                        },
-                    )
-                })
-            })
+        element_styles: element_styles
+            .into_iter()
+            .map(|(kind, (_, style))| (kind, style))
             .collect(),
         mores_and_continueds: settings.mores_and_continueds.clone(),
     };
@@ -1129,7 +1152,11 @@ fn paragraph_to_element(paragraph: FdxParagraph) -> Option<Element> {
         paragraph.paragraph_type.as_str(),
         "Action" | "Cold Opening" | "New Act" | "End of Act" | "End Of Act"
     );
-    if paragraph.alignment.as_deref() == Some("Center") && is_centered_type {
+    let is_inherently_centered = matches!(
+        paragraph.paragraph_type.as_str(),
+        "Cold Opening" | "New Act" | "End of Act" | "End Of Act"
+    );
+    if is_inherently_centered || (paragraph.alignment.as_deref() == Some("Center") && is_centered_type) {
         attributes.centered = true;
     }
     attributes.starts_new_page = paragraph.starts_new_page;
