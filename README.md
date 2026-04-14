@@ -16,7 +16,7 @@ cargo install jumpcut
 
 To use JumpCut as a library, you can specify the following in your Cargo.toml so that the command-line features are not added to your project:
 
-`jumpcut = { version = "1.0.0-beta", default-features = false, features = ["lib-only"] }`
+`jumpcut = { version = "1.0.0-beta.1", default-features = false, features = ["lib-only"] }`
 
 ## Usage
 
