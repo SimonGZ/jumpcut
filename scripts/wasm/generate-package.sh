@@ -64,7 +64,7 @@ rm -rf "$OUT_DIR"
 mkdir -p "$OUT_DIR"
 
 "$WASM_BINDGEN_BIN" \
-    --target nodejs \
+    --target web \
     --out-dir "$OUT_DIR" \
     "$RAW_WASM" >/dev/null
 
