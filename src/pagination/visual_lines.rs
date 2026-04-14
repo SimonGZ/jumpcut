@@ -149,21 +149,19 @@ fn default_pagination_scope(
     screenplay: &Screenplay,
     options: VisualRenderOptions,
 ) -> PaginationScope {
-    if options.render_title_page && has_title_page_metadata(screenplay) {
-        PaginationScope {
-            title_page_count: Some(1),
-            body_start_page: Some(2),
-        }
-    } else {
-        PaginationScope {
-            title_page_count: None,
-            body_start_page: None,
+    if options.render_title_page {
+        if let Some(title_page) = TitlePage::from_metadata(&screenplay.metadata) {
+            let count = title_page.total_page_count();
+            return PaginationScope {
+                title_page_count: Some(count),
+                body_start_page: Some(count + 1),
+            };
         }
     }
-}
-
-fn has_title_page_metadata(screenplay: &Screenplay) -> bool {
-    TitlePage::from_metadata(&screenplay.metadata).is_some()
+    PaginationScope {
+        title_page_count: None,
+        body_start_page: None,
+    }
 }
 
 fn nonempty_layout_pages<'a>(

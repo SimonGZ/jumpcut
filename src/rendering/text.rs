@@ -82,10 +82,11 @@ fn style_profile_name(layout_profile: &ScreenplayLayoutProfile) -> &'static str 
 }
 
 fn default_pagination_scope(screenplay: &Screenplay) -> PaginationScope {
-    if has_title_page_metadata(screenplay) {
+    if let Some(title_page) = TitlePage::from_metadata(&screenplay.metadata) {
+        let count = title_page.total_page_count();
         PaginationScope {
-            title_page_count: Some(1),
-            body_start_page: Some(2),
+            title_page_count: Some(count),
+            body_start_page: Some(count + 1),
         }
     } else {
         PaginationScope {
@@ -95,9 +96,7 @@ fn default_pagination_scope(screenplay: &Screenplay) -> PaginationScope {
     }
 }
 
-fn has_title_page_metadata(screenplay: &Screenplay) -> bool {
-    TitlePage::from_metadata(&screenplay.metadata).is_some()
-}
+
 
 fn nonempty_layout_pages<'a>(
     blocks: &'a [LayoutBlock<'a>],

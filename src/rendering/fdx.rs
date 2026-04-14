@@ -550,6 +550,7 @@ fn render_title_page(out: &mut String, metadata: &Metadata) {
     }
     render_title_bottom_rows(out, metadata, &font);
     render_title_blank_paragraph(out, &font, "Left");
+    render_title_frontmatter(out, metadata, &font);
 
     out.push_str("    </Content>\n    <TextState Scaling=\"90\" Selection=\"233,233\" ShowInvisibles=\"No\"/>\n  </TitlePage>\n");
 }
@@ -559,6 +560,32 @@ fn render_title_blank_paragraph(out: &mut String, font: &str, alignment: &str) {
     push_title_text(out, font, "0", "", "");
     end_title_paragraph(out);
 }
+
+fn render_title_frontmatter(out: &mut String, metadata: &Metadata, font: &str) {
+    use crate::title_page::TitlePage;
+    let Some(title_page) = TitlePage::from_metadata(metadata) else {
+        return;
+    };
+    for fm_page in &title_page.frontmatter {
+        for (para_index, para) in fm_page.paragraphs.iter().enumerate() {
+            let starts_new_page = para_index == 0; // first para of each frontmatter page
+            start_title_frontmatter_paragraph(out, starts_new_page);
+            push_title_element_text(out, font, "0", "", &para.text);
+            end_title_paragraph(out);
+        }
+    }
+}
+
+fn start_title_frontmatter_paragraph(out: &mut String, starts_new_page: bool) {
+    let snp = if starts_new_page { "Yes" } else { "No" };
+    write!(
+        out,
+        "      <Paragraph Alignment=\"Left\" FirstIndent=\"0.00\" Leading=\"Regular\" LeftIndent=\"1.50\" RightIndent=\"7.50\" SpaceBefore=\"12\" Spacing=\"1\" StartsNewPage=\"{}\">\n",
+        snp
+    )
+    .unwrap();
+}
+
 
 fn render_title_title_paragraph(out: &mut String, metadata: &Metadata, font: &str) {
     let plain_style = if plain_title_uses_all_caps(metadata) {

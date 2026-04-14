@@ -102,6 +102,7 @@ struct ImportedParagraphStyle {
 #[derive(Debug)]
 struct FdxTitlePageParagraph {
     alignment: Option<String>,
+    left_indent: Option<f64>,
     text: ElementText,
     adornment_styles: HashSet<String>,
 }
@@ -352,6 +353,7 @@ fn parse_title_page_paragraphs(xml: &str) -> Result<Vec<FdxTitlePageParagraph>, 
     let mut in_text = false;
 
     let mut paragraph_alignment = None;
+    let mut paragraph_left_indent: Option<f64> = None;
     let mut text_chunks: Vec<TextChunk> = Vec::new();
     let mut text_styles: HashSet<String> = HashSet::new();
     let mut adornment_styles: HashSet<String> = HashSet::new();
@@ -366,6 +368,8 @@ fn parse_title_page_paragraphs(xml: &str) -> Result<Vec<FdxTitlePageParagraph>, 
                     paragraph_depth += 1;
                     if paragraph_depth == 1 {
                         paragraph_alignment = optional_attr(&reader, &event, b"Alignment")?;
+                        paragraph_left_indent = optional_attr(&reader, &event, b"LeftIndent")?
+                            .and_then(|value| value.parse::<f64>().ok());
                         text_chunks.clear();
                         adornment_styles.clear();
                     }
@@ -421,6 +425,7 @@ fn parse_title_page_paragraphs(xml: &str) -> Result<Vec<FdxTitlePageParagraph>, 
                     if paragraph_depth == 1 {
                         paragraphs.push(FdxTitlePageParagraph {
                             alignment: paragraph_alignment.take(),
+                            left_indent: paragraph_left_indent.take(),
                             text: collapse_text_chunks(std::mem::take(&mut text_chunks)),
                             adornment_styles: std::mem::take(&mut adornment_styles),
                         });
@@ -494,15 +499,26 @@ fn map_title_page_paragraphs_to_metadata(paragraphs: &[FdxTitlePageParagraph]) -
         .unwrap_or(0);
     let mut contact_lines = Vec::new();
     let mut right_lines = Vec::new();
+    let mut frontmatter_lines: Vec<ElementText> = Vec::new();
     for paragraph in &paragraphs[bottom_start..] {
         match paragraph.alignment.as_deref() {
-            Some("Left") => {
-                let (left, right) = split_title_page_bottom_columns(&paragraph.text);
-                if let Some(left) = left.filter(|value| !element_text_is_blank(value)) {
-                    contact_lines.push(left);
-                }
-                if let Some(right) = right.filter(|value| !element_text_is_blank(value)) {
-                    right_lines.push(right);
+            Some("Left") | Some("Full") => {
+                // Paragraphs with action-width left indent (>= 1.50) that contain non-blank
+                // text are frontmatter, not contact/draft info.
+                let is_action_indent = paragraph
+                    .left_indent
+                    .map(|indent| indent >= 1.50 - f64::EPSILON)
+                    .unwrap_or(false);
+                if is_action_indent && !element_text_is_blank(&paragraph.text) {
+                    frontmatter_lines.push(paragraph.text.clone());
+                } else {
+                    let (left, right) = split_title_page_bottom_columns(&paragraph.text);
+                    if let Some(left) = left.filter(|value| !element_text_is_blank(value)) {
+                        contact_lines.push(left);
+                    }
+                    if let Some(right) = right.filter(|value| !element_text_is_blank(value)) {
+                        right_lines.push(right);
+                    }
                 }
             }
             Some("Right") => {
@@ -527,6 +543,9 @@ fn map_title_page_paragraphs_to_metadata(paragraphs: &[FdxTitlePageParagraph]) -
         } else {
             metadata.insert("draft".into(), right_lines);
         }
+    }
+    if !frontmatter_lines.is_empty() {
+        metadata.insert("frontmatter".into(), frontmatter_lines);
     }
 
     metadata

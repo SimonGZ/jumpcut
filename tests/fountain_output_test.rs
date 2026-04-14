@@ -179,3 +179,64 @@ Right side.
     assert_ne!(reparsed.metadata.get("title"), original.metadata.get("title"));
     assert_ne!(reparsed.metadata, original.metadata);
 }
+
+#[test]
+fn fountain_output_renders_frontmatter_metadata_with_blank_line_paragraph_separation() {
+    let mut metadata = Metadata::new();
+    metadata.insert("title".into(), vec!["MY SCREENPLAY".into()]);
+    metadata.insert(
+        "frontmatter".into(),
+        vec![
+            "WRITERS' NOTE".into(),
+            "".into(),
+            "First paragraph of the note.".into(),
+            "".into(),
+            "Second paragraph.".into(),
+        ],
+    );
+
+    let screenplay = Screenplay {
+        metadata,
+        imported_layout: None,
+        elements: vec![Element::Action(p("Body."), blank_attributes())],
+    };
+
+    let rendered = screenplay.to_fountain();
+
+    // Should contain Frontmatter key with indented content
+    assert!(rendered.contains("Frontmatter:"), "should contain Frontmatter key");
+    assert!(rendered.contains("    WRITERS' NOTE"), "should contain indented heading");
+    assert!(rendered.contains("    First paragraph of the note."), "should contain indented paragraph");
+    // Blank lines between paragraphs should be preserved as two-space lines
+    assert!(rendered.contains("  \n    First paragraph"), "should have two-space blank line separator");
+}
+
+#[test]
+fn fountain_frontmatter_round_trips_through_parse() {
+    let mut metadata = Metadata::new();
+    metadata.insert("title".into(), vec!["MY SCREENPLAY".into()]);
+    metadata.insert(
+        "frontmatter".into(),
+        vec![
+            "WRITERS' NOTE".into(),
+            "".into(),
+            "First paragraph.".into(),
+        ],
+    );
+
+    let screenplay = Screenplay {
+        metadata,
+        imported_layout: None,
+        elements: vec![Element::Action(p("Body."), blank_attributes())],
+    };
+
+    let rendered = screenplay.to_fountain();
+    let reparsed = parse(&rendered);
+
+    let original_fm = screenplay.metadata.get("frontmatter").expect("original frontmatter");
+    let reparsed_fm = reparsed.metadata.get("frontmatter").expect("reparsed frontmatter");
+    assert_eq!(reparsed_fm.len(), original_fm.len());
+    assert_eq!(reparsed_fm[0].plain_text(), "WRITERS' NOTE");
+    assert_eq!(reparsed_fm[1].plain_text(), "");
+    assert_eq!(reparsed_fm[2].plain_text(), "First paragraph.");
+}

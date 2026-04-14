@@ -10,6 +10,7 @@ const TITLE_PAGE_KEYS_IN_ORDER: &[&str] = &[
     "draft",
     "draft date",
     "contact",
+    "frontmatter",
 ];
 
 pub fn render(screenplay: &Screenplay) -> String {
@@ -65,10 +66,18 @@ fn render_metadata_entry(key: &str, values: &[ElementText], metadata: &Metadata)
         _ => {
             let mut lines = vec![format!("{display_key}:")];
             lines.extend(values.iter().flat_map(|value| {
-                render_metadata_value(key, value, Some(metadata))
-                    .split('\n')
-                    .map(|line| format!("    {line}"))
-                    .collect::<Vec<_>>()
+                let rendered = render_metadata_value(key, value, Some(metadata));
+                if rendered.is_empty() {
+                    // Use exactly two spaces for blank metadata continuation lines.
+                    // The Fountain parser treats "  " as an intentional blank line within
+                    // a hunk, which prevents the metadata block from being split.
+                    vec!["  ".to_string()]
+                } else {
+                    rendered
+                        .split('\n')
+                        .map(|line| format!("    {line}"))
+                        .collect::<Vec<_>>()
+                }
             }));
             lines.join("\n")
         }

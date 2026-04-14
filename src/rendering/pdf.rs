@@ -2239,10 +2239,11 @@ impl TitlePageBlockKind {
 }
 
 fn pdf_pagination_scope(screenplay: &Screenplay) -> PaginationScope {
-    if TitlePage::from_metadata(&screenplay.metadata).is_some() {
+    if let Some(title_page) = TitlePage::from_metadata(&screenplay.metadata) {
+        let count = title_page.total_page_count();
         PaginationScope {
-            title_page_count: Some(1),
-            body_start_page: Some(2),
+            title_page_count: Some(count),
+            body_start_page: Some(count + 1),
         }
     } else {
         PaginationScope {
