@@ -11,7 +11,6 @@ const TITLE_PAGE_KEYS_IN_ORDER: &[&str] = &[
     "draft date",
     "contact",
     "frontmatter-page-count",
-    "frontmatter",
 ];
 
 pub fn render(screenplay: &Screenplay) -> String {
@@ -59,10 +58,10 @@ fn render_metadata(metadata: &Metadata) -> String {
 
 fn export_metadata(screenplay: &Screenplay) -> Metadata {
     let mut metadata = screenplay.metadata.clone();
+    metadata.remove("frontmatter");
 
     if let Some(imported_title_page) = &screenplay.imported_title_page {
         if imported_title_page.pages.len() > 1 {
-            metadata.remove("frontmatter");
             metadata.insert(
                 "frontmatter-page-count".into(),
                 vec![ElementText::Plain(

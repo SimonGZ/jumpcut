@@ -544,16 +544,7 @@ fn it_imports_multi_page_title_page_frontmatter_from_fixture() {
     );
     assert_eq!(screenplay.metadata.get("credit"), Some(&vec!["by".into()]));
 
-    // Frontmatter should be captured
-    let frontmatter_lines = screenplay
-        .metadata
-        .get("frontmatter")
-        .expect("expected frontmatter metadata key");
-    assert!(
-        frontmatter_lines.len() >= 3,
-        "expected at least 3 frontmatter lines"
-    );
-    assert_eq!(frontmatter_lines[0].plain_text(), "WRITERS' NOTE");
+    assert!(!screenplay.metadata.contains_key("frontmatter"));
 
     // Should produce a valid TitlePage with frontmatter
     let title_page = TitlePage::from_screenplay(&screenplay).expect("expected title page");
@@ -629,11 +620,7 @@ fn it_preserves_title_page_overflow_pages_without_promoting_centered_page_two_co
         ]
     );
 
-    let frontmatter_lines = screenplay
-        .metadata
-        .get("frontmatter")
-        .expect("expected compatibility frontmatter metadata");
-    assert_eq!(frontmatter_lines[0].plain_text(), "> THE GUYS <");
+    assert!(!screenplay.metadata.contains_key("frontmatter"));
 }
 
 #[test]
@@ -655,8 +642,6 @@ fn it_imports_title_page_header_page_number_signal_for_multi_page_fixture() {
 
 #[test]
 fn it_imports_frontmatter_from_inline_fdx_with_action_indent_paragraphs() {
-    use jumpcut::title_page::FrontmatterAlignment;
-
     let xml = r#"<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
 <FinalDraft DocumentType="Script" Template="No" Version="4">
   <TitlePage>
@@ -695,117 +680,22 @@ fn it_imports_frontmatter_from_inline_fdx_with_action_indent_paragraphs() {
         )])])
     );
 
-    // Frontmatter should be captured
-    let frontmatter_lines = screenplay
-        .metadata
-        .get("frontmatter")
-        .expect("expected frontmatter metadata key");
-    assert_eq!(frontmatter_lines.len(), 2);
-    assert_eq!(frontmatter_lines[0].plain_text(), "A NOTE FROM THE WRITER");
-    assert_eq!(
-        frontmatter_lines[1].plain_text(),
-        "This is a personal note about the screenplay."
-    );
-
-    // Should produce a valid TitlePage with frontmatter
-    let title_page = TitlePage::from_metadata(&screenplay.metadata).expect("expected title page");
-    assert_eq!(title_page.frontmatter.len(), 1);
-    assert_eq!(title_page.frontmatter[0].paragraphs.len(), 2);
-    assert_eq!(
-        title_page.frontmatter[0].paragraphs[0].alignment,
-        FrontmatterAlignment::Left
-    );
-}
-
-#[test]
-fn fdx_export_emits_frontmatter_with_starts_new_page() {
-    use jumpcut::{Metadata, Screenplay};
-
-    let mut metadata = Metadata::new();
-    metadata.insert("title".into(), vec!["MY SCREENPLAY".into()]);
-    metadata.insert(
-        "frontmatter".into(),
-        vec![
-            "A NOTE FROM THE WRITER".into(),
-            "".into(),
-            "This is a personal note.".into(),
-        ],
-    );
-
-    let mut screenplay = Screenplay {
-        metadata,
-        imported_layout: None,
-        imported_title_page: None,
-        elements: vec![Element::Action(p("Body."), blank_attributes())],
-    };
-
-    let fdx = screenplay.to_final_draft();
-
-    // First frontmatter paragraph must have StartsNewPage="Yes"
-    // so Final Draft puts it on a new page
+    assert!(!screenplay.metadata.contains_key("frontmatter"));
+    let imported_title_page = screenplay
+        .imported_title_page
+        .as_ref()
+        .expect("expected imported title page");
+    assert_eq!(imported_title_page.pages.len(), 1);
+    let page_one_extra_paragraphs = imported_title_page.pages[0]
+        .paragraphs
+        .iter()
+        .filter(|paragraph| paragraph.alignment == ImportedTitlePageAlignment::Left)
+        .map(|paragraph| paragraph.text.plain_text())
+        .collect::<Vec<_>>();
+    assert!(page_one_extra_paragraphs.contains(&"A NOTE FROM THE WRITER".to_string()));
     assert!(
-        fdx.contains("StartsNewPage=\"Yes\""),
-        "FDX output should contain StartsNewPage=Yes for frontmatter"
-    );
-
-    // Should contain the frontmatter text content
-    assert!(
-        fdx.contains("A NOTE FROM THE WRITER"),
-        "should contain first frontmatter paragraph"
-    );
-    assert!(
-        fdx.contains("This is a personal note."),
-        "should contain second frontmatter paragraph"
-    );
-
-    // The frontmatter should use action-width indents (1.50/7.50), not title-page width (1.00)
-    assert!(
-        fdx.contains("LeftIndent=\"1.50\"") && fdx.contains("RightIndent=\"7.50\""),
-        "frontmatter paragraphs should use action-width indents"
-    );
-}
-
-#[test]
-fn fdx_export_emits_multi_page_frontmatter_with_starts_new_page_on_each_page() {
-    use jumpcut::{Metadata, Screenplay};
-
-    let mut metadata = Metadata::new();
-    metadata.insert("title".into(), vec!["MY SCREENPLAY".into()]);
-    metadata.insert(
-        "frontmatter".into(),
-        vec![
-            "Page A content.".into(),
-            "===".into(),
-            "Page B content.".into(),
-        ],
-    );
-
-    let mut screenplay = Screenplay {
-        metadata,
-        imported_layout: None,
-        imported_title_page: None,
-        elements: vec![Element::Action(p("Body."), blank_attributes())],
-    };
-
-    let fdx = screenplay.to_final_draft();
-
-    // Both frontmatter pages should exist in the output
-    assert!(fdx.contains("Page A content."), "should contain page A");
-    assert!(fdx.contains("Page B content."), "should contain page B");
-
-    // Should be importable and roundtrip the frontmatter
-    let reimported = parse_fdx(&fdx).expect("should parse back");
-    let fm = reimported
-        .metadata
-        .get("frontmatter")
-        .expect("should have frontmatter");
-    assert!(
-        fm.iter().any(|e| e.plain_text() == "Page A content."),
-        "page A should roundtrip"
-    );
-    assert!(
-        fm.iter().any(|e| e.plain_text() == "Page B content."),
-        "page B should roundtrip"
+        page_one_extra_paragraphs
+            .contains(&"This is a personal note about the screenplay.".to_string())
     );
 }
 
@@ -874,22 +764,4 @@ fn title_page_frontmatter_count_is_available_for_pagination_scope() {
     let tp_no_fm = TitlePage::from_metadata(&metadata_no_fm).expect("should have title page");
     assert_eq!(tp_no_fm.frontmatter.len(), 0);
 
-    // Script with 1 frontmatter page: title_page_count should be 2
-    let mut metadata_one_fm = Metadata::new();
-    metadata_one_fm.insert("title".into(), vec!["MY SCREENPLAY".into()]);
-    metadata_one_fm.insert("frontmatter".into(), vec!["A writer's note.".into()]);
-    let tp_one_fm = TitlePage::from_metadata(&metadata_one_fm).expect("should have title page");
-    assert_eq!(tp_one_fm.frontmatter.len(), 1);
-    assert_eq!(tp_one_fm.total_page_count(), 2);
-
-    // Script with 2 frontmatter pages: title_page_count should be 3
-    let mut metadata_two_fm = Metadata::new();
-    metadata_two_fm.insert("title".into(), vec!["MY SCREENPLAY".into()]);
-    metadata_two_fm.insert(
-        "frontmatter".into(),
-        vec!["Page one.".into(), "===".into(), "Page two.".into()],
-    );
-    let tp_two_fm = TitlePage::from_metadata(&metadata_two_fm).expect("should have title page");
-    assert_eq!(tp_two_fm.frontmatter.len(), 2);
-    assert_eq!(tp_two_fm.total_page_count(), 3);
 }

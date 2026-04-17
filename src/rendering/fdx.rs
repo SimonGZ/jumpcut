@@ -566,27 +566,6 @@ fn render_title_blank_paragraph(out: &mut String, font: &str, alignment: &str) {
 }
 
 fn render_title_frontmatter(out: &mut String, screenplay: &Screenplay, font: &str) {
-    use crate::title_page::TitlePage;
-    let Some(title_page) = TitlePage::from_screenplay(screenplay) else {
-        return;
-    };
-    let imported_overflow_pages = screenplay
-        .imported_title_page
-        .as_ref()
-        .map(|title_page| title_page.pages.len().saturating_sub(1))
-        .unwrap_or(0);
-
-    if imported_overflow_pages == 0 {
-        for fm_page in &title_page.frontmatter {
-            for (para_index, para) in fm_page.paragraphs.iter().enumerate() {
-                let starts_new_page = para_index == 0; // first para of each frontmatter page
-                start_title_frontmatter_paragraph(out, starts_new_page);
-                push_title_element_text(out, font, "0", "", &para.text);
-                end_title_paragraph(out);
-            }
-        }
-    }
-
     if let Some(imported_title_page) = &screenplay.imported_title_page {
         for page in imported_title_page.pages.iter().skip(1) {
             for (para_index, para) in page.paragraphs.iter().enumerate() {
@@ -596,16 +575,6 @@ fn render_title_frontmatter(out: &mut String, screenplay: &Screenplay, font: &st
             }
         }
     }
-}
-
-fn start_title_frontmatter_paragraph(out: &mut String, starts_new_page: bool) {
-    let snp = if starts_new_page { "Yes" } else { "No" };
-    write!(
-        out,
-        "      <Paragraph Alignment=\"Left\" FirstIndent=\"0.00\" Leading=\"Regular\" LeftIndent=\"1.50\" RightIndent=\"7.50\" SpaceBefore=\"12\" Spacing=\"1\" StartsNewPage=\"{}\">\n",
-        snp
-    )
-    .unwrap();
 }
 
 fn start_imported_title_paragraph(

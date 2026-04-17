@@ -352,13 +352,7 @@ fn extract_title_page_data(
     }
 
     let imported_title_page = build_imported_title_page(&paragraphs, header_footer);
-    let metadata = map_title_page_paragraphs_to_metadata(
-        &paragraphs,
-        imported_title_page
-            .as_ref()
-            .map(|title_page| title_page.pages.len())
-            .unwrap_or(0),
-    );
+    let metadata = map_title_page_paragraphs_to_metadata(&paragraphs);
 
     Ok((metadata, imported_title_page))
 }
@@ -555,10 +549,7 @@ fn parse_title_page_paragraphs(xml: &str) -> Result<Vec<FdxTitlePageParagraph>, 
     Ok(paragraphs)
 }
 
-fn map_title_page_paragraphs_to_metadata(
-    paragraphs: &[FdxTitlePageParagraph],
-    page_count: usize,
-) -> Metadata {
+fn map_title_page_paragraphs_to_metadata(paragraphs: &[FdxTitlePageParagraph]) -> Metadata {
     let mut metadata = Metadata::new();
     if paragraphs.is_empty() {
         return metadata;
@@ -579,24 +570,17 @@ fn map_title_page_paragraphs_to_metadata(
         .unwrap_or(0);
     let mut contact_lines = Vec::new();
     let mut right_lines = Vec::new();
-    let mut frontmatter_lines: Vec<ElementText> = Vec::new();
     for paragraph in &page_one[bottom_start..] {
         match paragraph.alignment.as_deref() {
             Some("Left") | Some("Full") => {
-                // Paragraphs with action-width left indent (>= 1.50) that contain non-blank
-                // text are frontmatter, not contact/draft info.
                 let is_action_indent = paragraph
                     .left_indent
                     .map(|indent| indent >= 1.50 - f64::EPSILON)
                     .unwrap_or(false);
-                if is_action_indent && !element_text_is_blank(&paragraph.text) {
-                    frontmatter_lines.push(paragraph.text.clone());
-                } else {
+                if !(is_action_indent && !element_text_is_blank(&paragraph.text)) {
                     let (left, right) = split_title_page_bottom_columns(&paragraph.text);
                     if let Some(left) = left.filter(|value| !element_text_is_blank(value)) {
-                        if is_copyright_like(&left.plain_text()) {
-                            frontmatter_lines.push(left);
-                        } else {
+                        if !is_copyright_like(&left.plain_text()) {
                             contact_lines.push(left);
                         }
                     }
@@ -607,46 +591,12 @@ fn map_title_page_paragraphs_to_metadata(
             }
             Some("Right") => {
                 if !element_text_is_blank(&paragraph.text) {
-                    if is_copyright_like(&paragraph.text.plain_text()) {
-                        frontmatter_lines.push(paragraph.text.clone());
-                    } else {
+                    if !is_copyright_like(&paragraph.text.plain_text()) {
                         right_lines.push(paragraph.text.clone());
                     }
                 }
             }
             _ => {}
-        }
-    }
-
-    if page_count > 1 {
-        if !frontmatter_lines.is_empty() {
-            frontmatter_lines.push("===".into());
-        }
-
-        let mut first_overflow_page = true;
-        for page in build_imported_title_page(paragraphs, ImportedTitlePageHeaderFooter::default())
-            .into_iter()
-            .flat_map(|title_page| title_page.pages.into_iter().enumerate())
-        {
-            let (page_index, page) = page;
-            if page_index == 0 {
-                continue;
-            }
-            if !first_overflow_page {
-                frontmatter_lines.push("===".into());
-            }
-            first_overflow_page = false;
-            for paragraph in page.paragraphs {
-                let text = match paragraph.alignment {
-                    ImportedTitlePageAlignment::Center => {
-                        ElementText::Plain(format!("> {} <", paragraph.text.plain_text()))
-                    }
-                    _ => paragraph.text,
-                };
-                if !element_text_is_blank(&text) {
-                    frontmatter_lines.push(text);
-                }
-            }
         }
     }
 
@@ -665,9 +615,6 @@ fn map_title_page_paragraphs_to_metadata(
         } else {
             metadata.insert("draft".into(), right_lines);
         }
-    }
-    if !frontmatter_lines.is_empty() {
-        metadata.insert("frontmatter".into(), frontmatter_lines);
     }
 
     metadata

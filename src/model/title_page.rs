@@ -64,7 +64,7 @@ pub struct TitlePage {
 
 impl TitlePage {
     pub fn from_metadata(metadata: &Metadata) -> Option<Self> {
-        build_title_page(metadata, None)
+        build_title_page(metadata, Vec::new())
     }
 
     pub fn from_screenplay(screenplay: &Screenplay) -> Option<Self> {
@@ -92,24 +92,19 @@ impl TitlePage {
                             .collect(),
                     })
                     .collect()
-            });
+            })
+            .unwrap_or_default();
 
         build_title_page(&screenplay.metadata, imported_frontmatter)
     }
 }
 
-fn build_title_page(
-    metadata: &Metadata,
-    imported_frontmatter: Option<Vec<FrontmatterPage>>,
-) -> Option<TitlePage> {
+fn build_title_page(metadata: &Metadata, imported_frontmatter: Vec<FrontmatterPage>) -> Option<TitlePage> {
     let has_title_keys = TITLE_PAGE_METADATA_KEYS
         .iter()
         .chain(["contact"].iter())
         .any(|key| metadata.contains_key(*key));
-    let has_frontmatter = imported_frontmatter
-        .as_ref()
-        .is_some_and(|pages| !pages.is_empty())
-        || metadata.contains_key("frontmatter");
+    let has_frontmatter = !imported_frontmatter.is_empty();
     if !has_title_keys && !has_frontmatter {
         return None;
     }
@@ -172,14 +167,10 @@ fn build_title_page(
         TitlePageRegion::BottomRight,
     );
 
-    let frontmatter = imported_frontmatter.unwrap_or_else(|| {
-        metadata
-            .get("frontmatter")
-            .map(|lines| parse_frontmatter_pages(lines))
-            .unwrap_or_default()
-    });
-
-    Some(TitlePage { blocks, frontmatter })
+    Some(TitlePage {
+        blocks,
+        frontmatter: imported_frontmatter,
+    })
 }
 
 impl TitlePage {
@@ -227,55 +218,6 @@ fn push_block(
             lines: lines.clone(),
         });
     }
-}
-
-fn parse_frontmatter_pages(lines: &[ElementText]) -> Vec<FrontmatterPage> {
-    let mut pages: Vec<FrontmatterPage> = Vec::new();
-    let mut current_paragraphs: Vec<FrontmatterParagraph> = Vec::new();
-
-    for line in lines {
-        let plain = line.plain_text();
-        let trimmed = plain.trim();
-
-        // Page break separator
-        if trimmed == "===" {
-            if !current_paragraphs.is_empty() {
-                pages.push(FrontmatterPage {
-                    paragraphs: std::mem::take(&mut current_paragraphs),
-                });
-            }
-            continue;
-        }
-
-        // Blank line = paragraph separator
-        if trimmed.is_empty() {
-            continue;
-        }
-
-        // Detect centered text: > text <
-        if trimmed.starts_with('>') && trimmed.ends_with('<') {
-            let centered_text = trimmed.trim_start_matches('>').trim_end_matches('<').trim();
-            current_paragraphs.push(FrontmatterParagraph {
-                text: ElementText::Plain(centered_text.to_string()),
-                alignment: FrontmatterAlignment::Center,
-            });
-            continue;
-        }
-
-        // Normal paragraph line
-        current_paragraphs.push(FrontmatterParagraph {
-            text: line.clone(),
-            alignment: FrontmatterAlignment::Left,
-        });
-    }
-
-    if !current_paragraphs.is_empty() {
-        pages.push(FrontmatterPage {
-            paragraphs: current_paragraphs,
-        });
-    }
-
-    pages
 }
 
 #[cfg(test)]
@@ -353,112 +295,9 @@ mod tests {
     }
 
     #[test]
-    fn frontmatter_single_page_with_paragraphs() {
-        let mut metadata = Metadata::new();
-        metadata.insert("title".into(), vec!["MY SCRIPT".into()]);
-        metadata.insert(
-            "frontmatter".into(),
-            vec![
-                "WRITERS' NOTE".into(),
-                "".into(),
-                "First paragraph of the note.".into(),
-                "".into(),
-                "Second paragraph of the note.".into(),
-            ],
-        );
-
-        let title_page = TitlePage::from_metadata(&metadata).expect("expected title page");
-
-        assert_eq!(title_page.frontmatter.len(), 1);
-        let page = &title_page.frontmatter[0];
-        assert_eq!(page.paragraphs.len(), 3);
-        assert_eq!(page.paragraphs[0].text.plain_text(), "WRITERS' NOTE");
-        assert_eq!(page.paragraphs[0].alignment, FrontmatterAlignment::Left);
-        assert_eq!(
-            page.paragraphs[1].text.plain_text(),
-            "First paragraph of the note."
-        );
-        assert_eq!(
-            page.paragraphs[2].text.plain_text(),
-            "Second paragraph of the note."
-        );
-    }
-
-    #[test]
-    fn frontmatter_multi_page_split_on_page_break() {
-        let mut metadata = Metadata::new();
-        metadata.insert("title".into(), vec!["MY SCRIPT".into()]);
-        metadata.insert(
-            "frontmatter".into(),
-            vec![
-                "Page one content.".into(),
-                "===".into(),
-                "Page two content.".into(),
-            ],
-        );
-
-        let title_page = TitlePage::from_metadata(&metadata).expect("expected title page");
-
-        assert_eq!(title_page.frontmatter.len(), 2);
-        assert_eq!(title_page.frontmatter[0].paragraphs.len(), 1);
-        assert_eq!(
-            title_page.frontmatter[0].paragraphs[0].text.plain_text(),
-            "Page one content."
-        );
-        assert_eq!(title_page.frontmatter[1].paragraphs.len(), 1);
-        assert_eq!(
-            title_page.frontmatter[1].paragraphs[0].text.plain_text(),
-            "Page two content."
-        );
-    }
-
-    #[test]
-    fn frontmatter_detects_centered_text() {
-        let mut metadata = Metadata::new();
-        metadata.insert("title".into(), vec!["MY SCRIPT".into()]);
-        metadata.insert(
-            "frontmatter".into(),
-            vec![
-                "> A centered quote <".into(),
-                "".into(),
-                "A left-aligned paragraph.".into(),
-            ],
-        );
-
-        let title_page = TitlePage::from_metadata(&metadata).expect("expected title page");
-
-        assert_eq!(title_page.frontmatter.len(), 1);
-        let page = &title_page.frontmatter[0];
-        assert_eq!(page.paragraphs.len(), 2);
-        assert_eq!(page.paragraphs[0].text.plain_text(), "A centered quote");
-        assert_eq!(page.paragraphs[0].alignment, FrontmatterAlignment::Center);
-        assert_eq!(page.paragraphs[1].alignment, FrontmatterAlignment::Left);
-    }
-
-    #[test]
-    fn frontmatter_preserves_styled_text() {
-        let mut metadata = Metadata::new();
-        metadata.insert("title".into(), vec!["MY SCRIPT".into()]);
-        metadata.insert(
-            "frontmatter".into(),
-            vec![Styled(vec![tr("WRITERS' NOTE", vec!["Underline"])])],
-        );
-
-        let title_page = TitlePage::from_metadata(&metadata).expect("expected title page");
-
-        assert_eq!(title_page.frontmatter.len(), 1);
-        assert_eq!(title_page.frontmatter[0].paragraphs.len(), 1);
-        assert!(matches!(
-            &title_page.frontmatter[0].paragraphs[0].text,
-            Styled(_)
-        ));
-    }
-
-    #[test]
     fn title_page_from_screenplay_prefers_imported_overflow_pages() {
         let mut metadata = Metadata::new();
         metadata.insert("title".into(), vec!["MY SCRIPT".into()]);
-        metadata.insert("frontmatter".into(), vec!["legacy metadata frontmatter".into()]);
 
         let screenplay = Screenplay {
             metadata,
