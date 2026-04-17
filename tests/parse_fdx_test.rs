@@ -576,6 +576,20 @@ fn it_preserves_title_page_overflow_pages_without_promoting_centered_page_two_co
 
     let screenplay = parse_fdx(&xml).expect("fdx should parse");
 
+    assert_eq!(
+        screenplay.metadata.get("title"),
+        Some(&vec![
+            Styled(vec![tr("GUY TEXT", vec!["AllCaps", "Bold", "Underline"])]),
+            "Pilot: \"The Power Betas\"".into(),
+        ])
+    );
+    assert_eq!(screenplay.metadata.get("credit"), Some(&vec!["by".into()]));
+    assert_eq!(
+        screenplay.metadata.get("author"),
+        Some(&vec!["Aaron Brownstein & Simon Ganz".into()])
+    );
+    assert!(!screenplay.metadata.contains_key("source"));
+
     assert!(
         screenplay
             .metadata

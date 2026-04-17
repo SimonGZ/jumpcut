@@ -570,44 +570,7 @@ fn map_title_page_paragraphs_to_metadata(
         .map(|(start, _)| *start)
         .unwrap_or(paragraphs.len());
     let page_one = &paragraphs[..page_one_end];
-    let center_groups = centered_title_page_groups(page_one);
-    if let Some(group) = center_groups.first() {
-        metadata.insert("title".into(), group.lines.clone());
-    }
-    if center_groups.len() > 1 {
-        let remaining = &center_groups[1..];
-        let source_index = remaining
-            .iter()
-            .rposition(|group| group.is_source_like)
-            .or_else(|| (remaining.len() >= 3).then_some(remaining.len() - 1));
-        let middle = match source_index {
-            Some(index) => {
-                metadata.insert("source".into(), remaining[index].lines.clone());
-                &remaining[..index]
-            }
-            None => remaining,
-        };
-
-        match middle {
-            [only] => {
-                if let Some((credit, author_lines)) = split_credit_and_author_lines(&only.lines) {
-                    metadata.insert("credit".into(), vec![credit]);
-                    insert_author_metadata(&mut metadata, author_lines);
-                } else {
-                    insert_author_metadata(&mut metadata, only.lines.clone());
-                }
-            }
-            [credit, authors @ ..] if !authors.is_empty() => {
-                metadata.insert("credit".into(), credit.lines.clone());
-                let author_lines = authors
-                    .iter()
-                    .flat_map(|group| group.lines.clone())
-                    .collect::<Vec<_>>();
-                insert_author_metadata(&mut metadata, author_lines);
-            }
-            _ => {}
-        }
-    }
+    apply_centered_title_page_metadata(&mut metadata, centered_title_page_groups(page_one));
 
     let bottom_start = page_one
         .iter()
@@ -631,7 +594,11 @@ fn map_title_page_paragraphs_to_metadata(
                 } else {
                     let (left, right) = split_title_page_bottom_columns(&paragraph.text);
                     if let Some(left) = left.filter(|value| !element_text_is_blank(value)) {
-                        contact_lines.push(left);
+                        if is_copyright_like(&left.plain_text()) {
+                            frontmatter_lines.push(left);
+                        } else {
+                            contact_lines.push(left);
+                        }
                     }
                     if let Some(right) = right.filter(|value| !element_text_is_blank(value)) {
                         right_lines.push(right);
@@ -640,7 +607,11 @@ fn map_title_page_paragraphs_to_metadata(
             }
             Some("Right") => {
                 if !element_text_is_blank(&paragraph.text) {
-                    right_lines.push(paragraph.text.clone());
+                    if is_copyright_like(&paragraph.text.plain_text()) {
+                        frontmatter_lines.push(paragraph.text.clone());
+                    } else {
+                        right_lines.push(paragraph.text.clone());
+                    }
                 }
             }
             _ => {}
@@ -708,6 +679,66 @@ struct TitlePageGroup {
     is_source_like: bool,
 }
 
+fn apply_centered_title_page_metadata(metadata: &mut Metadata, groups: Vec<TitlePageGroup>) {
+    if groups.is_empty() {
+        return;
+    }
+
+    let first_marker_index = groups
+        .iter()
+        .position(group_starts_non_title_section)
+        .unwrap_or(1)
+        .min(groups.len());
+    let title_lines = groups[..first_marker_index]
+        .iter()
+        .flat_map(|group| group.lines.clone())
+        .collect::<Vec<_>>();
+    if !title_lines.is_empty() {
+        metadata.insert("title".into(), title_lines);
+    }
+
+    let mut index = first_marker_index;
+    while index < groups.len() {
+        let group = &groups[index];
+        if group_is_credit(group) {
+            if let Some((credit, inline_author_lines)) = split_credit_and_author_lines(&group.lines) {
+                metadata.insert("credit".into(), vec![credit]);
+                let mut author_lines = inline_author_lines;
+                index += 1;
+                while index < groups.len() && group_can_be_author(&groups[index]) {
+                    author_lines.extend(groups[index].lines.clone());
+                    index += 1;
+                }
+                insert_author_metadata(metadata, author_lines);
+            } else {
+                metadata.insert("credit".into(), group.lines.clone());
+                index += 1;
+                let mut author_lines = Vec::new();
+                while index < groups.len() && group_can_be_author(&groups[index]) {
+                    author_lines.extend(groups[index].lines.clone());
+                    index += 1;
+                }
+                insert_author_metadata(metadata, author_lines);
+            }
+            continue;
+        }
+
+        if group_is_source(group) {
+            metadata.insert("source".into(), group.lines.clone());
+            index += 1;
+            continue;
+        }
+
+        if !metadata.contains_key("author") && !metadata.contains_key("authors") && group_can_be_author(group) {
+            insert_author_metadata(metadata, group.lines.clone());
+            index += 1;
+            continue;
+        }
+
+        index += 1;
+    }
+}
+
 fn split_credit_and_author_lines(lines: &[ElementText]) -> Option<(ElementText, Vec<ElementText>)> {
     let first = lines.first()?;
     if !is_credit_like(&first.plain_text()) || lines.len() < 2 {
@@ -733,6 +764,69 @@ fn is_credit_like(text: &str) -> bool {
         normalized.as_str(),
         "written by" | "by" | "screenplay by" | "story by" | "teleplay by" | "adapted by"
     )
+}
+
+fn is_source_like(text: &str) -> bool {
+    let normalized = text.trim().to_ascii_lowercase();
+    normalized.contains("based on")
+        || normalized.contains("based upon")
+        || normalized.contains("adapted from")
+        || normalized.contains("from the novel")
+        || normalized.contains("from the book")
+}
+
+fn is_draft_like(text: &str) -> bool {
+    let normalized = text.trim().to_ascii_lowercase();
+    normalized.contains("draft") || normalized.contains("revised")
+}
+
+fn is_copyright_like(text: &str) -> bool {
+    let normalized = text.trim().to_ascii_lowercase();
+    normalized.contains("copyright") || normalized.contains('©') || normalized.contains("all rights reserved")
+}
+
+fn group_starts_non_title_section(group: &TitlePageGroup) -> bool {
+    group_is_credit(group) || group_is_source(group) || group_is_draft(group) || group_is_date(group) || group_is_copyright(group)
+}
+
+fn group_is_credit(group: &TitlePageGroup) -> bool {
+    group.lines
+        .first()
+        .is_some_and(|line| is_credit_like(&line.plain_text()))
+}
+
+fn group_is_source(group: &TitlePageGroup) -> bool {
+    group.is_source_like
+        || group
+            .lines
+            .iter()
+            .any(|line| is_source_like(&line.plain_text()))
+}
+
+fn group_is_draft(group: &TitlePageGroup) -> bool {
+    group.lines.iter().any(|line| is_draft_like(&line.plain_text()))
+}
+
+fn group_is_date(group: &TitlePageGroup) -> bool {
+    group
+        .lines
+        .iter()
+        .all(|line| looks_like_draft_date(&line.plain_text()))
+}
+
+fn group_is_copyright(group: &TitlePageGroup) -> bool {
+    group
+        .lines
+        .iter()
+        .any(|line| is_copyright_like(&line.plain_text()))
+}
+
+fn group_can_be_author(group: &TitlePageGroup) -> bool {
+    !group_is_credit(group)
+        && !group_is_source(group)
+        && !group_is_draft(group)
+        && !group_is_date(group)
+        && !group_is_copyright(group)
 }
 
 fn centered_title_page_groups(paragraphs: &[FdxTitlePageParagraph]) -> Vec<TitlePageGroup> {
