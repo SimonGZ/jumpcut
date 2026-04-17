@@ -264,3 +264,42 @@ fn fountain_frontmatter_round_trips_through_parse() {
     assert_eq!(reparsed_fm[1].plain_text(), "");
     assert_eq!(reparsed_fm[2].plain_text(), "First paragraph.");
 }
+
+#[test]
+fn imported_fdx_title_overflow_pages_export_as_frontmatter_count_and_body_content() {
+    let xml = std::fs::read_to_string("tests/fixtures/fdx-import/title-pages-multi.fdx")
+        .expect("fixture should load");
+
+    let screenplay = parse_fdx(&xml).expect("fdx should parse");
+    let fountain = screenplay.to_fountain();
+    let reparsed = parse(&fountain);
+
+    assert!(fountain.contains("Frontmatter-page-count: 1"));
+    assert!(!fountain.contains("Frontmatter:"));
+    assert!(fountain.contains("WRITERS' NOTE"));
+    assert_eq!(
+        reparsed.metadata.get("frontmatter-page-count"),
+        Some(&vec!["1".into()])
+    );
+    assert!(matches!(
+        reparsed
+            .elements
+            .first()
+            .expect("expected first frontmatter element"),
+        Element::Action(_, _)
+    ));
+}
+
+#[test]
+fn imported_fdx_title_overflow_pages_normalize_tabs_before_fountain_export() {
+    let xml = std::fs::read_to_string("tests/fixtures/fdx-import/title-page-cast-page.fdx")
+        .expect("fixture should load");
+
+    let screenplay = parse_fdx(&xml).expect("fdx should parse");
+    let fountain = screenplay.to_fountain();
+
+    assert!(fountain.contains("Frontmatter-page-count: 1"));
+    assert!(!fountain.contains('\t'));
+    assert!(fountain.contains("**ALAN**"));
+    assert!(fountain.contains("Late 30s, anxious unemployed stay-at-home dad."));
+}

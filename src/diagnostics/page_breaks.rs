@@ -1892,6 +1892,7 @@ fn fd_probe_rendered_block_text(
 
 fn spec_scope() -> crate::pagination::PaginationScope {
     crate::pagination::PaginationScope {
+        first_page_number: None,
         title_page_count: None,
         body_start_page: None,
     }

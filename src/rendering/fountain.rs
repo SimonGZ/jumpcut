@@ -10,16 +10,20 @@ const TITLE_PAGE_KEYS_IN_ORDER: &[&str] = &[
     "draft",
     "draft date",
     "contact",
+    "frontmatter-page-count",
     "frontmatter",
 ];
 
 pub fn render(screenplay: &Screenplay) -> String {
     let mut paragraphs = Vec::new();
+    let metadata = export_metadata(screenplay);
 
-    let metadata_block = render_metadata(&screenplay.metadata);
+    let metadata_block = render_metadata(&metadata);
     if !metadata_block.is_empty() {
         paragraphs.push(metadata_block);
     }
+
+    paragraphs.extend(render_imported_title_overflow_as_body(screenplay));
 
     for element in &screenplay.elements {
         paragraphs.extend(render_element_with_page_breaks(element));
@@ -51,6 +55,80 @@ fn render_metadata(metadata: &Metadata) -> String {
     }
 
     lines.join("\n")
+}
+
+fn export_metadata(screenplay: &Screenplay) -> Metadata {
+    let mut metadata = screenplay.metadata.clone();
+
+    if let Some(imported_title_page) = &screenplay.imported_title_page {
+        if imported_title_page.pages.len() > 1 {
+            metadata.remove("frontmatter");
+            metadata.insert(
+                "frontmatter-page-count".into(),
+                vec![ElementText::Plain(
+                    imported_title_page.pages.len().saturating_sub(1).to_string(),
+                )],
+            );
+        }
+    }
+
+    metadata
+}
+
+fn render_imported_title_overflow_as_body(screenplay: &Screenplay) -> Vec<String> {
+    let Some(imported_title_page) = &screenplay.imported_title_page else {
+        return Vec::new();
+    };
+    if imported_title_page.pages.len() <= 1 {
+        return Vec::new();
+    }
+
+    let mut paragraphs = Vec::new();
+    for (page_index, page) in imported_title_page.pages.iter().enumerate().skip(1) {
+        if page_index > 1 {
+            paragraphs.push("===".to_string());
+        }
+        for paragraph in page
+            .paragraphs
+            .iter()
+            .filter(|paragraph| !paragraph.text.plain_text().trim().is_empty())
+        {
+            let rendered = match paragraph.alignment {
+                crate::ImportedTitlePageAlignment::Center => render_centered(
+                    &normalize_frontmatter_body_text(&paragraph.text),
+                    &Attributes {
+                        centered: true,
+                        ..Default::default()
+                    },
+                ),
+                _ => render_action(
+                    &normalize_frontmatter_body_text(&paragraph.text),
+                    &Attributes::default(),
+                ),
+            };
+            paragraphs.push(rendered);
+        }
+    }
+
+    if !paragraphs.is_empty() && !screenplay.elements.is_empty() {
+        paragraphs.push("===".to_string());
+    }
+
+    paragraphs
+}
+
+fn normalize_frontmatter_body_text(text: &ElementText) -> ElementText {
+    match text {
+        ElementText::Plain(text) => ElementText::Plain(text.replace('\t', "    ")),
+        ElementText::Styled(runs) => ElementText::Styled(
+            runs.iter()
+                .map(|run| TextRun {
+                    content: run.content.replace('\t', "    "),
+                    text_style: run.text_style.clone(),
+                })
+                .collect(),
+        ),
+    }
 }
 
 fn render_metadata_entry(key: &str, values: &[ElementText], metadata: &Metadata) -> String {

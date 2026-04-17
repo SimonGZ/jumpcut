@@ -13,7 +13,7 @@ use crate::pagination::{
     BlockPlacement, ContinuationMarker, Fragment, PageItem, PaginatedScreenplay, PaginationScope,
 };
 use crate::title_page::{
-    plain_title_uses_all_caps, TitlePage, TitlePageBlockKind, TitlePageRegion,
+    frontmatter_count, plain_title_uses_all_caps, TitlePage, TitlePageBlockKind, TitlePageRegion,
 };
 use crate::{
     styled_text::{StyledRun, StyledText},
@@ -2799,13 +2799,20 @@ impl TitlePageBlockKind {
 
 fn pdf_pagination_scope(screenplay: &Screenplay) -> PaginationScope {
     if let Some(title_page) = TitlePage::from_screenplay(screenplay) {
-        let count = title_page.total_page_count();
+        let count = frontmatter_count(screenplay).unwrap_or_else(|| title_page.total_page_count());
+        let first_page_number = if screenplay.metadata.contains_key("frontmatter-page-count") {
+            Some(2)
+        } else {
+            Some(count + 1)
+        };
         PaginationScope {
+            first_page_number,
             title_page_count: Some(count),
             body_start_page: Some(count + 1),
         }
     } else {
         PaginationScope {
+            first_page_number: None,
             title_page_count: None,
             body_start_page: None,
         }

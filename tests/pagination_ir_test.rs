@@ -208,6 +208,7 @@ fn paginated_ir_from_normalized_honors_explicit_page_starts() {
         normalized,
         "standard",
         PaginationScope {
+            first_page_number: None,
             title_page_count: Some(1),
             body_start_page: Some(2),
         },
@@ -262,6 +263,7 @@ fn paginated_ir_from_normalized_omits_non_visual_sections_and_synopses() {
         normalized,
         "standard",
         PaginationScope {
+            first_page_number: None,
             title_page_count: Some(1),
             body_start_page: Some(2),
         },
@@ -294,6 +296,7 @@ fn paginated_ir_from_normalized_respects_explicit_starting_page_number() {
         normalized,
         "standard",
         PaginationScope {
+            first_page_number: None,
             title_page_count: Some(1),
             body_start_page: Some(2),
         },
@@ -360,6 +363,7 @@ fn paginated_ir_from_normalized_rolls_block_onto_next_page_start() {
         normalized,
         "standard",
         PaginationScope {
+            first_page_number: None,
             title_page_count: Some(1),
             body_start_page: Some(2),
         },
@@ -439,6 +443,7 @@ fn paginated_ir_from_normalized_preserves_dual_dialogue_placement() {
         normalized,
         "standard",
         PaginationScope {
+            first_page_number: None,
             title_page_count: Some(1),
             body_start_page: Some(2),
         },

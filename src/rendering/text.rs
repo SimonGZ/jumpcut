@@ -7,7 +7,7 @@ use crate::pagination::{
     Page, PageKind, PaginatedScreenplay, PaginationConfig, PaginationScope,
     ScreenplayLayoutProfile, SemanticOptions, SemanticUnit, StyleProfile,
 };
-use crate::title_page::TitlePage;
+use crate::title_page::{frontmatter_count, TitlePage};
 use crate::Screenplay;
 
 const DEFAULT_LINES_PER_PAGE: f32 = 54.0;
@@ -83,13 +83,20 @@ fn style_profile_name(layout_profile: &ScreenplayLayoutProfile) -> &'static str 
 
 fn default_pagination_scope(screenplay: &Screenplay) -> PaginationScope {
     if let Some(title_page) = TitlePage::from_screenplay(screenplay) {
-        let count = title_page.total_page_count();
+        let count = frontmatter_count(screenplay).unwrap_or_else(|| title_page.total_page_count());
+        let first_page_number = if screenplay.metadata.contains_key("frontmatter-page-count") {
+            Some(2)
+        } else {
+            Some(count + 1)
+        };
         PaginationScope {
+            first_page_number,
             title_page_count: Some(count),
             body_start_page: Some(count + 1),
         }
     } else {
         PaginationScope {
+            first_page_number: None,
             title_page_count: None,
             body_start_page: None,
         }
@@ -919,6 +926,24 @@ mod tests {
             .unwrap_or_default();
         assert_eq!(page_two_header.find("2.").unwrap_or_default(), 56);
         assert!(page_two_header.starts_with("    - -"));
+    }
+
+    #[test]
+    fn pagination_scope_uses_frontmatter_count_metadata_for_body_start() {
+        let mut metadata = Metadata::new();
+        metadata.insert("title".into(), vec!["TITLE".into()]);
+        metadata.insert("frontmatter-page-count".into(), vec!["1".into()]);
+        let screenplay = Screenplay {
+            metadata,
+            imported_layout: None,
+            imported_title_page: None,
+            elements: vec![Element::Action(p("BODY PAGE"), blank_attributes())],
+        };
+
+        let scope = default_pagination_scope(&screenplay);
+
+        assert_eq!(scope.title_page_count, Some(2));
+        assert_eq!(scope.body_start_page, Some(3));
     }
 
     #[test]

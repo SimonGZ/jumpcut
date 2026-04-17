@@ -193,6 +193,17 @@ impl TitlePage {
     }
 }
 
+pub fn frontmatter_count(screenplay: &Screenplay) -> Option<u32> {
+    screenplay
+        .metadata
+        .get("frontmatter-page-count")
+        .and_then(|values| values.first())
+        .and_then(|value| value.plain_text().trim().parse::<u32>().ok())
+        .filter(|count| *count > 0)
+        .map(|count| count + 1)
+        .or_else(|| TitlePage::from_screenplay(screenplay).map(|title_page| title_page.total_page_count()))
+}
+
 pub fn plain_title_uses_all_caps(metadata: &Metadata) -> bool {
     !metadata.get("fmt").into_iter().flatten().any(|value| {
         value
@@ -481,5 +492,21 @@ mod tests {
             title_page.frontmatter[0].paragraphs[0].alignment,
             FrontmatterAlignment::Center
         );
+    }
+
+    #[test]
+    fn screenplay_frontmatter_count_metadata_overrides_derived_title_page_count() {
+        let mut metadata = Metadata::new();
+        metadata.insert("title".into(), vec!["MY SCRIPT".into()]);
+        metadata.insert("frontmatter-page-count".into(), vec!["2".into()]);
+
+        let screenplay = Screenplay {
+            metadata,
+            imported_layout: None,
+            imported_title_page: None,
+            elements: vec![],
+        };
+
+        assert_eq!(frontmatter_count(&screenplay), Some(3));
     }
 }

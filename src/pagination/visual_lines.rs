@@ -8,7 +8,7 @@ use crate::pagination::{
     ScreenplayLayoutProfile, SemanticOptions, SemanticUnit, StyleProfile,
 };
 use crate::styled_text::{StyledRun, StyledText};
-use crate::title_page::TitlePage;
+use crate::title_page::{frontmatter_count, TitlePage};
 use crate::Screenplay;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -150,15 +150,22 @@ fn default_pagination_scope(
     options: VisualRenderOptions,
 ) -> PaginationScope {
     if options.render_title_page {
-        if let Some(title_page) = TitlePage::from_screenplay(screenplay) {
-            let count = title_page.total_page_count();
+        if TitlePage::from_screenplay(screenplay).is_some() {
+            let count = frontmatter_count(screenplay).unwrap_or(1);
+            let first_page_number = if screenplay.metadata.contains_key("frontmatter-page-count") {
+                Some(2)
+            } else {
+                Some(count + 1)
+            };
             return PaginationScope {
+                first_page_number,
                 title_page_count: Some(count),
                 body_start_page: Some(count + 1),
             };
         }
     }
     PaginationScope {
+        first_page_number: None,
         title_page_count: None,
         body_start_page: None,
     }

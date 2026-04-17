@@ -119,6 +119,7 @@ fn assert_probe_matches(probe: &ProbeFixture) {
         &screenplay,
         probe.spec.lines_per_page,
         jumpcut::pagination::PaginationScope {
+            first_page_number: None,
             title_page_count: None,
             body_start_page: None,
         },
