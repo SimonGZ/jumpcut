@@ -183,6 +183,7 @@ fn styled_runs_survive_normalization_and_semantic_building() {
     let screenplay = Screenplay {
         metadata: Default::default(),
         imported_layout: None,
+        imported_title_page: None,
         elements: vec![
             Element::Action(
                 ElementText::Styled(vec![tr("BOLD", vec!["Bold"]), tr(" plain", vec![])]),
@@ -256,6 +257,7 @@ fn centered_flag_survives_normalization_and_semantic_building() {
     let screenplay = Screenplay {
         metadata: Default::default(),
         imported_layout: None,
+        imported_title_page: None,
         elements: vec![Element::Action(
             p("THE END"),
             Attributes {
@@ -280,6 +282,7 @@ fn render_attributes_survive_normalization_and_semantic_building() {
     let screenplay = Screenplay {
         metadata: Default::default(),
         imported_layout: None,
+        imported_title_page: None,
         elements: vec![Element::SceneHeading(
             p("INT. OFFICE - DAY"),
             Attributes {

@@ -82,7 +82,7 @@ fn style_profile_name(layout_profile: &ScreenplayLayoutProfile) -> &'static str 
 }
 
 fn default_pagination_scope(screenplay: &Screenplay) -> PaginationScope {
-    if let Some(title_page) = TitlePage::from_metadata(&screenplay.metadata) {
+    if let Some(title_page) = TitlePage::from_screenplay(screenplay) {
         let count = title_page.total_page_count();
         PaginationScope {
             title_page_count: Some(count),
@@ -95,8 +95,6 @@ fn default_pagination_scope(screenplay: &Screenplay) -> PaginationScope {
         }
     }
 }
-
-
 
 fn nonempty_layout_pages<'a>(
     blocks: &'a [LayoutBlock<'a>],
@@ -809,6 +807,7 @@ mod tests {
         let screenplay = Screenplay {
             metadata: Metadata::new(),
             imported_layout: None,
+            imported_title_page: None,
             elements: vec![
                 Element::Action(p("FIRST PAGE"), blank_attributes()),
                 Element::Action(
@@ -849,6 +848,7 @@ mod tests {
         let screenplay = Screenplay {
             metadata: Metadata::new(),
             imported_layout: None,
+            imported_title_page: None,
             elements: vec![Element::Action(p("HELLO"), blank_attributes())],
         };
 
@@ -863,6 +863,7 @@ mod tests {
         let screenplay = Screenplay {
             metadata: Metadata::new(),
             imported_layout: None,
+            imported_title_page: None,
             elements: vec![Element::Action(p("HELLO"), blank_attributes())],
         };
 
@@ -886,6 +887,7 @@ mod tests {
         let screenplay = Screenplay {
             metadata,
             imported_layout: None,
+            imported_title_page: None,
             elements: vec![
                 Element::Action(p("BODY PAGE ONE"), blank_attributes()),
                 Element::Action(

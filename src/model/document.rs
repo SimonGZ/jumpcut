@@ -9,7 +9,57 @@ pub type Metadata = HashMap<String, Vec<ElementText>>;
 pub struct Screenplay {
     pub metadata: Metadata,
     pub imported_layout: Option<ImportedLayoutOverrides>,
+    pub imported_title_page: Option<ImportedTitlePage>,
     pub elements: Vec<Element>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize)]
+pub struct ImportedTitlePage {
+    pub header_footer: ImportedTitlePageHeaderFooter,
+    pub pages: Vec<ImportedTitlePagePage>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize)]
+pub struct ImportedTitlePageHeaderFooter {
+    pub header_visible: bool,
+    pub header_first_page: bool,
+    pub header_has_page_number: bool,
+    pub starting_page: Option<u32>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize)]
+pub struct ImportedTitlePagePage {
+    pub paragraphs: Vec<ImportedTitlePageParagraph>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize)]
+pub struct ImportedTitlePageParagraph {
+    pub text: ElementText,
+    pub alignment: ImportedTitlePageAlignment,
+    pub left_indent: Option<f32>,
+    pub space_before: Option<f32>,
+    pub tab_stops: Vec<ImportedTitlePageTabStop>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+pub enum ImportedTitlePageAlignment {
+    Left,
+    Center,
+    Right,
+    Full,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize)]
+pub struct ImportedTitlePageTabStop {
+    pub position: f32,
+    pub kind: ImportedTitlePageTabStopKind,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+pub enum ImportedTitlePageTabStopKind {
+    Left,
+    Center,
+    Right,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize)]

@@ -180,7 +180,9 @@ fn render_body(
     layout_profile: &ScreenplayLayoutProfile,
 ) {
     if options.render_title_page {
-        if let Some(title_page) = TitlePage::from_metadata(&screenplay.metadata) {
+        if let Some(imported_title_page) = &screenplay.imported_title_page {
+            render_imported_title_pages(out, imported_title_page, options.paginated);
+        } else if let Some(title_page) = TitlePage::from_screenplay(screenplay) {
             render_title_page(out, &title_page, options.paginated);
         }
     }
@@ -676,6 +678,107 @@ fn render_title_page(out: &mut String, title_page: &TitlePage, paginated: bool) 
     out.push_str("    </section>\n");
 }
 
+fn render_imported_title_pages(
+    out: &mut String,
+    imported_title_page: &crate::ImportedTitlePage,
+    paginated: bool,
+) {
+    let renders_page_numbers = imported_title_page.header_footer.header_visible
+        && imported_title_page.header_footer.header_has_page_number;
+    let first_title_page_number = imported_title_page.header_footer.starting_page.unwrap_or(1);
+
+    for (index, page) in imported_title_page.pages.iter().enumerate() {
+        write!(
+            out,
+            "    <section class=\"title-page importedTitlePage {}\" style=\"position: relative; min-height: 11in;{}\">\n",
+            if paginated {
+                "paginatedTitlePage"
+            } else {
+                "unpaginatedTitlePage"
+            },
+            if index + 1 < imported_title_page.pages.len() {
+                " break-after: page; page-break-after: always;"
+            } else {
+                ""
+            }
+        )
+        .unwrap();
+
+        if renders_page_numbers && (index > 0 || imported_title_page.header_footer.header_first_page)
+        {
+            write!(
+                out,
+                "      <div class=\"importedTitlePageNumber\" style=\"position: absolute; top: 0.49in; right: 0.81in;\">{}</div>\n",
+                lower_roman(first_title_page_number + index as u32)
+            )
+            .unwrap();
+        }
+
+        for paragraph in &page.paragraphs {
+            render_imported_title_paragraph(out, paragraph);
+        }
+
+        out.push_str("    </section>\n");
+    }
+}
+
+fn render_imported_title_paragraph(
+    out: &mut String,
+    paragraph: &crate::ImportedTitlePageParagraph,
+) {
+    let alignment = match paragraph.alignment {
+        crate::ImportedTitlePageAlignment::Center => "center",
+        crate::ImportedTitlePageAlignment::Right => "right",
+        _ => "left",
+    };
+    let left_indent = paragraph.left_indent.unwrap_or(match paragraph.alignment {
+        crate::ImportedTitlePageAlignment::Center
+        | crate::ImportedTitlePageAlignment::Right
+        | crate::ImportedTitlePageAlignment::Full => 1.0,
+        crate::ImportedTitlePageAlignment::Left => 1.5,
+    });
+    let width = (7.5 - left_indent).max(0.5);
+    let margin_top = paragraph.space_before.unwrap_or(0.0) / 72.0;
+
+    write!(
+        out,
+        "      <p class=\"importedTitlePageParagraph\" style=\"margin: {}in 0 0 {}in; width: {}in; text-align: {}; white-space: pre-wrap; tab-size: 8;\">",
+        margin_top, left_indent, width, alignment
+    )
+    .unwrap();
+    if paragraph.text.plain_text().trim().is_empty() {
+        out.push_str("&nbsp;");
+    } else {
+        render_text(out, &imported_title_display_text(&paragraph.text));
+    }
+    out.push_str("</p>\n");
+}
+
+fn imported_title_display_text(text: &ElementText) -> ElementText {
+    match text {
+        ElementText::Plain(text) => ElementText::Plain(text.clone()),
+        ElementText::Styled(runs) => ElementText::Styled(
+            runs.iter()
+                .map(|run| {
+                    let display_text = if run
+                        .text_style
+                        .iter()
+                        .any(|style| style.eq_ignore_ascii_case("AllCaps"))
+                    {
+                        run.content.to_ascii_uppercase()
+                    } else {
+                        run.content.clone()
+                    };
+                    crate::TextRun {
+                        content: display_text,
+                        text_style: run.text_style.clone(),
+                    }
+                })
+                .collect(),
+        ),
+    }
+}
+
 fn render_title_page_lines(out: &mut String, lines: &[ElementText]) {
     for (index, line) in lines.iter().enumerate() {
         if index > 0 {
@@ -690,6 +793,34 @@ fn title_lines_have_explicit_styles(lines: &[ElementText]) -> bool {
         ElementText::Plain(_) => false,
         ElementText::Styled(runs) => runs.iter().any(|run| !run.text_style.is_empty()),
     })
+}
+
+fn lower_roman(number: u32) -> String {
+    let values = [
+        (1000, "m"),
+        (900, "cm"),
+        (500, "d"),
+        (400, "cd"),
+        (100, "c"),
+        (90, "xc"),
+        (50, "l"),
+        (40, "xl"),
+        (10, "x"),
+        (9, "ix"),
+        (5, "v"),
+        (4, "iv"),
+        (1, "i"),
+    ];
+
+    let mut remaining = number;
+    let mut result = String::new();
+    for (value, numeral) in values {
+        while remaining >= value {
+            result.push_str(numeral);
+            remaining -= value;
+        }
+    }
+    result
 }
 
 fn class_name(type_name: &str) -> &'static str {
@@ -713,7 +844,7 @@ fn class_name(type_name: &str) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{blank_attributes, p, tr, Attributes, Element, ElementText, Metadata};
+    use crate::{blank_attributes, p, parse_fdx, tr, Attributes, Element, ElementText, Metadata};
 
     fn html_options(head: bool, exact_wraps: bool, paginated: bool) -> HtmlRenderOptions {
         HtmlRenderOptions {
@@ -732,6 +863,7 @@ mod tests {
         let screenplay = Screenplay {
             metadata: Metadata::new(),
             imported_layout: None,
+            imported_title_page: None,
             elements: vec![Element::Action(
                 p("THIS IS A LONG ACTION LINE THAT SHOULD WRAP WHEN EXACT HTML WRAPS ARE ENABLED"),
                 blank_attributes(),
@@ -751,6 +883,7 @@ mod tests {
         let screenplay = Screenplay {
             metadata: Metadata::new(),
             imported_layout: None,
+            imported_title_page: None,
             elements: vec![],
         };
 
@@ -767,6 +900,7 @@ mod tests {
         let screenplay = Screenplay {
             metadata: Metadata::new(),
             imported_layout: None,
+            imported_title_page: None,
             elements: vec![],
         };
 
@@ -782,6 +916,7 @@ mod tests {
         let screenplay = Screenplay {
             metadata: Metadata::new(),
             imported_layout: None,
+            imported_title_page: None,
             elements: vec![],
         };
 
@@ -796,6 +931,7 @@ mod tests {
         let screenplay = Screenplay {
             metadata: Metadata::new(),
             imported_layout: None,
+            imported_title_page: None,
             elements: vec![],
         };
 
@@ -816,6 +952,7 @@ mod tests {
         let screenplay = Screenplay {
             metadata: Metadata::new(),
             imported_layout: None,
+            imported_title_page: None,
             elements: vec![],
         };
 
@@ -843,6 +980,7 @@ mod tests {
         let screenplay = Screenplay {
             metadata: Metadata::new(),
             imported_layout: None,
+            imported_title_page: None,
             elements: vec![Element::Action(
                 ElementText::Styled(vec![
                     tr("BOLD", vec!["Bold"]),
@@ -865,6 +1003,7 @@ mod tests {
         let screenplay = Screenplay {
             metadata: Metadata::new(),
             imported_layout: None,
+            imported_title_page: None,
             elements: vec![Element::Action(
                 p("THE END"),
                 Attributes {
@@ -886,6 +1025,7 @@ mod tests {
         let screenplay = Screenplay {
             metadata: Metadata::new(),
             imported_layout: None,
+            imported_title_page: None,
             elements: vec![Element::NewAct(
                 p("ACT TWO"),
                 Attributes {
@@ -906,6 +1046,7 @@ mod tests {
         let screenplay = Screenplay {
             metadata: Metadata::new(),
             imported_layout: None,
+            imported_title_page: None,
             elements: vec![Element::DialogueBlock(vec![
                 Element::Character(p("ALEX"), blank_attributes()),
                 Element::Parenthetical(p("(quietly)"), blank_attributes()),
@@ -923,6 +1064,7 @@ mod tests {
         let screenplay = Screenplay {
             metadata: Metadata::new(),
             imported_layout: None,
+            imported_title_page: None,
             elements: vec![Element::NewAct(
                 p("ACT TWO"),
                 Attributes {
@@ -943,6 +1085,7 @@ mod tests {
         let screenplay = Screenplay {
             metadata: Metadata::new(),
             imported_layout: None,
+            imported_title_page: None,
             elements: vec![Element::ColdOpening(
                 p("COLD OPENING"),
                 Attributes {
@@ -964,6 +1107,7 @@ mod tests {
         let screenplay = Screenplay {
             metadata,
             imported_layout: None,
+            imported_title_page: None,
             elements: vec![Element::NewAct(
                 p("ACT TWO"),
                 Attributes {
@@ -1006,6 +1150,7 @@ mod tests {
         let screenplay = Screenplay {
             metadata,
             imported_layout: None,
+            imported_title_page: None,
             elements: vec![],
         };
 
@@ -1025,6 +1170,34 @@ mod tests {
     }
 
     #[test]
+    fn imported_fdx_title_pages_render_from_raw_paragraph_pages_in_html() {
+        let xml = std::fs::read_to_string("tests/fixtures/fdx-import/title-page-cast-page.fdx")
+            .expect("fixture should load");
+        let screenplay = parse_fdx(&xml).expect("fdx should parse");
+
+        let output = render_document(&screenplay, html_options(false, false, false));
+
+        assert!(output.contains("importedTitlePage"));
+        assert!(output.contains("GUY TEXT"));
+        assert!(output.contains("THE GUYS"));
+        assert!(!output.contains("<div class=\"titlePageBlock titlePageCenterMeta\">"));
+    }
+
+    #[test]
+    fn imported_fdx_title_pages_honor_all_caps_styles_in_html() {
+        let xml = std::fs::read_to_string(
+            "tests/fixtures/corpus/public/big-fish-scene-numbers/source/source.fdx",
+        )
+        .expect("fixture should load");
+        let screenplay = parse_fdx(&xml).expect("fdx should parse");
+
+        let output = render_document(&screenplay, html_options(false, false, true));
+
+        assert!(output.contains("BIG FISH"));
+        assert!(!output.contains(">Big Fish<"));
+    }
+
+    #[test]
     fn title_page_plain_title_uses_default_emphasis_but_styled_title_does_not() {
         let mut plain_metadata = Metadata::new();
         plain_metadata.insert("title".into(), vec!["Big Fish".into()]);
@@ -1033,6 +1206,7 @@ mod tests {
             &Screenplay {
                 metadata: plain_metadata,
                 imported_layout: None,
+                imported_title_page: None,
                 elements: vec![],
             },
             html_options(false, false, false),
@@ -1050,6 +1224,7 @@ mod tests {
             &Screenplay {
                 metadata: styled_metadata,
                 imported_layout: None,
+                imported_title_page: None,
                 elements: vec![],
             },
             html_options(false, false, false),
@@ -1068,6 +1243,7 @@ mod tests {
             &Screenplay {
                 metadata,
                 imported_layout: None,
+                imported_title_page: None,
                 elements: vec![Element::Action(p("BODY"), blank_attributes())],
             },
             HtmlRenderOptions {
@@ -1089,6 +1265,7 @@ mod tests {
             &Screenplay {
                 metadata,
                 imported_layout: None,
+                imported_title_page: None,
                 elements: vec![],
             },
             html_options(false, false, true),
@@ -1103,6 +1280,7 @@ mod tests {
         let screenplay = Screenplay {
             metadata: Metadata::new(),
             imported_layout: None,
+            imported_title_page: None,
             elements: vec![
                 Element::Action(p("FIRST PAGE"), blank_attributes()),
                 Element::Action(
@@ -1129,6 +1307,7 @@ mod tests {
         let screenplay = Screenplay {
             metadata: Metadata::new(),
             imported_layout: None,
+            imported_title_page: None,
             elements: vec![Element::Action(
                 ElementText::Styled(vec![tr(&"BOLD SENTENCE. ".repeat(500), vec!["Bold"])]),
                 blank_attributes(),
@@ -1153,6 +1332,7 @@ mod tests {
         let screenplay = Screenplay {
             metadata,
             imported_layout: None,
+            imported_title_page: None,
             elements: vec![Element::Action(p("FIRST PAGE"), blank_attributes())],
         };
 
@@ -1174,6 +1354,7 @@ mod tests {
         let screenplay = Screenplay {
             metadata,
             imported_layout: None,
+            imported_title_page: None,
             elements: vec![Element::Action(p("FIRST PAGE"), blank_attributes())],
         };
 
@@ -1190,6 +1371,7 @@ mod tests {
         let screenplay = Screenplay {
             metadata: Metadata::new(),
             imported_layout: None,
+            imported_title_page: None,
             elements: vec![Element::DualDialogueBlock(vec![
                 Element::DialogueBlock(vec![
                     Element::Character(
@@ -1227,6 +1409,7 @@ mod tests {
         let screenplay = Screenplay {
             metadata: Metadata::new(),
             imported_layout: None,
+            imported_title_page: None,
             elements: vec![Element::DualDialogueBlock(vec![
                 Element::DialogueBlock(vec![
                     Element::Character(p("BRICK"), blank_attributes()),

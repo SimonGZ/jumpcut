@@ -1,6 +1,6 @@
 use jumpcut::{
-    blank_attributes, parse, parse_fdx, p, tr, Attributes, Element, ElementText::Styled,
-    Metadata, Screenplay,
+    blank_attributes, p, parse, parse_fdx, tr, Attributes, Element, ElementText::Styled, Metadata,
+    Screenplay,
 };
 use pretty_assertions::assert_eq;
 
@@ -21,6 +21,7 @@ fn fountain_output_round_trips_metadata_and_core_body_elements() {
     let screenplay = Screenplay {
         metadata,
         imported_layout: None,
+        imported_title_page: None,
         elements: vec![
             Element::SceneHeading(
                 p("INT. HOUSE - DAY"),
@@ -60,6 +61,7 @@ fn fountain_output_forces_ambiguous_elements_to_preserve_type() {
     let screenplay = Screenplay {
         metadata: Metadata::new(),
         imported_layout: None,
+        imported_title_page: None,
         elements: vec![
             Element::SceneHeading(p("inside the school bus"), blank_attributes()),
             Element::Action(p("INT. HOUSE - DAY"), blank_attributes()),
@@ -85,6 +87,7 @@ fn fountain_output_round_trips_dual_dialogue_page_breaks_and_centered_markers() 
     let screenplay = Screenplay {
         metadata: Metadata::new(),
         imported_layout: None,
+        imported_title_page: None,
         elements: vec![
             Element::Action(
                 p("THE END"),
@@ -123,15 +126,17 @@ fn fountain_output_round_trips_dual_dialogue_page_breaks_and_centered_markers() 
 
 #[test]
 fn imported_fdx_can_be_emitted_as_fountain() {
-    let xml =
-        std::fs::read_to_string("tests/fixtures/fdx-import/brick-n-steel-basic.fdx")
-            .expect("fixture should load");
+    let xml = std::fs::read_to_string("tests/fixtures/fdx-import/brick-n-steel-basic.fdx")
+        .expect("fixture should load");
 
     let screenplay = parse_fdx(&xml).expect("fdx should parse");
     let fountain = screenplay.to_fountain();
     let reparsed = parse(&fountain);
 
-    assert_eq!(reparsed.metadata.get("title"), screenplay.metadata.get("title"));
+    assert_eq!(
+        reparsed.metadata.get("title"),
+        screenplay.metadata.get("title")
+    );
     assert_eq!(reparsed.elements, screenplay.elements);
 }
 
@@ -176,7 +181,10 @@ Right side.
     let reparsed = parse(&fountain);
 
     assert_eq!(reparsed.elements, original.elements);
-    assert_ne!(reparsed.metadata.get("title"), original.metadata.get("title"));
+    assert_ne!(
+        reparsed.metadata.get("title"),
+        original.metadata.get("title")
+    );
     assert_ne!(reparsed.metadata, original.metadata);
 }
 
@@ -198,17 +206,30 @@ fn fountain_output_renders_frontmatter_metadata_with_blank_line_paragraph_separa
     let screenplay = Screenplay {
         metadata,
         imported_layout: None,
+        imported_title_page: None,
         elements: vec![Element::Action(p("Body."), blank_attributes())],
     };
 
     let rendered = screenplay.to_fountain();
 
     // Should contain Frontmatter key with indented content
-    assert!(rendered.contains("Frontmatter:"), "should contain Frontmatter key");
-    assert!(rendered.contains("    WRITERS' NOTE"), "should contain indented heading");
-    assert!(rendered.contains("    First paragraph of the note."), "should contain indented paragraph");
+    assert!(
+        rendered.contains("Frontmatter:"),
+        "should contain Frontmatter key"
+    );
+    assert!(
+        rendered.contains("    WRITERS' NOTE"),
+        "should contain indented heading"
+    );
+    assert!(
+        rendered.contains("    First paragraph of the note."),
+        "should contain indented paragraph"
+    );
     // Blank lines between paragraphs should be preserved as two-space lines
-    assert!(rendered.contains("  \n    First paragraph"), "should have two-space blank line separator");
+    assert!(
+        rendered.contains("  \n    First paragraph"),
+        "should have two-space blank line separator"
+    );
 }
 
 #[test]
@@ -217,24 +238,27 @@ fn fountain_frontmatter_round_trips_through_parse() {
     metadata.insert("title".into(), vec!["MY SCREENPLAY".into()]);
     metadata.insert(
         "frontmatter".into(),
-        vec![
-            "WRITERS' NOTE".into(),
-            "".into(),
-            "First paragraph.".into(),
-        ],
+        vec!["WRITERS' NOTE".into(), "".into(), "First paragraph.".into()],
     );
 
     let screenplay = Screenplay {
         metadata,
         imported_layout: None,
+        imported_title_page: None,
         elements: vec![Element::Action(p("Body."), blank_attributes())],
     };
 
     let rendered = screenplay.to_fountain();
     let reparsed = parse(&rendered);
 
-    let original_fm = screenplay.metadata.get("frontmatter").expect("original frontmatter");
-    let reparsed_fm = reparsed.metadata.get("frontmatter").expect("reparsed frontmatter");
+    let original_fm = screenplay
+        .metadata
+        .get("frontmatter")
+        .expect("original frontmatter");
+    let reparsed_fm = reparsed
+        .metadata
+        .get("frontmatter")
+        .expect("reparsed frontmatter");
     assert_eq!(reparsed_fm.len(), original_fm.len());
     assert_eq!(reparsed_fm[0].plain_text(), "WRITERS' NOTE");
     assert_eq!(reparsed_fm[1].plain_text(), "");

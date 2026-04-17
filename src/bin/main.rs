@@ -1,9 +1,9 @@
 #[cfg(feature = "cli")]
 use clap::{Parser, ValueEnum};
 #[cfg(feature = "cli")]
-use jumpcut::{parse, parse_fdx};
-#[cfg(feature = "cli")]
 use jumpcut::ElementText;
+#[cfg(feature = "cli")]
+use jumpcut::{parse, parse_fdx};
 #[cfg(feature = "cli")]
 use serde_json;
 #[cfg(feature = "cli")]
@@ -218,8 +218,9 @@ fn resolve_output_path(
     match explicit_output_opt {
         Some(path) => Ok(Some(path.clone())),
         None if write => {
-            let output = auto_output_path(input, format)
-                .ok_or_else(|| "cannot auto-derive an output path when input is stdin".to_string())?;
+            let output = auto_output_path(input, format).ok_or_else(|| {
+                "cannot auto-derive an output path when input is stdin".to_string()
+            })?;
             if output == input {
                 return Err(
                     "auto-derived output path matches the input path; specify --format or --output"
@@ -321,7 +322,10 @@ fn resolve_metadata_path(input: &Path, metadata_arg_path: &Path) -> PathBuf {
     }
 
     if input != Path::new("-") {
-        input.parent().unwrap_or_else(|| Path::new("")).join(metadata_arg_path)
+        input
+            .parent()
+            .unwrap_or_else(|| Path::new(""))
+            .join(metadata_arg_path)
     } else {
         metadata_arg_path.to_path_buf()
     }
@@ -507,7 +511,10 @@ mod tests {
     #[test]
     fn input_format_inference_keeps_plain_fountain_as_fountain() {
         assert_eq!(
-            infer_input_format(Path::new("script.fountain"), "Title: Example\n\nINT. HOUSE - DAY"),
+            infer_input_format(
+                Path::new("script.fountain"),
+                "Title: Example\n\nINT. HOUSE - DAY"
+            ),
             InputFormat::Fountain
         );
     }

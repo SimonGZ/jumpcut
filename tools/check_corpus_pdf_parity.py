@@ -32,6 +32,7 @@ class PdfParityCase:
     reference_pdf: Path
     report_name: str
     ignore_case: bool
+    included_pages: tuple[int, ...]
     ignored_pages: tuple[int, ...]
     max_mean_x: float
     max_mean_y: float
@@ -64,6 +65,7 @@ CASES = [
         reference_pdf=ROOT / "tests/fixtures/corpus/public/big-fish/extracted/reference.pdf",
         report_name="verify-big-fish-pdf-parity",
         ignore_case=False,
+        included_pages=(),
         ignored_pages=(),
         max_mean_x=0.10,
         max_mean_y=0.10,
@@ -77,6 +79,7 @@ CASES = [
         reference_pdf=ROOT / "tests/fixtures/corpus/public/little-women/extracted/reference.pdf",
         report_name="verify-little-women-pdf-parity",
         ignore_case=False,
+        included_pages=(),
         ignored_pages=(),
         max_mean_x=0.10,
         max_mean_y=0.10,
@@ -90,6 +93,7 @@ CASES = [
         reference_pdf=ROOT / "tests/fixtures/corpus/public/little-women/source/source.pdf",
         report_name="verify-little-women-fdx-pdf-parity",
         ignore_case=False,
+        included_pages=(),
         ignored_pages=(),
         max_mean_x=0.10,
         max_mean_y=0.10,
@@ -103,6 +107,7 @@ CASES = [
         reference_pdf=ROOT / "tests/fixtures/corpus/public/big-fish-scene-numbers/extracted/reference.pdf",
         report_name="verify-big-fish-scene-numbers-pdf-parity",
         ignore_case=False,
+        included_pages=(),
         ignored_pages=(),
         max_mean_x=0.10,
         max_mean_y=0.10,
@@ -116,6 +121,7 @@ CASES = [
         reference_pdf=ROOT / "tests/fixtures/corpus/public/big-fish-scene-numbers/extracted/reference.pdf",
         report_name="verify-big-fish-scene-numbers-fdx-pdf-parity",
         ignore_case=False,
+        included_pages=(),
         ignored_pages=(),
         max_mean_x=0.10,
         max_mean_y=0.10,
@@ -128,6 +134,7 @@ CASES = [
         reference_pdf=ROOT / "tests/fixtures/corpus/public/extranormal/extracted/reference.pdf",
         report_name="verify-extranormal-fdx-body-pdf-parity",
         ignore_case=False,
+        included_pages=(),
         # Ignore page 1 for now. The known mismatch here is title-page vertical
         # layout, while this probe exists to catch body margin/centering regressions.
         ignored_pages=(1,),
@@ -135,6 +142,37 @@ CASES = [
         max_mean_y=0.10,
         max_abs_x=3.50,
         max_abs_y=0.10,
+    ),
+    PdfParityCase(
+        name="title-page-cast-page-fdx-title-pages",
+        input_script=ROOT / "tests/fixtures/fdx-import/title-page-cast-page.fdx",
+        reference_pdf=ROOT / "tests/fixtures/fdx-import/title-page-cast-page-reference.pdf",
+        report_name="verify-title-page-cast-page-fdx-title-pages-pdf-parity",
+        ignore_case=False,
+        # Compare only the imported title-section pages.
+        included_pages=(1, 2),
+        ignored_pages=(),
+        max_mean_x=0.10,
+        max_mean_y=0.10,
+        max_abs_x=3.50,
+        max_abs_y=0.10,
+    ),
+    PdfParityCase(
+        name="title-pages-multi-fdx-title-pages",
+        input_script=ROOT / "tests/fixtures/fdx-import/title-pages-multi.fdx",
+        reference_pdf=ROOT / "tests/fixtures/fdx-import/title-pages-multi-reference.pdf",
+        report_name="verify-title-pages-multi-fdx-title-pages-pdf-parity",
+        ignore_case=False,
+        # Compare only the imported title-section pages.
+        included_pages=(1, 2),
+        ignored_pages=(),
+        max_mean_x=0.10,
+        # The reference title page is authored in Courier Final Draft while JumpCut
+        # renders with Courier Prime, which leaves a tiny uniform extraction-box y
+        # offset even after the layout geometry is otherwise aligned.
+        max_mean_y=0.15,
+        max_abs_x=3.50,
+        max_abs_y=0.15,
     ),
 ]
 
@@ -259,19 +297,66 @@ def filter_ignored_pages(boxes: list[WordBox], ignored_pages: tuple[int, ...]) -
     return [box for box in boxes if box.page_number not in ignored]
 
 
+def filter_included_pages(boxes: list[WordBox], included_pages: tuple[int, ...]) -> list[WordBox]:
+    if not included_pages:
+        return boxes
+    included = set(included_pages)
+    return [box for box in boxes if box.page_number in included]
+
+
 def compare_word_boxes(
     actual: list[WordBox], reference: list[WordBox], ignore_case: bool
 ) -> tuple[dict, list[str]]:
-    text_mismatch = len(actual) != len(reference) or any(
-        a.page_number != b.page_number
-        or normalize_word_text(a.text, ignore_case)
-        != normalize_word_text(b.text, ignore_case)
-        for a, b in zip(actual, reference)
-    )
+    first_text_mismatch = None
+    if len(actual) != len(reference):
+        mismatch_index = min(len(actual), len(reference))
+        first_text_mismatch = {
+            "index": mismatch_index,
+            "reason": "word-count",
+            "actual_word_count": len(actual),
+            "reference_word_count": len(reference),
+        }
+        text_mismatch = True
+    else:
+        text_mismatch = False
+        for index, (actual_box, reference_box) in enumerate(zip(actual, reference)):
+            if actual_box.page_number != reference_box.page_number:
+                first_text_mismatch = {
+                    "index": index,
+                    "reason": "page-number",
+                    "actual": {
+                        "page_number": actual_box.page_number,
+                        "text": actual_box.text,
+                    },
+                    "reference": {
+                        "page_number": reference_box.page_number,
+                        "text": reference_box.text,
+                    },
+                }
+                text_mismatch = True
+                break
+            if normalize_word_text(actual_box.text, ignore_case) != normalize_word_text(
+                reference_box.text, ignore_case
+            ):
+                first_text_mismatch = {
+                    "index": index,
+                    "reason": "word-text",
+                    "actual": {
+                        "page_number": actual_box.page_number,
+                        "text": actual_box.text,
+                    },
+                    "reference": {
+                        "page_number": reference_box.page_number,
+                        "text": reference_box.text,
+                    },
+                }
+                text_mismatch = True
+                break
 
     if text_mismatch:
         report = {
             "text_mismatch": True,
+            "first_text_mismatch": first_text_mismatch,
             "summary": {
                 "word_count": min(len(actual), len(reference)),
                 "mean_word_x_delta": math.nan,
@@ -339,34 +424,62 @@ def write_report(case: PdfParityCase, report: dict) -> Path:
     report_path.write_text(json.dumps(report, indent=2) + "\n")
 
     summary = report["summary"]
-    review_path.write_text(
-        "\n".join(
+    review_lines = [
+        f"# {case.name} PDF parity",
+        "",
+        f"- text mismatch: {report['text_mismatch']}",
+        (
+            f"- included pages: {', '.join(map(str, case.included_pages))}"
+            if case.included_pages
+            else "- included pages: all"
+        ),
+        (
+            f"- ignored pages: {', '.join(map(str, case.ignored_pages))}"
+            if case.ignored_pages
+            else "- ignored pages: none"
+        ),
+        f"- word count: {summary['word_count']}",
+        f"- mean word x delta: {summary['mean_word_x_delta']:.4f}pt"
+        if not math.isnan(summary["mean_word_x_delta"])
+        else "- mean word x delta: n/a",
+        f"- mean word y delta: {summary['mean_word_y_delta']:.4f}pt"
+        if not math.isnan(summary["mean_word_y_delta"])
+        else "- mean word y delta: n/a",
+        f"- max abs word x delta: {summary['max_abs_word_x_delta']:.4f}pt"
+        if not math.isnan(summary["max_abs_word_x_delta"])
+        else "- max abs word x delta: n/a",
+        f"- max abs word y delta: {summary['max_abs_word_y_delta']:.4f}pt"
+        if not math.isnan(summary["max_abs_word_y_delta"])
+        else "- max abs word y delta: n/a",
+    ]
+
+    if report.get("first_text_mismatch"):
+        mismatch = report["first_text_mismatch"]
+        review_lines.extend(
             [
-                f"# {case.name} PDF parity",
                 "",
-                f"- text mismatch: {report['text_mismatch']}",
-                (
-                    f"- ignored pages: {', '.join(map(str, case.ignored_pages))}"
-                    if case.ignored_pages
-                    else "- ignored pages: none"
-                ),
-                f"- word count: {summary['word_count']}",
-                f"- mean word x delta: {summary['mean_word_x_delta']:.4f}pt"
-                if not math.isnan(summary["mean_word_x_delta"])
-                else "- mean word x delta: n/a",
-                f"- mean word y delta: {summary['mean_word_y_delta']:.4f}pt"
-                if not math.isnan(summary["mean_word_y_delta"])
-                else "- mean word y delta: n/a",
-                f"- max abs word x delta: {summary['max_abs_word_x_delta']:.4f}pt"
-                if not math.isnan(summary["max_abs_word_x_delta"])
-                else "- max abs word x delta: n/a",
-                f"- max abs word y delta: {summary['max_abs_word_y_delta']:.4f}pt"
-                if not math.isnan(summary["max_abs_word_y_delta"])
-                else "- max abs word y delta: n/a",
+                "## First Text Mismatch",
+                "",
+                f"- index: {mismatch['index']}",
+                f"- reason: {mismatch['reason']}",
             ]
         )
-        + "\n"
-    )
+        if "actual" in mismatch and "reference" in mismatch:
+            review_lines.extend(
+                [
+                    f"- actual: page {mismatch['actual']['page_number']} `{mismatch['actual']['text']}`",
+                    f"- reference: page {mismatch['reference']['page_number']} `{mismatch['reference']['text']}`",
+                ]
+            )
+        else:
+            review_lines.extend(
+                [
+                    f"- actual word count: {mismatch['actual_word_count']}",
+                    f"- reference word count: {mismatch['reference_word_count']}",
+                ]
+            )
+
+    review_path.write_text("\n".join(review_lines) + "\n")
 
     return report_path
 
@@ -394,8 +507,14 @@ def check_case(case: PdfParityCase) -> list[str]:
     )
 
     report, failures = compare_word_boxes(
-        filter_ignored_pages(extract_word_boxes(output_pdf), case.ignored_pages),
-        filter_ignored_pages(extract_word_boxes(case.reference_pdf), case.ignored_pages),
+        filter_ignored_pages(
+            filter_included_pages(extract_word_boxes(output_pdf), case.included_pages),
+            case.ignored_pages,
+        ),
+        filter_ignored_pages(
+            filter_included_pages(extract_word_boxes(case.reference_pdf), case.included_pages),
+            case.ignored_pages,
+        ),
         case.ignore_case,
     )
     report_path = write_report(case, report)
@@ -453,6 +572,7 @@ def build_cases(args: argparse.Namespace) -> list[PdfParityCase]:
                 else Path(reference_pdf),
                 report_name=report_name_for(case_name),
                 ignore_case=args.ignore_case,
+                included_pages=(),
                 ignored_pages=(),
                 max_mean_x=args.max_mean_x,
                 max_mean_y=args.max_mean_y,

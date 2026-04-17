@@ -1,9 +1,9 @@
 use jumpcut::pagination::{Alignment, ScreenplayLayoutProfile, StyleProfile};
+use jumpcut::title_page::{TitlePage, TitlePageBlockKind};
 use jumpcut::{
     blank_attributes, p, parse_fdx, Attributes, Element, ElementText::Styled, ImportedElementKind,
-    TextRun,
+    ImportedTitlePageAlignment, ImportedTitlePageTabStopKind, TextRun,
 };
-use jumpcut::title_page::{TitlePage, TitlePageBlockKind};
 use pretty_assertions::assert_eq;
 use std::collections::HashSet;
 
@@ -240,10 +240,8 @@ fn it_preserves_richer_imported_layout_overrides_beyond_fmt_metadata() {
 
 #[test]
 fn it_imports_parenthetical_first_indent_from_fdx_settings() {
-    let xml = std::fs::read_to_string(
-        "tests/fixtures/corpus/public/extranormal/source/source.fdx",
-    )
-    .expect("fixture should load");
+    let xml = std::fs::read_to_string("tests/fixtures/corpus/public/extranormal/source/source.fdx")
+        .expect("fixture should load");
 
     let screenplay = parse_fdx(&xml).expect("fdx should parse");
     let imported_layout = screenplay
@@ -315,7 +313,10 @@ fn it_imports_title_page_content_into_existing_metadata_keys() {
             Styled(vec![tr("Full Retired", vec!["Bold", "Underline"])])
         ])
     );
-    assert_eq!(screenplay.metadata.get("credit"), Some(&vec!["Written by".into()]));
+    assert_eq!(
+        screenplay.metadata.get("credit"),
+        Some(&vec!["Written by".into()])
+    );
     assert_eq!(
         screenplay.metadata.get("authors"),
         Some(&vec![
@@ -331,13 +332,16 @@ fn it_imports_title_page_content_into_existing_metadata_keys() {
         screenplay.metadata.get("contact"),
         Some(&vec!["brick@example.com".into(), "555-1234".into()])
     );
-    assert_eq!(screenplay.metadata.get("draft"), Some(&vec!["Blue Draft".into()]));
+    assert_eq!(
+        screenplay.metadata.get("draft"),
+        Some(&vec!["Blue Draft".into()])
+    );
     assert_eq!(
         screenplay.metadata.get("draft date"),
         Some(&vec!["April 13, 2026".into()])
     );
 
-    let title_page = TitlePage::from_metadata(&screenplay.metadata).expect("expected title page");
+    let title_page = TitlePage::from_screenplay(&screenplay).expect("expected title page");
     assert_eq!(
         title_page.block(TitlePageBlockKind::Title).unwrap().lines,
         screenplay.metadata["title"]
@@ -347,7 +351,10 @@ fn it_imports_title_page_content_into_existing_metadata_keys() {
         screenplay.metadata["contact"]
     );
     assert_eq!(
-        title_page.block(TitlePageBlockKind::DraftDate).unwrap().lines,
+        title_page
+            .block(TitlePageBlockKind::DraftDate)
+            .unwrap()
+            .lines,
         screenplay.metadata["draft date"]
     );
 }
@@ -419,9 +426,8 @@ fn it_imports_public_big_fish_title_page_metadata() {
 
 #[test]
 fn it_imports_public_vikings_title_page_draft_date() {
-    let xml =
-        std::fs::read_to_string("tests/fixtures/corpus/public/vikings/source/source.fdx")
-            .expect("fixture should load");
+    let xml = std::fs::read_to_string("tests/fixtures/corpus/public/vikings/source/source.fdx")
+        .expect("fixture should load");
 
     let screenplay = parse_fdx(&xml).expect("fdx should parse");
 
@@ -494,6 +500,40 @@ fn it_imports_multi_page_title_page_frontmatter_from_fixture() {
 
     let screenplay = parse_fdx(&xml).expect("fdx should parse");
 
+    let imported_title_page = screenplay
+        .imported_title_page
+        .as_ref()
+        .expect("expected imported title-page pages");
+    assert_eq!(imported_title_page.pages.len(), 2);
+    assert!(
+        imported_title_page.pages[1]
+            .paragraphs
+            .iter()
+            .take_while(|paragraph| paragraph.text.plain_text().trim().is_empty())
+            .count()
+            >= 10,
+        "expected page two to preserve the leading blank paragraphs above WRITERS' NOTE"
+    );
+    assert_eq!(
+        imported_title_page.pages[1]
+            .paragraphs
+            .iter()
+            .find(|paragraph| !paragraph.text.plain_text().trim().is_empty())
+            .expect("expected first nonblank overflow paragraph")
+            .text
+            .plain_text(),
+        "WRITERS' NOTE"
+    );
+    assert_eq!(
+        imported_title_page.pages[1]
+            .paragraphs
+            .iter()
+            .find(|paragraph| !paragraph.text.plain_text().trim().is_empty())
+            .expect("expected first nonblank overflow paragraph")
+            .alignment,
+        ImportedTitlePageAlignment::Left
+    );
+
     // Title page 1: standard title page metadata
     assert_eq!(
         screenplay.metadata.get("title"),
@@ -502,21 +542,21 @@ fn it_imports_multi_page_title_page_frontmatter_from_fixture() {
             vec!["AllCaps", "Bold", "Underline"]
         )])])
     );
-    assert_eq!(
-        screenplay.metadata.get("credit"),
-        Some(&vec!["by".into()])
-    );
+    assert_eq!(screenplay.metadata.get("credit"), Some(&vec!["by".into()]));
 
     // Frontmatter should be captured
     let frontmatter_lines = screenplay
         .metadata
         .get("frontmatter")
         .expect("expected frontmatter metadata key");
-    assert!(frontmatter_lines.len() >= 3, "expected at least 3 frontmatter lines");
+    assert!(
+        frontmatter_lines.len() >= 3,
+        "expected at least 3 frontmatter lines"
+    );
     assert_eq!(frontmatter_lines[0].plain_text(), "WRITERS' NOTE");
 
     // Should produce a valid TitlePage with frontmatter
-    let title_page = TitlePage::from_metadata(&screenplay.metadata).expect("expected title page");
+    let title_page = TitlePage::from_screenplay(&screenplay).expect("expected title page");
     assert_eq!(title_page.frontmatter.len(), 1);
     assert_eq!(title_page.frontmatter[0].paragraphs.len(), 3);
     assert_eq!(
@@ -527,6 +567,76 @@ fn it_imports_multi_page_title_page_frontmatter_from_fixture() {
         title_page.frontmatter[0].paragraphs[0].alignment,
         FrontmatterAlignment::Left
     );
+}
+
+#[test]
+fn it_preserves_title_page_overflow_pages_without_promoting_centered_page_two_content() {
+    let xml = std::fs::read_to_string("tests/fixtures/fdx-import/title-page-cast-page.fdx")
+        .expect("fixture should load");
+
+    let screenplay = parse_fdx(&xml).expect("fdx should parse");
+
+    assert!(
+        screenplay
+            .metadata
+            .values()
+            .flatten()
+            .all(|value| value.plain_text() != "THE GUYS"),
+        "page-two centered heading should remain preserved content, not semantic metadata"
+    );
+
+    let imported_title_page = screenplay
+        .imported_title_page
+        .as_ref()
+        .expect("expected imported title-page pages");
+    assert!(!imported_title_page.header_footer.header_has_page_number);
+    assert!(imported_title_page.header_footer.header_visible);
+    assert!(!imported_title_page.header_footer.header_first_page);
+    assert_eq!(imported_title_page.header_footer.starting_page, Some(1));
+    assert_eq!(imported_title_page.pages.len(), 2);
+    assert_eq!(
+        imported_title_page.pages[1].paragraphs[0].text.plain_text(),
+        "THE GUYS"
+    );
+    assert_eq!(
+        imported_title_page.pages[1].paragraphs[0].alignment,
+        ImportedTitlePageAlignment::Center
+    );
+    assert_eq!(
+        imported_title_page.pages[1].paragraphs[3].tab_stops
+            .iter()
+            .map(|tab_stop| (tab_stop.position, tab_stop.kind))
+            .collect::<Vec<_>>(),
+        vec![
+            (6.0, ImportedTitlePageTabStopKind::Left),
+            (2.0, ImportedTitlePageTabStopKind::Left),
+            (1.82, ImportedTitlePageTabStopKind::Left),
+            (2.32, ImportedTitlePageTabStopKind::Left),
+        ]
+    );
+
+    let frontmatter_lines = screenplay
+        .metadata
+        .get("frontmatter")
+        .expect("expected compatibility frontmatter metadata");
+    assert_eq!(frontmatter_lines[0].plain_text(), "> THE GUYS <");
+}
+
+#[test]
+fn it_imports_title_page_header_page_number_signal_for_multi_page_fixture() {
+    let xml = std::fs::read_to_string("tests/fixtures/fdx-import/title-pages-multi.fdx")
+        .expect("fixture should load");
+
+    let screenplay = parse_fdx(&xml).expect("fdx should parse");
+    let imported_title_page = screenplay
+        .imported_title_page
+        .as_ref()
+        .expect("expected imported title-page pages");
+
+    assert!(imported_title_page.header_footer.header_visible);
+    assert!(!imported_title_page.header_footer.header_first_page);
+    assert!(imported_title_page.header_footer.header_has_page_number);
+    assert_eq!(imported_title_page.header_footer.starting_page, Some(1));
 }
 
 #[test]
@@ -565,7 +675,10 @@ fn it_imports_frontmatter_from_inline_fdx_with_action_indent_paragraphs() {
     // Standard title page metadata should still be present
     assert_eq!(
         screenplay.metadata.get("title"),
-        Some(&vec![Styled(vec![tr("MY SCREENPLAY", vec!["Bold", "Underline"])])])
+        Some(&vec![Styled(vec![tr(
+            "MY SCREENPLAY",
+            vec!["Bold", "Underline"]
+        )])])
     );
 
     // Frontmatter should be captured
@@ -608,6 +721,7 @@ fn fdx_export_emits_frontmatter_with_starts_new_page() {
     let mut screenplay = Screenplay {
         metadata,
         imported_layout: None,
+        imported_title_page: None,
         elements: vec![Element::Action(p("Body."), blank_attributes())],
     };
 
@@ -621,8 +735,14 @@ fn fdx_export_emits_frontmatter_with_starts_new_page() {
     );
 
     // Should contain the frontmatter text content
-    assert!(fdx.contains("A NOTE FROM THE WRITER"), "should contain first frontmatter paragraph");
-    assert!(fdx.contains("This is a personal note."), "should contain second frontmatter paragraph");
+    assert!(
+        fdx.contains("A NOTE FROM THE WRITER"),
+        "should contain first frontmatter paragraph"
+    );
+    assert!(
+        fdx.contains("This is a personal note."),
+        "should contain second frontmatter paragraph"
+    );
 
     // The frontmatter should use action-width indents (1.50/7.50), not title-page width (1.00)
     assert!(
@@ -649,6 +769,7 @@ fn fdx_export_emits_multi_page_frontmatter_with_starts_new_page_on_each_page() {
     let mut screenplay = Screenplay {
         metadata,
         imported_layout: None,
+        imported_title_page: None,
         elements: vec![Element::Action(p("Body."), blank_attributes())],
     };
 
@@ -660,9 +781,72 @@ fn fdx_export_emits_multi_page_frontmatter_with_starts_new_page_on_each_page() {
 
     // Should be importable and roundtrip the frontmatter
     let reimported = parse_fdx(&fdx).expect("should parse back");
-    let fm = reimported.metadata.get("frontmatter").expect("should have frontmatter");
-    assert!(fm.iter().any(|e| e.plain_text() == "Page A content."), "page A should roundtrip");
-    assert!(fm.iter().any(|e| e.plain_text() == "Page B content."), "page B should roundtrip");
+    let fm = reimported
+        .metadata
+        .get("frontmatter")
+        .expect("should have frontmatter");
+    assert!(
+        fm.iter().any(|e| e.plain_text() == "Page A content."),
+        "page A should roundtrip"
+    );
+    assert!(
+        fm.iter().any(|e| e.plain_text() == "Page B content."),
+        "page B should roundtrip"
+    );
+}
+
+#[test]
+fn fdx_export_preserves_imported_title_page_overflow_pages() {
+    let xml = std::fs::read_to_string("tests/fixtures/fdx-import/title-page-cast-page.fdx")
+        .expect("fixture should load");
+
+    let mut screenplay = parse_fdx(&xml).expect("fdx should parse");
+    let fdx = screenplay.to_final_draft();
+
+    assert!(
+        fdx.contains("THE GUYS"),
+        "should preserve centered page-two heading"
+    );
+    assert!(fdx.contains("ALAN"), "should preserve cast-page content");
+    assert!(
+        fdx.contains("<Tabstop Position=\"2.00\" Type=\"Left\"/>"),
+        "should preserve imported title-page tab stops"
+    );
+
+    let reimported = parse_fdx(&fdx).expect("round-tripped fdx should parse");
+    let imported_title_page = reimported
+        .imported_title_page
+        .as_ref()
+        .expect("expected imported title-page pages after round-trip");
+    assert_eq!(imported_title_page.pages.len(), 2);
+    assert_eq!(
+        imported_title_page.pages[1]
+            .paragraphs
+            .iter()
+            .find(|paragraph| !paragraph.text.plain_text().trim().is_empty())
+            .expect("expected first nonblank overflow paragraph after round-trip")
+            .text
+            .plain_text(),
+        "THE GUYS"
+    );
+    let alan_paragraph = imported_title_page.pages[1]
+        .paragraphs
+        .iter()
+        .find(|paragraph| paragraph.text.plain_text().starts_with("ALAN\t\tLate 30s"))
+        .expect("expected ALAN cast paragraph after round-trip");
+    assert_eq!(
+        alan_paragraph
+            .tab_stops
+            .iter()
+            .map(|tab_stop| (tab_stop.position, tab_stop.kind))
+            .collect::<Vec<_>>(),
+        vec![
+            (6.0, ImportedTitlePageTabStopKind::Left),
+            (2.0, ImportedTitlePageTabStopKind::Left),
+            (1.82, ImportedTitlePageTabStopKind::Left),
+            (2.32, ImportedTitlePageTabStopKind::Left),
+        ]
+    );
 }
 
 #[test]

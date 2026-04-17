@@ -50,6 +50,7 @@ pub fn parse(text: &str) -> Screenplay {
     let mut screenplay = Screenplay {
         metadata,
         imported_layout: None,
+        imported_title_page: None,
         elements,
     };
     screenplay.apply_structural_act_break_policy();

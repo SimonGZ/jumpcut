@@ -150,7 +150,7 @@ fn default_pagination_scope(
     options: VisualRenderOptions,
 ) -> PaginationScope {
     if options.render_title_page {
-        if let Some(title_page) = TitlePage::from_metadata(&screenplay.metadata) {
+        if let Some(title_page) = TitlePage::from_screenplay(screenplay) {
             let count = title_page.total_page_count();
             return PaginationScope {
                 title_page_count: Some(count),
@@ -1212,8 +1212,7 @@ fn indent_spaces_for_rendered_text(
 ) -> usize {
     let base = indent_spaces_for_element_type(element_type, geometry);
     if parenthetical_hangs_opening_paren(element_type, rendered_text) {
-        let hanging_cells = (first_indent_for_element_type(element_type, geometry)
-            .abs()
+        let hanging_cells = (first_indent_for_element_type(element_type, geometry).abs()
             * geometry.cpi)
             .floor() as usize;
         return base.saturating_sub(hanging_cells.max(1));
@@ -1234,8 +1233,12 @@ fn first_indent_for_element_type(element_type: ElementType, geometry: &LayoutGeo
         ElementType::Lyric => geometry.lyric_first_indent,
         ElementType::DualDialogueLeft => geometry.dual_dialogue_left_first_indent,
         ElementType::DualDialogueRight => geometry.dual_dialogue_right_first_indent,
-        ElementType::DualDialogueCharacterLeft => geometry.dual_dialogue_left_character_first_indent,
-        ElementType::DualDialogueCharacterRight => geometry.dual_dialogue_right_character_first_indent,
+        ElementType::DualDialogueCharacterLeft => {
+            geometry.dual_dialogue_left_character_first_indent
+        }
+        ElementType::DualDialogueCharacterRight => {
+            geometry.dual_dialogue_right_character_first_indent
+        }
         ElementType::DualDialogueParentheticalLeft => {
             geometry.dual_dialogue_left_parenthetical_first_indent
         }

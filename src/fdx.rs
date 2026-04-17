@@ -4,10 +4,14 @@ use quick_xml::Reader;
 use std::collections::{BTreeMap, HashSet};
 
 use crate::parser::{is_cold_opening, is_end_act, is_new_act};
+use crate::pagination::wrapping::{wrap_text_for_element, WrapConfig};
 use crate::{
     blank_attributes, Element, ElementText, ImportedAlignment, ImportedDialogueContinueds,
     ImportedElementKind, ImportedElementStyle, ImportedLayoutOverrides, ImportedMoresAndContinueds,
-    ImportedPageLayoutOverrides, ImportedSceneContinueds, Metadata, Screenplay, TextRun,
+    ImportedPageLayoutOverrides, ImportedSceneContinueds, ImportedTitlePage,
+    ImportedTitlePageAlignment, ImportedTitlePagePage, ImportedTitlePageParagraph,
+    ImportedTitlePageHeaderFooter, ImportedTitlePageTabStop, ImportedTitlePageTabStopKind,
+    Metadata, Screenplay, TextRun,
 };
 
 #[derive(Debug)]
@@ -24,7 +28,8 @@ impl std::error::Error for FdxParseError {}
 pub fn parse_fdx(xml: &str) -> Result<Screenplay, FdxParseError> {
     let imported_settings = extract_import_settings(xml)?;
     let mut metadata = extract_import_metadata(&imported_settings);
-    metadata.extend(extract_title_page_metadata(xml)?);
+    let (title_page_metadata, imported_title_page) = extract_title_page_data(xml)?;
+    metadata.extend(title_page_metadata);
 
     let blocks = parse_blocks(xml)?;
 
@@ -35,17 +40,14 @@ pub fn parse_fdx(xml: &str) -> Result<Screenplay, FdxParseError> {
         }
     }
 
-    let imported_layout = imported_settings_to_layout_overrides(&imported_settings, &used_paragraph_types);
-    let elements = group_dialogue_blocks(
-        blocks
-            .into_iter()
-            .filter_map(block_to_element)
-            .collect(),
-    );
+    let imported_layout =
+        imported_settings_to_layout_overrides(&imported_settings, &used_paragraph_types);
+    let elements = group_dialogue_blocks(blocks.into_iter().filter_map(block_to_element).collect());
 
     let mut screenplay = Screenplay {
         metadata,
         imported_layout,
+        imported_title_page,
         elements,
     };
     screenplay.apply_structural_act_break_policy();
@@ -103,6 +105,9 @@ struct ImportedParagraphStyle {
 struct FdxTitlePageParagraph {
     alignment: Option<String>,
     left_indent: Option<f64>,
+    space_before: Option<f64>,
+    starts_new_page: bool,
+    tab_stops: Vec<ImportedTitlePageTabStop>,
     text: ElementText,
     adornment_styles: HashSet<String>,
 }
@@ -337,9 +342,90 @@ fn extract_import_metadata(settings: &ImportedFdxSettings) -> Metadata {
     metadata
 }
 
-fn extract_title_page_metadata(xml: &str) -> Result<Metadata, FdxParseError> {
+fn extract_title_page_data(
+    xml: &str,
+) -> Result<(Metadata, Option<ImportedTitlePage>), FdxParseError> {
+    let header_footer = parse_title_page_header_footer(xml)?;
     let paragraphs = parse_title_page_paragraphs(xml)?;
-    Ok(map_title_page_paragraphs_to_metadata(&paragraphs))
+    if paragraphs.is_empty() {
+        return Ok((Metadata::new(), None));
+    }
+
+    let imported_title_page = build_imported_title_page(&paragraphs, header_footer);
+    let metadata = map_title_page_paragraphs_to_metadata(
+        &paragraphs,
+        imported_title_page
+            .as_ref()
+            .map(|title_page| title_page.pages.len())
+            .unwrap_or(0),
+    );
+
+    Ok((metadata, imported_title_page))
+}
+
+fn parse_title_page_header_footer(xml: &str) -> Result<ImportedTitlePageHeaderFooter, FdxParseError> {
+    let mut reader = Reader::from_str(xml);
+    reader.config_mut().trim_text(false);
+
+    let mut buf = Vec::new();
+    let mut in_title_page = false;
+    let mut in_header_and_footer = false;
+    let mut in_header = false;
+    let mut header_has_page_number = false;
+    let mut header_visible = false;
+    let mut header_first_page = false;
+    let mut starting_page = None;
+
+    loop {
+        match reader.read_event_into(&mut buf) {
+            Ok(Event::Start(event)) => match event.name().as_ref() {
+                b"TitlePage" => in_title_page = true,
+                b"HeaderAndFooter" if in_title_page => {
+                    in_header_and_footer = true;
+                    header_visible =
+                        optional_attr(&reader, &event, b"HeaderVisible")?.as_deref() == Some("Yes");
+                    header_first_page = optional_attr(&reader, &event, b"HeaderFirstPage")?
+                        .as_deref()
+                        == Some("Yes");
+                    starting_page = optional_attr(&reader, &event, b"StartingPage")?
+                        .and_then(|value| value.parse::<u32>().ok());
+                }
+                b"Header" if in_header_and_footer => in_header = true,
+                b"DynamicLabel" if in_header => {
+                    if optional_attr(&reader, &event, b"Type")?.as_deref() == Some("Page #") {
+                        header_has_page_number = true;
+                    }
+                }
+                _ => {}
+            },
+            Ok(Event::Empty(event)) => {
+                if event.name().as_ref() == b"DynamicLabel"
+                    && in_header
+                    && optional_attr(&reader, &event, b"Type")?.as_deref() == Some("Page #")
+                {
+                    header_has_page_number = true;
+                }
+            }
+            Ok(Event::End(event)) => match event.name().as_ref() {
+                b"Header" => in_header = false,
+                b"HeaderAndFooter" => in_header_and_footer = false,
+                b"TitlePage" => break,
+                _ => {}
+            },
+            Ok(Event::Eof) => break,
+            Err(err) => return Err(FdxParseError(err.to_string())),
+            _ => {}
+        }
+
+        buf.clear();
+    }
+
+    Ok(ImportedTitlePageHeaderFooter {
+        header_visible,
+        header_first_page,
+        header_has_page_number,
+        starting_page,
+    })
 }
 
 fn parse_title_page_paragraphs(xml: &str) -> Result<Vec<FdxTitlePageParagraph>, FdxParseError> {
@@ -354,6 +440,9 @@ fn parse_title_page_paragraphs(xml: &str) -> Result<Vec<FdxTitlePageParagraph>, 
 
     let mut paragraph_alignment = None;
     let mut paragraph_left_indent: Option<f64> = None;
+    let mut paragraph_space_before: Option<f64> = None;
+    let mut paragraph_starts_new_page = false;
+    let mut paragraph_tab_stops: Vec<ImportedTitlePageTabStop> = Vec::new();
     let mut text_chunks: Vec<TextChunk> = Vec::new();
     let mut text_styles: HashSet<String> = HashSet::new();
     let mut adornment_styles: HashSet<String> = HashSet::new();
@@ -370,8 +459,19 @@ fn parse_title_page_paragraphs(xml: &str) -> Result<Vec<FdxTitlePageParagraph>, 
                         paragraph_alignment = optional_attr(&reader, &event, b"Alignment")?;
                         paragraph_left_indent = optional_attr(&reader, &event, b"LeftIndent")?
                             .and_then(|value| value.parse::<f64>().ok());
+                        paragraph_space_before = optional_attr(&reader, &event, b"SpaceBefore")?
+                            .and_then(|value| value.parse::<f64>().ok());
+                        paragraph_starts_new_page = optional_attr(&reader, &event, b"StartsNewPage")?
+                            .as_deref()
+                            == Some("Yes");
+                        paragraph_tab_stops.clear();
                         text_chunks.clear();
                         adornment_styles.clear();
+                    }
+                }
+                b"Tabstop" if in_title_content && paragraph_depth > 0 => {
+                    if let Some(tab_stop) = parse_title_page_tab_stop(&reader, &event)? {
+                        paragraph_tab_stops.push(tab_stop);
                     }
                 }
                 b"Text" if in_title_content && paragraph_depth > 0 => {
@@ -393,6 +493,11 @@ fn parse_title_page_paragraphs(xml: &str) -> Result<Vec<FdxTitlePageParagraph>, 
                         content: String::new(),
                         styles,
                     });
+                }
+                b"Tabstop" if in_title_content && paragraph_depth > 0 => {
+                    if let Some(tab_stop) = parse_title_page_tab_stop(&reader, &event)? {
+                        paragraph_tab_stops.push(tab_stop);
+                    }
                 }
                 _ => {}
             },
@@ -426,6 +531,9 @@ fn parse_title_page_paragraphs(xml: &str) -> Result<Vec<FdxTitlePageParagraph>, 
                         paragraphs.push(FdxTitlePageParagraph {
                             alignment: paragraph_alignment.take(),
                             left_indent: paragraph_left_indent.take(),
+                            space_before: paragraph_space_before.take(),
+                            starts_new_page: paragraph_starts_new_page,
+                            tab_stops: std::mem::take(&mut paragraph_tab_stops),
                             text: collapse_text_chunks(std::mem::take(&mut text_chunks)),
                             adornment_styles: std::mem::take(&mut adornment_styles),
                         });
@@ -447,13 +555,22 @@ fn parse_title_page_paragraphs(xml: &str) -> Result<Vec<FdxTitlePageParagraph>, 
     Ok(paragraphs)
 }
 
-fn map_title_page_paragraphs_to_metadata(paragraphs: &[FdxTitlePageParagraph]) -> Metadata {
+fn map_title_page_paragraphs_to_metadata(
+    paragraphs: &[FdxTitlePageParagraph],
+    page_count: usize,
+) -> Metadata {
     let mut metadata = Metadata::new();
     if paragraphs.is_empty() {
         return metadata;
     }
 
-    let center_groups = centered_title_page_groups(paragraphs);
+    let page_ranges = title_page_page_ranges(paragraphs);
+    let page_one_end = page_ranges
+        .get(1)
+        .map(|(start, _)| *start)
+        .unwrap_or(paragraphs.len());
+    let page_one = &paragraphs[..page_one_end];
+    let center_groups = centered_title_page_groups(page_one);
     if let Some(group) = center_groups.first() {
         metadata.insert("title".into(), group.lines.clone());
     }
@@ -492,7 +609,7 @@ fn map_title_page_paragraphs_to_metadata(paragraphs: &[FdxTitlePageParagraph]) -
         }
     }
 
-    let bottom_start = paragraphs
+    let bottom_start = page_one
         .iter()
         .rposition(|paragraph| paragraph.alignment.as_deref() == Some("Center"))
         .map(|index| index + 1)
@@ -500,7 +617,7 @@ fn map_title_page_paragraphs_to_metadata(paragraphs: &[FdxTitlePageParagraph]) -
     let mut contact_lines = Vec::new();
     let mut right_lines = Vec::new();
     let mut frontmatter_lines: Vec<ElementText> = Vec::new();
-    for paragraph in &paragraphs[bottom_start..] {
+    for paragraph in &page_one[bottom_start..] {
         match paragraph.alignment.as_deref() {
             Some("Left") | Some("Full") => {
                 // Paragraphs with action-width left indent (>= 1.50) that contain non-blank
@@ -530,13 +647,47 @@ fn map_title_page_paragraphs_to_metadata(paragraphs: &[FdxTitlePageParagraph]) -
         }
     }
 
+    if page_count > 1 {
+        if !frontmatter_lines.is_empty() {
+            frontmatter_lines.push("===".into());
+        }
+
+        let mut first_overflow_page = true;
+        for page in build_imported_title_page(paragraphs, ImportedTitlePageHeaderFooter::default())
+            .into_iter()
+            .flat_map(|title_page| title_page.pages.into_iter().enumerate())
+        {
+            let (page_index, page) = page;
+            if page_index == 0 {
+                continue;
+            }
+            if !first_overflow_page {
+                frontmatter_lines.push("===".into());
+            }
+            first_overflow_page = false;
+            for paragraph in page.paragraphs {
+                let text = match paragraph.alignment {
+                    ImportedTitlePageAlignment::Center => {
+                        ElementText::Plain(format!("> {} <", paragraph.text.plain_text()))
+                    }
+                    _ => paragraph.text,
+                };
+                if !element_text_is_blank(&text) {
+                    frontmatter_lines.push(text);
+                }
+            }
+        }
+    }
+
     if !contact_lines.is_empty() {
         metadata.insert("contact".into(), contact_lines);
     }
     if !right_lines.is_empty() {
         if right_lines.len() == 1 && looks_like_draft_date(&right_lines[0].plain_text()) {
             metadata.insert("draft date".into(), right_lines);
-        } else if right_lines.len() > 1 && looks_like_draft_date(&right_lines.last().unwrap().plain_text()) {
+        } else if right_lines.len() > 1
+            && looks_like_draft_date(&right_lines.last().unwrap().plain_text())
+        {
             let draft_date = vec![right_lines.pop().unwrap()];
             metadata.insert("draft".into(), right_lines);
             metadata.insert("draft date".into(), draft_date);
@@ -590,7 +741,9 @@ fn centered_title_page_groups(paragraphs: &[FdxTitlePageParagraph]) -> Vec<Title
     let mut current_source_like = false;
 
     for paragraph in paragraphs {
-        if paragraph.alignment.as_deref() == Some("Center") && !element_text_is_blank(&paragraph.text) {
+        if paragraph.alignment.as_deref() == Some("Center")
+            && !element_text_is_blank(&paragraph.text)
+        {
             current_source_like |= paragraph.adornment_styles.contains("-1");
             current_lines.push(paragraph.text.clone());
             continue;
@@ -615,11 +768,136 @@ fn centered_title_page_groups(paragraphs: &[FdxTitlePageParagraph]) -> Vec<Title
     groups
 }
 
+fn build_imported_title_page(
+    paragraphs: &[FdxTitlePageParagraph],
+    header_footer: ImportedTitlePageHeaderFooter,
+) -> Option<ImportedTitlePage> {
+    if paragraphs.is_empty() {
+        return None;
+    }
+
+    let pages = title_page_page_ranges(paragraphs)
+        .into_iter()
+        .map(|(start, end)| imported_title_page_page_from_paragraphs(&paragraphs[start..end]))
+        .filter(|page| !page.paragraphs.is_empty())
+        .collect::<Vec<_>>();
+
+    (!pages.is_empty()).then_some(ImportedTitlePage { header_footer, pages })
+}
+
+fn imported_title_page_page_from_paragraphs(
+    paragraphs: &[FdxTitlePageParagraph],
+) -> ImportedTitlePagePage {
+    ImportedTitlePagePage {
+        paragraphs: paragraphs
+            .iter()
+            .map(|paragraph| ImportedTitlePageParagraph {
+                text: paragraph.text.clone(),
+                alignment: imported_title_page_alignment(paragraph.alignment.as_deref()),
+                left_indent: paragraph.left_indent.map(|value| value as f32),
+                space_before: paragraph.space_before.map(|value| value as f32),
+                tab_stops: paragraph.tab_stops.clone(),
+            })
+            .collect(),
+    }
+}
+
+fn title_page_page_ranges(paragraphs: &[FdxTitlePageParagraph]) -> Vec<(usize, usize)> {
+    const TITLE_PAGE_LINES_PER_PAGE: usize = 54;
+
+    if paragraphs.is_empty() {
+        return Vec::new();
+    }
+
+    let mut ranges = Vec::new();
+    let mut page_start = 0usize;
+    let mut used_lines = 0usize;
+
+    for (index, paragraph) in paragraphs.iter().enumerate() {
+        let paragraph_lines = title_page_paragraph_total_lines(paragraph);
+        if index > page_start && paragraph.starts_new_page {
+            ranges.push((page_start, index));
+            page_start = index;
+            used_lines = 0;
+        } else if index > page_start
+            && used_lines > 0
+            && used_lines + paragraph_lines > TITLE_PAGE_LINES_PER_PAGE
+        {
+            ranges.push((page_start, index));
+            page_start = index;
+            used_lines = 0;
+        }
+        used_lines += paragraph_lines;
+    }
+
+    ranges.push((page_start, paragraphs.len()));
+    ranges
+}
+
+fn title_page_paragraph_total_lines(paragraph: &FdxTitlePageParagraph) -> usize {
+    title_page_space_before_lines(paragraph.space_before)
+        + title_page_wrapped_line_count(paragraph)
+}
+
+fn title_page_space_before_lines(space_before: Option<f64>) -> usize {
+    (space_before.unwrap_or(0.0) / 12.0)
+        .round()
+        .max(0.0) as usize
+}
+
+fn title_page_wrapped_line_count(paragraph: &FdxTitlePageParagraph) -> usize {
+    if element_text_is_blank(&paragraph.text) {
+        return 1;
+    }
+
+    let left = paragraph.left_indent.unwrap_or(match paragraph.alignment.as_deref() {
+        Some("Center") | Some("Right") | Some("Full") => 1.0,
+        _ => 1.5,
+    }) as f32;
+    let width_chars = (((7.5 - left) * 72.0) / 7.0).floor().max(1.0) as usize;
+    wrap_text_for_element(
+        &paragraph.text.plain_text(),
+        &WrapConfig::with_exact_width_chars(width_chars),
+    )
+    .len()
+    .max(1)
+}
+
+fn parse_title_page_tab_stop(
+    reader: &Reader<&[u8]>,
+    event: &BytesStart<'_>,
+) -> Result<Option<ImportedTitlePageTabStop>, FdxParseError> {
+    let Some(position) = optional_attr(reader, event, b"Position")?
+        .and_then(|value| value.parse::<f32>().ok())
+    else {
+        return Ok(None);
+    };
+
+    let kind = match optional_attr(reader, event, b"Type")?.as_deref() {
+        Some("Center") => ImportedTitlePageTabStopKind::Center,
+        Some("Right") => ImportedTitlePageTabStopKind::Right,
+        _ => ImportedTitlePageTabStopKind::Left,
+    };
+
+    Ok(Some(ImportedTitlePageTabStop { position, kind }))
+}
+
+fn imported_title_page_alignment(alignment: Option<&str>) -> ImportedTitlePageAlignment {
+    match alignment {
+        Some("Center") => ImportedTitlePageAlignment::Center,
+        Some("Right") => ImportedTitlePageAlignment::Right,
+        Some("Full") => ImportedTitlePageAlignment::Full,
+        _ => ImportedTitlePageAlignment::Left,
+    }
+}
+
 fn element_text_is_blank(text: &ElementText) -> bool {
     text.plain_text().trim().is_empty()
 }
 
-fn split_title_page_bottom_columns(text: &ElementText) -> (Option<ElementText>, Option<ElementText>) {
+fn split_title_page_bottom_columns(
+    text: &ElementText,
+) -> (Option<ElementText>, Option<ElementText>) {
     if !text.plain_text().contains('\t') {
         return (Some(text.clone()), None);
     }
@@ -628,7 +906,11 @@ fn split_title_page_bottom_columns(text: &ElementText) -> (Option<ElementText>, 
         ElementText::Plain(value) => {
             let mut parts = value.split('\t');
             let left = parts.next().unwrap_or_default().to_string();
-            let right = parts.filter(|part| !part.is_empty()).next_back().unwrap_or_default().to_string();
+            let right = parts
+                .filter(|part| !part.is_empty())
+                .next_back()
+                .unwrap_or_default()
+                .to_string();
             (
                 (!left.is_empty()).then_some(ElementText::Plain(left)),
                 (!right.is_empty()).then_some(ElementText::Plain(right)),
@@ -684,8 +966,7 @@ fn looks_like_draft_date(value: &str) -> bool {
     let has_digit = value.chars().any(|ch| ch.is_ascii_digit());
     let has_date_separator = value.contains('/') || value.contains('-') || value.contains(',');
     let has_month_name = [
-        "jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "sept", "oct", "nov",
-        "dec",
+        "jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "sept", "oct", "nov", "dec",
     ]
     .into_iter()
     .any(|month| value.to_ascii_lowercase().contains(month));
@@ -1181,7 +1462,9 @@ fn paragraph_to_element(paragraph: FdxParagraph) -> Option<Element> {
         paragraph.paragraph_type.as_str(),
         "Cold Opening" | "New Act" | "End of Act" | "End Of Act"
     );
-    if is_inherently_centered || (paragraph.alignment.as_deref() == Some("Center") && is_centered_type) {
+    if is_inherently_centered
+        || (paragraph.alignment.as_deref() == Some("Center") && is_centered_type)
+    {
         attributes.centered = true;
     }
     attributes.starts_new_page = paragraph.starts_new_page;

@@ -5,7 +5,9 @@ use crate::pagination::visual_lines::{
     display_page_number, render_paginated_visual_pages_with_options, VisualDualLine,
     VisualDualSide, VisualFragment, VisualRenderOptions,
 };
-use crate::pagination::wrapping::ElementType;
+use crate::pagination::wrapping::{
+    wrap_styled_text_for_element, wrap_text_for_element, ElementType, WrapConfig,
+};
 use crate::pagination::ScreenplayLayoutProfile;
 use crate::pagination::{
     BlockPlacement, ContinuationMarker, Fragment, PageItem, PaginatedScreenplay, PaginationScope,
@@ -13,7 +15,10 @@ use crate::pagination::{
 use crate::title_page::{
     plain_title_uses_all_caps, TitlePage, TitlePageBlockKind, TitlePageRegion,
 };
-use crate::{ElementText, Metadata, Screenplay};
+use crate::{
+    styled_text::{StyledRun, StyledText},
+    ElementText, ImportedTitlePageAlignment, ImportedTitlePageTabStop, Metadata, Screenplay,
+};
 use pdf_writer::types::{
     ArtifactAttachment, ArtifactSubtype, ArtifactType, CidFontType, FontFlags, NumberingStyle,
     StructRole, SystemInfo, UnicodeCmap,
@@ -77,6 +82,7 @@ impl Default for PdfRenderOptions {
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct PdfRenderDocument {
     pub title_page: Option<PdfTitlePage>,
+    pub title_overflow_pages: Vec<PdfTitleOverflowPage>,
     pub body_pages: Vec<PdfRenderPage>,
 }
 
@@ -162,6 +168,7 @@ struct PdfPageLabelPlan {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum PdfPageLabelStyle {
     Blank,
+    LowerRoman { offset: i32 },
     Arabic { offset: i32 },
 }
 
@@ -226,6 +233,25 @@ pub(crate) struct PdfRenderPage {
     pub page_number: u32,
     pub display_page_number: Option<u32>,
     pub lines: Vec<PdfRenderLine>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct PdfTitleOverflowPage {
+    pub page_number: u32,
+    pub display_page_number: Option<u32>,
+    pub lines: Vec<PdfTitleOverflowLine>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct PdfTitleOverflowLine {
+    pub text: String,
+    pub segments: Vec<PdfTitleOverflowSegment>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct PdfTitleOverflowSegment {
+    pub x: f32,
+    pub fragments: Vec<PdfRenderFragment>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -346,26 +372,40 @@ struct EmbeddedFontDescriptor {
 pub(crate) fn build_render_document(
     screenplay: &Screenplay,
     options: PdfRenderOptions,
-    _geometry: &LayoutGeometry,
+    geometry: &LayoutGeometry,
 ) -> PdfRenderDocument {
-    let title_page = if options.render_title_page {
-        TitlePage::from_metadata(&screenplay.metadata).map(|title_page| PdfTitlePage {
-            plain_title_all_caps: plain_title_uses_all_caps(&screenplay.metadata),
-            blocks: title_page
-                .blocks
-                .into_iter()
-                .map(|block| PdfTitleBlock {
-                    kind: block.kind.into(),
-                    region: block.region.into(),
-                    lines: block.lines,
-                })
-                .collect(),
-        })
+    let title_page = if options.render_title_page && screenplay.imported_title_page.is_none() {
+        TitlePage::from_screenplay(screenplay)
     } else {
         None
     };
 
-    let body_pages = render_paginated_visual_pages_with_options(
+    let rendered_title_page = title_page.as_ref().map(|title_page| PdfTitlePage {
+            plain_title_all_caps: plain_title_uses_all_caps(&screenplay.metadata),
+            blocks: title_page
+                .blocks
+                .iter()
+                .map(|block| PdfTitleBlock {
+                    kind: block.kind.into(),
+                    region: block.region.into(),
+                    lines: block.lines.clone(),
+                })
+                .collect(),
+        });
+    let title_overflow_pages = if options.render_title_page {
+        if let Some(imported_title_page) = &screenplay.imported_title_page {
+            render_imported_title_pages(imported_title_page, geometry)
+        } else {
+            title_page
+                .as_ref()
+                .map(|title_page| render_title_overflow_pages(title_page, geometry))
+                .unwrap_or_default()
+        }
+    } else {
+        Vec::new()
+    };
+
+    let mut body_pages: Vec<PdfRenderPage> = render_paginated_visual_pages_with_options(
         screenplay,
         VisualRenderOptions {
             render_continueds: options.render_continueds,
@@ -396,8 +436,16 @@ pub(crate) fn build_render_document(
     })
     .collect();
 
+    while body_pages
+        .last()
+        .is_some_and(|page: &PdfRenderPage| page.lines.iter().all(|line| line.text.is_empty()))
+    {
+        body_pages.pop();
+    }
+
     PdfRenderDocument {
-        title_page,
+        title_page: rendered_title_page,
+        title_overflow_pages,
         body_pages,
     }
 }
@@ -420,6 +468,14 @@ pub(crate) fn render_with_options(screenplay: &Screenplay, options: PdfRenderOpt
     if let Some(title_page) = &tagged_document.title_page {
         structure_pages.push(build_title_structure_page(title_page));
     }
+    structure_pages.extend(
+        document
+            .title_overflow_pages
+            .iter()
+            .map(|_| PdfBodyStructPage {
+                tagged_lines: Vec::new(),
+            }),
+    );
     structure_pages.extend(build_body_structure_pages(
         &tagged_document,
         &document.body_pages,
@@ -427,7 +483,10 @@ pub(crate) fn render_with_options(screenplay: &Screenplay, options: PdfRenderOpt
     ));
     let fonts = EmbeddedFonts::new(&document);
     let body_page_count = document.body_pages.len() as i32;
-    let page_count = body_page_count + i32::from(document.title_page.is_some());
+    let title_overflow_page_count = document.title_overflow_pages.len() as i32;
+    let page_count = body_page_count
+        + title_overflow_page_count
+        + i32::from(document.title_page.is_some());
     let struct_parent_keys = (0..page_count).collect::<Vec<_>>();
     let struct_element_plans = build_struct_element_plans(&structure_pages);
     let page_label_plans = build_page_label_plans(&document);
@@ -555,6 +614,14 @@ pub(crate) fn render_with_options(screenplay: &Screenplay, options: PdfRenderOpt
         content_index += 1;
     }
 
+    for title_overflow_page in &document.title_overflow_pages {
+        pdf.stream(
+            content_ids[content_index],
+            &render_title_overflow_page_content(title_overflow_page, &geometry, &fonts),
+        );
+        content_index += 1;
+    }
+
     for body_page in &document.body_pages {
         pdf.stream(
             content_ids[content_index],
@@ -627,8 +694,14 @@ pub(crate) fn render_with_options(screenplay: &Screenplay, options: PdfRenderOpt
     for (plan, page_label_id) in page_label_plans.iter().zip(page_label_ids.iter().copied()) {
         let mut page_label: pdf_writer::writers::PageLabel<'_> =
             pdf.indirect(page_label_id).start();
-        if let PdfPageLabelStyle::Arabic { offset } = plan.style {
-            page_label.style(NumberingStyle::Arabic).offset(offset);
+        match plan.style {
+            PdfPageLabelStyle::Blank => {}
+            PdfPageLabelStyle::LowerRoman { offset } => {
+                page_label.style(NumberingStyle::LowerRoman).offset(offset);
+            }
+            PdfPageLabelStyle::Arabic { offset } => {
+                page_label.style(NumberingStyle::Arabic).offset(offset);
+            }
         }
     }
 
@@ -1028,6 +1101,18 @@ fn build_page_label_plans(document: &PdfRenderDocument) -> Vec<PdfPageLabelPlan>
         .title_page
         .iter()
         .map(|_| PdfPageLabelStyle::Blank)
+        .chain(
+            document
+                .title_overflow_pages
+                .iter()
+                .map(|page| {
+                    page.display_page_number
+                        .map(|number| PdfPageLabelStyle::LowerRoman {
+                            offset: number as i32,
+                        })
+                        .unwrap_or(PdfPageLabelStyle::Blank)
+                }),
+        )
         .chain(document.body_pages.iter().map(|page| {
             page.display_page_number
                 .map(|number| PdfPageLabelStyle::Arabic {
@@ -1039,31 +1124,39 @@ fn build_page_label_plans(document: &PdfRenderDocument) -> Vec<PdfPageLabelPlan>
 
     if !page_label_styles
         .iter()
-        .any(|style| matches!(style, PdfPageLabelStyle::Arabic { .. }))
+        .any(|style| !matches!(style, PdfPageLabelStyle::Blank))
     {
         return Vec::new();
     }
 
     let mut plans = Vec::new();
-    let mut current_arabic_start = None;
+    let mut current_numbered_start = None;
 
     for (page_index, style) in page_label_styles.iter().copied().enumerate() {
         let page_index = page_index as i32;
-        let should_start_new_plan = match (current_arabic_start, style) {
-            (Some((start_page_index, start_offset)), PdfPageLabelStyle::Arabic { offset }) => {
-                offset != start_offset + (page_index - start_page_index)
-            }
+        let should_start_new_plan = match (current_numbered_start, style) {
+            (
+                Some((start_page_index, PdfPageLabelStyle::LowerRoman { offset: start_offset })),
+                PdfPageLabelStyle::LowerRoman { offset },
+            )
+            | (
+                Some((start_page_index, PdfPageLabelStyle::Arabic { offset: start_offset })),
+                PdfPageLabelStyle::Arabic { offset },
+            ) => offset != start_offset + (page_index - start_page_index),
             (Some(_), PdfPageLabelStyle::Blank) => true,
+            (Some(_), _) => true,
             (None, PdfPageLabelStyle::Blank) => plans.is_empty(),
-            (None, PdfPageLabelStyle::Arabic { .. }) => true,
+            (None, _) => true,
         };
 
         if should_start_new_plan {
             plans.push(PdfPageLabelPlan { page_index, style });
         }
 
-        current_arabic_start = match style {
-            PdfPageLabelStyle::Arabic { offset } => Some((page_index, offset)),
+        current_numbered_start = match style {
+            PdfPageLabelStyle::LowerRoman { .. } | PdfPageLabelStyle::Arabic { .. } => {
+                Some((page_index, style))
+            }
             PdfPageLabelStyle::Blank => None,
         };
     }
@@ -1205,6 +1298,41 @@ fn page_number_x(display_page_number: u32, geometry: &LayoutGeometry) -> f32 {
     let right_pts = right_inches * 72.0;
     let extra_digits = display_page_number.to_string().len().saturating_sub(1) as f32;
     right_pts - (extra_digits * BODY_TEXT_CELL_WIDTH)
+}
+
+fn title_page_number_text_x(page_number: &str) -> f32 {
+    const TITLE_PAGE_HEADER_PAGE_NUMBER_RIGHT_TAB_INCHES: f32 = 7.25;
+
+    let right_pts = TITLE_PAGE_HEADER_PAGE_NUMBER_RIGHT_TAB_INCHES * 72.0;
+    right_pts - (page_number.chars().count() as f32 * BODY_TEXT_CELL_WIDTH)
+}
+
+fn lower_roman(number: u32) -> String {
+    let values = [
+        (1000, "m"),
+        (900, "cm"),
+        (500, "d"),
+        (400, "cd"),
+        (100, "c"),
+        (90, "xc"),
+        (50, "l"),
+        (40, "xl"),
+        (10, "x"),
+        (9, "ix"),
+        (5, "v"),
+        (4, "iv"),
+        (1, "i"),
+    ];
+
+    let mut remaining = number;
+    let mut result = String::new();
+    for (value, numeral) in values {
+        while remaining >= value {
+            result.push_str(numeral);
+            remaining -= value;
+        }
+    }
+    result
 }
 
 fn render_title_page_content(
@@ -1536,8 +1664,14 @@ fn body_line_left(line: &PdfRenderLine, geometry: &LayoutGeometry) -> f32 {
             );
     }
 
-    let left_in = line.kind.map(|k| element_left_inches(k, geometry)).unwrap_or(geometry.action_left);
-    let right_in = line.kind.map(|k| element_right_inches(k, geometry)).unwrap_or(geometry.action_right);
+    let left_in = line
+        .kind
+        .map(|k| element_left_inches(k, geometry))
+        .unwrap_or(geometry.action_left);
+    let right_in = line
+        .kind
+        .map(|k| element_right_inches(k, geometry))
+        .unwrap_or(geometry.action_right);
 
     let left = left_in * 72.0;
     let right = right_in * 72.0;
@@ -1651,7 +1785,9 @@ fn element_first_indent_inches(kind: PdfLineKind, geometry: &LayoutGeometry) -> 
         PdfLineKind::Lyric => geometry.lyric_first_indent,
         PdfLineKind::DualDialogueLeft => geometry.dual_dialogue_left_first_indent,
         PdfLineKind::DualDialogueRight => geometry.dual_dialogue_right_first_indent,
-        PdfLineKind::DualDialogueCharacterLeft => geometry.dual_dialogue_left_character_first_indent,
+        PdfLineKind::DualDialogueCharacterLeft => {
+            geometry.dual_dialogue_left_character_first_indent
+        }
         PdfLineKind::DualDialogueCharacterRight => {
             geometry.dual_dialogue_right_character_first_indent
         }
@@ -1845,6 +1981,15 @@ fn collect_document_chars(document: &PdfRenderDocument) -> BTreeSet<char> {
         }
     }
 
+    for page in &document.title_overflow_pages {
+        if let Some(display_page_number) = page.display_page_number {
+            chars.extend(lower_roman(display_page_number).chars());
+        }
+        for line in &page.lines {
+            chars.extend(line.text.chars());
+        }
+    }
+
     for page in &document.body_pages {
         if let Some(display_page_number) = page.display_page_number {
             chars.extend(format!("{display_page_number}.").chars());
@@ -1859,6 +2004,419 @@ fn collect_document_chars(document: &PdfRenderDocument) -> BTreeSet<char> {
     }
 
     chars
+}
+
+fn render_imported_title_pages(
+    imported_title_page: &crate::ImportedTitlePage,
+    geometry: &LayoutGeometry,
+) -> Vec<PdfTitleOverflowPage> {
+    let renders_page_numbers = imported_title_page.header_footer.header_visible
+        && imported_title_page.header_footer.header_has_page_number;
+    let first_title_page_number = imported_title_page.header_footer.starting_page.unwrap_or(1);
+
+    imported_title_page
+        .pages
+        .iter()
+        .enumerate()
+        .map(|(index, page)| {
+            let header_allows_this_page = index > 0 || imported_title_page.header_footer.header_first_page;
+            PdfTitleOverflowPage {
+                page_number: index as u32 + 1,
+                display_page_number: (renders_page_numbers && header_allows_this_page)
+                    .then_some(first_title_page_number + index as u32),
+                lines: render_imported_title_overflow_page_lines(&page.paragraphs, geometry),
+            }
+        })
+        .collect()
+}
+
+fn render_title_overflow_pages(
+    title_page: &TitlePage,
+    geometry: &LayoutGeometry,
+) -> Vec<PdfTitleOverflowPage> {
+    title_page
+        .frontmatter
+        .iter()
+        .enumerate()
+        .map(|(index, page)| PdfTitleOverflowPage {
+            page_number: index as u32 + 2,
+            display_page_number: None,
+            lines: page
+                .paragraphs
+                .iter()
+                .flat_map(|paragraph| {
+                    let alignment = match paragraph.alignment {
+                        crate::title_page::FrontmatterAlignment::Center => {
+                            ImportedTitlePageAlignment::Center
+                        }
+                        crate::title_page::FrontmatterAlignment::Left => {
+                            ImportedTitlePageAlignment::Left
+                        }
+                    };
+                    render_imported_title_overflow_paragraph(
+                        &crate::ImportedTitlePageParagraph {
+                            text: paragraph.text.clone(),
+                            alignment,
+                            left_indent: Some(1.5),
+                            space_before: None,
+                            tab_stops: Vec::new(),
+                        },
+                        1.5,
+                        geometry,
+                    )
+                })
+                .collect(),
+        })
+        .collect()
+}
+
+fn render_imported_title_overflow_page_lines(
+    paragraphs: &[crate::ImportedTitlePageParagraph],
+    geometry: &LayoutGeometry,
+) -> Vec<PdfTitleOverflowLine> {
+    let page_left = paragraphs
+        .iter()
+        .filter(|paragraph| !paragraph.text.plain_text().trim().is_empty())
+        .filter_map(|paragraph| paragraph.left_indent)
+        .fold(None, |current: Option<f32>, indent| {
+            Some(current.map_or(indent, |value| value.min(indent)))
+        })
+        .unwrap_or(1.5);
+
+    let mut lines = Vec::new();
+    for paragraph in paragraphs {
+        lines.extend(
+            std::iter::repeat_with(|| PdfTitleOverflowLine {
+                text: String::new(),
+                segments: Vec::new(),
+            })
+            .take(title_page_space_before_lines(paragraph.space_before)),
+        );
+        lines.extend(render_imported_title_overflow_paragraph(
+            paragraph, page_left, geometry,
+        ));
+    }
+    lines
+}
+
+fn render_imported_title_overflow_paragraph(
+    paragraph: &crate::ImportedTitlePageParagraph,
+    page_left: f32,
+    _geometry: &LayoutGeometry,
+) -> Vec<PdfTitleOverflowLine> {
+    let display_text = imported_title_display_text(&paragraph.text);
+
+    if display_text.plain_text().trim().is_empty() {
+        return vec![PdfTitleOverflowLine {
+            text: String::new(),
+            segments: Vec::new(),
+        }];
+    }
+
+    if !paragraph.tab_stops.is_empty() && display_text.plain_text().contains('\t') {
+        return render_tabbed_title_overflow_paragraph(&display_text, paragraph, page_left);
+    }
+
+    let left = paragraph.left_indent.unwrap_or(page_left);
+    let right = 7.5;
+    let width_chars = width_chars_between(left, right);
+    let wrapped_lines = wrap_element_text_to_lines(&display_text, width_chars);
+
+    wrapped_lines
+        .into_iter()
+        .map(|fragments| {
+            let text = fragments_text(&fragments);
+            let x = match paragraph.alignment {
+                ImportedTitlePageAlignment::Center => {
+                    let width = text.chars().count() as f32 * BODY_TEXT_CELL_WIDTH;
+                    let left_points = left * 72.0;
+                    let right_points = right * 72.0;
+                    left_points + ((right_points - left_points - width) / 2.0).max(0.0)
+                }
+                ImportedTitlePageAlignment::Right => {
+                    let width = text.chars().count() as f32 * BODY_TEXT_CELL_WIDTH;
+                    let right_points = right * 72.0;
+                    (right_points - width).max(left * 72.0)
+                }
+                _ => left * 72.0,
+            };
+
+            PdfTitleOverflowLine {
+                text,
+                segments: vec![PdfTitleOverflowSegment { x, fragments }],
+            }
+        })
+        .collect()
+}
+
+fn title_page_space_before_lines(space_before: Option<f32>) -> usize {
+    (space_before.unwrap_or(0.0) / 12.0)
+        .round()
+        .max(0.0) as usize
+}
+
+fn render_tabbed_title_overflow_paragraph(
+    display_text: &ElementText,
+    paragraph: &crate::ImportedTitlePageParagraph,
+    page_left: f32,
+) -> Vec<PdfTitleOverflowLine> {
+    let segments = split_fragments_on_tabs(&element_text_to_fragments(display_text));
+    if segments.is_empty() {
+        return vec![PdfTitleOverflowLine {
+            text: String::new(),
+            segments: Vec::new(),
+        }];
+    }
+
+    let prefix_segments = &segments[..segments.len() - 1];
+    let description = &segments[segments.len() - 1];
+    let prefix_fragments = prefix_segments
+        .iter()
+        .flat_map(|segment| segment.clone())
+        .collect::<Vec<_>>();
+    let prefix_text = fragments_text(&prefix_fragments);
+    let description_left =
+        advance_through_tab_stops(page_left, prefix_segments, &paragraph.tab_stops);
+    let description_lines = wrap_fragments_to_lines(description, width_chars_between(description_left, 7.5));
+
+    let mut lines = Vec::new();
+    if let Some(first_description_line) = description_lines.first() {
+        let mut segments = Vec::new();
+        if !prefix_fragments.is_empty() {
+            segments.push(PdfTitleOverflowSegment {
+                x: page_left * 72.0,
+                fragments: prefix_fragments,
+            });
+        }
+        segments.push(PdfTitleOverflowSegment {
+            x: description_left * 72.0,
+            fragments: first_description_line.clone(),
+        });
+        lines.push(PdfTitleOverflowLine {
+            text: format!("{prefix_text}{}", fragments_text(first_description_line)),
+            segments,
+        });
+    }
+
+    for description_line in description_lines.into_iter().skip(1) {
+        lines.push(PdfTitleOverflowLine {
+            text: fragments_text(&description_line),
+            segments: vec![PdfTitleOverflowSegment {
+                x: description_left * 72.0,
+                fragments: description_line,
+            }],
+        });
+    }
+
+    lines
+}
+
+fn imported_title_display_text(text: &ElementText) -> ElementText {
+    match text {
+        ElementText::Plain(text) => ElementText::Plain(text.clone()),
+        ElementText::Styled(runs) => ElementText::Styled(
+            runs.iter()
+                .map(|run| {
+                    let display_text = if run
+                        .text_style
+                        .iter()
+                        .any(|style| style.eq_ignore_ascii_case("AllCaps"))
+                    {
+                        run.content.to_ascii_uppercase()
+                    } else {
+                        run.content.clone()
+                    };
+                    crate::TextRun {
+                        content: display_text,
+                        text_style: run.text_style.clone(),
+                    }
+                })
+                .collect(),
+        ),
+    }
+}
+
+fn advance_through_tab_stops(
+    page_left: f32,
+    segments_before_description: &[Vec<PdfRenderFragment>],
+    tab_stops: &[ImportedTitlePageTabStop],
+) -> f32 {
+    let mut current = page_left;
+    let mut sorted_tab_positions = tab_stops.iter().map(|tab_stop| tab_stop.position).collect::<Vec<_>>();
+    sorted_tab_positions.sort_by(|left, right| left.partial_cmp(right).unwrap());
+
+    for segment in segments_before_description {
+        current += (fragments_text(segment).chars().count() as f32 * BODY_TEXT_CELL_WIDTH) / 72.0;
+        if let Some(next_tab) = sorted_tab_positions.iter().copied().find(|position| *position > current) {
+            current = next_tab;
+        }
+    }
+
+    current
+}
+
+fn split_fragments_on_tabs(fragments: &[PdfRenderFragment]) -> Vec<Vec<PdfRenderFragment>> {
+    let mut segments = vec![Vec::new()];
+
+    for fragment in fragments {
+        let mut parts = fragment.text.split('\t').peekable();
+        while let Some(part) = parts.next() {
+            if !part.is_empty() {
+                segments
+                    .last_mut()
+                    .expect("expected tab segment")
+                    .push(PdfRenderFragment {
+                        actual_text: fragment.actual_text.clone(),
+                        text: part.to_string(),
+                        styles: fragment.styles.clone(),
+                    });
+            }
+            if parts.peek().is_some() {
+                segments.push(Vec::new());
+            }
+        }
+    }
+
+    segments
+}
+
+fn width_chars_between(left: f32, right: f32) -> usize {
+    (((right - left) * 72.0) / BODY_TEXT_CELL_WIDTH).floor().max(1.0) as usize
+}
+
+fn wrap_element_text_to_lines(text: &ElementText, width_chars: usize) -> Vec<Vec<PdfRenderFragment>> {
+    wrap_fragments_to_lines(&element_text_to_fragments(text), width_chars)
+}
+
+fn wrap_fragments_to_lines(
+    fragments: &[PdfRenderFragment],
+    width_chars: usize,
+) -> Vec<Vec<PdfRenderFragment>> {
+    let plain_text = fragments_text(fragments);
+    if plain_text.is_empty() {
+        return vec![Vec::new()];
+    }
+
+    if fragments.iter().any(|fragment| !fragment.styles.is_empty()) {
+        let styled_text = StyledText {
+            plain_text,
+            runs: fragments
+                .iter()
+                .map(|fragment| StyledRun {
+                    text: fragment.text.clone(),
+                    styles: fragment.styles.clone(),
+                })
+                .collect(),
+        };
+        return wrap_styled_text_for_element(
+            &styled_text,
+            &WrapConfig::with_exact_width_chars(width_chars),
+        )
+        .into_iter()
+        .map(|line| {
+            line.fragments
+                .into_iter()
+                .map(|fragment| PdfRenderFragment {
+                    actual_text: None,
+                    text: fragment.text,
+                    styles: fragment.styles,
+                })
+                .collect()
+        })
+        .collect();
+    }
+
+    wrap_text_for_element(&plain_text, &WrapConfig::with_exact_width_chars(width_chars))
+        .into_iter()
+        .map(|text| {
+            vec![PdfRenderFragment {
+                actual_text: None,
+                text,
+                styles: Vec::new(),
+            }]
+        })
+        .collect()
+}
+
+fn element_text_to_fragments(text: &ElementText) -> Vec<PdfRenderFragment> {
+    match text {
+        ElementText::Plain(text) => vec![PdfRenderFragment {
+            actual_text: None,
+            text: text.clone(),
+            styles: Vec::new(),
+        }],
+        ElementText::Styled(runs) => runs
+            .iter()
+            .map(|run| PdfRenderFragment {
+                actual_text: None,
+                text: run.content.clone(),
+                styles: {
+                    let mut styles = run.text_style.iter().cloned().collect::<Vec<_>>();
+                    styles.sort();
+                    styles
+                },
+            })
+            .collect(),
+    }
+}
+
+fn fragments_text(fragments: &[PdfRenderFragment]) -> String {
+    fragments.iter().map(|fragment| fragment.text.as_str()).collect()
+}
+
+fn render_title_overflow_page_content(
+    page: &PdfTitleOverflowPage,
+    geometry: &LayoutGeometry,
+    fonts: &EmbeddedFonts,
+) -> Vec<u8> {
+    let mut content = Content::new();
+    let mut underlines = Vec::new();
+    content.begin_text();
+    content.set_font(FONT_REGULAR_NAME, BODY_TEXT_FONT_SIZE);
+    let line_step = body_line_step_points(geometry);
+    let body_top = first_body_line_y(geometry);
+
+    if let Some(display_page_number) = page.display_page_number {
+        let page_number = lower_roman(display_page_number);
+        render_artifact_runs(
+            &mut content,
+            fonts,
+            &[ResolvedRun {
+                actual_text: None,
+                tagged_span: false,
+                text: page_number.clone(),
+                styles: StyleFlags::default(),
+            }],
+            title_page_number_text_x(&page_number),
+            page_number_y(geometry),
+            BODY_TEXT_FONT_SIZE,
+            &mut underlines,
+            geometry,
+        );
+    }
+
+    for (index, line) in page.lines.iter().enumerate() {
+        if line.segments.is_empty() {
+            continue;
+        }
+
+        let line_y = body_top - (index as f32 * line_step);
+        for segment in &line.segments {
+            render_fixed_cell_runs(
+                &mut content,
+                fonts,
+                &resolve_runs(&segment.fragments, StyleFlags::default()),
+                segment.x,
+                line_y,
+                BODY_TEXT_FONT_SIZE,
+                &mut underlines,
+            );
+        }
+    }
+
+    content.end_text();
+    render_underlines(&mut content, &underlines);
+    content.finish().to_vec()
 }
 
 fn font_object_ids(start: i32) -> FontObjectIds {
@@ -1926,8 +2484,8 @@ pub(crate) fn build_tagged_document(
     screenplay: &Screenplay,
     geometry: &LayoutGeometry,
 ) -> PdfTaggedDocument {
-    let title_page =
-        TitlePage::from_metadata(&screenplay.metadata).map(|title_page| PdfTaggedTitlePage {
+    let title_page = screenplay.imported_title_page.is_none().then(|| {
+        TitlePage::from_screenplay(screenplay).map(|title_page| PdfTaggedTitlePage {
             blocks: title_page
                 .blocks
                 .into_iter()
@@ -1941,7 +2499,8 @@ pub(crate) fn build_tagged_document(
                     artifact: false,
                 })
                 .collect(),
-        });
+        })
+    }).flatten();
 
     let paginated = PaginatedScreenplay::from_screenplay(
         "screenplay",
@@ -2239,7 +2798,7 @@ impl TitlePageBlockKind {
 }
 
 fn pdf_pagination_scope(screenplay: &Screenplay) -> PaginationScope {
-    if let Some(title_page) = TitlePage::from_metadata(&screenplay.metadata) {
+    if let Some(title_page) = TitlePage::from_screenplay(screenplay) {
         let count = title_page.total_page_count();
         PaginationScope {
             title_page_count: Some(count),
@@ -2691,7 +3250,7 @@ impl From<VisualDualSide> for PdfRenderDualSide {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::parse;
+    use crate::{parse, parse_fdx};
     use crate::{blank_attributes, p, tr, Attributes, Element, Metadata};
     use regex::Regex;
     use std::fs;
@@ -2703,6 +3262,7 @@ mod tests {
         let screenplay = Screenplay {
             metadata,
             imported_layout: None,
+            imported_title_page: None,
             elements: Vec::new(),
         };
         let geometry = LayoutGeometry::default();
@@ -3039,6 +3599,7 @@ mod tests {
         let screenplay = Screenplay {
             metadata,
             imported_layout: None,
+            imported_title_page: None,
             elements: vec![
                 Element::Action(p("FIRST BODY PAGE"), blank_attributes()),
                 Element::Action(
@@ -3096,6 +3657,7 @@ mod tests {
         let screenplay = Screenplay {
             metadata,
             imported_layout: None,
+            imported_title_page: None,
             elements: vec![Element::Action(p("FIRST BODY PAGE"), blank_attributes())],
         };
 
@@ -3113,6 +3675,145 @@ mod tests {
         assert_eq!(document.body_pages.len(), 1);
         assert_eq!(document.body_pages[0].page_number, 1);
         assert_eq!(document.body_pages[0].display_page_number, None);
+    }
+
+    #[test]
+    fn pdf_render_document_includes_imported_title_overflow_pages() {
+        let xml = fs::read_to_string("tests/fixtures/fdx-import/title-page-cast-page.fdx")
+            .expect("expected cast-page fdx fixture");
+        let screenplay = parse_fdx(&xml).expect("fdx should parse");
+
+        let geometry = LayoutGeometry::default();
+        let document = build_render_document(&screenplay, PdfRenderOptions::default(), &geometry);
+
+        assert!(document.title_page.is_none());
+        assert_eq!(document.title_overflow_pages.len(), 2);
+        assert_eq!(document.title_overflow_pages[0].page_number, 1);
+        assert_eq!(document.title_overflow_pages[0].display_page_number, None);
+        assert_eq!(document.title_overflow_pages[1].page_number, 2);
+        assert_eq!(document.title_overflow_pages[1].display_page_number, None);
+        assert_eq!(document.body_pages[0].page_number, 3);
+        assert!(document.title_overflow_pages[0]
+            .lines
+            .iter()
+            .any(|line| line.text.contains("GUY TEXT")));
+        assert!(document.title_overflow_pages[1]
+            .lines
+            .iter()
+            .any(|line| line.text.contains("THE GUYS")));
+    }
+
+    #[test]
+    fn pdf_render_document_honors_all_caps_in_imported_title_pages() {
+        let xml = fs::read_to_string(
+            "tests/fixtures/corpus/public/big-fish-scene-numbers/source/source.fdx",
+        )
+        .expect("expected big fish fdx fixture");
+        let screenplay = parse_fdx(&xml).expect("fdx should parse");
+
+        let geometry = LayoutGeometry::default();
+        let document = build_render_document(&screenplay, PdfRenderOptions::default(), &geometry);
+
+        assert!(document.title_page.is_none());
+        assert!(document.title_overflow_pages[0]
+            .lines
+            .iter()
+            .any(|line| line.text.contains("BIG FISH")));
+        assert!(!document.title_overflow_pages[0]
+            .lines
+            .iter()
+            .any(|line| line.text.contains("Big Fish")));
+    }
+
+    #[test]
+    fn pdf_render_document_right_aligns_imported_title_page_paragraphs() {
+        let xml = fs::read_to_string("tests/fixtures/fdx-import/title-page-cast-page.fdx")
+            .expect("expected cast-page fdx fixture");
+        let screenplay = parse_fdx(&xml).expect("fdx should parse");
+
+        let geometry = LayoutGeometry::default();
+        let document = build_render_document(&screenplay, PdfRenderOptions::default(), &geometry);
+        let february_line = document.title_overflow_pages[0]
+            .lines
+            .iter()
+            .find(|line| line.text.contains("February 6th, 2022"))
+            .expect("expected February title-page line");
+        let february_segment = february_line
+            .segments
+            .first()
+            .expect("expected February title-page segment");
+
+        assert!(february_segment.x > 400.0);
+    }
+
+    #[test]
+    fn pdf_render_document_uses_imported_title_header_for_overflow_page_numbers() {
+        let xml = fs::read_to_string("tests/fixtures/fdx-import/title-pages-multi.fdx")
+            .expect("expected multi title-page fdx fixture");
+        let screenplay = parse_fdx(&xml).expect("fdx should parse");
+
+        let geometry = LayoutGeometry::default();
+        let document = build_render_document(&screenplay, PdfRenderOptions::default(), &geometry);
+
+        assert_eq!(document.title_overflow_pages.len(), 2);
+        assert_eq!(document.title_overflow_pages[0].display_page_number, None);
+        assert_eq!(document.title_overflow_pages[1].display_page_number, Some(2));
+    }
+
+    #[test]
+    fn pdf_render_output_counts_imported_title_overflow_pages() {
+        let xml = fs::read_to_string("tests/fixtures/fdx-import/title-page-cast-page.fdx")
+            .expect("expected cast-page fdx fixture");
+        let screenplay = parse_fdx(&xml).expect("fdx should parse");
+        let geometry = LayoutGeometry::default();
+        let document = build_render_document(&screenplay, PdfRenderOptions::default(), &geometry);
+
+        let inspection = inspect_tagged_pdf(&render(&screenplay));
+        let expected_page_count = document.body_pages.len()
+            + document.title_overflow_pages.len()
+            + usize::from(document.title_page.is_some());
+
+        assert_eq!(inspection.struct_parents.len(), expected_page_count);
+        assert_eq!(inspection.struct_parents, (0..expected_page_count as i32).collect::<Vec<_>>());
+    }
+
+    #[test]
+    fn pdf_render_output_emits_lower_roman_labels_for_numbered_title_overflow_pages() {
+        let xml = fs::read_to_string("tests/fixtures/fdx-import/title-pages-multi.fdx")
+            .expect("expected multi title-page fdx fixture");
+        let screenplay = parse_fdx(&xml).expect("fdx should parse");
+
+        let inspection = inspect_tagged_pdf(&render(&screenplay));
+
+        assert_eq!(
+            inspection.page_labels,
+            vec![
+                InspectedPageLabel {
+                    page_index: 0,
+                    style: None,
+                    offset: None,
+                },
+                InspectedPageLabel {
+                    page_index: 1,
+                    style: Some("r".into()),
+                    offset: Some(2),
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn embedded_fonts_include_curly_apostrophe_from_imported_fdx_content() {
+        let xml = fs::read_to_string("tests/fixtures/fdx-import/title-pages-multi.fdx")
+            .expect("expected multi title-page fdx fixture");
+        let screenplay = parse_fdx(&xml).expect("fdx should parse");
+
+        let geometry = LayoutGeometry::default();
+        let document = build_render_document(&screenplay, PdfRenderOptions::default(), &geometry);
+        let fonts = EmbeddedFonts::new(&document);
+
+        assert!(collect_document_chars(&document).contains(&'’'));
+        assert!(fonts.regular.cid_by_char.contains_key(&'’'));
     }
 
     #[test]
@@ -3201,6 +3902,7 @@ mod tests {
         let screenplay = Screenplay {
             metadata: Metadata::new(),
             imported_layout: None,
+            imported_title_page: None,
             elements: vec![Element::DualDialogueBlock(vec![
                 Element::DialogueBlock(vec![
                     Element::Character(p("BRICK"), blank_attributes()),
@@ -3280,6 +3982,7 @@ mod tests {
         let screenplay = Screenplay {
             metadata,
             imported_layout: None,
+            imported_title_page: None,
             elements: vec![
                 Element::Action(p("FIRST BODY PAGE"), blank_attributes()),
                 Element::Action(
@@ -3312,6 +4015,7 @@ mod tests {
         let screenplay = Screenplay {
             metadata,
             imported_layout: None,
+            imported_title_page: None,
             elements: vec![Element::Action(p("BODY PAGE"), blank_attributes())],
         };
 
@@ -3348,6 +4052,7 @@ mod tests {
         let screenplay = Screenplay {
             metadata,
             imported_layout: None,
+            imported_title_page: None,
             elements: vec![Element::Action(p("BODY PAGE"), blank_attributes())],
         };
 
@@ -3380,6 +4085,7 @@ mod tests {
         let screenplay = Screenplay {
             metadata,
             imported_layout: None,
+            imported_title_page: None,
             elements: vec![Element::Action(p("BODY PAGE"), blank_attributes())],
         };
 
@@ -3398,6 +4104,7 @@ mod tests {
         let screenplay = Screenplay {
             metadata,
             imported_layout: None,
+            imported_title_page: None,
             elements: vec![Element::Action(p("BODY PAGE"), blank_attributes())],
         };
 
@@ -3418,6 +4125,7 @@ mod tests {
         let screenplay = Screenplay {
             metadata: Metadata::new(),
             imported_layout: None,
+            imported_title_page: None,
             elements: vec![Element::Action(p("BODY PAGE"), blank_attributes())],
         };
 
@@ -3441,6 +4149,7 @@ mod tests {
         let screenplay = Screenplay {
             metadata,
             imported_layout: None,
+            imported_title_page: None,
             elements: vec![Element::Action(p("BODY PAGE"), blank_attributes())],
         };
 
@@ -3461,6 +4170,7 @@ mod tests {
         let screenplay = Screenplay {
             metadata: Metadata::new(),
             imported_layout: None,
+            imported_title_page: None,
             elements: vec![
                 Element::Action(p("FIRST BODY PAGE"), blank_attributes()),
                 Element::DialogueBlock(vec![
@@ -3498,6 +4208,7 @@ mod tests {
         let screenplay = Screenplay {
             metadata: Metadata::new(),
             imported_layout: None,
+            imported_title_page: None,
             elements: vec![
                 Element::SceneHeading(p("INT. LAB - DAY"), blank_attributes()),
                 Element::Action(p("Machines hum."), blank_attributes()),
@@ -3548,6 +4259,7 @@ mod tests {
         let screenplay = Screenplay {
             metadata,
             imported_layout: None,
+            imported_title_page: None,
             elements: vec![Element::Action(p("BODY PAGE"), blank_attributes())],
         };
 
@@ -3598,6 +4310,7 @@ mod tests {
         let screenplay = Screenplay {
             metadata,
             imported_layout: None,
+            imported_title_page: None,
             elements: vec![Element::Action(p("BODY PAGE"), blank_attributes())],
         };
 
@@ -3618,6 +4331,7 @@ mod tests {
         let screenplay = Screenplay {
             metadata: Metadata::new(),
             imported_layout: None,
+            imported_title_page: None,
             elements: vec![Element::DualDialogueBlock(vec![
                 Element::DialogueBlock(vec![
                     Element::Character(p("BRICK"), blank_attributes()),
@@ -3821,6 +4535,7 @@ mod tests {
         let screenplay = Screenplay {
             metadata,
             imported_layout: None,
+            imported_title_page: None,
             elements: vec![
                 Element::Action(p("FIRST BODY PAGE"), blank_attributes()),
                 Element::SceneHeading(
@@ -3880,6 +4595,7 @@ mod tests {
         let screenplay = Screenplay {
             metadata,
             imported_layout: None,
+            imported_title_page: None,
             elements: vec![
                 Element::Action(p("FIRST BODY PAGE"), blank_attributes()),
                 Element::Action(
@@ -3916,6 +4632,7 @@ mod tests {
         let screenplay = Screenplay {
             metadata: Metadata::new(),
             imported_layout: None,
+            imported_title_page: None,
             elements: vec![
                 Element::Action(p("FIRST BODY PAGE"), blank_attributes()),
                 Element::DialogueBlock(vec![
@@ -3960,6 +4677,7 @@ mod tests {
         let screenplay = Screenplay {
             metadata,
             imported_layout: None,
+            imported_title_page: None,
             elements: vec![
                 Element::Action(p("FIRST BODY PAGE"), blank_attributes()),
                 Element::Action(
@@ -4003,6 +4721,7 @@ mod tests {
         let screenplay = Screenplay {
             metadata: Metadata::new(),
             imported_layout: None,
+            imported_title_page: None,
             elements: vec![Element::Action(
                 p("CENTERED LINE"),
                 Attributes {
@@ -4038,6 +4757,7 @@ mod tests {
         let screenplay = Screenplay {
             metadata: Metadata::new(),
             imported_layout: None,
+            imported_title_page: None,
             elements: vec![Element::DualDialogueBlock(vec![
                 Element::DialogueBlock(vec![
                     Element::Character(p("BOB"), blank_attributes()),
@@ -4075,6 +4795,7 @@ mod tests {
     fn body_page_artifacts_wrap_page_numbers_scene_numbers_and_split_contd_cues() {
         let document = PdfRenderDocument {
             title_page: None,
+            title_overflow_pages: Vec::new(),
             body_pages: vec![PdfRenderPage {
                 page_number: 35,
                 display_page_number: Some(34),
@@ -4145,6 +4866,7 @@ mod tests {
     fn body_page_artifacts_wrap_more_markers() {
         let document = PdfRenderDocument {
             title_page: None,
+            title_overflow_pages: Vec::new(),
             body_pages: vec![PdfRenderPage {
                 page_number: 12,
                 display_page_number: Some(11),
@@ -4228,6 +4950,7 @@ mod tests {
         let screenplay = Screenplay {
             metadata,
             imported_layout: None,
+            imported_title_page: None,
             elements: vec![Element::Action(p("BODY PAGE"), blank_attributes())],
         };
 
@@ -4319,6 +5042,7 @@ mod tests {
         let screenplay = Screenplay {
             metadata,
             imported_layout: None,
+            imported_title_page: None,
             elements: vec![Element::Action(p("BODY PAGE"), blank_attributes())],
         };
 
@@ -4370,6 +5094,7 @@ mod tests {
         let screenplay = Screenplay {
             metadata,
             imported_layout: None,
+            imported_title_page: None,
             elements: vec![Element::Action(p("BODY PAGE"), blank_attributes())],
         };
 
@@ -4414,6 +5139,7 @@ mod tests {
         let screenplay = Screenplay {
             metadata: Metadata::new(),
             imported_layout: None,
+            imported_title_page: None,
             elements: vec![Element::Action(
                 ElementText::Styled(vec![
                     tr("PLAIN ", vec![]),
@@ -4477,6 +5203,7 @@ mod tests {
         let screenplay = Screenplay {
             metadata,
             imported_layout: None,
+            imported_title_page: None,
             elements: vec![Element::Action(p("BODY PAGE"), blank_attributes())],
         };
 
@@ -4527,6 +5254,7 @@ mod tests {
         let screenplay = Screenplay {
             metadata,
             imported_layout: None,
+            imported_title_page: None,
             elements: vec![Element::Action(p("BODY PAGE"), blank_attributes())],
         };
 
@@ -4583,6 +5311,7 @@ mod tests {
         let screenplay = Screenplay {
             metadata,
             imported_layout: None,
+            imported_title_page: None,
             elements: vec![Element::Action(p("BODY PAGE"), blank_attributes())],
         };
 
@@ -4627,6 +5356,7 @@ mod tests {
         let screenplay = Screenplay {
             metadata: Metadata::new(),
             imported_layout: None,
+            imported_title_page: None,
             elements: vec![Element::Action(
                 ElementText::Styled(vec![
                     tr("PLAIN ", vec![]),
@@ -4661,6 +5391,7 @@ mod tests {
         let screenplay = Screenplay {
             metadata: Metadata::new(),
             imported_layout: None,
+            imported_title_page: None,
             elements: vec![
                 Element::SceneHeading(p("INT. OFFICE - DAY"), blank_attributes()),
                 Element::Lyric(p("I love to sing"), blank_attributes()),
@@ -4688,6 +5419,7 @@ mod tests {
         let screenplay = Screenplay {
             metadata,
             imported_layout: None,
+            imported_title_page: None,
             elements: vec![Element::SceneHeading(
                 p("INT. OFFICE - DAY"),
                 blank_attributes(),
@@ -4713,6 +5445,7 @@ mod tests {
     fn underline_segments_do_not_extend_into_trailing_wrap_spaces() {
         let document = PdfRenderDocument {
             title_page: None,
+            title_overflow_pages: Vec::new(),
             body_pages: vec![],
         };
         let fonts = EmbeddedFonts::new(&document);
