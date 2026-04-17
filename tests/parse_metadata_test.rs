@@ -29,6 +29,7 @@ fn it_handles_complex_metadata_without_elements() {
         elements: vec![],
         metadata: expected_metadata,
         imported_layout: None,
+        imported_title_page: None,
     };
     assert_eq! {
         parse(text),
@@ -57,6 +58,7 @@ fn it_handles_complex_metadata_without_elements() {
         elements: vec![],
         metadata: expected_metadata,
         imported_layout: None,
+        imported_title_page: None,
     };
 
     assert_eq! {
@@ -93,6 +95,7 @@ fn it_handles_complex_metadata_with_elements() {
         elements: vec![Element::SceneHeading(p("INT. THE ZOO"), blank_attributes())],
         metadata: expected_metadata,
         imported_layout: None,
+        imported_title_page: None,
     };
 
     assert_eq! {
@@ -113,6 +116,7 @@ fn it_handles_unusual_metadata() {
         elements: vec![],
         metadata: expected_metadata,
         imported_layout: None,
+        imported_title_page: None,
     };
 
     assert_eq! {

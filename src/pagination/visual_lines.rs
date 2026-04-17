@@ -8,7 +8,7 @@ use crate::pagination::{
     ScreenplayLayoutProfile, SemanticOptions, SemanticUnit, StyleProfile,
 };
 use crate::styled_text::{StyledRun, StyledText};
-use crate::title_page::TitlePage;
+use crate::title_page::{frontmatter_count, TitlePage};
 use crate::Screenplay;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -149,21 +149,26 @@ fn default_pagination_scope(
     screenplay: &Screenplay,
     options: VisualRenderOptions,
 ) -> PaginationScope {
-    if options.render_title_page && has_title_page_metadata(screenplay) {
-        PaginationScope {
-            title_page_count: Some(1),
-            body_start_page: Some(2),
-        }
-    } else {
-        PaginationScope {
-            title_page_count: None,
-            body_start_page: None,
+    if options.render_title_page {
+        if TitlePage::from_screenplay(screenplay).is_some() {
+            let count = frontmatter_count(screenplay).unwrap_or(1);
+            let first_page_number = if screenplay.metadata.contains_key("frontmatter-page-count") {
+                Some(2)
+            } else {
+                Some(count + 1)
+            };
+            return PaginationScope {
+                first_page_number,
+                title_page_count: Some(count),
+                body_start_page: Some(count + 1),
+            };
         }
     }
-}
-
-fn has_title_page_metadata(screenplay: &Screenplay) -> bool {
-    TitlePage::from_metadata(&screenplay.metadata).is_some()
+    PaginationScope {
+        first_page_number: None,
+        title_page_count: None,
+        body_start_page: None,
+    }
 }
 
 fn nonempty_layout_pages<'a>(
@@ -1214,8 +1219,7 @@ fn indent_spaces_for_rendered_text(
 ) -> usize {
     let base = indent_spaces_for_element_type(element_type, geometry);
     if parenthetical_hangs_opening_paren(element_type, rendered_text) {
-        let hanging_cells = (first_indent_for_element_type(element_type, geometry)
-            .abs()
+        let hanging_cells = (first_indent_for_element_type(element_type, geometry).abs()
             * geometry.cpi)
             .floor() as usize;
         return base.saturating_sub(hanging_cells.max(1));
@@ -1236,8 +1240,12 @@ fn first_indent_for_element_type(element_type: ElementType, geometry: &LayoutGeo
         ElementType::Lyric => geometry.lyric_first_indent,
         ElementType::DualDialogueLeft => geometry.dual_dialogue_left_first_indent,
         ElementType::DualDialogueRight => geometry.dual_dialogue_right_first_indent,
-        ElementType::DualDialogueCharacterLeft => geometry.dual_dialogue_left_character_first_indent,
-        ElementType::DualDialogueCharacterRight => geometry.dual_dialogue_right_character_first_indent,
+        ElementType::DualDialogueCharacterLeft => {
+            geometry.dual_dialogue_left_character_first_indent
+        }
+        ElementType::DualDialogueCharacterRight => {
+            geometry.dual_dialogue_right_character_first_indent
+        }
         ElementType::DualDialogueParentheticalLeft => {
             geometry.dual_dialogue_left_parenthetical_first_indent
         }

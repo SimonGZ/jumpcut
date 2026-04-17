@@ -1,6 +1,6 @@
 use jumpcut::{
-    blank_attributes, parse, parse_fdx, p, tr, Attributes, Element, ElementText::Styled,
-    Metadata, Screenplay,
+    blank_attributes, p, parse, parse_fdx, tr, Attributes, Element, ElementText::Styled, Metadata,
+    Screenplay,
 };
 use pretty_assertions::assert_eq;
 
@@ -21,6 +21,7 @@ fn fountain_output_round_trips_metadata_and_core_body_elements() {
     let screenplay = Screenplay {
         metadata,
         imported_layout: None,
+        imported_title_page: None,
         elements: vec![
             Element::SceneHeading(
                 p("INT. HOUSE - DAY"),
@@ -60,6 +61,7 @@ fn fountain_output_forces_ambiguous_elements_to_preserve_type() {
     let screenplay = Screenplay {
         metadata: Metadata::new(),
         imported_layout: None,
+        imported_title_page: None,
         elements: vec![
             Element::SceneHeading(p("inside the school bus"), blank_attributes()),
             Element::Action(p("INT. HOUSE - DAY"), blank_attributes()),
@@ -85,6 +87,7 @@ fn fountain_output_round_trips_dual_dialogue_page_breaks_and_centered_markers() 
     let screenplay = Screenplay {
         metadata: Metadata::new(),
         imported_layout: None,
+        imported_title_page: None,
         elements: vec![
             Element::Action(
                 p("THE END"),
@@ -123,15 +126,17 @@ fn fountain_output_round_trips_dual_dialogue_page_breaks_and_centered_markers() 
 
 #[test]
 fn imported_fdx_can_be_emitted_as_fountain() {
-    let xml =
-        std::fs::read_to_string("tests/fixtures/fdx-import/brick-n-steel-basic.fdx")
-            .expect("fixture should load");
+    let xml = std::fs::read_to_string("tests/fixtures/fdx-import/brick-n-steel-basic.fdx")
+        .expect("fixture should load");
 
     let screenplay = parse_fdx(&xml).expect("fdx should parse");
     let fountain = screenplay.to_fountain();
     let reparsed = parse(&fountain);
 
-    assert_eq!(reparsed.metadata.get("title"), screenplay.metadata.get("title"));
+    assert_eq!(
+        reparsed.metadata.get("title"),
+        screenplay.metadata.get("title")
+    );
     assert_eq!(reparsed.elements, screenplay.elements);
 }
 
@@ -176,6 +181,68 @@ Right side.
     let reparsed = parse(&fountain);
 
     assert_eq!(reparsed.elements, original.elements);
-    assert_ne!(reparsed.metadata.get("title"), original.metadata.get("title"));
+    assert_ne!(
+        reparsed.metadata.get("title"),
+        original.metadata.get("title")
+    );
     assert_ne!(reparsed.metadata, original.metadata);
+}
+
+#[test]
+fn fountain_output_drops_legacy_frontmatter_metadata_key() {
+    let mut metadata = Metadata::new();
+    metadata.insert("title".into(), vec!["MY SCREENPLAY".into()]);
+    metadata.insert("frontmatter".into(), vec!["legacy".into()]);
+
+    let screenplay = Screenplay {
+        metadata,
+        imported_layout: None,
+        imported_title_page: None,
+        elements: vec![Element::Action(p("Body."), blank_attributes())],
+    };
+
+    let rendered = screenplay.to_fountain();
+    let reparsed = parse(&rendered);
+
+    assert!(!rendered.contains("Frontmatter:"));
+    assert!(!reparsed.metadata.contains_key("frontmatter"));
+}
+
+#[test]
+fn imported_fdx_title_overflow_pages_export_as_frontmatter_count_and_body_content() {
+    let xml = std::fs::read_to_string("tests/fixtures/fdx-import/title-pages-multi.fdx")
+        .expect("fixture should load");
+
+    let screenplay = parse_fdx(&xml).expect("fdx should parse");
+    let fountain = screenplay.to_fountain();
+    let reparsed = parse(&fountain);
+
+    assert!(fountain.contains("Frontmatter-page-count: 1"));
+    assert!(!fountain.contains("Frontmatter:"));
+    assert!(fountain.contains("WRITERS' NOTE"));
+    assert_eq!(
+        reparsed.metadata.get("frontmatter-page-count"),
+        Some(&vec!["1".into()])
+    );
+    assert!(matches!(
+        reparsed
+            .elements
+            .first()
+            .expect("expected first frontmatter element"),
+        Element::Action(_, _)
+    ));
+}
+
+#[test]
+fn imported_fdx_title_overflow_pages_normalize_tabs_before_fountain_export() {
+    let xml = std::fs::read_to_string("tests/fixtures/fdx-import/title-page-cast-page.fdx")
+        .expect("fixture should load");
+
+    let screenplay = parse_fdx(&xml).expect("fdx should parse");
+    let fountain = screenplay.to_fountain();
+
+    assert!(fountain.contains("Frontmatter-page-count: 1"));
+    assert!(!fountain.contains('\t'));
+    assert!(fountain.contains("**ALAN**"));
+    assert!(fountain.contains("Late 30s, anxious unemployed stay-at-home dad."));
 }

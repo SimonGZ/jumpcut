@@ -1,7 +1,10 @@
 use super::shared::{escape_xml_attr, escape_xml_text, join_metadata, sorted_style_names};
 use crate::pagination::{Alignment, ScreenplayElementStyle, ScreenplayLayoutProfile};
 use crate::title_page::plain_title_uses_all_caps;
-use crate::{Element, ElementText, Metadata, Screenplay};
+use crate::{
+    Element, ElementText, ImportedTitlePageAlignment, ImportedTitlePageTabStopKind, Metadata,
+    Screenplay,
+};
 use std::fmt::Write;
 
 pub(crate) fn prepare_screenplay(screenplay: &mut Screenplay) {
@@ -25,7 +28,7 @@ pub(crate) fn render_document(screenplay: &Screenplay) -> String {
     out.push('\n');
     render_element_settings(&mut out, &screenplay.metadata, &layout_profile);
     out.push('\n');
-    render_title_page(&mut out, &screenplay.metadata);
+    render_title_page(&mut out, screenplay);
     out.push_str("\n  <MoresAndContinueds>\n");
     write!(
         out,
@@ -517,7 +520,8 @@ fn format_starts_new_page(starts_new_page: bool) -> String {
     }
 }
 
-fn render_title_page(out: &mut String, metadata: &Metadata) {
+fn render_title_page(out: &mut String, screenplay: &Screenplay) {
+    let metadata = &screenplay.metadata;
     let font = escape_xml_attr(&font_choice(metadata));
     out.push_str("  <TitlePage>\n    <HeaderAndFooter FooterFirstPage=\"Yes\" FooterVisible=\"No\" HeaderFirstPage=\"No\" HeaderVisible=\"Yes\" StartingPage=\"1\">\n      <Header>\n        <Paragraph Alignment=\"Right\" FirstIndent=\"0.00\" Leading=\"Regular\" LeftIndent=\"1.25\" RightIndent=\"-1.25\" SpaceBefore=\"0\" Spacing=\"1\" StartsNewPage=\"No\">\n");
     write!(out, "          <DynamicLabel AdornmentStyle=\"0\" Background=\"#FFFFFFFFFFFF\" Color=\"#000000000000\" Font=\"{}\" RevisionID=\"0\" Size=\"12\" Style=\"\" Type=\"Page #\"/>\n", font).unwrap();
@@ -550,6 +554,7 @@ fn render_title_page(out: &mut String, metadata: &Metadata) {
     }
     render_title_bottom_rows(out, metadata, &font);
     render_title_blank_paragraph(out, &font, "Left");
+    render_title_frontmatter(out, screenplay, &font);
 
     out.push_str("    </Content>\n    <TextState Scaling=\"90\" Selection=\"233,233\" ShowInvisibles=\"No\"/>\n  </TitlePage>\n");
 }
@@ -558,6 +563,72 @@ fn render_title_blank_paragraph(out: &mut String, font: &str, alignment: &str) {
     start_title_paragraph(out, alignment);
     push_title_text(out, font, "0", "", "");
     end_title_paragraph(out);
+}
+
+fn render_title_frontmatter(out: &mut String, screenplay: &Screenplay, font: &str) {
+    if let Some(imported_title_page) = &screenplay.imported_title_page {
+        for page in imported_title_page.pages.iter().skip(1) {
+            for (para_index, para) in page.paragraphs.iter().enumerate() {
+                start_imported_title_paragraph(out, para, para_index == 0);
+                push_title_element_text(out, font, "0", "", &para.text);
+                end_imported_title_paragraph(out, para);
+            }
+        }
+    }
+}
+
+fn start_imported_title_paragraph(
+    out: &mut String,
+    paragraph: &crate::ImportedTitlePageParagraph,
+    starts_new_page: bool,
+) {
+    let alignment = match paragraph.alignment {
+        ImportedTitlePageAlignment::Left => "Left",
+        ImportedTitlePageAlignment::Center => "Center",
+        ImportedTitlePageAlignment::Right => "Right",
+        ImportedTitlePageAlignment::Full => "Full",
+    };
+    let left_indent = paragraph.left_indent.unwrap_or(match paragraph.alignment {
+        ImportedTitlePageAlignment::Center
+        | ImportedTitlePageAlignment::Right
+        | ImportedTitlePageAlignment::Full => 1.00,
+        ImportedTitlePageAlignment::Left => 1.50,
+    });
+    let space_before = paragraph.space_before.unwrap_or(12.0);
+    let starts_new_page = if starts_new_page { "Yes" } else { "No" };
+    write!(
+        out,
+        "      <Paragraph Alignment=\"{}\" FirstIndent=\"0.00\" Leading=\"Regular\" LeftIndent=\"{:.2}\" RightIndent=\"7.50\" SpaceBefore=\"{:.0}\" Spacing=\"1\" StartsNewPage=\"{}\">\n",
+        alignment,
+        left_indent,
+        space_before,
+        starts_new_page
+    )
+    .unwrap();
+}
+
+fn end_imported_title_paragraph(
+    out: &mut String,
+    paragraph: &crate::ImportedTitlePageParagraph,
+) {
+    if !paragraph.tab_stops.is_empty() {
+        out.push_str("        <Tabstops>\n");
+        for tab_stop in &paragraph.tab_stops {
+            let kind = match tab_stop.kind {
+                ImportedTitlePageTabStopKind::Left => "Left",
+                ImportedTitlePageTabStopKind::Center => "Center",
+                ImportedTitlePageTabStopKind::Right => "Right",
+            };
+            writeln!(
+                out,
+                "          <Tabstop Position=\"{:.2}\" Type=\"{}\"/>",
+                tab_stop.position, kind
+            )
+            .unwrap();
+        }
+        out.push_str("        </Tabstops>\n");
+    }
+    out.push_str("      </Paragraph>\n");
 }
 
 fn render_title_title_paragraph(out: &mut String, metadata: &Metadata, font: &str) {

@@ -10,15 +10,19 @@ const TITLE_PAGE_KEYS_IN_ORDER: &[&str] = &[
     "draft",
     "draft date",
     "contact",
+    "frontmatter-page-count",
 ];
 
 pub fn render(screenplay: &Screenplay) -> String {
     let mut paragraphs = Vec::new();
+    let metadata = export_metadata(screenplay);
 
-    let metadata_block = render_metadata(&screenplay.metadata);
+    let metadata_block = render_metadata(&metadata);
     if !metadata_block.is_empty() {
         paragraphs.push(metadata_block);
     }
+
+    paragraphs.extend(render_imported_title_overflow_as_body(screenplay));
 
     for element in &screenplay.elements {
         paragraphs.extend(render_element_with_page_breaks(element));
@@ -52,6 +56,80 @@ fn render_metadata(metadata: &Metadata) -> String {
     lines.join("\n")
 }
 
+fn export_metadata(screenplay: &Screenplay) -> Metadata {
+    let mut metadata = screenplay.metadata.clone();
+    metadata.remove("frontmatter");
+
+    if let Some(imported_title_page) = &screenplay.imported_title_page {
+        if imported_title_page.pages.len() > 1 {
+            metadata.insert(
+                "frontmatter-page-count".into(),
+                vec![ElementText::Plain(
+                    imported_title_page.pages.len().saturating_sub(1).to_string(),
+                )],
+            );
+        }
+    }
+
+    metadata
+}
+
+fn render_imported_title_overflow_as_body(screenplay: &Screenplay) -> Vec<String> {
+    let Some(imported_title_page) = &screenplay.imported_title_page else {
+        return Vec::new();
+    };
+    if imported_title_page.pages.len() <= 1 {
+        return Vec::new();
+    }
+
+    let mut paragraphs = Vec::new();
+    for (page_index, page) in imported_title_page.pages.iter().enumerate().skip(1) {
+        if page_index > 1 {
+            paragraphs.push("===".to_string());
+        }
+        for paragraph in page
+            .paragraphs
+            .iter()
+            .filter(|paragraph| !paragraph.text.plain_text().trim().is_empty())
+        {
+            let rendered = match paragraph.alignment {
+                crate::ImportedTitlePageAlignment::Center => render_centered(
+                    &normalize_frontmatter_body_text(&paragraph.text),
+                    &Attributes {
+                        centered: true,
+                        ..Default::default()
+                    },
+                ),
+                _ => render_action(
+                    &normalize_frontmatter_body_text(&paragraph.text),
+                    &Attributes::default(),
+                ),
+            };
+            paragraphs.push(rendered);
+        }
+    }
+
+    if !paragraphs.is_empty() && !screenplay.elements.is_empty() {
+        paragraphs.push("===".to_string());
+    }
+
+    paragraphs
+}
+
+fn normalize_frontmatter_body_text(text: &ElementText) -> ElementText {
+    match text {
+        ElementText::Plain(text) => ElementText::Plain(text.replace('\t', "    ")),
+        ElementText::Styled(runs) => ElementText::Styled(
+            runs.iter()
+                .map(|run| TextRun {
+                    content: run.content.replace('\t', "    "),
+                    text_style: run.text_style.clone(),
+                })
+                .collect(),
+        ),
+    }
+}
+
 fn render_metadata_entry(key: &str, values: &[ElementText], metadata: &Metadata) -> String {
     let display_key = metadata_display_key(key);
     match values {
@@ -65,10 +143,18 @@ fn render_metadata_entry(key: &str, values: &[ElementText], metadata: &Metadata)
         _ => {
             let mut lines = vec![format!("{display_key}:")];
             lines.extend(values.iter().flat_map(|value| {
-                render_metadata_value(key, value, Some(metadata))
-                    .split('\n')
-                    .map(|line| format!("    {line}"))
-                    .collect::<Vec<_>>()
+                let rendered = render_metadata_value(key, value, Some(metadata));
+                if rendered.is_empty() {
+                    // Use exactly two spaces for blank metadata continuation lines.
+                    // The Fountain parser treats "  " as an intentional blank line within
+                    // a hunk, which prevents the metadata block from being split.
+                    vec!["  ".to_string()]
+                } else {
+                    rendered
+                        .split('\n')
+                        .map(|line| format!("    {line}"))
+                        .collect::<Vec<_>>()
+                }
             }));
             lines.join("\n")
         }
@@ -77,7 +163,8 @@ fn render_metadata_entry(key: &str, values: &[ElementText], metadata: &Metadata)
 
 fn render_metadata_value(key: &str, value: &ElementText, metadata: Option<&Metadata>) -> String {
     if key == "title"
-        && metadata.is_some_and(|metadata| title_uses_only_default_fountain_styling(value, metadata))
+        && metadata
+            .is_some_and(|metadata| title_uses_only_default_fountain_styling(value, metadata))
     {
         return escape_plain_text(&value.plain_text());
     }
@@ -123,9 +210,7 @@ fn render_element_with_page_breaks(element: &Element) -> Vec<String> {
         | Element::Transition(text, attributes)
         | Element::ColdOpening(text, attributes)
         | Element::NewAct(text, attributes)
-        | Element::EndOfAct(text, attributes) => {
-            render_simple_element(element, text, attributes)
-        }
+        | Element::EndOfAct(text, attributes) => render_simple_element(element, text, attributes),
         Element::DialogueBlock(elements) => render_page_started_block(
             elements
                 .first()
@@ -144,7 +229,11 @@ fn render_element_with_page_breaks(element: &Element) -> Vec<String> {
         ),
         Element::Section(text, attributes, level) => render_page_started_block(
             attributes.starts_new_page,
-            format!("{} {}", "#".repeat((*level).into()), render_element_text(text)),
+            format!(
+                "{} {}",
+                "#".repeat((*level).into()),
+                render_element_text(text)
+            ),
         ),
         Element::Synopsis(text) => vec![format!("= {}", render_element_text(text))],
         Element::PageBreak => vec!["===".to_string()],
@@ -156,19 +245,22 @@ fn render_simple_element(
     text: &ElementText,
     attributes: &Attributes,
 ) -> Vec<String> {
-    render_page_started_block(attributes.starts_new_page, match element {
-        Element::Action(_, _) => render_action(text, attributes),
-        Element::Character(_, _) => render_character(text, false),
-        Element::SceneHeading(_, _) => render_scene_heading(text, attributes),
-        Element::Lyric(_, _) => render_lyric(text),
-        Element::Parenthetical(_, _) => render_parenthetical(text),
-        Element::Dialogue(_, _) => render_text_with_notes(text, attributes),
-        Element::Transition(_, _) => render_transition(text),
-        Element::ColdOpening(_, _) | Element::NewAct(_, _) | Element::EndOfAct(_, _) => {
-            render_centered(text, attributes)
-        }
-        _ => unreachable!(),
-    })
+    render_page_started_block(
+        attributes.starts_new_page,
+        match element {
+            Element::Action(_, _) => render_action(text, attributes),
+            Element::Character(_, _) => render_character(text, false),
+            Element::SceneHeading(_, _) => render_scene_heading(text, attributes),
+            Element::Lyric(_, _) => render_lyric(text),
+            Element::Parenthetical(_, _) => render_parenthetical(text),
+            Element::Dialogue(_, _) => render_text_with_notes(text, attributes),
+            Element::Transition(_, _) => render_transition(text),
+            Element::ColdOpening(_, _) | Element::NewAct(_, _) | Element::EndOfAct(_, _) => {
+                render_centered(text, attributes)
+            }
+            _ => unreachable!(),
+        },
+    )
 }
 
 fn render_page_started_block(starts_new_page: bool, block: String) -> Vec<String> {
@@ -412,6 +504,7 @@ mod tests {
         let screenplay = Screenplay {
             metadata,
             imported_layout: None,
+            imported_title_page: None,
             elements: vec![
                 Element::SceneHeading(
                     p("INT. HOUSE - DAY"),
@@ -451,6 +544,7 @@ mod tests {
         let screenplay = Screenplay {
             metadata: Metadata::new(),
             imported_layout: None,
+            imported_title_page: None,
             elements: vec![
                 Element::SceneHeading(p("inside the school bus"), blank_attributes()),
                 Element::Action(p("INT. HOUSE - DAY"), blank_attributes()),
@@ -476,6 +570,7 @@ mod tests {
         let screenplay = Screenplay {
             metadata: Metadata::new(),
             imported_layout: None,
+            imported_title_page: None,
             elements: vec![
                 Element::Action(
                     p("THE END"),
@@ -517,6 +612,7 @@ mod tests {
         let screenplay = Screenplay {
             metadata: Metadata::new(),
             imported_layout: None,
+            imported_title_page: None,
             elements: vec![Element::Action(
                 p("...come to find Edward making the shapes."),
                 blank_attributes(),

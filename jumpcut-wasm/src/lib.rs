@@ -16,14 +16,16 @@ pub fn parse_to_fdx_string(text: &str) -> String {
 #[cfg(feature = "fdx")]
 #[wasm_bindgen]
 pub fn parse_fdx_to_html_string(text: &str, include_head: bool) -> Result<String, JsValue> {
-    let mut screenplay = jumpcut::parse_fdx(text).map_err(|e| JsValue::from_str(&format!("{:?}", e)))?;
+    let mut screenplay =
+        jumpcut::parse_fdx(text).map_err(|e| JsValue::from_str(&format!("{:?}", e)))?;
     Ok(screenplay.to_html(include_head))
 }
 
 #[cfg(feature = "fdx")]
 #[wasm_bindgen]
 pub fn parse_fdx_to_pdf_bytes(text: &str) -> Result<Vec<u8>, JsValue> {
-    let screenplay = jumpcut::parse_fdx(text).map_err(|e| JsValue::from_str(&format!("{:?}", e)))?;
+    let screenplay =
+        jumpcut::parse_fdx(text).map_err(|e| JsValue::from_str(&format!("{:?}", e)))?;
     Ok(screenplay.to_pdf())
 }
 

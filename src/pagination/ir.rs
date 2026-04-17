@@ -912,7 +912,8 @@ fn continuation_markers_for_fragment(fragment: &Fragment) -> Vec<ContinuationMar
 
 fn first_page_number(scope: &PaginationScope) -> u32 {
     scope
-        .body_start_page
+        .first_page_number
+        .or(scope.body_start_page)
         .unwrap_or_else(|| scope.title_page_count.map(|count| count + 1).unwrap_or(1))
 }
 

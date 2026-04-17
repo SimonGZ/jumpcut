@@ -16,6 +16,8 @@ pub struct LineRange(pub u32, pub u32);
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PaginationScope {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub first_page_number: Option<u32>,
     pub title_page_count: Option<u32>,
     pub body_start_page: Option<u32>,
 }
