@@ -46,6 +46,7 @@ const FONT_BOLD_NAME: Name<'static> = Name(b"F2");
 const FONT_ITALIC_NAME: Name<'static> = Name(b"F3");
 const FONT_BOLD_ITALIC_NAME: Name<'static> = Name(b"F4");
 const BODY_TEXT_CELL_WIDTH: f32 = 7.0;
+const ORDINARY_CHARACTER_CONTD_SUFFIX_X_ADJUSTMENT: f32 = 0.5625;
 const UNDERLINE_LINE_WIDTH: f32 = 0.75;
 const UNDERLINE_Y_OFFSET: f32 = 1.5;
 const SCENE_NUMBER_LEFT_X: f32 = 0.75 * 72.0;
@@ -956,6 +957,7 @@ fn render_body_page_content(
             render_body_line_runs(
                 &mut content,
                 fonts,
+                line.kind,
                 line.kind
                     .and_then(tagged_role_for_line_kind)
                     .filter(|_| line.counted),
@@ -1001,6 +1003,7 @@ fn render_body_page_content(
             render_body_line_runs(
                 &mut content,
                 fonts,
+                line.kind,
                 line.kind
                     .and_then(tagged_role_for_line_kind)
                     .filter(|_| line.counted),
@@ -1034,6 +1037,7 @@ fn render_dual_body_line(
         render_body_line_runs(
             content,
             fonts,
+            Some(left.kind),
             tagged_role_for_line_kind(left.kind),
             next_mcid,
             &resolve_runs(
@@ -1052,6 +1056,7 @@ fn render_dual_body_line(
         render_body_line_runs(
             content,
             fonts,
+            Some(right.kind),
             tagged_role_for_line_kind(right.kind),
             next_mcid,
             &resolve_runs(
@@ -1091,7 +1096,7 @@ fn render_artifact_runs(
         content.begin_marked_content(Name(b"Artifact"));
     }
     render_fixed_cell_runs(
-        content, fonts, runs, line_left, line_y, font_size, underlines,
+        content, fonts, runs, None, line_left, line_y, font_size, underlines,
     );
     content.end_marked_content();
 }
@@ -1167,6 +1172,7 @@ fn build_page_label_plans(document: &PdfRenderDocument) -> Vec<PdfPageLabelPlan>
 fn render_body_line_runs(
     content: &mut Content,
     fonts: &EmbeddedFonts,
+    kind: Option<PdfLineKind>,
     role: Option<PdfTaggedRole>,
     next_mcid: &mut i32,
     runs: &[ResolvedRun],
@@ -1176,19 +1182,34 @@ fn render_body_line_runs(
     underlines: &mut Vec<UnderlineSegment>,
     _geometry: &LayoutGeometry,
 ) {
+    let contd_suffix_start_cell = ordinary_character_contd_suffix_start_in_runs(kind, runs);
     if let Some(role) = role {
         content
             .begin_marked_content_with_properties(tagged_role_name(role))
             .properties()
             .identify(*next_mcid);
         render_fixed_cell_runs(
-            content, fonts, runs, line_left, line_y, font_size, underlines,
+            content,
+            fonts,
+            runs,
+            contd_suffix_start_cell,
+            line_left,
+            line_y,
+            font_size,
+            underlines,
         );
         content.end_marked_content();
         *next_mcid += 1;
     } else {
         render_fixed_cell_runs(
-            content, fonts, runs, line_left, line_y, font_size, underlines,
+            content,
+            fonts,
+            runs,
+            contd_suffix_start_cell,
+            line_left,
+            line_y,
+            font_size,
+            underlines,
         );
     }
 }
@@ -1197,6 +1218,7 @@ fn render_fixed_cell_runs(
     content: &mut Content,
     fonts: &EmbeddedFonts,
     runs: &[ResolvedRun],
+    contd_suffix_start_cell: Option<usize>,
     line_left: f32,
     line_y: f32,
     font_size: f32,
@@ -1224,7 +1246,12 @@ fn render_fixed_cell_runs(
                     0.0,
                     0.0,
                     1.0,
-                    line_left + (cell_index as f32 * BODY_TEXT_CELL_WIDTH),
+                    line_left
+                        + (cell_index as f32 * BODY_TEXT_CELL_WIDTH)
+                        - ordinary_character_contd_suffix_x_offset(
+                            cell_index,
+                            contd_suffix_start_cell,
+                        ),
                     line_y,
                 ]);
                 let encoded_character = font.encode_char(character);
@@ -1253,6 +1280,34 @@ fn render_fixed_cell_runs(
 
 fn body_line_step_points(geometry: &LayoutGeometry) -> f32 {
     geometry.calculate_line_step()
+}
+
+fn ordinary_character_contd_suffix_start_in_runs(
+    kind: Option<PdfLineKind>,
+    runs: &[ResolvedRun],
+) -> Option<usize> {
+    if kind != Some(PdfLineKind::Character) {
+        return None;
+    }
+
+    let text = runs.iter().map(|run| run.text.as_str()).collect::<String>();
+    continuation_suffix_start_cell(&text)
+}
+
+fn continuation_suffix_start_cell(text: &str) -> Option<usize> {
+    text.find(" (CONT'D)")
+        .or_else(|| text.find(" (CONT’D)"))
+        .map(|byte_index| text[..byte_index].chars().count() + 1)
+}
+
+fn ordinary_character_contd_suffix_x_offset(
+    cell_index: usize,
+    contd_suffix_start_cell: Option<usize>,
+) -> f32 {
+    contd_suffix_start_cell
+        .filter(|start_cell| cell_index >= *start_cell)
+        .map(|_| ORDINARY_CHARACTER_CONTD_SUFFIX_X_ADJUSTMENT)
+        .unwrap_or(0.0)
 }
 
 fn first_body_line_y(geometry: &LayoutGeometry) -> f32 {
@@ -1547,7 +1602,7 @@ fn render_title_page_line_runs(
 ) {
     if tagged_block.artifact {
         render_fixed_cell_runs(
-            content, fonts, runs, line_left, line_y, font_size, underlines,
+            content, fonts, runs, None, line_left, line_y, font_size, underlines,
         );
         return;
     }
@@ -1557,7 +1612,7 @@ fn render_title_page_line_runs(
         .properties()
         .identify(*next_mcid);
     render_fixed_cell_runs(
-        content, fonts, runs, line_left, line_y, font_size, underlines,
+        content, fonts, runs, None, line_left, line_y, font_size, underlines,
     );
     content.end_marked_content();
     *next_mcid += 1;
@@ -1698,6 +1753,10 @@ fn line_kind_left(kind: Option<PdfLineKind>, geometry: &LayoutGeometry) -> f32 {
         .unwrap_or(geometry.action_left * 72.0)
 }
 
+fn snap_character_left_inches(left: f32) -> f32 {
+    (left * 8.0).round() / 8.0
+}
+
 fn dual_side_left(side: &PdfRenderDualSide, geometry: &LayoutGeometry) -> f32 {
     let left = match side.kind {
         PdfLineKind::DualDialogueCharacterLeft => {
@@ -1730,7 +1789,7 @@ fn element_left_inches(kind: PdfLineKind, geometry: &LayoutGeometry) -> f32 {
         PdfLineKind::ColdOpening => geometry.cold_opening_left,
         PdfLineKind::NewAct => geometry.new_act_left,
         PdfLineKind::EndOfAct => geometry.end_of_act_left,
-        PdfLineKind::Character => geometry.character_left,
+        PdfLineKind::Character => snap_character_left_inches(geometry.character_left),
         PdfLineKind::Dialogue => geometry.dialogue_left,
         PdfLineKind::Parenthetical => geometry.parenthetical_left,
         PdfLineKind::Transition => geometry.transition_left,
@@ -2406,6 +2465,7 @@ fn render_title_overflow_page_content(
                 &mut content,
                 fonts,
                 &resolve_runs(&segment.fragments, StyleFlags::default()),
+                None,
                 segment.x,
                 line_y,
                 BODY_TEXT_FONT_SIZE,
@@ -5471,6 +5531,7 @@ mod tests {
                     ..StyleFlags::default()
                 },
             }],
+            None,
             108.0,
             720.0,
             BODY_TEXT_FONT_SIZE,
@@ -5534,6 +5595,17 @@ mod tests {
         assert_eq!(
             line_kind_left(Some(PdfLineKind::DualDialogueParentheticalRight), &geometry),
             351.0
+        );
+    }
+
+    #[test]
+    fn ordinary_character_cues_snap_left_indent_to_eighth_inches() {
+        let mut geometry = LayoutGeometry::default();
+        geometry.character_left = 3.38;
+
+        assert_eq!(
+            line_kind_left(Some(PdfLineKind::Character), &geometry),
+            243.0
         );
     }
 
