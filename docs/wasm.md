@@ -45,7 +45,7 @@ The low-level Rust build is:
 cargo build -p jumpcut-wasm --target wasm32-unknown-unknown --release
 ```
 
-To generate a Node-compatible JS package from the compiled `.wasm`, use:
+To generate a browser/web-compatible JS package from the compiled `.wasm`, use:
 
 ```sh
 ./scripts/wasm/generate-package.sh --smoke
@@ -55,8 +55,14 @@ That script will:
 
 - build `jumpcut-wasm`
 - ensure `wasm-bindgen-cli` is available
-- generate a Node-targeted package under `target/wasm-package/node-full`
+- generate a web-targeted package under `target/wasm-package/web-full`
 - run a small smoke benchmark
+
+If you want a Node-targeted package instead, run:
+
+```sh
+./scripts/wasm/generate-package.sh --target nodejs --smoke
+```
 
 If you want the generated package without the smoke shortcut, run:
 
@@ -69,10 +75,10 @@ If you want the generated package without the smoke shortcut, run:
 After running `./scripts/wasm/generate-package.sh`, the generated package lives under:
 
 ```text
-target/wasm-package/node-full
+target/wasm-package/web-full
 ```
 
-Example:
+For a Node-targeted package, use:
 
 ```js
 const jumpcut = require("./target/wasm-package/node-full/jumpcut_wasm.js");
@@ -98,7 +104,8 @@ The repo includes helper scripts for the wasm workflow:
 
 - `./scripts/wasm/generate-package.sh`
   - builds the wasm wrapper
-  - generates a Node-targeted JS package
+  - generates a web-targeted JS package by default
+  - supports `--target nodejs` for a Node-targeted package
   - optionally runs a small smoke benchmark
 - `./scripts/wasm/checks.sh`
   - repo-internal validation helper for wasm changes

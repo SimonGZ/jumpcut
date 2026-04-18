@@ -3,10 +3,12 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { createRequire } from "node:module";
+import { pathToFileURL } from "node:url";
 
 function parseArgs(argv) {
   const options = {
     pkgDir: null,
+    target: "web",
     fixturesDir: null,
     warmup: 2,
     samples: 9,
@@ -18,6 +20,8 @@ function parseArgs(argv) {
     const arg = argv[index];
     if (arg === "--pkg-dir") {
       options.pkgDir = argv[++index];
+    } else if (arg === "--target") {
+      options.target = argv[++index];
     } else if (arg === "--fixtures-dir") {
       options.fixturesDir = argv[++index];
     } else if (arg === "--warmup") {
@@ -37,7 +41,31 @@ function parseArgs(argv) {
     throw new Error("--pkg-dir and --fixtures-dir are required");
   }
 
+  if (options.target !== "web" && options.target !== "nodejs") {
+    throw new Error(`Unsupported --target: ${options.target}`);
+  }
+
   return options;
+}
+
+async function loadBindings(options) {
+  if (options.target === "nodejs") {
+    const require = createRequire(import.meta.url);
+    return require(path.join(options.pkgDir, "jumpcut_wasm.js"));
+  }
+
+  const wrapperUrl = pathToFileURL(path.join(options.pkgDir, "jumpcut_wasm.js")).href;
+  const wasmPath = path.join(options.pkgDir, "jumpcut_wasm_bg.wasm");
+  const module = await import(wrapperUrl);
+  const wasmBytes = await readFile(wasmPath);
+  if (typeof module.initSync === "function") {
+    module.initSync(wasmBytes);
+  } else if (typeof module.default === "function") {
+    await module.default(wasmBytes);
+  } else {
+    throw new Error("Web target package did not expose initSync/default initializer");
+  }
+  return module;
 }
 
 function sanitizeMetricPart(value) {
@@ -83,8 +111,7 @@ function benchmark(operation, options) {
 
 async function main() {
   const options = parseArgs(process.argv.slice(2));
-  const require = createRequire(import.meta.url);
-  const bindings = require(path.join(options.pkgDir, "jumpcut_wasm.js"));
+  const bindings = await loadBindings(options);
 
   const fixtures = [
     { name: "108", path: path.join(options.fixturesDir, "108.fountain") },

@@ -11,4 +11,4 @@ cargo check -p jumpcut-wasm --target wasm32-unknown-unknown --release --no-defau
 cargo check -p jumpcut-wasm --target wasm32-unknown-unknown --release --no-default-features --features html
 cargo check -p jumpcut-wasm --target wasm32-unknown-unknown --release --no-default-features --features fdx
 cargo check -p jumpcut-wasm --target wasm32-unknown-unknown --release --no-default-features --features pdf
-"$SCRIPT_DIR/generate-package.sh" --smoke >/dev/null
+"$SCRIPT_DIR/generate-package.sh" --target nodejs --smoke >/dev/null

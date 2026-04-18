@@ -66,4 +66,4 @@ emit_variant_metrics fdx_only --no-default-features --features fdx
 emit_variant_metrics pdf_only --no-default-features --features pdf
 
 cargo run --release --quiet --bin autoresearch_native_bench
-"$SCRIPT_DIR/generate-package.sh" --out-dir "$TARGET_DIR/node-full"
+"$SCRIPT_DIR/generate-package.sh" --target nodejs --out-dir "$TARGET_DIR/node-full"

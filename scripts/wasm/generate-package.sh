@@ -4,6 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 OUT_DIR=""
+WASM_TARGET="web"
 METRIC_PREFIX="wasm_node"
 WARMUP=2
 SAMPLES=9
@@ -17,6 +18,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --out-dir)
             OUT_DIR="$2"
+            shift 2
+            ;;
+        --target)
+            WASM_TARGET="$2"
             shift 2
             ;;
         --metric-prefix)
@@ -51,8 +56,21 @@ done
 ROOT_DIR="$(cd "$ROOT_DIR" && pwd)"
 cd "$ROOT_DIR"
 
+case "$WASM_TARGET" in
+    web)
+        TARGET_DIR_NAME="web"
+        ;;
+    nodejs)
+        TARGET_DIR_NAME="node"
+        ;;
+    *)
+        >&2 echo "Unsupported --target: $WASM_TARGET (expected 'web' or 'nodejs')"
+        exit 1
+        ;;
+esac
+
 if [[ -z "$OUT_DIR" ]]; then
-    OUT_DIR="$ROOT_DIR/target/wasm-package/node-full"
+    OUT_DIR="$ROOT_DIR/target/wasm-package/${TARGET_DIR_NAME}-full"
 fi
 
 WASM_BINDGEN_BIN="$("$SCRIPT_DIR/ensure-wasm-bindgen-cli.sh")"
@@ -64,12 +82,13 @@ rm -rf "$OUT_DIR"
 mkdir -p "$OUT_DIR"
 
 "$WASM_BINDGEN_BIN" \
-    --target web \
+    --target "$WASM_TARGET" \
     --out-dir "$OUT_DIR" \
     "$RAW_WASM" >/dev/null
 
 node "$SCRIPT_DIR/bench-node.mjs" \
     --pkg-dir "$OUT_DIR" \
+    --target "$WASM_TARGET" \
     --fixtures-dir "$ROOT_DIR/benches" \
     --metric-prefix "$METRIC_PREFIX" \
     --warmup "$WARMUP" \
