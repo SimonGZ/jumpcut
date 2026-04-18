@@ -30,12 +30,16 @@ That means you can keep the default "everything on" build for a full web app, or
 
 The wasm wrapper currently exposes:
 
+- `parse_to_fountain_string(text)`
 - `parse_to_json_string(text)`
 - `parse_to_html_string(text, include_head)`
 - `parse_to_html_string_with_options(text, include_head, exact_wraps, paginated)`
 - `parse_to_html_string_with_embedded_courier_prime(text, include_head, exact_wraps, paginated, regular_ttf_base64, italic_ttf_base64, bold_ttf_base64, bold_italic_ttf_base64)`
 - `parse_to_fdx_string(text)`
 - `parse_to_pdf_bytes(text)`
+- `parse_fdx_to_fountain_string(text)`
+- `parse_fdx_to_html_string(text, include_head)`
+- `parse_fdx_to_pdf_bytes(text)`
 
 ## Build The WASM Wrapper
 
@@ -89,10 +93,12 @@ INT. HOUSE - DAY
 
 Hello, world.`;
 
+const fountain = jumpcut.parse_to_fountain_string(input);
 const json = jumpcut.parse_to_json_string(input);
 const html = jumpcut.parse_to_html_string(input, true);
 const fdx = jumpcut.parse_to_fdx_string(input);
 
+console.log(fountain.slice(0, 80));
 console.log(json);
 console.log(html.slice(0, 80));
 console.log(fdx.slice(0, 80));

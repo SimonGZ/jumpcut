@@ -189,3 +189,47 @@ cat my_screenplay.fountain | jumpcut - -m -f html > my_screenplay.html
 # Uses an explicit metadata file
 jumpcut -m ~/my_templates/common_header.fountain my_screenplay.fountain -f json > my_screenplay.json
 ```
+
+## FDX Title Pages In Fountain Output
+
+JumpCut can convert `.fdx` documents into Fountain, and it attempts to preserve title pages and "frontmatter" like opening quote pages or cast lists:
+
+- JumpCut parses FDX title pages to extract metadata (`Title`, `Credit`, `Author`, `Source`, `Draft`, `Draft date`, and similar keys when available)
+- Extra title-section pages (cast list, etc) are turned into ordinary Fountain body content, separated with forced page breaks (`===`)
+- To keep page numbering accurate, JumpCut writes a metadata key:
+
+```text
+Frontmatter-page-count: N
+```
+
+`frontmatter-page-count` means:
+
+- the number of extra front matter pages after the main title page
+- not the total title-section page count
+
+This keeps front matter pages from ballooning the screenplay page count.
+
+Example:
+
+```text
+Title: GUY TEXT
+Credit: by
+Author: Aaron Brownstein & Simon Ganz
+Frontmatter-page-count: 1
+
+THE GUYS
+
+JEFF
+
+NATHAN
+
+ROSS
+
+ETC.
+
+===
+
+INT. OFFICE - DAY
+```
+
+This metadata key is automatically added for you if you are importing a final draft document with multiple title pages. But you can also add it yourself if you are writing fountain documents and are trying to add a cast page or vanity quote page and don't want it to count in the page numbers.
