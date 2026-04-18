@@ -6,10 +6,14 @@ use crate::pagination::visual_lines::{
     render_unpaginated_visual_lines_with_options, visual_line_class_name, VisualLine,
     VisualRenderOptions,
 };
-use crate::pagination::wrapping::ElementType;
+use crate::pagination::wrapping::{
+    wrap_styled_text_for_element, wrap_text_for_element, ElementType, WrapConfig,
+};
 use crate::pagination::{ScreenplayLayoutProfile, StyleProfile};
+use crate::styled_text::{StyledRun, StyledText};
 use crate::title_page::{TitlePage, TitlePageBlockKind};
 use crate::{Attributes, Element, ElementText, Screenplay};
+use std::collections::HashSet;
 use std::fmt::Write;
 
 const HTML_STYLE: &str = include_str!("../templates/html_style.css");
@@ -726,6 +730,12 @@ fn render_imported_title_paragraph(
     out: &mut String,
     paragraph: &crate::ImportedTitlePageParagraph,
 ) {
+    let display_text = imported_title_display_text(&paragraph.text);
+    if !paragraph.tab_stops.is_empty() && display_text.plain_text().contains('\t') {
+        render_tabbed_imported_title_paragraph(out, paragraph, &display_text);
+        return;
+    }
+
     let alignment = match paragraph.alignment {
         crate::ImportedTitlePageAlignment::Center => "center",
         crate::ImportedTitlePageAlignment::Right => "right",
@@ -747,12 +757,77 @@ fn render_imported_title_paragraph(
         margin_top, left_indent, width, alignment, text_indent
     )
     .unwrap();
-    if paragraph.text.plain_text().trim().is_empty() {
+    if display_text.plain_text().trim().is_empty() {
         out.push_str("&nbsp;");
     } else {
-        render_text(out, &imported_title_display_text(&paragraph.text));
+        render_text(out, &display_text);
     }
     out.push_str("</p>\n");
+}
+
+fn render_tabbed_imported_title_paragraph(
+    out: &mut String,
+    paragraph: &crate::ImportedTitlePageParagraph,
+    display_text: &ElementText,
+) {
+    let left_indent = paragraph.left_indent.unwrap_or(1.5);
+    let first_line_left = (left_indent + paragraph.first_indent.unwrap_or(0.0)).max(0.0);
+    let margin_top = paragraph.space_before.unwrap_or(0.0) / 72.0;
+    let segments = split_element_text_on_tabs(display_text);
+    if segments.is_empty() {
+        return;
+    }
+
+    let prefix_segments = &segments[..segments.len() - 1];
+    let description_segment = &segments[segments.len() - 1];
+    let prefix = combine_element_text_segments(prefix_segments);
+    let description_left =
+        advance_through_html_tab_stops(first_line_left, prefix_segments, &paragraph.tab_stops);
+    let description_lines =
+        wrap_element_text_to_lines_html(description_segment, width_chars_between(description_left, 7.5));
+
+    write!(
+        out,
+        "      <div class=\"importedTitlePageParagraph importedTitlePageTabbedParagraph\" style=\"margin: {}in 0 0 0; min-height: 1em;\">",
+        margin_top
+    )
+    .unwrap();
+
+    if let Some(first_description_line) = description_lines.first() {
+        out.push_str("<div class=\"importedTitlePageTabbedLine\">");
+        if !prefix.plain_text().is_empty() {
+            write!(
+                out,
+                "<span class=\"importedTitlePageSegment\" style=\"left: {}in;\">",
+                first_line_left
+            )
+            .unwrap();
+            render_text(out, &prefix);
+            out.push_str("</span>");
+        }
+        write!(
+            out,
+            "<span class=\"importedTitlePageSegment\" style=\"left: {}in;\">",
+            description_left
+        )
+        .unwrap();
+        render_text(out, first_description_line);
+        out.push_str("</span></div>");
+    }
+
+    for description_line in description_lines.into_iter().skip(1) {
+        out.push_str("<div class=\"importedTitlePageTabbedLine\">");
+        write!(
+            out,
+            "<span class=\"importedTitlePageSegment\" style=\"left: {}in;\">",
+            description_left
+        )
+        .unwrap();
+        render_text(out, &description_line);
+        out.push_str("</span></div>");
+    }
+
+    out.push_str("</div>\n");
 }
 
 fn imported_title_display_text(text: &ElementText) -> ElementText {
@@ -778,6 +853,134 @@ fn imported_title_display_text(text: &ElementText) -> ElementText {
                 .collect(),
         ),
     }
+}
+
+fn split_element_text_on_tabs(text: &ElementText) -> Vec<ElementText> {
+    match text {
+        ElementText::Plain(text) => text
+            .split('\t')
+            .map(|segment| ElementText::Plain(segment.to_string()))
+            .collect(),
+        ElementText::Styled(runs) => {
+            let mut segments: Vec<Vec<crate::TextRun>> = vec![Vec::new()];
+            for run in runs {
+                let mut parts = run.content.split('\t').peekable();
+                while let Some(part) = parts.next() {
+                    if !part.is_empty() {
+                        segments
+                            .last_mut()
+                            .expect("expected tab segment")
+                            .push(crate::TextRun {
+                                content: part.to_string(),
+                                text_style: run.text_style.clone(),
+                            });
+                    }
+                    if parts.peek().is_some() {
+                        segments.push(Vec::new());
+                    }
+                }
+            }
+            segments.into_iter().map(ElementText::Styled).collect()
+        }
+    }
+}
+
+fn combine_element_text_segments(segments: &[ElementText]) -> ElementText {
+    let mut runs = Vec::new();
+    for segment in segments {
+        match segment {
+            ElementText::Plain(text) => {
+                if !text.is_empty() {
+                    runs.push(crate::TextRun {
+                        content: text.clone(),
+                        text_style: HashSet::new(),
+                    });
+                }
+            }
+            ElementText::Styled(segment_runs) => runs.extend(segment_runs.clone()),
+        }
+    }
+    ElementText::Styled(runs)
+}
+
+fn advance_through_html_tab_stops(
+    page_left: f32,
+    segments_before_description: &[ElementText],
+    tab_stops: &[crate::ImportedTitlePageTabStop],
+) -> f32 {
+    let mut current = page_left;
+    let mut sorted_tab_positions = tab_stops
+        .iter()
+        .map(|tab_stop| tab_stop.position)
+        .collect::<Vec<_>>();
+    sorted_tab_positions.sort_by(|left, right| left.partial_cmp(right).unwrap());
+
+    for segment in segments_before_description {
+        current += (segment.plain_text().chars().count() as f32 * 7.0) / 72.0;
+        if let Some(next_tab) = sorted_tab_positions
+            .iter()
+            .copied()
+            .find(|position| *position > current)
+        {
+            current = next_tab;
+        }
+    }
+
+    current
+}
+
+fn wrap_element_text_to_lines_html(text: &ElementText, width_chars: usize) -> Vec<ElementText> {
+    match text {
+        ElementText::Plain(text) => {
+            wrap_text_for_element(text, &WrapConfig::with_exact_width_chars(width_chars))
+                .into_iter()
+                .map(ElementText::Plain)
+                .collect()
+        }
+        ElementText::Styled(runs) => {
+            let plain_text = text.plain_text();
+            if plain_text.is_empty() {
+                return vec![ElementText::Styled(Vec::new())];
+            }
+
+            let styled_text = StyledText {
+                plain_text,
+                runs: runs
+                    .iter()
+                    .map(|run| StyledRun {
+                        text: run.content.clone(),
+                        styles: {
+                            let mut styles = run.text_style.iter().cloned().collect::<Vec<_>>();
+                            styles.sort();
+                            styles
+                        },
+                    })
+                    .collect(),
+            };
+
+            wrap_styled_text_for_element(
+                &styled_text,
+                &WrapConfig::with_exact_width_chars(width_chars),
+            )
+            .into_iter()
+            .map(|line| {
+                ElementText::Styled(
+                    line.fragments
+                        .into_iter()
+                        .map(|fragment| crate::TextRun {
+                            content: fragment.text,
+                            text_style: fragment.styles.into_iter().collect(),
+                        })
+                        .collect(),
+                )
+            })
+            .collect()
+        }
+    }
+}
+
+fn width_chars_between(left: f32, right: f32) -> usize {
+    (((right - left) * 72.0) / 7.0).floor().max(1.0) as usize
 }
 
 fn render_title_page_lines(out: &mut String, lines: &[ElementText]) {
@@ -1197,7 +1400,10 @@ mod tests {
 
         assert!(output.contains("<section class=\"title-page importedTitlePage paginatedTitlePage\""));
         assert!(output.contains(".screenplay .title-page.importedTitlePage {\n  padding-left: 0;\n  padding-right: 0;\n}"));
-        assert!(output.contains("text-indent: -1.06in;"));
+        assert!(output.contains("class=\"importedTitlePageParagraph importedTitlePageTabbedParagraph\""));
+        assert!(output.contains("class=\"importedTitlePageTabbedLine\""));
+        assert!(output.contains("class=\"importedTitlePageSegment\" style=\"left:"));
+        assert!(output.contains("VIK"));
     }
 
     #[test]

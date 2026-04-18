@@ -410,6 +410,21 @@
   line-height: 1;
 }
 
+.screenplay .importedTitlePage .importedTitlePageTabbedParagraph {
+  position: relative;
+}
+
+.screenplay .importedTitlePage .importedTitlePageTabbedLine {
+  position: relative;
+  min-height: 1em;
+}
+
+.screenplay .importedTitlePage .importedTitlePageSegment {
+  position: absolute;
+  top: 0;
+  white-space: pre-wrap;
+}
+
 .screenplay .titlePageBlock {
   position: absolute;
   left: 1.5in;
