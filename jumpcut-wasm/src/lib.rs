@@ -6,11 +6,25 @@ pub fn parse_to_json_string(text: &str) -> String {
     screenplay.to_json_string()
 }
 
+#[wasm_bindgen]
+pub fn parse_to_fountain_string(text: &str) -> String {
+    let screenplay = jumpcut::parse(text);
+    screenplay.to_fountain()
+}
+
 #[cfg(feature = "fdx")]
 #[wasm_bindgen]
 pub fn parse_to_fdx_string(text: &str) -> String {
     let mut screenplay = jumpcut::parse(text);
     screenplay.to_final_draft()
+}
+
+#[cfg(feature = "fdx")]
+#[wasm_bindgen]
+pub fn parse_fdx_to_fountain_string(text: &str) -> Result<String, JsValue> {
+    let screenplay =
+        jumpcut::parse_fdx(text).map_err(|e| JsValue::from_str(&format!("{:?}", e)))?;
+    Ok(screenplay.to_fountain())
 }
 
 #[cfg(feature = "fdx")]
