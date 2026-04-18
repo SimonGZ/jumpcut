@@ -310,6 +310,7 @@ mod tests {
                         paragraphs: vec![ImportedTitlePageParagraph {
                             text: "THE GUYS".into(),
                             alignment: ImportedTitlePageAlignment::Center,
+                            first_indent: Some(0.0),
                             left_indent: Some(0.94),
                             space_before: None,
                             tab_stops: Vec::new(),

@@ -104,6 +104,7 @@ struct ImportedParagraphStyle {
 #[derive(Debug)]
 struct FdxTitlePageParagraph {
     alignment: Option<String>,
+    first_indent: Option<f64>,
     left_indent: Option<f64>,
     space_before: Option<f64>,
     starts_new_page: bool,
@@ -433,6 +434,7 @@ fn parse_title_page_paragraphs(xml: &str) -> Result<Vec<FdxTitlePageParagraph>, 
     let mut in_text = false;
 
     let mut paragraph_alignment = None;
+    let mut paragraph_first_indent: Option<f64> = None;
     let mut paragraph_left_indent: Option<f64> = None;
     let mut paragraph_space_before: Option<f64> = None;
     let mut paragraph_starts_new_page = false;
@@ -451,6 +453,8 @@ fn parse_title_page_paragraphs(xml: &str) -> Result<Vec<FdxTitlePageParagraph>, 
                     paragraph_depth += 1;
                     if paragraph_depth == 1 {
                         paragraph_alignment = optional_attr(&reader, &event, b"Alignment")?;
+                        paragraph_first_indent = optional_attr(&reader, &event, b"FirstIndent")?
+                            .and_then(|value| value.parse::<f64>().ok());
                         paragraph_left_indent = optional_attr(&reader, &event, b"LeftIndent")?
                             .and_then(|value| value.parse::<f64>().ok());
                         paragraph_space_before = optional_attr(&reader, &event, b"SpaceBefore")?
@@ -524,6 +528,7 @@ fn parse_title_page_paragraphs(xml: &str) -> Result<Vec<FdxTitlePageParagraph>, 
                     if paragraph_depth == 1 {
                         paragraphs.push(FdxTitlePageParagraph {
                             alignment: paragraph_alignment.take(),
+                            first_indent: paragraph_first_indent.take(),
                             left_indent: paragraph_left_indent.take(),
                             space_before: paragraph_space_before.take(),
                             starts_new_page: paragraph_starts_new_page,
@@ -835,6 +840,7 @@ fn imported_title_page_page_from_paragraphs(
             .map(|paragraph| ImportedTitlePageParagraph {
                 text: paragraph.text.clone(),
                 alignment: imported_title_page_alignment(paragraph.alignment.as_deref()),
+                first_indent: paragraph.first_indent.map(|value| value as f32),
                 left_indent: paragraph.left_indent.map(|value| value as f32),
                 space_before: paragraph.space_before.map(|value| value as f32),
                 tab_stops: paragraph.tab_stops.clone(),

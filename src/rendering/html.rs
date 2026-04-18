@@ -144,7 +144,7 @@ fn layout_profile_css(layout_profile: &ScreenplayLayoutProfile) -> String {
     );
 
     format!(
-        "@page screenplay, screenplay-title {{\n  size: {page_width} {page_height};\n  margin-top: 1in;\n  margin-right: {page_right_margin};\n  margin-bottom: 0.75in;\n  margin-left: {page_left_margin};\n}}\n\n.screenplay.paginatedHtml .page {{\n  width: {page_width};\n  min-height: {page_height};\n  padding-left: {page_left_margin};\n  padding-right: {page_right_margin};\n}}\n\n.screenplay .title-page {{\n  width: {page_width};\n  min-height: {page_height};\n  padding-left: {page_left_margin};\n  padding-right: {page_right_margin};\n}}\n"
+        "@page screenplay, screenplay-title {{\n  size: {page_width} {page_height};\n  margin-top: 1in;\n  margin-right: {page_right_margin};\n  margin-bottom: 0.75in;\n  margin-left: {page_left_margin};\n}}\n\n.screenplay.paginatedHtml .page {{\n  width: {page_width};\n  min-height: {page_height};\n  padding-left: {page_left_margin};\n  padding-right: {page_right_margin};\n}}\n\n.screenplay .title-page {{\n  width: {page_width};\n  min-height: {page_height};\n  padding-left: {page_left_margin};\n  padding-right: {page_right_margin};\n}}\n\n.screenplay .title-page.importedTitlePage {{\n  padding-left: 0;\n  padding-right: 0;\n}}\n"
     )
 }
 
@@ -739,11 +739,12 @@ fn render_imported_title_paragraph(
     });
     let width = (7.5 - left_indent).max(0.5);
     let margin_top = paragraph.space_before.unwrap_or(0.0) / 72.0;
+    let text_indent = paragraph.first_indent.unwrap_or(0.0);
 
     write!(
         out,
-        "      <p class=\"importedTitlePageParagraph\" style=\"margin: {}in 0 0 {}in; width: {}in; text-align: {}; white-space: pre-wrap; tab-size: 8;\">",
-        margin_top, left_indent, width, alignment
+        "      <p class=\"importedTitlePageParagraph\" style=\"margin: {}in 0 0 {}in; width: {}in; text-align: {}; text-indent: {}in; white-space: pre-wrap; tab-size: 8;\">",
+        margin_top, left_indent, width, alignment, text_indent
     )
     .unwrap();
     if paragraph.text.plain_text().trim().is_empty() {
@@ -1178,9 +1179,25 @@ mod tests {
         let output = render_document(&screenplay, html_options(false, false, false));
 
         assert!(output.contains("importedTitlePage"));
+        assert!(output.contains(
+            ".screenplay .title-page.importedTitlePage.unpaginatedTitlePage"
+        ));
         assert!(output.contains("GUY TEXT"));
         assert!(output.contains("THE GUYS"));
         assert!(!output.contains("<div class=\"titlePageBlock titlePageCenterMeta\">"));
+    }
+
+    #[test]
+    fn imported_fdx_paginated_title_pages_use_full_page_coordinates_in_html() {
+        let xml = std::fs::read_to_string("tests/fixtures/fdx-import/title-page-cast-page.fdx")
+            .expect("fixture should load");
+        let screenplay = parse_fdx(&xml).expect("fdx should parse");
+
+        let output = render_document(&screenplay, html_options(false, false, true));
+
+        assert!(output.contains("<section class=\"title-page importedTitlePage paginatedTitlePage\""));
+        assert!(output.contains(".screenplay .title-page.importedTitlePage {\n  padding-left: 0;\n  padding-right: 0;\n}"));
+        assert!(output.contains("text-indent: -1.06in;"));
     }
 
     #[test]

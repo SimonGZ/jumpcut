@@ -2116,6 +2116,7 @@ fn render_title_overflow_pages(
                         &crate::ImportedTitlePageParagraph {
                             text: paragraph.text.clone(),
                             alignment,
+                            first_indent: Some(0.0),
                             left_indent: Some(1.5),
                             space_before: None,
                             tab_stops: Vec::new(),

@@ -619,6 +619,10 @@ fn it_preserves_title_page_overflow_pages_without_promoting_centered_page_two_co
             (2.32, ImportedTitlePageTabStopKind::Left),
         ]
     );
+    assert_eq!(
+        imported_title_page.pages[1].paragraphs[3].first_indent,
+        Some(-1.06)
+    );
 
     assert!(!screenplay.metadata.contains_key("frontmatter"));
 }
@@ -715,6 +719,10 @@ fn fdx_export_preserves_imported_title_page_overflow_pages() {
     assert!(
         fdx.contains("<Tabstop Position=\"2.00\" Type=\"Left\"/>"),
         "should preserve imported title-page tab stops"
+    );
+    assert!(
+        fdx.contains("FirstIndent=\"-1.06\""),
+        "should preserve imported title-page first indents"
     );
 
     let reimported = parse_fdx(&fdx).expect("round-tripped fdx should parse");

@@ -598,8 +598,9 @@ fn start_imported_title_paragraph(
     let starts_new_page = if starts_new_page { "Yes" } else { "No" };
     write!(
         out,
-        "      <Paragraph Alignment=\"{}\" FirstIndent=\"0.00\" Leading=\"Regular\" LeftIndent=\"{:.2}\" RightIndent=\"7.50\" SpaceBefore=\"{:.0}\" Spacing=\"1\" StartsNewPage=\"{}\">\n",
+        "      <Paragraph Alignment=\"{}\" FirstIndent=\"{:.2}\" Leading=\"Regular\" LeftIndent=\"{:.2}\" RightIndent=\"7.50\" SpaceBefore=\"{:.0}\" Spacing=\"1\" StartsNewPage=\"{}\">\n",
         alignment,
+        paragraph.first_indent.unwrap_or(0.0),
         left_indent,
         space_before,
         starts_new_page

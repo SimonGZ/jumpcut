@@ -36,6 +36,7 @@ pub struct ImportedTitlePagePage {
 pub struct ImportedTitlePageParagraph {
     pub text: ElementText,
     pub alignment: ImportedTitlePageAlignment,
+    pub first_indent: Option<f32>,
     pub left_indent: Option<f32>,
     pub space_before: Option<f32>,
     pub tab_stops: Vec<ImportedTitlePageTabStop>,

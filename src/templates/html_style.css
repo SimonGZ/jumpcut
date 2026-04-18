@@ -383,6 +383,33 @@
   page-break-after: auto;
 }
 
+.screenplay .title-page.importedTitlePage.unpaginatedTitlePage {
+  position: relative;
+  display: block;
+  grid-template-columns: none;
+  grid-template-areas: none;
+  column-gap: 0;
+  row-gap: 0;
+  width: 8.5in;
+  min-height: 11in;
+  max-width: none;
+  margin: 0 auto 1em;
+  padding: 1in 0 1.25in;
+  background: #fff;
+  box-shadow: 0 0 0 1px rgba(71, 85, 105, 0.18), 0 0.35rem 1.5rem rgba(15, 23, 42, 0.08);
+  page: screenplay-title;
+  page-break-after: always;
+}
+
+.screenplay .title-page.importedTitlePage.paginatedTitlePage {
+  padding: 1in 0 1.25in;
+}
+
+.screenplay .importedTitlePage .importedTitlePageParagraph,
+.screenplay .importedTitlePage .importedTitlePageNumber {
+  line-height: 1;
+}
+
 .screenplay .titlePageBlock {
   position: absolute;
   left: 1.5in;
@@ -487,6 +514,10 @@
 
   .screenplay .title-page.unpaginatedTitlePage {
     padding: 0 0 2em;
+  }
+
+  .screenplay .title-page.importedTitlePage.unpaginatedTitlePage {
+    padding: 1in 0 1.25in;
   }
 }
 
