@@ -17,10 +17,10 @@ pub(crate) fn prepare_screenplay(screenplay: &mut Screenplay) {
 }
 
 pub(crate) fn render_document(screenplay: &Screenplay) -> String {
-    let layout_profile = ScreenplayLayoutProfile::from_metadata(&screenplay.metadata);
+    let layout_profile = ScreenplayLayoutProfile::from_screenplay(screenplay);
     let mut out = String::with_capacity(64 * 1024);
     out.push_str("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\" ?>\n<FinalDraft DocumentType=\"Script\" Template=\"No\" Version=\"4\">\n    <Content>\n");
-    render_content(&mut out, screenplay);
+    render_content(&mut out, screenplay, &layout_profile);
     out.push_str("    </Content>\n\n");
     render_page_layout(&mut out, &layout_profile);
     out.push('\n');
@@ -130,12 +130,12 @@ pub(crate) fn insert_metadata_value(metadata: &mut Metadata, key: &str, value: &
     metadata.insert(key.to_string(), vec![value.into()]);
 }
 
-fn render_content(out: &mut String, screenplay: &Screenplay) {
+fn render_content(out: &mut String, screenplay: &Screenplay, layout_profile: &ScreenplayLayoutProfile) {
     for element in &screenplay.elements {
         match element {
             Element::DialogueBlock(block) => {
                 for child in block {
-                    render_paragraph(out, child);
+                    render_paragraph(out, child, layout_profile);
                 }
             }
             Element::DualDialogueBlock(blocks) => {
@@ -143,18 +143,18 @@ fn render_content(out: &mut String, screenplay: &Screenplay) {
                 for block in blocks {
                     if let Element::DialogueBlock(dialogue_block) = block {
                         for child in dialogue_block {
-                            render_paragraph(out, child);
+                            render_paragraph(out, child, layout_profile);
                         }
                     }
                 }
                 out.push_str("              </DualDialogue>\n              <Text></Text>\n          </Paragraph>\n");
             }
-            _ => render_paragraph(out, element),
+            _ => render_paragraph(out, element, layout_profile),
         }
     }
 }
 
-fn render_paragraph(out: &mut String, element: &Element) {
+fn render_paragraph(out: &mut String, element: &Element, layout_profile: &ScreenplayLayoutProfile) {
     let (type_name, text, attributes) = match element {
         Element::Action(text, attributes)
         | Element::Character(text, attributes)
@@ -185,9 +185,51 @@ fn render_paragraph(out: &mut String, element: &Element) {
     if attributes.centered {
         out.push_str(" Alignment=\"Center\"");
     }
+    if let Some(base_style) = base_style_for_element(layout_profile, element) {
+        let effective_style = base_style.apply_element_layout_overrides(&attributes.layout_overrides);
+        if !approx_eq(effective_style.right_indent, base_style.right_indent) {
+            write!(
+                out,
+                " RightIndent=\"{}\"",
+                format_indent(effective_style.right_indent)
+            )
+            .unwrap();
+        }
+        if !approx_eq(effective_style.spacing_before, base_style.spacing_before) {
+            write!(
+                out,
+                " SpaceBefore=\"{}\"",
+                format_space_before_lines(effective_style.spacing_before)
+            )
+            .unwrap();
+        }
+    }
     out.push_str(">\n");
     render_text(out, text);
     out.push_str("      </Paragraph>\n");
+}
+
+fn base_style_for_element<'a>(
+    layout_profile: &'a ScreenplayLayoutProfile,
+    element: &Element,
+) -> Option<&'a ScreenplayElementStyle> {
+    match element {
+        Element::Action(_, _) => Some(&layout_profile.styles.action),
+        Element::Character(_, _) => Some(&layout_profile.styles.character),
+        Element::SceneHeading(_, _) => Some(&layout_profile.styles.scene_heading),
+        Element::Lyric(_, _) => Some(&layout_profile.styles.lyric),
+        Element::Parenthetical(_, _) => Some(&layout_profile.styles.parenthetical),
+        Element::Dialogue(_, _) => Some(&layout_profile.styles.dialogue),
+        Element::Transition(_, _) => Some(&layout_profile.styles.transition),
+        Element::ColdOpening(_, _) => Some(&layout_profile.styles.cold_opening),
+        Element::NewAct(_, _) => Some(&layout_profile.styles.new_act),
+        Element::EndOfAct(_, _) => Some(&layout_profile.styles.end_of_act),
+        Element::DialogueBlock(_)
+        | Element::DualDialogueBlock(_)
+        | Element::Section(_, _, _)
+        | Element::Synopsis(_)
+        | Element::PageBreak => None,
+    }
 }
 
 fn render_text(out: &mut String, text: &ElementText) {
@@ -504,12 +546,20 @@ fn format_spacing(value: f32) -> String {
 }
 
 fn format_space_before(style: &ScreenplayElementStyle) -> String {
-    let points = style.spacing_before * 12.0;
+    format_space_before_lines(style.spacing_before)
+}
+
+fn format_space_before_lines(spacing_before_lines: f32) -> String {
+    let points = spacing_before_lines * 12.0;
     if points.fract() == 0.0 {
         format!("{}", points as i32)
     } else {
         format!("{points:.2}")
     }
+}
+
+fn approx_eq(left: f32, right: f32) -> bool {
+    (left - right).abs() < 0.0001
 }
 
 fn format_starts_new_page(starts_new_page: bool) -> String {

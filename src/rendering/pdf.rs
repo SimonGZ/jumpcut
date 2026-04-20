@@ -3345,6 +3345,39 @@ mod tests {
         assert!(chars.contains(&'T'));
     }
 
+    #[test]
+    fn pdf_render_document_honors_imported_dialogue_width_overrides() {
+        let xml = r#"<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+<FinalDraft DocumentType="Script" Template="No" Version="4">
+  <Content>
+    <Paragraph Type="Character">
+      <Text>DAVID</Text>
+    </Paragraph>
+    <Paragraph Alignment="Left" FirstIndent="0.00" Leading="Regular" LeftIndent="2.25" RightIndent="6.50" SpaceBefore="0" Spacing="2" StartsNewPage="No" Type="Dialogue">
+      <Text>(WRITING) “Girl know you want my tasty D”</Text>
+    </Paragraph>
+  </Content>
+  <ElementSettings Type="Character">
+    <ParagraphSpec Alignment="Left" FirstIndent="0.00" LeftIndent="3.50" RightIndent="7.25" SpaceBefore="12" Spacing="1" StartsNewPage="No"/>
+  </ElementSettings>
+  <ElementSettings Type="Dialogue">
+    <ParagraphSpec Alignment="Left" FirstIndent="0.00" LeftIndent="2.25" RightIndent="6.00" SpaceBefore="0" Spacing="2" StartsNewPage="No"/>
+  </ElementSettings>
+</FinalDraft>"#;
+
+        let screenplay = parse_fdx(xml).expect("fdx should parse");
+        let geometry = ScreenplayLayoutProfile::from_screenplay(&screenplay).to_pagination_geometry();
+        let document = build_render_document(&screenplay, PdfRenderOptions::default(), &geometry);
+
+        let page = document.body_pages.first().expect("expected body page");
+        let body_lines = page.lines.iter().map(|line| line.text.as_str()).collect::<Vec<_>>();
+
+        assert!(body_lines
+            .iter()
+            .any(|line| line.contains("(WRITING) “Girl know you want my tasty D”")));
+        assert!(!body_lines.iter().any(|line| line.trim() == "D”"));
+    }
+
     #[derive(Debug)]
     struct TaggedPdfInspection {
         has_mark_info: bool,

@@ -10,7 +10,7 @@ use crate::pagination::semantic::{
     SemanticScreenplay, SemanticUnit,
 };
 use crate::pagination::wrapping::{
-    wrap_text_for_element, ElementType, InterruptionDashWrap, WrapConfig,
+    wrap_config_with_overrides, wrap_text_for_element, ElementType, InterruptionDashWrap,
 };
 use crate::pagination::LayoutGeometry;
 use crate::pagination::ScreenplayLayoutProfile;
@@ -557,7 +557,12 @@ fn dialogue_part_line_counts(
                     DialoguePartKind::Lyric => ElementType::Lyric,
                 },
             };
-            let config = WrapConfig::from_geometry_final_draft(geometry, element_type);
+            let config = wrap_config_with_overrides(
+                geometry,
+                element_type,
+                &part.render_attributes.layout_overrides,
+                InterruptionDashWrap::FinalDraft,
+            );
             wrap_text_for_element(&part.text, &config).len()
         })
         .collect()

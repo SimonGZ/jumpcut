@@ -1,7 +1,9 @@
 use crate::pagination::composer::{self, LayoutBlock};
 use crate::pagination::margin::line_height_for_element_type;
 use crate::pagination::paginator;
-use crate::pagination::wrapping::{self, ElementType, InterruptionDashWrap, WrappedStyledFragment};
+use crate::pagination::wrapping::{
+    self, wrap_config_with_overrides, ElementType, InterruptionDashWrap, WrappedStyledFragment,
+};
 use crate::pagination::{
     build_semantic_screenplay_with_options, normalize_screenplay, DialoguePartKind, LayoutGeometry,
     Page, PageKind, PaginatedScreenplay, PaginationConfig, PaginationScope,
@@ -9,7 +11,7 @@ use crate::pagination::{
 };
 use crate::styled_text::{StyledRun, StyledText};
 use crate::title_page::{frontmatter_count, TitlePage};
-use crate::Screenplay;
+use crate::{ElementLayoutOverrides, Screenplay};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct VisualRenderOptions {
@@ -283,6 +285,7 @@ fn render_layout_block_lines(
                 render_indented_styled_lines(
                     &fragment_text,
                     element_type,
+                    &flow.render_attributes.layout_overrides,
                     geometry,
                     interruption_dash_wrap,
                     flow.render_attributes.centered,
@@ -314,6 +317,7 @@ fn render_layout_block_lines(
                 render_indented_lines(
                     &text,
                     element_type,
+                    &flow.render_attributes.layout_overrides,
                     geometry,
                     interruption_dash_wrap,
                     flow.render_attributes.centered,
@@ -542,6 +546,7 @@ fn render_split_dialogue_part_lines(
         return render_indented_styled_lines(
             &rendered_text.slice(start_offset, end_offset),
             element_type,
+            &dialogue_part.render_attributes.layout_overrides,
             geometry,
             interruption_dash_wrap,
             dialogue_part.render_attributes.centered,
@@ -560,6 +565,7 @@ fn render_split_dialogue_part_lines(
     render_indented_lines(
         plain_text,
         element_type,
+        &dialogue_part.render_attributes.layout_overrides,
         geometry,
         interruption_dash_wrap,
         dialogue_part.render_attributes.centered,
@@ -636,6 +642,7 @@ fn render_dialogue_continuation_prefix(
             render_indented_lines(
                 &continued_character_cue_text(&part.text),
                 ElementType::Character,
+                &ElementLayoutOverrides::default(),
                 geometry,
                 interruption_dash_wrap,
                 false,
@@ -677,6 +684,7 @@ fn render_more_marker_lines(
         text: render_indented_lines(
             "(MORE)",
             ElementType::Character,
+            &ElementLayoutOverrides::default(),
             geometry,
             interruption_dash_wrap,
             false,
@@ -691,6 +699,7 @@ fn render_more_marker_lines(
             &render_indented_lines(
                 "(MORE)",
                 ElementType::Character,
+                &ElementLayoutOverrides::default(),
                 geometry,
                 interruption_dash_wrap,
                 false,
@@ -720,6 +729,7 @@ fn render_semantic_unit_lines(
                 return render_indented_styled_lines(
                     inline_text,
                     element_type,
+                    &flow.render_attributes.layout_overrides,
                     geometry,
                     interruption_dash_wrap,
                     flow.render_attributes.centered,
@@ -737,6 +747,7 @@ fn render_semantic_unit_lines(
             render_indented_lines(
                 &flow.text,
                 element_type,
+                &flow.render_attributes.layout_overrides,
                 geometry,
                 interruption_dash_wrap,
                 flow.render_attributes.centered,
@@ -762,6 +773,7 @@ fn render_semantic_unit_lines(
                 return render_indented_styled_lines(
                     inline_text,
                     ElementType::Lyric,
+                    &lyric.render_attributes.layout_overrides,
                     geometry,
                     interruption_dash_wrap,
                     lyric.render_attributes.centered,
@@ -779,6 +791,7 @@ fn render_semantic_unit_lines(
             render_indented_lines(
                 &lyric.text,
                 ElementType::Lyric,
+                &lyric.render_attributes.layout_overrides,
                 geometry,
                 interruption_dash_wrap,
                 lyric.render_attributes.centered,
@@ -812,6 +825,7 @@ fn render_semantic_unit_lines(
                     return render_indented_styled_lines(
                         &rendered_text,
                         element_type,
+                        &part.render_attributes.layout_overrides,
                         geometry,
                         interruption_dash_wrap,
                         part.render_attributes.centered,
@@ -829,6 +843,7 @@ fn render_semantic_unit_lines(
                 render_indented_lines(
                     &dialogue_part_render_text(dialogue, part, part_index, &part.text, options),
                     element_type,
+                    &part.render_attributes.layout_overrides,
                     geometry,
                     interruption_dash_wrap,
                     part.render_attributes.centered,
@@ -971,9 +986,10 @@ fn render_dual_dialogue_side_rendered_lines(
         .iter()
         .flat_map(|part| {
             let element_type = ElementType::from_dual_dialogue_part_kind(&part.kind, side);
-            let config = wrapping::WrapConfig::from_geometry_with_mode(
+            let config = wrap_config_with_overrides(
                 geometry,
                 element_type,
+                &part.render_attributes.layout_overrides,
                 interruption_dash_wrap,
             );
             if let Some(inline_text) = &part.inline_text {
@@ -1025,15 +1041,13 @@ fn render_dual_dialogue_side_rendered_lines(
 fn render_indented_lines(
     text: &str,
     element_type: ElementType,
+    overrides: &ElementLayoutOverrides,
     geometry: &LayoutGeometry,
     interruption_dash_wrap: InterruptionDashWrap,
     centered: bool,
 ) -> Vec<String> {
-    let config = wrapping::WrapConfig::from_geometry_with_mode(
-        geometry,
-        element_type,
-        interruption_dash_wrap,
-    );
+    let config =
+        wrap_config_with_overrides(geometry, element_type, overrides, interruption_dash_wrap);
     wrapped_visual_lines(element_type, text, &config)
         .into_iter()
         .map(|line| {
@@ -1054,15 +1068,13 @@ fn render_indented_lines(
 fn render_indented_styled_lines(
     text: &StyledText,
     element_type: ElementType,
+    overrides: &ElementLayoutOverrides,
     geometry: &LayoutGeometry,
     interruption_dash_wrap: InterruptionDashWrap,
     centered: bool,
 ) -> Vec<RenderedStyledLine> {
-    let config = wrapping::WrapConfig::from_geometry_with_mode(
-        geometry,
-        element_type,
-        interruption_dash_wrap,
-    );
+    let config =
+        wrap_config_with_overrides(geometry, element_type, overrides, interruption_dash_wrap);
 
     wrapping::wrap_styled_text_for_element(text, &config)
         .into_iter()

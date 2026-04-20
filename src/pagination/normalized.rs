@@ -82,7 +82,15 @@ impl NormalizedCollector {
         dual_dialogue_group: Option<&str>,
         dual_dialogue_side: Option<u8>,
     ) {
-        let (kind, text, inline_text, centered, starts_new_page, scene_number) = match element {
+        let (
+            kind,
+            text,
+            inline_text,
+            centered,
+            starts_new_page,
+            scene_number,
+            layout_overrides,
+        ) = match element {
             Element::Action(text, attributes)
             | Element::Character(text, attributes)
             | Element::SceneHeading(text, attributes)
@@ -99,6 +107,7 @@ impl NormalizedCollector {
                 attributes.centered,
                 attributes.starts_new_page,
                 attributes.scene_number.clone(),
+                attributes.layout_overrides.clone(),
             ),
             Element::Section(text, attributes, _) => (
                 "Section".to_string(),
@@ -107,6 +116,7 @@ impl NormalizedCollector {
                 attributes.centered,
                 attributes.starts_new_page,
                 attributes.scene_number.clone(),
+                attributes.layout_overrides.clone(),
             ),
             Element::Synopsis(text) => (
                 "Synopsis".to_string(),
@@ -115,6 +125,7 @@ impl NormalizedCollector {
                 false,
                 false,
                 None,
+                Default::default(),
             ),
             Element::DialogueBlock(_) | Element::DualDialogueBlock(_) | Element::PageBreak => {
                 return
@@ -131,6 +142,7 @@ impl NormalizedCollector {
                 centered,
                 starts_new_page,
                 scene_number: scene_number.clone(),
+                layout_overrides,
             },
             fragment: None,
             block_kind: block_kind.map(str::to_string),

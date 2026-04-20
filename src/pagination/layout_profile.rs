@@ -1,6 +1,6 @@
 use crate::{
-    ImportedAlignment, ImportedDialogueContinueds, ImportedElementKind, ImportedElementStyle,
-    ImportedLayoutOverrides, ImportedSceneContinueds, Metadata, Screenplay,
+    ElementLayoutOverrides, ImportedAlignment, ImportedDialogueContinueds, ImportedElementKind,
+    ImportedElementStyle, ImportedLayoutOverrides, ImportedSceneContinueds, Metadata, Screenplay,
 };
 
 use super::wrapping::InterruptionDashWrap;
@@ -24,6 +24,24 @@ pub struct ScreenplayElementStyle {
     pub underline: bool,
     pub bold: bool,
     pub italic: bool,
+}
+
+impl ScreenplayElementStyle {
+    pub fn apply_element_layout_overrides(
+        &self,
+        overrides: &ElementLayoutOverrides,
+    ) -> ScreenplayElementStyle {
+        let mut effective = self.clone();
+
+        if let Some(space_before_delta) = overrides.space_before_delta {
+            effective.spacing_before += space_before_delta;
+        }
+        if let Some(right_indent_delta) = overrides.right_indent_delta {
+            effective.right_indent += right_indent_delta;
+        }
+
+        effective
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]

@@ -301,6 +301,7 @@ fn render_attributes_survive_normalization_and_semantic_building() {
             centered: true,
             starts_new_page: true,
             scene_number: Some("12".into()),
+            ..RenderAttributes::default()
         }
     );
 
@@ -313,6 +314,7 @@ fn render_attributes_survive_normalization_and_semantic_building() {
                     centered: true,
                     starts_new_page: true,
                     scene_number: Some("12".into()),
+                    ..RenderAttributes::default()
                 }
             );
         }

@@ -4,7 +4,10 @@ use quick_xml::Reader;
 use std::collections::{BTreeMap, HashSet};
 
 use crate::parser::{is_cold_opening, is_end_act, is_new_act};
-use crate::pagination::wrapping::{wrap_text_for_element, WrapConfig};
+use crate::pagination::{
+    wrapping::{wrap_text_for_element, WrapConfig},
+    ScreenplayElementStyle, ScreenplayLayoutProfile,
+};
 use crate::{
     blank_attributes, Element, ElementText, ImportedAlignment, ImportedDialogueContinueds,
     ImportedElementKind, ImportedElementStyle, ImportedLayoutOverrides, ImportedMoresAndContinueds,
@@ -42,7 +45,18 @@ pub fn parse_fdx(xml: &str) -> Result<Screenplay, FdxParseError> {
 
     let imported_layout =
         imported_settings_to_layout_overrides(&imported_settings, &used_paragraph_types);
-    let elements = group_dialogue_blocks(blocks.into_iter().filter_map(block_to_element).collect());
+    let baseline_profile = ScreenplayLayoutProfile::from_screenplay(&Screenplay {
+        metadata: metadata.clone(),
+        imported_layout: imported_layout.clone(),
+        imported_title_page: None,
+        elements: Vec::new(),
+    });
+    let elements = group_dialogue_blocks(
+        blocks
+            .into_iter()
+            .filter_map(|block| block_to_element(block, &baseline_profile))
+            .collect(),
+    );
 
     let mut screenplay = Screenplay {
         metadata,
@@ -58,6 +72,8 @@ pub fn parse_fdx(xml: &str) -> Result<Screenplay, FdxParseError> {
 struct FdxParagraph {
     paragraph_type: String,
     alignment: Option<String>,
+    right_indent: Option<f32>,
+    space_before_points: Option<f32>,
     starts_new_page: bool,
     number: Option<String>,
     text: ElementText,
@@ -125,6 +141,8 @@ fn parse_blocks(xml: &str) -> Result<Vec<FdxBlock>, FdxParseError> {
 
     let mut paragraph_type = None;
     let mut paragraph_alignment = None;
+    let mut paragraph_right_indent = None;
+    let mut paragraph_space_before_points = None;
     let mut paragraph_starts_new_page = false;
     let mut paragraph_number = None;
     let mut text_chunks: Vec<TextChunk> = Vec::new();
@@ -146,6 +164,8 @@ fn parse_blocks(xml: &str) -> Result<Vec<FdxBlock>, FdxParseError> {
                             &event,
                             &mut paragraph_type,
                             &mut paragraph_alignment,
+                            &mut paragraph_right_indent,
+                            &mut paragraph_space_before_points,
                             &mut paragraph_starts_new_page,
                             &mut paragraph_number,
                             &mut text_chunks,
@@ -168,6 +188,8 @@ fn parse_blocks(xml: &str) -> Result<Vec<FdxBlock>, FdxParseError> {
                         paragraph_type: required_attr(&reader, &event, b"Type")?
                             .unwrap_or_default(),
                         alignment: optional_attr(&reader, &event, b"Alignment")?,
+                        right_indent: parse_attr_f32(&reader, &event, b"RightIndent")?,
+                        space_before_points: parse_attr_f32(&reader, &event, b"SpaceBefore")?,
                         starts_new_page: optional_attr(&reader, &event, b"StartsNewPage")?
                             .as_deref()
                             == Some("Yes"),
@@ -220,6 +242,8 @@ fn parse_blocks(xml: &str) -> Result<Vec<FdxBlock>, FdxParseError> {
                         let paragraph = FdxParagraph {
                             paragraph_type: paragraph_type.take().unwrap_or_default(),
                             alignment: paragraph_alignment.take(),
+                            right_indent: paragraph_right_indent.take(),
+                            space_before_points: paragraph_space_before_points.take(),
                             starts_new_page: paragraph_starts_new_page,
                             number: paragraph_number.take(),
                             text: collapse_text_chunks(std::mem::take(&mut text_chunks)),
@@ -260,12 +284,16 @@ fn begin_paragraph(
     event: &BytesStart<'_>,
     paragraph_type: &mut Option<String>,
     paragraph_alignment: &mut Option<String>,
+    paragraph_right_indent: &mut Option<f32>,
+    paragraph_space_before_points: &mut Option<f32>,
     paragraph_starts_new_page: &mut bool,
     paragraph_number: &mut Option<String>,
     text_chunks: &mut Vec<TextChunk>,
 ) -> Result<(), FdxParseError> {
     *paragraph_type = required_attr(reader, event, b"Type")?;
     *paragraph_alignment = optional_attr(reader, event, b"Alignment")?;
+    *paragraph_right_indent = parse_attr_f32(reader, event, b"RightIndent")?;
+    *paragraph_space_before_points = parse_attr_f32(reader, event, b"SpaceBefore")?;
     *paragraph_starts_new_page =
         optional_attr(reader, event, b"StartsNewPage")?.as_deref() == Some("Yes");
     *paragraph_number = optional_attr(reader, event, b"Number")?;
@@ -277,14 +305,14 @@ fn is_active_paragraph(paragraph_depth: usize, in_dual_dialogue: bool) -> bool {
     (!in_dual_dialogue && paragraph_depth == 1) || (in_dual_dialogue && paragraph_depth == 2)
 }
 
-fn block_to_element(block: FdxBlock) -> Option<Element> {
+fn block_to_element(block: FdxBlock, baseline_profile: &ScreenplayLayoutProfile) -> Option<Element> {
     match block {
-        FdxBlock::Paragraph(paragraph) => paragraph_to_element(paragraph),
+        FdxBlock::Paragraph(paragraph) => paragraph_to_element(paragraph, baseline_profile),
         FdxBlock::DualDialogue(paragraphs) => {
             let dialogue_blocks = group_dialogue_blocks(
                 paragraphs
                     .into_iter()
-                    .filter_map(paragraph_to_element)
+                    .filter_map(|paragraph| paragraph_to_element(paragraph, baseline_profile))
                     .collect(),
             )
             .into_iter()
@@ -1499,7 +1527,10 @@ fn collapse_text_chunks(chunks: Vec<TextChunk>) -> ElementText {
     ElementText::Styled(runs)
 }
 
-fn paragraph_to_element(paragraph: FdxParagraph) -> Option<Element> {
+fn paragraph_to_element(
+    paragraph: FdxParagraph,
+    baseline_profile: &ScreenplayLayoutProfile,
+) -> Option<Element> {
     let mut attributes = blank_attributes();
     let is_centered_type = matches!(
         paragraph.paragraph_type.as_str(),
@@ -1516,42 +1547,95 @@ fn paragraph_to_element(paragraph: FdxParagraph) -> Option<Element> {
     }
     attributes.starts_new_page = paragraph.starts_new_page;
     attributes.scene_number = paragraph.number;
-
     let text_plain = paragraph.text.plain_text();
-
-    match paragraph.paragraph_type.as_str() {
-        "Scene Heading" => Some(Element::SceneHeading(paragraph.text, attributes)),
-        "Action" => {
-            if attributes.centered {
-                if is_end_act(&text_plain) {
-                    Some(Element::EndOfAct(paragraph.text, attributes))
-                } else if is_cold_opening(&text_plain) {
-                    Some(Element::ColdOpening(paragraph.text, attributes))
-                } else if is_new_act(&text_plain) {
-                    Some(Element::NewAct(paragraph.text, attributes))
-                } else {
-                    Some(Element::Action(paragraph.text, attributes))
-                }
-            } else {
-                Some(Element::Action(paragraph.text, attributes))
+    let resolved_type =
+        resolved_body_paragraph_type(&paragraph.paragraph_type, attributes.centered, &text_plain)?;
+    if let Some(base_style) =
+        baseline_style_for_paragraph_type(resolved_type, baseline_profile)
+    {
+        if let Some(right_indent) = paragraph.right_indent {
+            let delta = right_indent - base_style.right_indent;
+            if !approx_eq(delta, 0.0) {
+                attributes.layout_overrides.right_indent_delta = Some(delta);
             }
         }
+        if let Some(space_before_points) = paragraph.space_before_points {
+            let delta = spacing_lines_from_points(space_before_points) - base_style.spacing_before;
+            if !approx_eq(delta, 0.0) {
+                attributes.layout_overrides.space_before_delta = Some(delta);
+            }
+        }
+    }
+
+    match resolved_type {
+        "Scene Heading" => Some(Element::SceneHeading(paragraph.text, attributes)),
+        "Action" => Some(Element::Action(paragraph.text, attributes)),
         "Character" => Some(Element::Character(paragraph.text, attributes)),
         "Dialogue" => Some(Element::Dialogue(paragraph.text, attributes)),
         "Parenthetical" => Some(Element::Parenthetical(paragraph.text, attributes)),
         "Transition" => Some(Element::Transition(paragraph.text, attributes)),
         "Lyric" => Some(Element::Lyric(paragraph.text, attributes)),
         "Cold Opening" => Some(Element::ColdOpening(paragraph.text, attributes)),
+        "New Act" => Some(Element::NewAct(paragraph.text, attributes)),
+        "End of Act" => Some(Element::EndOfAct(paragraph.text, attributes)),
+        _ => None,
+    }
+}
+
+fn resolved_body_paragraph_type<'a>(
+    paragraph_type: &'a str,
+    centered: bool,
+    text_plain: &str,
+) -> Option<&'a str> {
+    match paragraph_type {
+        "Scene Heading" | "Character" | "Dialogue" | "Parenthetical" | "Transition" | "Lyric" => {
+            Some(paragraph_type)
+        }
+        "Cold Opening" => Some("Cold Opening"),
         "New Act" => {
-            if is_end_act(&text_plain) {
-                Some(Element::EndOfAct(paragraph.text, attributes))
-            } else if is_cold_opening(&text_plain) {
-                Some(Element::ColdOpening(paragraph.text, attributes))
+            if is_end_act(text_plain) {
+                Some("End of Act")
+            } else if is_cold_opening(text_plain) {
+                Some("Cold Opening")
             } else {
-                Some(Element::NewAct(paragraph.text, attributes))
+                Some("New Act")
             }
         }
-        "End of Act" | "End Of Act" => Some(Element::EndOfAct(paragraph.text, attributes)),
+        "End of Act" | "End Of Act" => Some("End of Act"),
+        "Action" => {
+            if centered {
+                if is_end_act(text_plain) {
+                    Some("End of Act")
+                } else if is_cold_opening(text_plain) {
+                    Some("Cold Opening")
+                } else if is_new_act(text_plain) {
+                    Some("New Act")
+                } else {
+                    Some("Action")
+                }
+            } else {
+                Some("Action")
+            }
+        }
+        _ => None,
+    }
+}
+
+fn baseline_style_for_paragraph_type<'a>(
+    paragraph_type: &str,
+    baseline_profile: &'a ScreenplayLayoutProfile,
+) -> Option<&'a ScreenplayElementStyle> {
+    match paragraph_type {
+        "Scene Heading" => Some(&baseline_profile.styles.scene_heading),
+        "Action" => Some(&baseline_profile.styles.action),
+        "Character" => Some(&baseline_profile.styles.character),
+        "Dialogue" => Some(&baseline_profile.styles.dialogue),
+        "Parenthetical" => Some(&baseline_profile.styles.parenthetical),
+        "Transition" => Some(&baseline_profile.styles.transition),
+        "Lyric" => Some(&baseline_profile.styles.lyric),
+        "Cold Opening" => Some(&baseline_profile.styles.cold_opening),
+        "New Act" => Some(&baseline_profile.styles.new_act),
+        "End of Act" | "End Of Act" => Some(&baseline_profile.styles.end_of_act),
         _ => None,
     }
 }

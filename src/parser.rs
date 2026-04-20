@@ -6,7 +6,8 @@ use std::str::Lines;
 
 use crate::Element::PageBreak;
 use crate::{
-    blank_attributes, text_style_parser, Attributes, Element, ElementText, Metadata, Screenplay,
+    blank_attributes, text_style_parser, Attributes, Element, ElementLayoutOverrides, ElementText,
+    Metadata, Screenplay,
 };
 use ElementText::*;
 
@@ -276,9 +277,10 @@ fn make_single_line_element(line: &str) -> Element {
     let mut attributes = blank_attributes();
     let line_has_note = has_note(line);
     if line_has_note {
-        let notes = retrieve_notes(line);
+        let (notes, layout_overrides) = retrieve_processed_notes(line);
         attributes = Attributes {
             notes,
+            layout_overrides,
             ..attributes
         };
     }
@@ -436,9 +438,10 @@ fn make_multi_line_element(hunk: Vec<&str>) -> Element {
         .any(|line| has_note(line))
         .then(|| hunk.join("\n"));
     if let Some(joined_hunk) = joined_hunk_with_notes.as_deref() {
-        let notes = retrieve_notes(joined_hunk);
+        let (notes, layout_overrides) = retrieve_processed_notes(joined_hunk);
         attributes = Attributes {
             notes,
+            layout_overrides,
             ..attributes
         };
     }
@@ -691,11 +694,12 @@ fn make_dialogue_block(hunk: Vec<&str>) -> Element {
     elements.push(character);
     for line in hunk[1..].iter() {
         let (processed_line, attributes) = if has_note(line) {
-            let notes = retrieve_notes(line);
+            let (notes, layout_overrides) = retrieve_processed_notes(line);
             (
                 Cow::Owned(remove_notes(line)),
                 Attributes {
                     notes,
+                    layout_overrides,
                     ..blank_attributes()
                 },
             )
@@ -762,6 +766,93 @@ fn retrieve_notes(line: &str) -> Option<Vec<String>> {
         }
     }
     Some(result)
+}
+
+fn retrieve_processed_notes(line: &str) -> (Option<Vec<String>>, ElementLayoutOverrides) {
+    extract_layout_modifiers_from_notes(retrieve_notes(line))
+}
+
+fn extract_layout_modifiers_from_notes(
+    notes: Option<Vec<String>>,
+) -> (Option<Vec<String>>, ElementLayoutOverrides) {
+    let Some(notes) = notes else {
+        return (None, ElementLayoutOverrides::default());
+    };
+
+    let mut remaining_notes = Vec::new();
+    let mut layout_overrides = ElementLayoutOverrides::default();
+
+    for note in notes {
+        let (remaining_note, note_overrides) = extract_layout_modifiers_from_note(&note);
+        if let Some(space_before_delta) = note_overrides.space_before_delta {
+            layout_overrides.space_before_delta =
+                Some(layout_overrides.space_before_delta.unwrap_or(0.0) + space_before_delta);
+        }
+        if let Some(right_indent_delta) = note_overrides.right_indent_delta {
+            layout_overrides.right_indent_delta =
+                Some(layout_overrides.right_indent_delta.unwrap_or(0.0) + right_indent_delta);
+        }
+        if let Some(remaining_note) = remaining_note {
+            remaining_notes.push(remaining_note);
+        }
+    }
+
+    (
+        (!remaining_notes.is_empty()).then_some(remaining_notes),
+        layout_overrides,
+    )
+}
+
+fn extract_layout_modifiers_from_note(
+    note: &str,
+) -> (Option<String>, ElementLayoutOverrides) {
+    let mut layout_overrides = ElementLayoutOverrides::default();
+    let mut remaining_tokens = Vec::new();
+    let mut saw_modifier = false;
+
+    for token in note.split_whitespace() {
+        match parse_layout_modifier_token(token) {
+            Some((space_before_delta, right_indent_delta)) => {
+                saw_modifier = true;
+                if let Some(space_before_delta) = space_before_delta {
+                    layout_overrides.space_before_delta =
+                        Some(layout_overrides.space_before_delta.unwrap_or(0.0) + space_before_delta);
+                }
+                if let Some(right_indent_delta) = right_indent_delta {
+                    layout_overrides.right_indent_delta =
+                        Some(layout_overrides.right_indent_delta.unwrap_or(0.0) + right_indent_delta);
+                }
+            }
+            None => remaining_tokens.push(token),
+        }
+    }
+
+    if !saw_modifier {
+        return (Some(note.to_string()), layout_overrides);
+    }
+
+    let remaining_note = (!remaining_tokens.is_empty()).then(|| remaining_tokens.join(" "));
+    (remaining_note, layout_overrides)
+}
+
+fn parse_layout_modifier_token(token: &str) -> Option<(Option<f32>, Option<f32>)> {
+    lazy_static! {
+        static ref LAYOUT_MODIFIER_RE: Regex =
+            Regex::new(r"^\.(lift|widen)(?:-([0-9]+))?$").unwrap();
+    }
+
+    let captures = LAYOUT_MODIFIER_RE.captures(token)?;
+    let kind = captures.get(1)?.as_str();
+    let magnitude = captures
+        .get(2)
+        .and_then(|value| value.as_str().parse::<u32>().ok())
+        .unwrap_or(1) as f32;
+
+    match kind {
+        "lift" => Some((Some(-magnitude), None)),
+        "widen" => Some((None, Some(0.125 * magnitude))),
+        _ => None,
+    }
 }
 
 // * Tests

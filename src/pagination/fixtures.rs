@@ -77,6 +77,7 @@ impl<'de> Deserialize<'de> for NormalizedElement {
             centered: repr.centered,
             starts_new_page: repr.starts_new_page,
             scene_number: repr.scene_number,
+            ..RenderAttributes::default()
         });
 
         Ok(Self {

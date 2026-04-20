@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+<FinalDraft DocumentType="Script" Template="No" Version="4">
+  <Content>
+    <Paragraph Type="Action" SpaceBefore="18">
+      <Text>Raised action.</Text>
+    </Paragraph>
+    <Paragraph Type="Character">
+      <Text>JANE</Text>
+    </Paragraph>
+    <Paragraph Type="Dialogue" RightIndent="6.25">
+      <Text>Hello there.</Text>
+    </Paragraph>
+  </Content>
+  <ElementSettings Type="Action">
+    <ParagraphSpec
+      Alignment="Left"
+      LeftIndent="1.50"
+      RightIndent="7.50"
+      SpaceBefore="12"
+      Spacing="1"
+      StartsNewPage="No"
+    />
+  </ElementSettings>
+</FinalDraft>

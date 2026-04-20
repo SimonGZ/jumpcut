@@ -5,7 +5,7 @@ use jumpcut::pagination::{
     Cohesion, DialoguePart, DialoguePartKind, DialogueUnit, DualDialogueSide, DualDialogueUnit,
     FlowKind, FlowUnit, LayoutGeometry, PaginationConfig, SemanticUnit,
 };
-use jumpcut::parse;
+use jumpcut::{parse, parse_fdx};
 
 fn mock_action(id: &str, text: &str) -> SemanticUnit {
     SemanticUnit::Flow(FlowUnit {
@@ -237,6 +237,121 @@ fn composer_respects_custom_vertical_spacing() {
         blocks[0].spacing_above, 3.0,
         "Expected 3 lines of spacing above due to custom geometry"
     );
+}
+
+#[test]
+fn composer_uses_action_layout_override_spacing_deltas_from_real_parser_output() {
+    let baseline = parse("Alpha.\n\nBravo.");
+    let baseline_semantic =
+        build_semantic_screenplay(normalize_screenplay("baseline-lift", &baseline));
+    let baseline_blocks = compose(&baseline_semantic.units, &LayoutGeometry::default());
+
+    let lifted = parse("Alpha.\n\nBravo[[ .lift-1 ]]");
+    let lifted_semantic = build_semantic_screenplay(normalize_screenplay("lifted", &lifted));
+    let lifted_blocks = compose(&lifted_semantic.units, &LayoutGeometry::default());
+
+    assert_eq!(baseline_blocks.len(), 2);
+    assert_eq!(lifted_blocks.len(), 2);
+    assert_eq!(baseline_blocks[1].spacing_above, 1.0);
+    assert_eq!(lifted_blocks[1].spacing_above, 0.0);
+}
+
+#[test]
+fn composer_uses_action_layout_override_width_deltas_from_real_parser_output() {
+    let text = "ABCDE FGHIJ KLMNO PQRST UVWXY ZABCD EFGHI JKLMN OPQRS TUVWXYZa";
+
+    let baseline = parse(text);
+    let baseline_semantic =
+        build_semantic_screenplay(normalize_screenplay("baseline-widen", &baseline));
+    let baseline_blocks = compose(&baseline_semantic.units, &LayoutGeometry::default());
+
+    let widened = parse(&format!("{text}[[ .widen-2 ]]"));
+    let widened_semantic = build_semantic_screenplay(normalize_screenplay("widened", &widened));
+    let widened_blocks = compose(&widened_semantic.units, &LayoutGeometry::default());
+
+    assert_eq!(baseline_blocks.len(), 1);
+    assert_eq!(widened_blocks.len(), 1);
+    assert_eq!(baseline_blocks[0].content_lines, 2.0);
+    assert_eq!(widened_blocks[0].content_lines, 1.0);
+}
+
+#[test]
+fn composer_uses_imported_fdx_spacing_deltas_through_the_same_path_as_fountain() {
+    let fountain = parse("Alpha.\n\nBravo[[ .lift-1 ]]");
+    let fountain_semantic = build_semantic_screenplay(normalize_screenplay("fountain-lift", &fountain));
+    let fountain_blocks = compose(&fountain_semantic.units, &LayoutGeometry::default());
+
+    let fdx = parse_fdx(
+        r#"<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+<FinalDraft DocumentType="Script" Template="No" Version="4">
+  <Content>
+    <Paragraph Type="Action"><Text>Alpha.</Text></Paragraph>
+    <Paragraph Type="Action" SpaceBefore="0"><Text>Bravo</Text></Paragraph>
+  </Content>
+  <ElementSettings Type="Action">
+    <ParagraphSpec Alignment="Left" LeftIndent="1.50" RightIndent="7.50" SpaceBefore="12" Spacing="1" StartsNewPage="No"/>
+  </ElementSettings>
+</FinalDraft>"#,
+    )
+    .expect("fdx should parse");
+    let fdx_semantic = build_semantic_screenplay(normalize_screenplay("fdx-lift", &fdx));
+    let fdx_blocks = compose(&fdx_semantic.units, &LayoutGeometry::default());
+
+    assert_eq!(fountain_blocks.len(), 2);
+    assert_eq!(fdx_blocks.len(), 2);
+    assert_eq!(fountain_blocks[1].spacing_above, 0.0);
+    assert_eq!(fdx_blocks[1].spacing_above, fountain_blocks[1].spacing_above);
+}
+
+#[test]
+fn composer_uses_imported_fdx_width_deltas_through_the_same_path_as_fountain() {
+    let text = "ABCDE FGHIJ KLMNO PQRST UVWXY ZABCD EFGHI JKLMN OPQRS TUVWXYZa";
+
+    let fountain = parse(&format!("{text}[[ .widen-2 ]]"));
+    let fountain_semantic =
+        build_semantic_screenplay(normalize_screenplay("fountain-widen", &fountain));
+    let fountain_blocks = compose(&fountain_semantic.units, &LayoutGeometry::default());
+
+    let fdx = parse_fdx(&format!(
+        r#"<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+<FinalDraft DocumentType="Script" Template="No" Version="4">
+  <Content>
+    <Paragraph Type="Action" RightIndent="7.75"><Text>{text}</Text></Paragraph>
+  </Content>
+  <ElementSettings Type="Action">
+    <ParagraphSpec Alignment="Left" LeftIndent="1.50" RightIndent="7.50" SpaceBefore="12" Spacing="1" StartsNewPage="No"/>
+  </ElementSettings>
+</FinalDraft>"#
+    ))
+    .expect("fdx should parse");
+    let fdx_semantic = build_semantic_screenplay(normalize_screenplay("fdx-widen", &fdx));
+    let fdx_blocks = compose(&fdx_semantic.units, &LayoutGeometry::default());
+
+    assert_eq!(fountain_blocks.len(), 1);
+    assert_eq!(fdx_blocks.len(), 1);
+    assert_eq!(fountain_blocks[0].content_lines, 1.0);
+    assert_eq!(fdx_blocks[0].content_lines, fountain_blocks[0].content_lines);
+}
+
+#[test]
+fn composer_uses_imported_fdx_end_of_pilot_spacing_from_structural_upgrade_output() {
+    let screenplay = parse_fdx(
+        r#"<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+<FinalDraft DocumentType="Script" Template="No" Version="4">
+  <Content>
+    <Paragraph Type="Action"><Text>Before.</Text></Paragraph>
+    <Paragraph Alignment="Center" FirstIndent="0.00" Leading="Regular" LeftIndent="1.50" RightIndent="7.50" SpaceBefore="12" Spacing="1" StartsNewPage="No" Type="Action">
+      <Text Style="Underline">END OF PILOT</Text>
+    </Paragraph>
+  </Content>
+</FinalDraft>"#,
+    )
+    .expect("fdx should parse");
+    let semantic = build_semantic_screenplay(normalize_screenplay("fdx-end-of-pilot", &screenplay));
+    let blocks = compose(&semantic.units, &LayoutGeometry::default());
+
+    assert_eq!(blocks.len(), 2);
+    assert_eq!(blocks[1].spacing_above, 1.0);
 }
 
 #[test]

@@ -1,5 +1,6 @@
 use crate::pagination::margin::calculate_element_width;
 use crate::pagination::LayoutGeometry;
+use crate::ElementLayoutOverrides;
 use crate::styled_text::{StyledRun, StyledText};
 
 #[derive(Debug, Clone, Copy)]
@@ -152,6 +153,58 @@ impl WrapConfig {
         Self {
             exact_width_chars: width,
             interruption_dash_wrap: InterruptionDashWrap::FinalDraft,
+        }
+    }
+}
+
+pub fn wrap_config_with_overrides(
+    geometry: &LayoutGeometry,
+    element_type: ElementType,
+    overrides: &ElementLayoutOverrides,
+    interruption_dash_wrap: InterruptionDashWrap,
+) -> WrapConfig {
+    if let Some(right_indent_delta) = overrides.right_indent_delta {
+        let mut effective_geometry = geometry.clone();
+        apply_right_indent_delta(&mut effective_geometry, element_type, right_indent_delta);
+        return WrapConfig::from_geometry_with_mode(
+            &effective_geometry,
+            element_type,
+            interruption_dash_wrap,
+        );
+    }
+
+    WrapConfig::from_geometry_with_mode(geometry, element_type, interruption_dash_wrap)
+}
+
+fn apply_right_indent_delta(
+    geometry: &mut LayoutGeometry,
+    element_type: ElementType,
+    right_indent_delta: f32,
+) {
+    match element_type {
+        ElementType::Action => geometry.action_right += right_indent_delta,
+        ElementType::ColdOpening => geometry.cold_opening_right += right_indent_delta,
+        ElementType::NewAct => geometry.new_act_right += right_indent_delta,
+        ElementType::EndOfAct => geometry.end_of_act_right += right_indent_delta,
+        ElementType::SceneHeading => geometry.action_right += right_indent_delta,
+        ElementType::Character => geometry.character_right += right_indent_delta,
+        ElementType::Dialogue => geometry.dialogue_right += right_indent_delta,
+        ElementType::Parenthetical => geometry.parenthetical_right += right_indent_delta,
+        ElementType::Transition => geometry.transition_right += right_indent_delta,
+        ElementType::Lyric => geometry.lyric_right += right_indent_delta,
+        ElementType::DualDialogueLeft => geometry.dual_dialogue_left_right += right_indent_delta,
+        ElementType::DualDialogueRight => geometry.dual_dialogue_right_right += right_indent_delta,
+        ElementType::DualDialogueCharacterLeft => {
+            geometry.dual_dialogue_left_character_right += right_indent_delta
+        }
+        ElementType::DualDialogueCharacterRight => {
+            geometry.dual_dialogue_right_character_right += right_indent_delta
+        }
+        ElementType::DualDialogueParentheticalLeft => {
+            geometry.dual_dialogue_left_parenthetical_right += right_indent_delta
+        }
+        ElementType::DualDialogueParentheticalRight => {
+            geometry.dual_dialogue_right_parenthetical_right += right_indent_delta
         }
     }
 }

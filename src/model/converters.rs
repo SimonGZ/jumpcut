@@ -339,6 +339,55 @@ mod tests {
     }
 
     #[test]
+    fn test_fdx_renderer_omits_paragraph_layout_attrs_for_baseline_body_paragraphs() {
+        let mut screenplay = Screenplay {
+            metadata: Metadata::new(),
+            imported_layout: None,
+            imported_title_page: None,
+            elements: vec![Element::Action(p("Body."), blank_attributes())],
+        };
+
+        let actual = screenplay.to_final_draft();
+        let paragraph_tag = body_paragraph_opening_tag_for_text(&actual, "Body.");
+
+        assert_eq!(paragraph_tag, "<Paragraph Type=\"Action\">");
+    }
+
+    #[test]
+    fn test_fdx_renderer_emits_right_indent_for_widened_body_paragraphs() {
+        let mut attributes = blank_attributes();
+        attributes.layout_overrides.right_indent_delta = Some(0.25);
+        let mut screenplay = Screenplay {
+            metadata: Metadata::new(),
+            imported_layout: None,
+            imported_title_page: None,
+            elements: vec![Element::Action(p("Body."), attributes)],
+        };
+
+        let actual = screenplay.to_final_draft();
+        let paragraph_tag = body_paragraph_opening_tag_for_text(&actual, "Body.");
+
+        assert!(paragraph_tag.contains("RightIndent=\"7.75\""));
+    }
+
+    #[test]
+    fn test_fdx_renderer_emits_space_before_for_lifted_body_paragraphs() {
+        let mut attributes = blank_attributes();
+        attributes.layout_overrides.space_before_delta = Some(-1.0);
+        let mut screenplay = Screenplay {
+            metadata: Metadata::new(),
+            imported_layout: None,
+            imported_title_page: None,
+            elements: vec![Element::Action(p("Body."), attributes)],
+        };
+
+        let actual = screenplay.to_final_draft();
+        let paragraph_tag = body_paragraph_opening_tag_for_text(&actual, "Body.");
+
+        assert!(paragraph_tag.contains("SpaceBefore=\"0\""));
+    }
+
+    #[test]
     fn test_fdx_renderer_title_credit_omits_trailing_space() {
         let mut metadata = Metadata::new();
         metadata.insert("title".into(), vec!["TITLE".into()]);
@@ -652,6 +701,30 @@ mod tests {
                 Element::ColdOpening(p("COLD"), centered_attrs),
             ],
         }
+    }
+
+    fn body_paragraph_opening_tag_for_text(actual: &str, text: &str) -> String {
+        let body_content = actual
+            .split("    <Content>\n")
+            .nth(1)
+            .and_then(|rest| rest.split("    </Content>\n\n").next())
+            .expect("expected body content block");
+
+        let paragraph = body_content
+            .split("<Paragraph ")
+            .skip(1)
+            .find_map(|segment| {
+                segment
+                    .contains(&format!("<Text>{text}</Text>"))
+                    .then_some(segment)
+            })
+            .expect("expected body paragraph for requested text");
+
+        paragraph
+            .split('>')
+            .next()
+            .map(|opening| format!("<Paragraph {opening}>"))
+            .expect("expected paragraph opening tag")
     }
 
     fn normalize_markup(input: &str) -> String {

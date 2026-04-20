@@ -260,6 +260,62 @@ fn it_imports_parenthetical_first_indent_from_fdx_settings() {
 }
 
 #[test]
+fn it_preserves_body_paragraph_layout_deviations_as_element_overrides() {
+    let xml = std::fs::read_to_string("tests/fixtures/fdx-import/paragraph-layout-overrides.fdx")
+        .expect("fixture should load");
+
+    let screenplay = parse_fdx(&xml).expect("fdx should parse");
+    let imported_layout = screenplay
+        .imported_layout
+        .as_ref()
+        .expect("expected imported layout baseline");
+    let action_style = imported_layout
+        .element_styles
+        .get(&ImportedElementKind::Action)
+        .expect("expected imported action style");
+
+    assert_eq!(action_style.right_indent, Some(7.5));
+    assert_eq!(action_style.spacing_before, Some(1.0));
+    assert_eq!(
+        imported_layout.element_styles.get(&ImportedElementKind::Dialogue),
+        None
+    );
+
+    assert_eq!(
+        screenplay.elements,
+        vec![
+            Element::Action(
+                p("Raised action."),
+                Attributes {
+                    layout_overrides: jumpcut::ElementLayoutOverrides {
+                        space_before_delta: Some(0.5),
+                        ..Default::default()
+                    },
+                    ..Attributes::default()
+                }
+            ),
+            Element::DialogueBlock(vec![
+                Element::Character(p("JANE"), Attributes::default()),
+                Element::Dialogue(
+                    p("Hello there."),
+                    Attributes {
+                        layout_overrides: jumpcut::ElementLayoutOverrides {
+                            right_indent_delta: Some(0.25),
+                            ..Default::default()
+                        },
+                        ..Attributes::default()
+                    }
+                ),
+            ]),
+        ]
+    );
+
+    let resolved = ScreenplayLayoutProfile::from_screenplay(&screenplay);
+    assert_eq!(resolved.styles.action.spacing_before, 1.0);
+    assert_eq!(resolved.styles.dialogue.right_indent, 6.0);
+}
+
+#[test]
 fn it_imports_title_page_content_into_existing_metadata_keys() {
     let xml = r#"<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
 <FinalDraft DocumentType="Script" Template="No" Version="4">

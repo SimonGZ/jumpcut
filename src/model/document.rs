@@ -1,5 +1,5 @@
 use serde::ser::{SerializeMap, Serializer};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::default::Default;
 
@@ -115,6 +115,20 @@ pub struct ImportedElementStyle {
     pub bold: Option<bool>,
     pub italic: Option<bool>,
 }
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct ElementLayoutOverrides {
+    pub space_before_delta: Option<f32>,
+    pub right_indent_delta: Option<f32>,
+}
+
+impl ElementLayoutOverrides {
+    pub fn is_empty(&self) -> bool {
+        self.space_before_delta.is_none() && self.right_indent_delta.is_none()
+    }
+}
+
+impl Eq for ElementLayoutOverrides {}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 pub enum ImportedAlignment {
@@ -257,6 +271,7 @@ pub struct Attributes {
     pub starts_new_page: bool,
     pub scene_number: Option<String>,
     pub notes: Option<Vec<String>>,
+    pub layout_overrides: ElementLayoutOverrides,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
@@ -332,6 +347,7 @@ impl Default for Attributes {
             starts_new_page: false,
             scene_number: None,
             notes: None,
+            layout_overrides: ElementLayoutOverrides::default(),
         }
     }
 }

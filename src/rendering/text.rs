@@ -1,14 +1,16 @@
 use crate::pagination::composer::{self, LayoutBlock};
 use crate::pagination::margin::{calculate_element_width, line_height_for_element_type};
 use crate::pagination::paginator;
-use crate::pagination::wrapping::{self, ElementType, InterruptionDashWrap};
+use crate::pagination::wrapping::{
+    self, wrap_config_with_overrides, ElementType, InterruptionDashWrap,
+};
 use crate::pagination::{
     build_semantic_screenplay_with_options, normalize_screenplay, DialoguePartKind, LayoutGeometry,
     Page, PageKind, PaginatedScreenplay, PaginationConfig, PaginationScope,
     ScreenplayLayoutProfile, SemanticOptions, SemanticUnit, StyleProfile,
 };
 use crate::title_page::{frontmatter_count, TitlePage};
-use crate::Screenplay;
+use crate::{ElementLayoutOverrides, Screenplay};
 
 const DEFAULT_LINES_PER_PAGE: f32 = 54.0;
 const PAGE_NUMBER_OFFSET_FROM_ACTION_EDGE: usize = 5;
@@ -324,7 +326,13 @@ fn render_layout_block_lines(
             let element_type = ElementType::from_flow_kind(&flow.kind);
 
             return counted_rendered_lines(
-                render_indented_lines(&text, element_type, geometry, interruption_dash_wrap)
+                render_indented_lines(
+                    &text,
+                    element_type,
+                    &flow.render_attributes.layout_overrides,
+                    geometry,
+                    interruption_dash_wrap,
+                )
                     .into_iter()
                     .map(|text| RenderedElementLine { text, element_type })
                     .collect(),
@@ -374,6 +382,7 @@ fn render_dialogue_fragment_lines(
                             render_indented_lines(
                                 &part.top_text,
                                 element_type,
+                                &dialogue_part.render_attributes.layout_overrides,
                                 geometry,
                                 interruption_dash_wrap,
                             )
@@ -411,6 +420,7 @@ fn render_dialogue_fragment_lines(
                             render_indented_lines(
                                 &part.bottom_text,
                                 element_type,
+                                &dialogue_part.render_attributes.layout_overrides,
                                 geometry,
                                 interruption_dash_wrap,
                             )
@@ -491,6 +501,7 @@ fn render_dialogue_continuation_prefix(
             render_indented_lines(
                 &continued_character_cue_text(&part.text),
                 ElementType::Character,
+                &ElementLayoutOverrides::default(),
                 geometry,
                 interruption_dash_wrap,
             )
@@ -517,6 +528,7 @@ fn render_more_marker_line(
         text: render_indented_lines(
             "(MORE)",
             ElementType::Character,
+            &ElementLayoutOverrides::default(),
             geometry,
             interruption_dash_wrap,
         )
@@ -537,7 +549,13 @@ fn render_semantic_unit_lines(
         SemanticUnit::PageStart(_) => Vec::new(),
         SemanticUnit::Flow(flow) => {
             let element_type = ElementType::from_flow_kind(&flow.kind);
-            render_indented_lines(&flow.text, element_type, geometry, interruption_dash_wrap)
+            render_indented_lines(
+                &flow.text,
+                element_type,
+                &flow.render_attributes.layout_overrides,
+                geometry,
+                interruption_dash_wrap,
+            )
                 .into_iter()
                 .map(|text| RenderedElementLine { text, element_type })
                 .collect()
@@ -545,6 +563,7 @@ fn render_semantic_unit_lines(
         SemanticUnit::Lyric(lyric) => render_indented_lines(
             &lyric.text,
             ElementType::Lyric,
+            &lyric.render_attributes.layout_overrides,
             geometry,
             interruption_dash_wrap,
         )
@@ -563,6 +582,7 @@ fn render_semantic_unit_lines(
                 render_indented_lines(
                     &dialogue_part_render_text(dialogue, part, part_index, &part.text, options),
                     element_type,
+                    &part.render_attributes.layout_overrides,
                     geometry,
                     interruption_dash_wrap,
                 )
@@ -655,16 +675,17 @@ fn render_dual_dialogue_side_lines(
         .iter()
         .flat_map(|part| {
             let element_type = ElementType::from_dual_dialogue_part_kind(&part.kind, side);
-            let config = wrapping::WrapConfig::from_geometry_with_mode(
-                geometry,
-                element_type,
-                interruption_dash_wrap,
-            );
             let text = if part.should_append_contd && part.kind == DialoguePartKind::Character {
                 continued_character_cue_text(&part.text)
             } else {
                 part.text.clone()
             };
+            let config = wrap_config_with_overrides(
+                geometry,
+                element_type,
+                &part.render_attributes.layout_overrides,
+                interruption_dash_wrap,
+            );
             wrapping::wrap_text_for_element(&text, &config)
         })
         .collect()
@@ -673,14 +694,12 @@ fn render_dual_dialogue_side_lines(
 fn render_indented_lines(
     text: &str,
     element_type: ElementType,
+    overrides: &ElementLayoutOverrides,
     geometry: &LayoutGeometry,
     interruption_dash_wrap: InterruptionDashWrap,
 ) -> Vec<String> {
-    let config = wrapping::WrapConfig::from_geometry_with_mode(
-        geometry,
-        element_type,
-        interruption_dash_wrap,
-    );
+    let config =
+        wrap_config_with_overrides(geometry, element_type, overrides, interruption_dash_wrap);
     let indent = " ".repeat(indent_spaces_for_element_type(element_type, geometry));
     wrapped_visual_lines(element_type, text, &config)
         .into_iter()
@@ -807,7 +826,35 @@ struct RenderedTextLine {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{blank_attributes, p, Attributes, Element, Metadata};
+    use crate::{blank_attributes, p, parse_fdx, Attributes, Element, Metadata};
+
+    #[test]
+    fn text_output_honors_imported_dialogue_width_overrides() {
+        let xml = r#"<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+<FinalDraft DocumentType="Script" Template="No" Version="4">
+  <Content>
+    <Paragraph Type="Character">
+      <Text>DAVID</Text>
+    </Paragraph>
+    <Paragraph Alignment="Left" FirstIndent="0.00" Leading="Regular" LeftIndent="2.25" RightIndent="6.50" SpaceBefore="0" Spacing="2" StartsNewPage="No" Type="Dialogue">
+      <Text>(WRITING) “Girl know you want my tasty D”</Text>
+    </Paragraph>
+  </Content>
+  <ElementSettings Type="Character">
+    <ParagraphSpec Alignment="Left" FirstIndent="0.00" LeftIndent="3.50" RightIndent="7.25" SpaceBefore="12" Spacing="1" StartsNewPage="No"/>
+  </ElementSettings>
+  <ElementSettings Type="Dialogue">
+    <ParagraphSpec Alignment="Left" FirstIndent="0.00" LeftIndent="2.25" RightIndent="6.00" SpaceBefore="0" Spacing="2" StartsNewPage="No"/>
+  </ElementSettings>
+</FinalDraft>"#;
+
+        let screenplay = parse_fdx(xml).expect("fdx should parse");
+
+        let output = render(&screenplay, &TextRenderOptions::default());
+
+        assert!(output.contains("(WRITING) “Girl know you want my tasty D”"));
+        assert!(!output.contains("tasty\nD”"));
+    }
 
     #[test]
     fn paginated_text_uses_clean_page_headers() {

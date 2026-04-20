@@ -8,7 +8,7 @@ use crate::pagination::flow_split::{
 };
 use crate::pagination::margin::line_height_for_element_type;
 use crate::pagination::wrapping::{
-    wrap_text_for_element, ElementType, InterruptionDashWrap, WrapConfig,
+    wrap_config_with_overrides, wrap_text_for_element, ElementType, InterruptionDashWrap,
 };
 use crate::pagination::LayoutGeometry;
 use crate::pagination::SemanticUnit;
@@ -384,6 +384,7 @@ fn choose_split_lines(
                         .map(|(part, split)| DialogueTextPart {
                             kind: part.kind.clone(),
                             text: split.bottom_text.clone(),
+                            layout_overrides: part.render_attributes.layout_overrides.clone(),
                         })
                         .collect::<Vec<_>>();
 
@@ -433,8 +434,12 @@ fn choose_split_lines(
             let target_line_count = (block.content_lines / element_line_height).round() as usize;
             let max_top_lines =
                 max_top_wrapped_lines(available_lines, effective_spacing, element_line_height);
-            let config =
-                WrapConfig::from_geometry_with_mode(geometry, element_type, interruption_dash_wrap);
+            let config = wrap_config_with_overrides(
+                geometry,
+                element_type,
+                &flow.render_attributes.layout_overrides,
+                interruption_dash_wrap,
+            );
             let wrapped_lines = wrap_text_for_element(&flow.text, &config);
             if wrapped_lines.len() != target_line_count {
                 let lines_that_fit = available_lines - effective_spacing;

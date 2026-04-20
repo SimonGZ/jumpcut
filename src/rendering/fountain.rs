@@ -389,6 +389,11 @@ fn render_dual_dialogue_block(blocks: &[Element]) -> String {
 
 fn render_text_with_notes(text: &ElementText, attributes: &Attributes) -> String {
     let mut rendered = render_element_text(text);
+    if let Some(modifier_note) = render_layout_modifier_note(&attributes.layout_overrides) {
+        rendered.push_str("[[");
+        rendered.push_str(&modifier_note);
+        rendered.push_str("]]");
+    }
     if let Some(notes) = &attributes.notes {
         for note in notes {
             rendered.push_str("[[");
@@ -397,6 +402,28 @@ fn render_text_with_notes(text: &ElementText, attributes: &Attributes) -> String
         }
     }
     rendered
+}
+
+fn render_layout_modifier_note(
+    layout_overrides: &crate::ElementLayoutOverrides,
+) -> Option<String> {
+    let mut tokens = Vec::new();
+
+    if let Some(space_before_delta) = layout_overrides.space_before_delta {
+        let lift_units = (-space_before_delta).round() as i32;
+        if space_before_delta < 0.0 && lift_units > 0 {
+            tokens.push(format!(".lift-{lift_units}"));
+        }
+    }
+
+    if let Some(right_indent_delta) = layout_overrides.right_indent_delta {
+        let widen_units = (right_indent_delta / 0.125).round() as i32;
+        if right_indent_delta > 0.0 && widen_units > 0 {
+            tokens.push(format!(".widen-{widen_units}"));
+        }
+    }
+
+    (!tokens.is_empty()).then(|| tokens.join(" "))
 }
 
 fn render_element_text(text: &ElementText) -> String {
@@ -485,7 +512,7 @@ fn action_requires_force(text: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{blank_attributes, p, tr, ElementText::Styled};
+    use crate::{blank_attributes, p, tr, ElementLayoutOverrides, ElementText::Styled};
 
     #[test]
     fn serializer_round_trips_metadata_and_core_body() {
@@ -622,6 +649,55 @@ mod tests {
         let rendered = render(&screenplay);
 
         assert_eq!(rendered, "...come to find Edward making the shapes.");
+        assert_eq!(crate::parse(&rendered).elements, screenplay.elements);
+    }
+
+    #[test]
+    fn serializer_renders_layout_overrides_as_a_synthetic_modifier_note() {
+        let screenplay = Screenplay {
+            metadata: Metadata::new(),
+            imported_layout: None,
+            imported_title_page: None,
+            elements: vec![Element::Action(
+                p("John enters."),
+                Attributes {
+                    layout_overrides: ElementLayoutOverrides {
+                        space_before_delta: Some(-1.0),
+                        right_indent_delta: Some(0.25),
+                    },
+                    ..Default::default()
+                },
+            )],
+        };
+
+        let rendered = render(&screenplay);
+
+        assert_eq!(rendered, "John enters.[[.lift-1 .widen-2]]");
+        assert_eq!(crate::parse(&rendered).elements, screenplay.elements);
+    }
+
+    #[test]
+    fn serializer_renders_layout_overrides_before_ordinary_notes() {
+        let screenplay = Screenplay {
+            metadata: Metadata::new(),
+            imported_layout: None,
+            imported_title_page: None,
+            elements: vec![Element::Action(
+                p("John enters."),
+                Attributes {
+                    notes: Some(vec!["comment".into()]),
+                    layout_overrides: ElementLayoutOverrides {
+                        space_before_delta: Some(-1.0),
+                        right_indent_delta: None,
+                    },
+                    ..Default::default()
+                },
+            )],
+        };
+
+        let rendered = render(&screenplay);
+
+        assert_eq!(rendered, "John enters.[[.lift-1]][[comment]]");
         assert_eq!(crate::parse(&rendered).elements, screenplay.elements);
     }
 }

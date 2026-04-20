@@ -5,9 +5,11 @@ use crate::pagination::margin::line_height_for_element_type;
 use crate::pagination::sentence_boundary::sentence_boundary_offsets;
 use crate::pagination::split_scoring::choose_best_scored_split;
 use crate::pagination::wrapping::{
-    wrap_text_for_element, ElementType, InterruptionDashWrap, WrapConfig,
+    wrap_config_with_overrides, wrap_text_for_element, ElementType, InterruptionDashWrap,
+    WrapConfig,
 };
 use crate::pagination::{DialoguePartKind, DialogueUnit, LayoutGeometry};
+use crate::ElementLayoutOverrides;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DialoguePartSplitLines {
@@ -33,6 +35,7 @@ pub struct DialogueSplitPlan {
 pub struct DialogueTextPart {
     pub kind: DialoguePartKind,
     pub text: String,
+    pub layout_overrides: ElementLayoutOverrides,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -88,6 +91,7 @@ pub fn plan_dialogue_split(
         .map(|part| DialogueTextPart {
             kind: part.kind.clone(),
             text: part.text.clone(),
+            layout_overrides: part.render_attributes.layout_overrides.clone(),
         })
         .collect::<Vec<_>>();
     plan_dialogue_split_parts(
@@ -173,9 +177,10 @@ fn generate_dialogue_split_candidates(
             continue;
         }
 
-        let config = WrapConfig::from_geometry_with_mode(
+        let config = wrap_config_with_overrides(
             geometry,
             element_type_for_part_kind(part.kind.clone()),
+            &part.layout_overrides,
             interruption_dash_wrap,
         );
         let total_wrapped_lines = wrap_text_for_element(&part.text, &config).len();
@@ -248,9 +253,10 @@ fn build_candidate(
 
     for (part_index, part) in parts.iter().enumerate() {
         let (top_text, bottom_text) = split_part_text(&part.text, part_index, boundary);
-        let config = WrapConfig::from_geometry_with_mode(
+        let config = wrap_config_with_overrides(
             geometry,
             element_type_for_part_kind(part.kind.clone()),
+            &part.layout_overrides,
             interruption_dash_wrap,
         );
         let top_lines = wrap_fragment_lines(top_text, &config);

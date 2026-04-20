@@ -4,7 +4,8 @@ use crate::pagination::flow_split::FlowSplitPlan;
 use crate::pagination::margin::line_height_for_element_type;
 use crate::pagination::semantic::{DialoguePartKind, FlowKind, SemanticUnit};
 use crate::pagination::wrapping::{
-    wrap_text_for_element, ElementType, InterruptionDashWrap, WrapConfig,
+    wrap_config_with_overrides, wrap_text_for_element, ElementType, InterruptionDashWrap,
+    WrapConfig,
 };
 use crate::pagination::LayoutGeometry;
 
@@ -47,12 +48,12 @@ pub fn compose_with_mode<'a>(
                     _ => ElementType::Action,
                 };
 
-                let config = WrapConfig {
-                    exact_width_chars: crate::pagination::margin::calculate_element_width(
-                        geometry, el_type,
-                    ),
+                let config = wrap_config_with_overrides(
+                    geometry,
+                    el_type,
+                    &flow.render_attributes.layout_overrides,
                     interruption_dash_wrap,
-                };
+                );
                 let lines = wrapped_flow_lines(flow, &config);
 
                 let sp_above = match flow.kind {
@@ -63,7 +64,11 @@ pub fn compose_with_mode<'a>(
                     FlowKind::Action => geometry.action_spacing_before,
                     FlowKind::Transition => geometry.transition_spacing_before,
                     _ => 1.0,
-                };
+                } + flow
+                    .render_attributes
+                    .layout_overrides
+                    .space_before_delta
+                    .unwrap_or(0.0);
 
                 (
                     measured_height_for_wrapped_lines(lines.len(), el_type, geometry),
@@ -100,17 +105,21 @@ pub fn compose_with_mode<'a>(
                 (max_lines, geometry.character_spacing_before)
             }
             SemanticUnit::Lyric(lyric) => {
-                let config = WrapConfig {
-                    exact_width_chars: crate::pagination::margin::calculate_element_width(
-                        geometry,
-                        ElementType::Lyric,
-                    ),
+                let config = wrap_config_with_overrides(
+                    geometry,
+                    ElementType::Lyric,
+                    &lyric.render_attributes.layout_overrides,
                     interruption_dash_wrap,
-                };
+                );
                 let lines = wrap_text_for_element(&lyric.text, &config).len();
                 (
                     measured_height_for_wrapped_lines(lines, ElementType::Lyric, geometry),
-                    geometry.lyric_spacing_before,
+                    geometry.lyric_spacing_before
+                        + lyric
+                            .render_attributes
+                            .layout_overrides
+                            .space_before_delta
+                            .unwrap_or(0.0),
                 )
             }
             SemanticUnit::PageStart(_) => (0.0, 0.0),
@@ -160,13 +169,12 @@ fn measure_dialogue_height<'a>(
 
     for part in parts {
         let element_type = element_type_for_part(part);
-        let config = WrapConfig {
-            exact_width_chars: crate::pagination::margin::calculate_element_width(
-                geometry,
-                element_type,
-            ),
+        let config = wrap_config_with_overrides(
+            geometry,
+            element_type,
+            &part.render_attributes.layout_overrides,
             interruption_dash_wrap,
-        };
+        );
         lines += measured_height_for_wrapped_lines(
             wrap_text_for_element(&part.text, &config).len(),
             element_type,

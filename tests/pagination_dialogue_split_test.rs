@@ -186,6 +186,7 @@ fn dialogue_split_prefers_the_sentence_boundary_that_also_fills_the_page() {
         .map(|text| DialogueTextPart {
             kind: DialoguePartKind::Dialogue,
             text: text.into(),
+            layout_overrides: Default::default(),
         }),
     );
 
@@ -280,6 +281,7 @@ fn dialogue_parts(parts: &[(DialoguePartKind, &str)]) -> Vec<DialogueTextPart> {
         .map(|(kind, text)| DialogueTextPart {
             kind: kind.clone(),
             text: (*text).into(),
+            layout_overrides: Default::default(),
         })
         .collect()
 }

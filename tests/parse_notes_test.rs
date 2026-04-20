@@ -1,4 +1,4 @@
-use jumpcut::{blank_attributes, p, parse, Attributes, Element};
+use jumpcut::{blank_attributes, p, parse, Attributes, Element, ElementLayoutOverrides};
 use pretty_assertions::assert_eq;
 
 #[test]
@@ -82,4 +82,87 @@ fn it_handles_an_empty_line_note() {
         expected,
         "it should handle a note on a single blank line"
     );
+}
+
+#[test]
+fn it_parses_lift_modifier_notes_into_layout_overrides() {
+    let text = "Jack smells the liquor. [[ .lift ]]";
+    let expected = vec![Element::Action(
+        p("Jack smells the liquor. "),
+        Attributes {
+            layout_overrides: ElementLayoutOverrides {
+                space_before_delta: Some(-1.0),
+                right_indent_delta: None,
+            },
+            ..Attributes::default()
+        },
+    )];
+
+    assert_eq!(parse(text).elements, expected);
+}
+
+#[test]
+fn it_parses_numeric_lift_and_widen_modifier_notes_into_layout_overrides() {
+    let text = "Jack smells the liquor. [[ .lift-2 ]][[ .widen-3 ]]";
+    let expected = vec![Element::Action(
+        p("Jack smells the liquor. "),
+        Attributes {
+            layout_overrides: ElementLayoutOverrides {
+                space_before_delta: Some(-2.0),
+                right_indent_delta: Some(0.375),
+            },
+            ..Attributes::default()
+        },
+    )];
+
+    assert_eq!(parse(text).elements, expected);
+}
+
+#[test]
+fn it_preserves_remaining_note_text_after_parsing_layout_modifiers() {
+    let text = "Jack smells the liquor. [[ .lift-1 comment ]]";
+    let expected = vec![Element::Action(
+        p("Jack smells the liquor. "),
+        Attributes {
+            notes: Some(vec!["comment".to_string()]),
+            layout_overrides: ElementLayoutOverrides {
+                space_before_delta: Some(-1.0),
+                right_indent_delta: None,
+            },
+            ..Attributes::default()
+        },
+    )];
+
+    assert_eq!(parse(text).elements, expected);
+}
+
+#[test]
+fn it_combines_multiple_layout_modifiers_within_one_note() {
+    let text = "Jack smells the liquor. [[ .lift .widen-2 ]]";
+    let expected = vec![Element::Action(
+        p("Jack smells the liquor. "),
+        Attributes {
+            layout_overrides: ElementLayoutOverrides {
+                space_before_delta: Some(-1.0),
+                right_indent_delta: Some(0.25),
+            },
+            ..Attributes::default()
+        },
+    )];
+
+    assert_eq!(parse(text).elements, expected);
+}
+
+#[test]
+fn it_leaves_widen_auto_as_an_ordinary_note() {
+    let text = "Jack smells the liquor. [[ .widen-auto ]]";
+    let expected = vec![Element::Action(
+        p("Jack smells the liquor. "),
+        Attributes {
+            notes: Some(vec![" .widen-auto ".to_string()]),
+            ..Attributes::default()
+        },
+    )];
+
+    assert_eq!(parse(text).elements, expected);
 }

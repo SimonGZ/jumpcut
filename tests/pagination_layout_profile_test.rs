@@ -1,13 +1,42 @@
 use std::collections::HashMap;
 
 use jumpcut::pagination::{
-    Alignment, InterruptionDashWrap, PaginationConfig, ScreenplayLayoutProfile, StyleProfile,
+    Alignment, InterruptionDashWrap, PaginationConfig, ScreenplayElementStyle,
+    ScreenplayLayoutProfile, StyleProfile,
 };
 use jumpcut::parse;
 use jumpcut::{
-    ImportedDialogueContinueds, ImportedElementKind, ImportedElementStyle, ImportedLayoutOverrides,
-    ImportedMoresAndContinueds, Metadata,
+    ElementLayoutOverrides, ImportedDialogueContinueds, ImportedElementKind,
+    ImportedElementStyle, ImportedLayoutOverrides, ImportedMoresAndContinueds, Metadata,
 };
+
+#[test]
+fn element_style_helper_applies_per_element_spacing_and_width_deltas() {
+    let base_style = ScreenplayElementStyle {
+        first_indent: 0.0,
+        left_indent: 2.5,
+        right_indent: 6.0,
+        spacing_before: 1.0,
+        line_spacing: 1.0,
+        alignment: Alignment::Left,
+        starts_new_page: false,
+        underline: false,
+        bold: false,
+        italic: false,
+    };
+
+    let effective = base_style.apply_element_layout_overrides(&ElementLayoutOverrides {
+        space_before_delta: Some(-1.0),
+        right_indent_delta: Some(0.25),
+    });
+
+    assert_eq!(effective.spacing_before, 0.0);
+    assert_eq!(effective.right_indent, 6.25);
+    assert_eq!(effective.left_indent, 2.5);
+    assert_eq!(effective.first_indent, 0.0);
+    assert_eq!(effective.line_spacing, 1.0);
+    assert_eq!(effective.alignment, Alignment::Left);
+}
 
 #[test]
 fn multicam_fmt_produces_a_shared_layout_profile_from_parser_metadata() {
