@@ -141,6 +141,57 @@ Fmt: tm-1.1 bm-1.0 hm-0.4 fm-0.5 lpp-55
 
 These page-metric overrides affect the shared layout profile used by pagination and by renderers that honor shared page geometry. They are most useful when you are matching a house style, a printer target, or an external pagination reference.
 
+## Per-Element Layout Overrides ("Cheats")
+
+`fmt` is the right tool when you want to change the baseline layout for the whole document. Per-element layout overrides are for the opposite case: when one specific paragraph or line needs to sit a little higher or wrap a little wider without redefining the screenplay's overall format.
+
+JumpCut supports these overrides in two ways:
+
+- Fountain modifier notes such as `[[ .lift-1 ]]` or `[[ .widen-2 ]]`. You can write these yourself into a fountain document.
+- Imported FDX paragraph-level deviations such as `SpaceBefore` or `RightIndent` values that differ from the element's baseline style. JumpCut will automatically add these to Fountain that is converted from an FDX with existing cheats/overrides.
+
+These overrides affect pagination, text output, PDF output, visual wrapping, and FDX / Fountain serialization instead of being treated as format-specific one-offs.
+
+### Modifier Note Syntax
+
+The layout modifiers are placed in Fountain notes (ie `[[ modifier-goes-here ]]`). JumpCut currently recognizes these modifiers:
+
+- `.lift`: reduce the element's space-before by `1` line
+- `.lift-N`: reduce the element's space-before by `N` lines
+- `.widen`: increase the element's available width by `0.125"` (one eighth inch)
+- `.widen-N`: increase the element's available width by `N * 0.125"`
+
+Examples:
+
+```text
+
+Jack smells the liquor. [[ .lift ]][[ .widen-3 ]] /* Removes one line of space before the paragraph and widens by 3/8th-inch */
+
+```
+
+You can combine multiple modifiers in one note or spread them across multiple notes. JumpCut adds them together before layout.
+
+If a modifier note also contains ordinary note text, JumpCut preserves the remaining text as a normal note:
+
+```text
+Jack smells the liquor. [[ .lift-1 comment ]]
+```
+
+That note still applies the lift, and the remaining `comment` text is preserved as an ordinary note.
+
+If a token does not match a supported modifier form, JumpCut leaves it alone as a regular note instead of trying to guess what you meant.
+
+### FDX Import and Round-Trip Behavior
+
+On FDX import, JumpCut first derives the baseline layout profile from the document's element settings. If an individual body paragraph uses a different `SpaceBefore` or `RightIndent` from that baseline, JumpCut preserves that difference as a per-element override.
+
+That means imported FDX quirks like a slightly raised action line or a widened dialogue line survive through:
+
+- pagination and wrap calculation
+- text and PDF rendering
+- Fountain export as synthetic modifier notes
+- FDX export as paragraph-level `SpaceBefore` / `RightIndent` overrides
+
 ### Title and Dash Examples
 
 Preserve the original title casing for a plain title page:

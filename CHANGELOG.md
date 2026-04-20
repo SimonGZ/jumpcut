@@ -10,10 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Added first-class PDF output, including tagged-PDF structure, XMP metadata, author metadata, and page labels that follow visible screenplay numbering.
 - Added shared layout-profile support for A4 page geometry, page-margin overrides, and lines-per-page overrides across PDF, HTML, and FDX output.
+- Added shared per-element layout overrides ("cheats") across Fountain and FDX to override spacing for individual elements.
+- Added Fountain layout modifier classes to Fountain notes (`.lift` and `.widen`) to make it easier to hand tweak individual element margins and spacing.
+- Added readable long-form `fmt` aliases such as `bold-scene-headings`, `underline-scene-headings`, and `all-caps-action`.
+- Added a dedicated formatting and metadata reference document at [`docs/formatting-and-metadata.md`](docs/formatting-and-metadata.md).
 - Added an explicit `--write` / `-w` CLI mode for auto-derived output paths while keeping stdout as the default.
 - Added `--no-title-page` support for HTML and PDF output.
-- Added a dedicated formatting and metadata reference document at [`docs/formatting-and-metadata.md`](docs/formatting-and-metadata.md).
-- Added readable long-form `fmt` aliases such as `bold-scene-headings`, `underline-scene-headings`, and `all-caps-action`.
 - Added a clearer user-facing WASM packaging entrypoint under `scripts/wasm/generate-package.sh`.
 - Added a feature-gated PDF export to the wasm wrapper and extended the wasm size/runtime report to cover `pdf_only`.
 
@@ -24,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Derived PDF title-page vertical placement from shared geometry instead of a separate letter-specific coordinate system.
 - Split README-heavy formatting and metadata material into a dedicated reference doc and rewrote that guidance in more user-facing language.
 - Separated normal wasm package generation from the older research-era script naming.
+- Preserved paragraph-level `SpaceBefore` and `RightIndent` deviations through FDX import/export and structural act-break upgrades instead of flattening them into only document-level defaults.
 
 ### Fixed
 - Fixed wasm package generation so the wrapper no longer pulled in native-only diagnostics code.

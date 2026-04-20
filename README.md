@@ -96,6 +96,8 @@ You can set those presets (called render-profiles by the app) and other frequent
 
 More specific formatting, margin, and pagination tweaks can be set in a `fmt` string in the metadata section at the top of a Fountain document.
 
+JumpCut also supports per-element layout overrides (aka "cheats"). These modify an individual paragraph to change the margins or spacing, which can be useful when trying to pull up a line and fit more on a page. In Fountain, those can be written as modifier notes like `[[ .lift-1 ]]` and `[[ .widen-2 ]]`, and equivalent paragraph-level spacing / width deviations are preserved during FDX import and export.
+
 If you want the full reference for `fmt`, profile overrides, and `--metadata` / `-m`, see [`docs/formatting-and-metadata.md`](docs/formatting-and-metadata.md).
 
 ## WASM
