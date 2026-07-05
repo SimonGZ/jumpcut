@@ -1,6 +1,6 @@
 use quick_xml::escape::unescape;
 use quick_xml::events::{BytesStart, Event};
-use quick_xml::Reader;
+use quick_xml::{Reader, XmlVersion};
 use std::collections::{BTreeMap, HashSet};
 
 use crate::parser::{is_cold_opening, is_end_act, is_new_act};
@@ -345,7 +345,7 @@ fn optional_attr(
         let attr = attr.map_err(|err| FdxParseError(err.to_string()))?;
         if attr.key.as_ref() == name {
             return attr
-                .decode_and_unescape_value(reader.decoder())
+                .decoded_and_normalized_value(XmlVersion::Implicit1_0, reader.decoder())
                 .map(|value| Some(value.into_owned()))
                 .map_err(|err| FdxParseError(err.to_string()));
         }
