@@ -21,14 +21,21 @@ use crate::{
 };
 use pdf_writer::types::{
     ArtifactAttachment, ArtifactSubtype, ArtifactType, CidFontType, FontFlags, NumberingStyle,
-    StructRole, SystemInfo, UnicodeCmap,
+    PageMode, StructRole, SystemInfo, UnicodeCmap,
 };
 use pdf_writer::{Content, Date, Finish, Name, Pdf, Rect, Ref, Str, TextStr};
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::error::Error;
+use std::fmt;
+#[cfg(not(target_arch = "wasm32"))]
+use std::fs;
+#[cfg(not(target_arch = "wasm32"))]
+use std::path::Path;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
-use ttf_parser::Face;
+use ttf_parser::{name_id, Face};
 
 const BODY_TEXT_FONT_SIZE: f32 = 12.0;
+const BOOKMARK_DESTINATION_CONTEXT_LINES: f32 = 1.0;
 const BODY_PAGE_NUMBER_X: f32 = 508.5;
 const PAGE_NUMBER_BASELINE_Y: f32 = 747.0;
 const PAGE_NUMBER_LEFT: f32 = 508.5;
@@ -64,6 +71,315 @@ const ADOBE_IDENTITY: SystemInfo<'static> = SystemInfo {
     ordering: Str(b"Identity"),
     supplement: 0,
 };
+const MAX_CUSTOM_FONT_FILE_SIZE: u64 = 32 * 1024 * 1024;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PdfFontStyle {
+    Regular,
+    Bold,
+    Italic,
+    BoldItalic,
+}
+
+impl fmt::Display for PdfFontStyle {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(match self {
+            Self::Regular => "regular",
+            Self::Bold => "bold",
+            Self::Italic => "italic",
+            Self::BoldItalic => "bold-italic",
+        })
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct PdfFontError {
+    message: String,
+}
+
+impl PdfFontError {
+    fn new(message: impl Into<String>) -> Self {
+        Self {
+            message: message.into(),
+        }
+    }
+}
+
+impl fmt::Display for PdfFontError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(&self.message)
+    }
+}
+
+impl Error for PdfFontError {}
+
+#[derive(Clone, Debug)]
+struct PdfFontFace {
+    bytes: Vec<u8>,
+    source: String,
+    base_font_name: Vec<u8>,
+    family_name: Vec<u8>,
+}
+
+#[derive(Clone, Debug)]
+pub struct PdfFontFamily {
+    regular: PdfFontFace,
+    bold: PdfFontFace,
+    italic: PdfFontFace,
+    bold_italic: PdfFontFace,
+}
+
+impl PdfFontFamily {
+    pub fn from_ttf_bytes(
+        regular: Vec<u8>,
+        bold: Vec<u8>,
+        italic: Vec<u8>,
+        bold_italic: Vec<u8>,
+    ) -> Result<Self, PdfFontError> {
+        Ok(Self {
+            regular: PdfFontFace::from_ttf_bytes(
+                PdfFontStyle::Regular,
+                "regular.ttf".into(),
+                regular,
+            )?,
+            bold: PdfFontFace::from_ttf_bytes(
+                PdfFontStyle::Bold,
+                "bold.ttf".into(),
+                bold,
+            )?,
+            italic: PdfFontFace::from_ttf_bytes(
+                PdfFontStyle::Italic,
+                "italic.ttf".into(),
+                italic,
+            )?,
+            bold_italic: PdfFontFace::from_ttf_bytes(
+                PdfFontStyle::BoldItalic,
+                "bold-italic.ttf".into(),
+                bold_italic,
+            )?,
+        })
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn from_directory(directory: impl AsRef<Path>) -> Result<Self, PdfFontError> {
+        let directory = directory.as_ref();
+        let metadata = fs::symlink_metadata(directory).map_err(|error| {
+            PdfFontError::new(format!(
+                "custom font directory '{}': {error}",
+                directory.display()
+            ))
+        })?;
+        if metadata.file_type().is_symlink() {
+            return Err(PdfFontError::new(format!(
+                "custom font directory '{}' must not be a symbolic link",
+                directory.display()
+            )));
+        }
+        if !metadata.is_dir() {
+            return Err(PdfFontError::new(format!(
+                "custom font path '{}' is not a directory",
+                directory.display()
+            )));
+        }
+
+        Ok(Self {
+            regular: load_font_face(directory, PdfFontStyle::Regular)?,
+            bold: load_font_face(directory, PdfFontStyle::Bold)?,
+            italic: load_font_face(directory, PdfFontStyle::Italic)?,
+            bold_italic: load_font_face(directory, PdfFontStyle::BoldItalic)?,
+        })
+    }
+}
+
+impl PdfFontFace {
+    fn from_ttf_bytes(
+        style: PdfFontStyle,
+        source: String,
+        bytes: Vec<u8>,
+    ) -> Result<Self, PdfFontError> {
+        if bytes.len() as u64 > MAX_CUSTOM_FONT_FILE_SIZE {
+            return Err(PdfFontError::new(format!(
+                "custom {style} font '{source}' is larger than the 32 MiB limit"
+            )));
+        }
+        if !matches!(bytes.get(..4), Some([0, 1, 0, 0]) | Some(b"true")) {
+            return Err(PdfFontError::new(format!(
+                "custom {style} font '{source}' is not a supported TrueType .ttf font"
+            )));
+        }
+
+        let face = Face::parse(&bytes, 0).map_err(|error| {
+            PdfFontError::new(format!(
+                "custom {style} font '{source}' is malformed or unsupported: {error}"
+            ))
+        })?;
+        if face.tables().glyf.is_none() {
+            return Err(PdfFontError::new(format!(
+                "custom {style} font '{source}' does not contain TrueType outlines"
+            )));
+        }
+        if face.glyph_index('?').is_none() {
+            return Err(PdfFontError::new(format!(
+                "custom {style} font '{source}' is missing the required '?' glyph"
+            )));
+        }
+
+        let postscript_name = font_name(&face, name_id::POST_SCRIPT_NAME)
+            .unwrap_or_else(|| format!("JumpCutCustom-{style}"));
+        let family_name = font_name(&face, name_id::TYPOGRAPHIC_FAMILY)
+            .or_else(|| font_name(&face, name_id::FAMILY))
+            .unwrap_or_else(|| "JumpCut Custom Font".to_string());
+        let subset_prefix = match style {
+            PdfFontStyle::Regular => "JCREGA",
+            PdfFontStyle::Bold => "JCBOLD",
+            PdfFontStyle::Italic => "JCITAL",
+            PdfFontStyle::BoldItalic => "JCBITA",
+        };
+        let base_font_name = format!(
+            "{subset_prefix}+{}",
+            sanitize_pdf_name(&postscript_name, &format!("JumpCutCustom-{style}"))
+        )
+        .into_bytes();
+        let family_name = sanitize_pdf_name(&family_name, "JumpCut-Custom-Font").into_bytes();
+        Ok(Self {
+            bytes,
+            source,
+            base_font_name,
+            family_name,
+        })
+    }
+}
+
+fn font_name(face: &Face<'_>, name_id: u16) -> Option<String> {
+    face.names()
+        .into_iter()
+        .filter(|name| name.name_id == name_id)
+        .find_map(|name| name.to_string())
+        .filter(|name| !name.trim().is_empty())
+}
+
+fn sanitize_pdf_name(name: &str, fallback: &str) -> String {
+    let sanitized = name
+        .chars()
+        .filter_map(|character| {
+            if character.is_ascii_alphanumeric() || matches!(character, '-' | '_') {
+                Some(character)
+            } else if character.is_ascii_whitespace() {
+                Some('-')
+            } else {
+                None
+            }
+        })
+        .take(96)
+        .collect::<String>();
+    if sanitized.is_empty() {
+        fallback.to_string()
+    } else {
+        sanitized
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn load_font_face(directory: &Path, style: PdfFontStyle) -> Result<PdfFontFace, PdfFontError> {
+    let (generic_name, alias_name) = font_file_names(style);
+    let generic_path = directory.join(generic_name);
+    let alias_path = directory.join(alias_name);
+    let generic_exists = font_entry_exists(&generic_path, style)?;
+    let alias_exists = font_entry_exists(&alias_path, style)?;
+
+    let path = match (generic_exists, alias_exists) {
+        (true, true) => {
+            return Err(PdfFontError::new(format!(
+                "custom {style} font is ambiguous: both '{}' and '{}' exist",
+                generic_path.display(),
+                alias_path.display()
+            )))
+        }
+        (true, false) => generic_path,
+        (false, true) => alias_path,
+        (false, false) => {
+            let generic_otf = directory.join(generic_name.replace(".ttf", ".otf"));
+            let alias_otf = directory.join(alias_name.replace(".ttf", ".otf"));
+            let unsupported = if font_entry_exists(&generic_otf, style)? {
+                Some(generic_otf)
+            } else if font_entry_exists(&alias_otf, style)? {
+                Some(alias_otf)
+            } else {
+                None
+            };
+            if let Some(path) = unsupported {
+                return Err(PdfFontError::new(format!(
+                    "custom {style} font '{}' uses unsupported OpenType/CFF .otf format; provide a TrueType .ttf file",
+                    path.display()
+                )));
+            }
+            return Err(PdfFontError::new(format!(
+                "custom font directory '{}' is missing the {style} face; expected '{}' or '{}'",
+                directory.display(),
+                generic_name,
+                alias_name
+            )));
+        }
+    };
+
+    let metadata = fs::symlink_metadata(&path).map_err(|error| {
+        PdfFontError::new(format!(
+            "cannot inspect custom {style} font '{}': {error}",
+            path.display()
+        ))
+    })?;
+    if metadata.file_type().is_symlink() {
+        return Err(PdfFontError::new(format!(
+            "custom {style} font '{}' must not be a symbolic link",
+            path.display()
+        )));
+    }
+    if !metadata.is_file() {
+        return Err(PdfFontError::new(format!(
+            "custom {style} font '{}' is not a regular file",
+            path.display()
+        )));
+    }
+    if metadata.len() > MAX_CUSTOM_FONT_FILE_SIZE {
+        return Err(PdfFontError::new(format!(
+            "custom {style} font '{}' is larger than the 32 MiB limit",
+            path.display()
+        )));
+    }
+
+    let bytes = fs::read(&path).map_err(|error| {
+        PdfFontError::new(format!(
+            "cannot read custom {style} font '{}': {error}",
+            path.display()
+        ))
+    })?;
+    PdfFontFace::from_ttf_bytes(style, path.display().to_string(), bytes)
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn font_entry_exists(path: &Path, style: PdfFontStyle) -> Result<bool, PdfFontError> {
+    match fs::symlink_metadata(path) {
+        Ok(_) => Ok(true),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(false),
+        Err(error) => Err(PdfFontError::new(format!(
+            "cannot inspect custom {style} font path '{}': {error}",
+            path.display()
+        ))),
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn font_file_names(style: PdfFontStyle) -> (&'static str, &'static str) {
+    match style {
+        PdfFontStyle::Regular => ("regular.ttf", "courier-prime.ttf"),
+        PdfFontStyle::Bold => ("bold.ttf", "courier-prime-bold.ttf"),
+        PdfFontStyle::Italic => ("italic.ttf", "courier-prime-italic.ttf"),
+        PdfFontStyle::BoldItalic => (
+            "bold-italic.ttf",
+            "courier-prime-bold-italic.ttf",
+        ),
+    }
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PdfRenderOptions {
@@ -164,6 +480,13 @@ struct PdfMarkedContentRef {
 struct PdfPageLabelPlan {
     page_index: i32,
     style: PdfPageLabelStyle,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+struct PdfBookmarkPlan {
+    label: String,
+    page_index: usize,
+    top: f32,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -306,11 +629,11 @@ pub(crate) enum PdfLineKind {
     DualDialogueParentheticalRight,
 }
 
-struct EmbeddedFont {
+struct EmbeddedFont<'a> {
     resource_name: Name<'static>,
-    base_font: Name<'static>,
-    family_name: &'static [u8],
-    font_bytes: &'static [u8],
+    base_font_name: Vec<u8>,
+    family_name: Vec<u8>,
+    font_bytes: &'a [u8],
     cid_by_char: BTreeMap<char, u16>,
     font_descriptor: EmbeddedFontDescriptor,
     cid_widths: Vec<f32>,
@@ -318,11 +641,22 @@ struct EmbeddedFont {
     to_unicode_cmap: Vec<u8>,
 }
 
-struct EmbeddedFonts {
-    regular: EmbeddedFont,
-    bold: EmbeddedFont,
-    italic: EmbeddedFont,
-    bold_italic: EmbeddedFont,
+struct EmbeddedFonts<'a> {
+    regular: EmbeddedFont<'a>,
+    bold: EmbeddedFont<'a>,
+    italic: EmbeddedFont<'a>,
+    bold_italic: EmbeddedFont<'a>,
+}
+
+struct EmbeddedFontSource<'a> {
+    resource_name: Name<'static>,
+    base_font_name: Vec<u8>,
+    family_name: Vec<u8>,
+    font_bytes: &'a [u8],
+    cmap_name: Name<'static>,
+    style: PdfFontStyle,
+    source: &'a str,
+    strict_glyphs: bool,
 }
 
 #[derive(Clone, Copy)]
@@ -456,6 +790,23 @@ pub(crate) fn render(screenplay: &Screenplay) -> Vec<u8> {
 }
 
 pub(crate) fn render_with_options(screenplay: &Screenplay, options: PdfRenderOptions) -> Vec<u8> {
+    render_internal(screenplay, options, None)
+        .expect("bundled Courier Prime fonts should always render")
+}
+
+pub fn render_with_font_family(
+    screenplay: &Screenplay,
+    options: PdfRenderOptions,
+    font_family: &PdfFontFamily,
+) -> Result<Vec<u8>, PdfFontError> {
+    render_internal(screenplay, options, Some(font_family))
+}
+
+fn render_internal(
+    screenplay: &Screenplay,
+    options: PdfRenderOptions,
+    font_family: Option<&PdfFontFamily>,
+) -> Result<Vec<u8>, PdfFontError> {
     let profile = ScreenplayLayoutProfile::from_screenplay(screenplay);
     let geometry = profile.to_pagination_geometry();
     let document = build_render_document(screenplay, options, &geometry);
@@ -482,7 +833,7 @@ pub(crate) fn render_with_options(screenplay: &Screenplay, options: PdfRenderOpt
         &document.body_pages,
         &geometry,
     ));
-    let fonts = EmbeddedFonts::new(&document);
+    let fonts = EmbeddedFonts::new(&document, font_family)?;
     let body_page_count = document.body_pages.len() as i32;
     let title_overflow_page_count = document.title_overflow_pages.len() as i32;
     let page_count = body_page_count
@@ -491,6 +842,8 @@ pub(crate) fn render_with_options(screenplay: &Screenplay, options: PdfRenderOpt
     let struct_parent_keys = (0..page_count).collect::<Vec<_>>();
     let struct_element_plans = build_struct_element_plans(&structure_pages);
     let page_label_plans = build_page_label_plans(&document);
+    let bookmark_plans =
+        build_scene_bookmark_plans(screenplay, &tagged_document, &document, &geometry);
 
     let catalog_id = Ref::new(1);
     let page_tree_id = Ref::new(2);
@@ -539,6 +892,19 @@ pub(crate) fn render_with_options(screenplay: &Screenplay, options: PdfRenderOpt
             id
         })
         .collect::<Vec<_>>();
+    let outline_root_id = (!bookmark_plans.is_empty()).then(|| {
+        let id = Ref::new(next_object_id);
+        next_object_id += 1;
+        id
+    });
+    let outline_item_ids = bookmark_plans
+        .iter()
+        .map(|_| {
+            let id = Ref::new(next_object_id);
+            next_object_id += 1;
+            id
+        })
+        .collect::<Vec<_>>();
 
     let mut pdf = Pdf::new();
     {
@@ -549,6 +915,10 @@ pub(crate) fn render_with_options(screenplay: &Screenplay, options: PdfRenderOpt
         catalog.metadata(metadata_id);
         catalog.viewer_preferences().display_doc_title(true);
         catalog.pair(Name(b"StructTreeRoot"), struct_tree_root_id);
+        if let Some(outline_root_id) = outline_root_id {
+            catalog.outlines(outline_root_id);
+            catalog.page_mode(PageMode::UseOutlines);
+        }
         if !page_label_plans.is_empty() {
             let mut page_labels = catalog.page_labels();
             let mut nums = page_labels.nums();
@@ -706,7 +1076,131 @@ pub(crate) fn render_with_options(screenplay: &Screenplay, options: PdfRenderOpt
         }
     }
 
-    pdf.finish()
+    if let Some(outline_root_id) = outline_root_id {
+        {
+            let mut outline = pdf.outline(outline_root_id);
+            outline
+                .first(outline_item_ids[0])
+                .last(*outline_item_ids.last().expect("outline items should exist"))
+                .count(outline_item_ids.len() as i32);
+        }
+
+        for (index, (plan, item_id)) in bookmark_plans
+            .iter()
+            .zip(outline_item_ids.iter().copied())
+            .enumerate()
+        {
+            let mut item = pdf.outline_item(item_id);
+            item.title(TextStr(&plan.label)).parent(outline_root_id);
+            if index > 0 {
+                item.prev(outline_item_ids[index - 1]);
+            }
+            if index + 1 < outline_item_ids.len() {
+                item.next(outline_item_ids[index + 1]);
+            }
+            item.dest()
+                .page(page_ids[plan.page_index])
+                .xyz(0.0, plan.top, None);
+        }
+    }
+
+    Ok(pdf.finish())
+}
+
+fn build_scene_bookmark_plans(
+    screenplay: &Screenplay,
+    tagged_document: &PdfTaggedDocument,
+    render_document: &PdfRenderDocument,
+    geometry: &LayoutGeometry,
+) -> Vec<PdfBookmarkPlan> {
+    let scene_heading_text = crate::pagination::normalize_screenplay("screenplay", screenplay)
+        .elements
+        .into_iter()
+        .filter(|element| element.kind == "Scene Heading")
+        .map(|element| (element.element_id, element.text))
+        .collect::<HashMap<_, _>>();
+    let body_page_offset = usize::from(render_document.title_page.is_some())
+        + render_document.title_overflow_pages.len();
+    let mut seen = BTreeSet::new();
+    let mut plans = Vec::new();
+
+    for (body_page_index, page) in tagged_document.body_pages.iter().enumerate() {
+        if body_page_index >= render_document.body_pages.len() {
+            break;
+        }
+        let rendered_page = &render_document.body_pages[body_page_index];
+        let mut next_rendered_line = 0usize;
+        for item in page.blocks.iter().flat_map(|block| &block.items) {
+            if item.role != PdfTaggedRole::SceneHeading || !seen.insert(item.element_id.clone()) {
+                continue;
+            }
+            if let Some(label) = scene_heading_text
+                .get(&item.element_id)
+                .filter(|label| !label.trim().is_empty())
+            {
+                let Some(line_index) = find_scene_heading_line(
+                    rendered_page,
+                    label,
+                    next_rendered_line,
+                ) else {
+                    continue;
+                };
+                next_rendered_line = line_index + 1;
+                plans.push(PdfBookmarkPlan {
+                    label: label.clone(),
+                    page_index: body_page_offset + body_page_index,
+                    top: scene_bookmark_top(rendered_page, line_index, geometry),
+                });
+            }
+        }
+    }
+
+    plans
+}
+
+fn find_scene_heading_line(
+    page: &PdfRenderPage,
+    label: &str,
+    start_index: usize,
+) -> Option<usize> {
+    let uppercase_label = label.trim().to_uppercase();
+    page.lines
+        .iter()
+        .enumerate()
+        .skip(start_index)
+        .find(|(_, line)| {
+            matches!(line.kind, Some(PdfLineKind::SceneHeading))
+                && !line.text.trim().is_empty()
+                && uppercase_label.starts_with(&line.text.trim().to_uppercase())
+        })
+        .map(|(index, _)| index)
+        .or_else(|| {
+            page.lines
+                .iter()
+                .enumerate()
+                .skip(start_index)
+                .find(|(index, line)| {
+                    matches!(line.kind, Some(PdfLineKind::SceneHeading))
+                        && !line.text.trim().is_empty()
+                        && (*index == 0
+                            || !matches!(
+                                page.lines[*index - 1].kind,
+                                Some(PdfLineKind::SceneHeading)
+                            ))
+                })
+                .map(|(index, _)| index)
+        })
+}
+
+fn scene_bookmark_top(
+    page: &PdfRenderPage,
+    line_index: usize,
+    geometry: &LayoutGeometry,
+) -> f32 {
+    let baseline = first_body_line_y_for_page(page, geometry)
+        - (line_index as f32 * body_line_step_points(geometry));
+    (baseline + BOOKMARK_DESTINATION_CONTEXT_LINES * body_line_step_points(geometry))
+        .min(geometry.page_height * 72.0)
 }
 
 fn write_tagged_pdf_role_map(struct_tree_root: &mut pdf_writer::writers::StructTreeRoot<'_>) {
@@ -1642,9 +2136,10 @@ fn title_page_block_gap_after(kind: PdfTitleBlockKind) -> usize {
     }
 }
 
-fn write_embedded_font_objects(pdf: &mut Pdf, font: &EmbeddedFont, ids: FontObjectIds) {
+fn write_embedded_font_objects(pdf: &mut Pdf, font: &EmbeddedFont<'_>, ids: FontObjectIds) {
+    let base_font = Name(&font.base_font_name);
     pdf.type0_font(ids.type0_font_id)
-        .base_font(font.base_font)
+        .base_font(base_font)
         .encoding_predefined(IDENTITY_H)
         .descendant_font(ids.cid_font_id)
         .to_unicode(ids.to_unicode_id);
@@ -1652,7 +2147,7 @@ fn write_embedded_font_objects(pdf: &mut Pdf, font: &EmbeddedFont, ids: FontObje
     let mut cid_font = pdf.cid_font(ids.cid_font_id);
     cid_font
         .subtype(CidFontType::Type2)
-        .base_font(font.base_font)
+        .base_font(base_font)
         .system_info(ADOBE_IDENTITY)
         .font_descriptor(ids.font_descriptor_id)
         .default_width(font.font_descriptor.missing_width);
@@ -1664,8 +2159,8 @@ fn write_embedded_font_objects(pdf: &mut Pdf, font: &EmbeddedFont, ids: FontObje
     cid_font.finish();
 
     pdf.font_descriptor(ids.font_descriptor_id)
-        .name(font.base_font)
-        .family(Str(font.family_name))
+        .name(base_font)
+        .family(Str(&font.family_name))
         .flags(FontFlags::from_bits_retain(
             font.font_descriptor.flags.bits(),
         ))
@@ -1876,45 +2371,93 @@ fn hangs_opening_parenthesis(kind: Option<PdfLineKind>, text: &str) -> bool {
     matches!(kind, Some(PdfLineKind::Parenthetical)) && text.trim_start().starts_with('(')
 }
 
-impl EmbeddedFonts {
-    fn new(document: &PdfRenderDocument) -> Self {
-        Self {
-            regular: EmbeddedFont::new(
+impl<'a> EmbeddedFonts<'a> {
+    fn new(
+        document: &PdfRenderDocument,
+        custom: Option<&'a PdfFontFamily>,
+    ) -> Result<Self, PdfFontError> {
+        let (regular, bold, italic, bold_italic) = if let Some(custom) = custom {
+            (
+                (&custom.regular, PdfFontStyle::Regular, FONT_REGULAR_NAME),
+                (&custom.bold, PdfFontStyle::Bold, FONT_BOLD_NAME),
+                (&custom.italic, PdfFontStyle::Italic, FONT_ITALIC_NAME),
+                (
+                    &custom.bold_italic,
+                    PdfFontStyle::BoldItalic,
+                    FONT_BOLD_ITALIC_NAME,
+                ),
+            )
+        } else {
+            return Ok(Self {
+                regular: EmbeddedFont::new(
+                    document,
+                    EmbeddedFontSource {
+                        resource_name: FONT_REGULAR_NAME,
+                        base_font_name: b"AAAAAA+CourierPrime-Regular".to_vec(),
+                        family_name: b"Courier Prime".to_vec(),
+                        font_bytes: COURIER_PRIME_REGULAR_BYTES,
+                        cmap_name: Name(b"CourierPrime-Regular-UTF16"),
+                        style: PdfFontStyle::Regular,
+                        source: "bundled Courier Prime Regular",
+                        strict_glyphs: false,
+                    },
+                )?,
+                bold: EmbeddedFont::new(
+                    document,
+                    EmbeddedFontSource {
+                        resource_name: FONT_BOLD_NAME,
+                        base_font_name: b"AAAAAB+CourierPrime-Bold".to_vec(),
+                        family_name: b"Courier Prime".to_vec(),
+                        font_bytes: COURIER_PRIME_BOLD_BYTES,
+                        cmap_name: Name(b"AAAAAB+CourierPrime-Bold-UTF16"),
+                        style: PdfFontStyle::Bold,
+                        source: "bundled Courier Prime Bold",
+                        strict_glyphs: false,
+                    },
+                )?,
+                italic: EmbeddedFont::new(
+                    document,
+                    EmbeddedFontSource {
+                        resource_name: FONT_ITALIC_NAME,
+                        base_font_name: b"AAAAAC+CourierPrime-Italic".to_vec(),
+                        family_name: b"Courier Prime".to_vec(),
+                        font_bytes: COURIER_PRIME_ITALIC_BYTES,
+                        cmap_name: Name(b"AAAAAC+CourierPrime-Italic-UTF16"),
+                        style: PdfFontStyle::Italic,
+                        source: "bundled Courier Prime Italic",
+                        strict_glyphs: false,
+                    },
+                )?,
+                bold_italic: EmbeddedFont::new(
+                    document,
+                    EmbeddedFontSource {
+                        resource_name: FONT_BOLD_ITALIC_NAME,
+                        base_font_name: b"AAAAAD+CourierPrime-BoldItalic".to_vec(),
+                        family_name: b"Courier Prime".to_vec(),
+                        font_bytes: COURIER_PRIME_BOLD_ITALIC_BYTES,
+                        cmap_name: Name(b"AAAAAD+CourierPrime-BoldItalic-UTF16"),
+                        style: PdfFontStyle::BoldItalic,
+                        source: "bundled Courier Prime Bold Italic",
+                        strict_glyphs: false,
+                    },
+                )?,
+            });
+        };
+
+        Ok(Self {
+            regular: EmbeddedFont::new_custom(document, regular.2, regular.0, regular.1)?,
+            bold: EmbeddedFont::new_custom(document, bold.2, bold.0, bold.1)?,
+            italic: EmbeddedFont::new_custom(document, italic.2, italic.0, italic.1)?,
+            bold_italic: EmbeddedFont::new_custom(
                 document,
-                FONT_REGULAR_NAME,
-                Name(b"AAAAAA+CourierPrime-Regular"),
-                b"Courier Prime",
-                COURIER_PRIME_REGULAR_BYTES,
-                Name(b"CourierPrime-Regular-UTF16"),
-            ),
-            bold: EmbeddedFont::new(
-                document,
-                FONT_BOLD_NAME,
-                Name(b"AAAAAB+CourierPrime-Bold"),
-                b"Courier Prime",
-                COURIER_PRIME_BOLD_BYTES,
-                Name(b"AAAAAB+CourierPrime-Bold-UTF16"),
-            ),
-            italic: EmbeddedFont::new(
-                document,
-                FONT_ITALIC_NAME,
-                Name(b"AAAAAC+CourierPrime-Italic"),
-                b"Courier Prime",
-                COURIER_PRIME_ITALIC_BYTES,
-                Name(b"AAAAAC+CourierPrime-Italic-UTF16"),
-            ),
-            bold_italic: EmbeddedFont::new(
-                document,
-                FONT_BOLD_ITALIC_NAME,
-                Name(b"AAAAAD+CourierPrime-BoldItalic"),
-                b"Courier Prime",
-                COURIER_PRIME_BOLD_ITALIC_BYTES,
-                Name(b"AAAAAD+CourierPrime-BoldItalic-UTF16"),
-            ),
-        }
+                bold_italic.2,
+                bold_italic.0,
+                bold_italic.1,
+            )?,
+        })
     }
 
-    fn for_styles(&self, styles: StyleFlags) -> &EmbeddedFont {
+    fn for_styles(&self, styles: StyleFlags) -> &EmbeddedFont<'_> {
         match (styles.bold, styles.italic) {
             (true, true) => &self.bold_italic,
             (true, false) => &self.bold,
@@ -1924,17 +2467,50 @@ impl EmbeddedFonts {
     }
 }
 
-impl EmbeddedFont {
-    fn new(
+impl<'a> EmbeddedFont<'a> {
+    fn new_custom(
         document: &PdfRenderDocument,
         resource_name: Name<'static>,
-        base_font: Name<'static>,
-        family_name: &'static [u8],
-        font_bytes: &'static [u8],
-        cmap_name: Name<'static>,
-    ) -> Self {
+        face: &'a PdfFontFace,
+        style: PdfFontStyle,
+    ) -> Result<Self, PdfFontError> {
+        Self::new(document, EmbeddedFontSource {
+            resource_name,
+            base_font_name: face.base_font_name.clone(),
+            family_name: face.family_name.clone(),
+            font_bytes: &face.bytes,
+            cmap_name: match style {
+                PdfFontStyle::Regular => Name(b"JumpCutCustom-Regular-UTF16"),
+                PdfFontStyle::Bold => Name(b"JumpCutCustom-Bold-UTF16"),
+                PdfFontStyle::Italic => Name(b"JumpCutCustom-Italic-UTF16"),
+                PdfFontStyle::BoldItalic => Name(b"JumpCutCustom-BoldItalic-UTF16"),
+            },
+            style,
+            source: &face.source,
+            strict_glyphs: true,
+        })
+    }
+
+    fn new(
+        document: &PdfRenderDocument,
+        source: EmbeddedFontSource<'a>,
+    ) -> Result<Self, PdfFontError> {
+        let EmbeddedFontSource {
+            resource_name,
+            base_font_name,
+            family_name,
+            font_bytes,
+            cmap_name,
+            style,
+            source,
+            strict_glyphs,
+        } = source;
         let chars = collect_document_chars(document);
-        let face = Face::parse(font_bytes, 0).expect("Courier Prime TTF should parse");
+        let face = Face::parse(font_bytes, 0).map_err(|error| {
+            PdfFontError::new(format!(
+                "custom {style} font '{source}' was rejected while preparing PDF embedding: {error}"
+            ))
+        })?;
         let units_per_em = face.units_per_em() as f32;
         let scale = 1000.0 / units_per_em;
 
@@ -1944,11 +2520,24 @@ impl EmbeddedFont {
         let mut to_unicode = UnicodeCmap::new(cmap_name, ADOBE_IDENTITY);
 
         for (index, character) in chars.into_iter().enumerate() {
-            let cid = u16::try_from(index + 1).expect("too many distinct characters for CID font");
-            let glyph_id = face.glyph_index(character).unwrap_or_else(|| {
-                face.glyph_index('?')
-                    .expect("Courier Prime should contain a replacement question mark glyph")
-            });
+            let cid = u16::try_from(index + 1).map_err(|_| {
+                PdfFontError::new("document contains too many distinct characters for PDF font embedding")
+            })?;
+            let glyph_id = match face.glyph_index(character) {
+                Some(glyph_id) => glyph_id,
+                None if strict_glyphs => {
+                    return Err(PdfFontError::new(format!(
+                        "custom {style} font '{source}' is missing glyph '{}' (U+{:04X}) required by the document",
+                        character.escape_default(),
+                        character as u32
+                    )))
+                }
+                None => face.glyph_index('?').ok_or_else(|| {
+                    PdfFontError::new(format!(
+                        "bundled font '{source}' is missing its replacement '?' glyph"
+                    ))
+                })?,
+            };
             let width = face.glyph_hor_advance(glyph_id).unwrap_or(0);
 
             cid_by_char.insert(character, cid);
@@ -1960,9 +2549,9 @@ impl EmbeddedFont {
         let bbox = face.global_bounding_box();
         let widths = cid_widths.clone();
 
-        Self {
+        Ok(Self {
             resource_name,
-            base_font,
+            base_font_name,
             family_name,
             font_bytes,
             cid_by_char,
@@ -1992,7 +2581,7 @@ impl EmbeddedFont {
             cid_widths,
             cid_to_gid_map,
             to_unicode_cmap: to_unicode.finish().to_vec(),
-        }
+        })
     }
 
     fn encode_text(&self, text: &str) -> Vec<u8> {
@@ -3322,6 +3911,46 @@ mod tests {
     use crate::{blank_attributes, p, tr, Attributes, Element, Metadata};
     use regex::Regex;
     use std::fs;
+    use std::path::{Path, PathBuf};
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    static NEXT_TEMP_DIR: AtomicUsize = AtomicUsize::new(0);
+
+    struct TestTempDir(PathBuf);
+
+    impl TestTempDir {
+        fn new(label: &str) -> Self {
+            let id = NEXT_TEMP_DIR.fetch_add(1, Ordering::Relaxed);
+            let path = std::env::temp_dir().join(format!(
+                "jumpcut-{label}-{}-{id}",
+                std::process::id()
+            ));
+            fs::create_dir(&path).expect("create isolated test directory");
+            Self(path)
+        }
+
+        fn path(&self) -> &Path {
+            &self.0
+        }
+    }
+
+    impl Drop for TestTempDir {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.0);
+        }
+    }
+
+    fn fixture_font_directory() -> PathBuf {
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("tests/fixtures/fonts/cyrillic-test-family")
+    }
+
+    fn copy_fixture_fonts(directory: &Path) {
+        for filename in ["regular.ttf", "bold.ttf", "italic.ttf", "bold-italic.ttf"] {
+            fs::copy(fixture_font_directory().join(filename), directory.join(filename))
+                .expect("copy font fixture");
+        }
+    }
 
     #[test]
     fn collect_document_chars_includes_uppercase_title() {
@@ -3343,6 +3972,183 @@ mod tests {
         assert!(chars.contains(&'E'));
         assert!(chars.contains(&'S'));
         assert!(chars.contains(&'T'));
+    }
+
+    #[test]
+    fn custom_font_family_embeds_all_four_faces_and_cyrillic_unicode_maps() {
+        let family = PdfFontFamily::from_directory(fixture_font_directory())
+            .expect("valid custom family");
+        let screenplay = parse(
+            "INT. КУХНЯ - НОЧЬ\n\nRegular Привет. **Bold Ж** *Italic Я* ***Both Ю***",
+        );
+        let geometry = LayoutGeometry::default();
+        let document = build_render_document(&screenplay, PdfRenderOptions::default(), &geometry);
+        let fonts = EmbeddedFonts::new(&document, Some(&family)).expect("custom fonts embed");
+
+        assert_eq!(
+            std::str::from_utf8(&fonts.regular.base_font_name).unwrap(),
+            "JCREGA+DejaVuSansMono"
+        );
+        assert_eq!(
+            std::str::from_utf8(&fonts.bold.base_font_name).unwrap(),
+            "JCBOLD+DejaVuSansMono-Bold"
+        );
+        assert_eq!(
+            std::str::from_utf8(&fonts.italic.base_font_name).unwrap(),
+            "JCITAL+DejaVuSansMono-Oblique"
+        );
+        assert_eq!(
+            std::str::from_utf8(&fonts.bold_italic.base_font_name).unwrap(),
+            "JCBITA+DejaVuSansMono-BoldOblique"
+        );
+        for font in [&fonts.regular, &fonts.bold, &fonts.italic, &fonts.bold_italic] {
+            assert!(font.cid_by_char.contains_key(&'Ж'));
+            assert!(String::from_utf8_lossy(&font.to_unicode_cmap).contains("0416"));
+        }
+
+        let pdf = render_with_font_family(&screenplay, PdfRenderOptions::default(), &family)
+            .expect("custom font PDF");
+        let pdf_text = String::from_utf8_lossy(&pdf);
+        assert!(pdf_text.contains("/BaseFont /JCREGA+DejaVuSansMono"));
+        assert!(pdf_text.contains("/BaseFont /JCBOLD+DejaVuSansMono-Bold"));
+        assert!(pdf_text.contains("/BaseFont /JCITAL+DejaVuSansMono-Oblique"));
+        assert!(pdf_text.contains("/BaseFont /JCBITA+DejaVuSansMono-BoldOblique"));
+        assert!(pdf_text.contains("/F1 12 Tf"));
+        assert!(pdf_text.contains("/F2 12 Tf"));
+        assert!(pdf_text.contains("/F3 12 Tf"));
+        assert!(pdf_text.contains("/F4 12 Tf"));
+        assert!(!pdf_text.contains("CourierPrime"));
+    }
+
+    #[test]
+    fn custom_font_directory_reports_missing_path_and_non_directory() {
+        let missing = std::env::temp_dir().join(format!(
+            "jumpcut-missing-fonts-{}",
+            std::process::id()
+        ));
+        let error = PdfFontFamily::from_directory(&missing).unwrap_err();
+        assert!(error.to_string().contains("custom font directory"));
+        assert!(error.to_string().contains(&missing.display().to_string()));
+
+        let file = Path::new(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml");
+        let error = PdfFontFamily::from_directory(&file).unwrap_err();
+        assert!(error.to_string().contains("is not a directory"));
+        assert!(error.to_string().contains(&file.display().to_string()));
+    }
+
+    #[test]
+    fn custom_font_directory_reports_each_missing_style() {
+        for missing in ["regular.ttf", "bold.ttf", "italic.ttf", "bold-italic.ttf"] {
+            let directory = TestTempDir::new("missing-font-style");
+            copy_fixture_fonts(directory.path());
+            fs::remove_file(directory.path().join(missing)).unwrap();
+
+            let error = PdfFontFamily::from_directory(directory.path()).unwrap_err();
+            assert!(error.to_string().contains("missing the"));
+            assert!(error.to_string().contains(missing.trim_end_matches(".ttf")));
+        }
+    }
+
+    #[test]
+    fn custom_font_directory_rejects_malformed_unsupported_and_ambiguous_faces() {
+        let malformed = TestTempDir::new("malformed-font");
+        copy_fixture_fonts(malformed.path());
+        fs::write(malformed.path().join("regular.ttf"), b"not a font").unwrap();
+        let error = PdfFontFamily::from_directory(malformed.path()).unwrap_err();
+        assert!(error.to_string().contains("regular"));
+        assert!(error.to_string().contains("not a supported TrueType"));
+
+        let unsupported = TestTempDir::new("unsupported-font");
+        fs::write(unsupported.path().join("regular.otf"), b"OTTO").unwrap();
+        let error = PdfFontFamily::from_directory(unsupported.path()).unwrap_err();
+        assert!(error.to_string().contains("unsupported OpenType/CFF .otf"));
+
+        let ambiguous = TestTempDir::new("ambiguous-font");
+        copy_fixture_fonts(ambiguous.path());
+        fs::copy(
+            ambiguous.path().join("regular.ttf"),
+            ambiguous.path().join("courier-prime.ttf"),
+        )
+        .unwrap();
+        let error = PdfFontFamily::from_directory(ambiguous.path()).unwrap_err();
+        assert!(error.to_string().contains("regular font is ambiguous"));
+        assert!(error.to_string().contains("courier-prime.ttf"));
+    }
+
+    #[test]
+    fn custom_font_directory_accepts_documented_aliases() {
+        let directory = TestTempDir::new("font-aliases");
+        for (generic, alias) in [
+            ("regular.ttf", "courier-prime.ttf"),
+            ("bold.ttf", "courier-prime-bold.ttf"),
+            ("italic.ttf", "courier-prime-italic.ttf"),
+            ("bold-italic.ttf", "courier-prime-bold-italic.ttf"),
+        ] {
+            fs::copy(
+                fixture_font_directory().join(generic),
+                directory.path().join(alias),
+            )
+            .unwrap();
+        }
+
+        PdfFontFamily::from_directory(directory.path()).expect("aliases should load");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn custom_font_directory_rejects_symbolic_links_and_unreadable_files() {
+        use std::os::unix::fs::{symlink, PermissionsExt};
+
+        let symlinked_face = TestTempDir::new("symlinked-font-face");
+        copy_fixture_fonts(symlinked_face.path());
+        fs::remove_file(symlinked_face.path().join("regular.ttf")).unwrap();
+        symlink(
+            fixture_font_directory().join("regular.ttf"),
+            symlinked_face.path().join("regular.ttf"),
+        )
+        .unwrap();
+        let error = PdfFontFamily::from_directory(symlinked_face.path()).unwrap_err();
+        assert!(error.to_string().contains("must not be a symbolic link"));
+
+        let symlink_parent = TestTempDir::new("symlinked-font-directory");
+        let linked_path = symlink_parent.path().join("fonts");
+        symlink(fixture_font_directory(), &linked_path).unwrap();
+        let error = PdfFontFamily::from_directory(&linked_path).unwrap_err();
+        assert!(error.to_string().contains("directory"));
+        assert!(error.to_string().contains("must not be a symbolic link"));
+
+        let unreadable = TestTempDir::new("unreadable-font");
+        copy_fixture_fonts(unreadable.path());
+        let regular = unreadable.path().join("regular.ttf");
+        let mut permissions = fs::metadata(&regular).unwrap().permissions();
+        permissions.set_mode(0o000);
+        fs::set_permissions(&regular, permissions).unwrap();
+        let error = PdfFontFamily::from_directory(unreadable.path()).unwrap_err();
+        assert!(error.to_string().contains("cannot read custom regular font"));
+        let mut permissions = fs::metadata(&regular).unwrap().permissions();
+        permissions.set_mode(0o600);
+        fs::set_permissions(&regular, permissions).unwrap();
+    }
+
+    #[test]
+    fn custom_fonts_never_fall_back_when_a_document_glyph_is_missing() {
+        let family = PdfFontFamily::from_ttf_bytes(
+            COURIER_PRIME_REGULAR_BYTES.to_vec(),
+            COURIER_PRIME_BOLD_BYTES.to_vec(),
+            COURIER_PRIME_ITALIC_BYTES.to_vec(),
+            COURIER_PRIME_BOLD_ITALIC_BYTES.to_vec(),
+        )
+        .expect("bundled files are valid TTF inputs");
+
+        let error = render_with_font_family(
+            &parse("INT. КУХНЯ - НОЧЬ\n\nПривет."),
+            PdfRenderOptions::default(),
+            &family,
+        )
+        .unwrap_err();
+        assert!(error.to_string().contains("missing glyph"));
+        assert!(error.to_string().contains("custom regular font"));
+        assert!(error.to_string().contains("U+"));
     }
 
     #[test]
@@ -3420,6 +4226,125 @@ mod tests {
         tag: String,
         mcid: Option<i32>,
         actual_text: Option<String>,
+    }
+
+    #[derive(Debug, PartialEq)]
+    struct InspectedBookmark {
+        label: String,
+        page_index: usize,
+        top: f32,
+    }
+
+    fn inspect_bookmarks(pdf: &[u8]) -> Vec<InspectedBookmark> {
+        let pdf_text = String::from_utf8_lossy(pdf);
+        let objects = pdf_object_bodies_by_id(&pdf_text);
+        let Some(outline_id) = extract_reference_value(&pdf_text, "/Outlines ") else {
+            return Vec::new();
+        };
+        let outline = objects.get(&outline_id).expect("outline root object");
+        let Some(mut item_id) = extract_reference_value(outline, "/First ") else {
+            return Vec::new();
+        };
+        let page_ids = extract_reference_array(&pdf_text, "/Kids ");
+        let mut bookmarks = Vec::new();
+
+        loop {
+            let item = objects.get(&item_id).expect("outline item object");
+            let label = extract_pdf_text_string(item, "/Title ").expect("outline title");
+            let page_id = extract_reference_value(item, "/Dest [").expect("outline destination");
+            let page_index = page_ids
+                .iter()
+                .position(|candidate| *candidate == page_id)
+                .expect("outline destination page in page tree");
+            let top = extract_xyz_top(item).expect("XYZ top coordinate");
+            bookmarks.push(InspectedBookmark {
+                label,
+                page_index,
+                top,
+            });
+
+            let Some(next_id) = extract_reference_value(item, "/Next ") else {
+                break;
+            };
+            item_id = next_id;
+        }
+
+        bookmarks
+    }
+
+    fn extract_xyz_top(text: &str) -> Option<f32> {
+        let marker_index = text.find("/XYZ ")?;
+        let mut coordinates = text[marker_index + "/XYZ ".len()..].split_whitespace();
+        coordinates.next()?;
+        coordinates.next()?.parse().ok()
+    }
+
+    fn extract_reference_value(text: &str, marker: &str) -> Option<i32> {
+        let marker_index = text.find(marker)?;
+        let after_marker = text[marker_index + marker.len()..].trim_start();
+        let mut tokens = after_marker.split_whitespace();
+        let object_id = tokens.next()?.parse().ok()?;
+        (tokens.next()? == "0" && tokens.next()?.starts_with('R')).then_some(object_id)
+    }
+
+    fn extract_reference_array(text: &str, marker: &str) -> Vec<i32> {
+        let Some(marker_index) = text.find(marker) else {
+            return Vec::new();
+        };
+        let after_marker = text[marker_index + marker.len()..]
+            .trim_start()
+            .strip_prefix('[')
+            .unwrap_or(&text[marker_index + marker.len()..]);
+        let Some(end) = after_marker.find(']') else {
+            return Vec::new();
+        };
+        let tokens = after_marker[..end].split_whitespace().collect::<Vec<_>>();
+        tokens
+            .windows(3)
+            .filter_map(|window| {
+                (window[1] == "0" && window[2] == "R")
+                    .then(|| window[0].parse().ok())
+                    .flatten()
+            })
+            .collect()
+    }
+
+    fn extract_pdf_text_string(text: &str, marker: &str) -> Option<String> {
+        let marker_index = text.find(marker)?;
+        let value = text[marker_index + marker.len()..].trim_start();
+        if let Some(hex) = value.strip_prefix('<') {
+            let hex = &hex[..hex.find('>')?];
+            let bytes = hex
+                .as_bytes()
+                .chunks_exact(2)
+                .map(|pair| {
+                    u8::from_str_radix(std::str::from_utf8(pair).ok()?, 16).ok()
+                })
+                .collect::<Option<Vec<_>>>()?;
+            let utf16 = bytes
+                .strip_prefix(&[0xFE, 0xFF])?
+                .chunks_exact(2)
+                .map(|pair| u16::from_be_bytes([pair[0], pair[1]]))
+                .collect::<Vec<_>>();
+            return String::from_utf16(&utf16).ok();
+        }
+
+        let literal = value.strip_prefix('(')?;
+        let mut result = String::new();
+        let mut escaped = false;
+        for character in literal.chars() {
+            if escaped {
+                result.push(character);
+                escaped = false;
+            } else if character == '\\' {
+                escaped = true;
+            } else if character == ')' {
+                return Some(result);
+            } else {
+                result.push(character);
+            }
+        }
+        None
     }
 
     fn inspect_tagged_pdf(pdf: &[u8]) -> TaggedPdfInspection {
@@ -3911,7 +4836,7 @@ mod tests {
 
         let geometry = LayoutGeometry::default();
         let document = build_render_document(&screenplay, PdfRenderOptions::default(), &geometry);
-        let fonts = EmbeddedFonts::new(&document);
+        let fonts = EmbeddedFonts::new(&document, None).unwrap();
 
         assert!(collect_document_chars(&document).contains(&'’'));
         assert!(fonts.regular.cid_by_char.contains_key(&'’'));
@@ -4109,6 +5034,72 @@ mod tests {
     }
 
     #[test]
+    fn pdf_scene_bookmarks_preserve_labels_order_repetitions_and_physical_pages() {
+        let screenplay = parse(
+            "Title: Bookmark Test\n\n\
+             INT. LAB - DAY #1#\n\nFirst page.\n\n===\n\n\
+             .ИНТ. КУХНЯ — НОЧЬ\n\nSecond page.\n\n===\n\n\
+             EXT. A VERY LONG ROAD THAT RUNS PAST THE RIVER AND THROUGH THE VALLEY - SUNSET\n\nThird page.\n\n===\n\n\
+             INT. LAB - DAY #99#\n\nFourth page.",
+        );
+
+        let pdf = render(&screenplay);
+        let pdf_text = String::from_utf8_lossy(&pdf);
+        let bookmarks = inspect_bookmarks(&pdf);
+
+        assert!(pdf_text.contains("/PageMode /UseOutlines"));
+        assert_eq!(
+            bookmarks,
+            vec![
+                InspectedBookmark {
+                    label: "INT. LAB - DAY".into(),
+                    page_index: 1,
+                    top: 723.0,
+                },
+                InspectedBookmark {
+                    label: "ИНТ. КУХНЯ — НОЧЬ".into(),
+                    page_index: 2,
+                    top: 723.0,
+                },
+                InspectedBookmark {
+                    label: "EXT. A VERY LONG ROAD THAT RUNS PAST THE RIVER AND THROUGH THE VALLEY - SUNSET".into(),
+                    page_index: 3,
+                    top: 723.0,
+                },
+                InspectedBookmark {
+                    label: "INT. LAB - DAY".into(),
+                    page_index: 4,
+                    top: 723.0,
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn pdf_scene_bookmarks_target_each_heading_vertical_position() {
+        let pdf = render(&parse(
+            "INT. FIRST ROOM - DAY\n\nFirst action.\n\nINT. SECOND ROOM - NIGHT\n\nSecond action.",
+        ));
+        let bookmarks = inspect_bookmarks(&pdf);
+
+        assert_eq!(bookmarks.len(), 2);
+        assert_eq!(bookmarks[0].page_index, 0);
+        assert_eq!(bookmarks[1].page_index, 0);
+        assert_eq!(bookmarks[0].top, 723.0);
+        assert!(bookmarks[1].top < bookmarks[0].top);
+    }
+
+    #[test]
+    fn pdf_without_scene_headings_has_no_outline_dictionary() {
+        let pdf = render(&parse("Action only.\n\nNo scene headings here."));
+        let pdf_text = String::from_utf8_lossy(&pdf);
+
+        assert!(inspect_bookmarks(&pdf).is_empty());
+        assert!(!pdf_text.contains("/Type /Outlines"));
+        assert!(!pdf_text.contains("/PageMode /UseOutlines"));
+    }
+
+    #[test]
     fn pdf_render_output_emits_catalog_level_tagged_pdf_scaffolding() {
         let mut metadata = Metadata::new();
         metadata.insert("title".into(), vec![p("MY SCREENPLAY")]);
@@ -4170,8 +5161,8 @@ mod tests {
         assert!(pdf_text.contains("/Subtype /XML"));
         assert!(xmp.contains("<dc:title><rdf:Alt>"));
         assert!(xmp.contains("<rdf:li xml:lang=\"x-default\">My Screenplay</rdf:li>"));
-        assert!(xmp.contains("<xmp:CreatorTool>JumpCut 1.0.0-beta.1</xmp:CreatorTool>"));
-        assert!(xmp.contains("<pdf:Producer>JumpCut 1.0.0-beta.1</pdf:Producer>"));
+        assert!(xmp.contains("<xmp:CreatorTool>JumpCut 1.0.0-beta.2</xmp:CreatorTool>"));
+        assert!(xmp.contains("<pdf:Producer>JumpCut 1.0.0-beta.2</pdf:Producer>"));
         assert!(xmp.contains("<xmp:CreateDate>"));
         assert!(xmp.contains("<xmp:ModifyDate>"));
         assert!(xmp.contains("<xmp:MetadataDate>"));
@@ -4745,7 +5736,7 @@ mod tests {
 
         let geometry = LayoutGeometry::default();
         let document = build_render_document(&screenplay, PdfRenderOptions::default(), &geometry);
-        let fonts = EmbeddedFonts::new(&document);
+        let fonts = EmbeddedFonts::new(&document, None).unwrap();
         let content = render_body_page_content(
             &document.body_pages[0],
             &LayoutGeometry::default(),
@@ -4793,7 +5784,7 @@ mod tests {
 
         let geometry = LayoutGeometry::default();
         let document = build_render_document(&screenplay, PdfRenderOptions::default(), &geometry);
-        let fonts = EmbeddedFonts::new(&document);
+        let fonts = EmbeddedFonts::new(&document, None).unwrap();
         let first_page = render_body_page_content(
             &document.body_pages[0],
             &LayoutGeometry::default(),
@@ -4834,7 +5825,7 @@ mod tests {
 
         let geometry = LayoutGeometry::default();
         let document = build_render_document(&screenplay, PdfRenderOptions::default(), &geometry);
-        let fonts = EmbeddedFonts::new(&document);
+        let fonts = EmbeddedFonts::new(&document, None).unwrap();
         let content = render_body_page_content(
             &document.body_pages[0],
             &LayoutGeometry::default(),
@@ -4873,7 +5864,7 @@ mod tests {
 
         let geometry = LayoutGeometry::default();
         let document = build_render_document(&screenplay, PdfRenderOptions::default(), &geometry);
-        let fonts = EmbeddedFonts::new(&document);
+        let fonts = EmbeddedFonts::new(&document, None).unwrap();
         let content = render_body_page_content(
             &document.body_pages[0],
             &LayoutGeometry::default(),
@@ -4930,7 +5921,7 @@ mod tests {
                 ],
             }],
         };
-        let fonts = EmbeddedFonts::new(&document);
+        let fonts = EmbeddedFonts::new(&document, None).unwrap();
         let content = render_body_page_content(
             &document.body_pages[0],
             &LayoutGeometry::default(),
@@ -5001,7 +5992,7 @@ mod tests {
                 ],
             }],
         };
-        let fonts = EmbeddedFonts::new(&document);
+        let fonts = EmbeddedFonts::new(&document, None).unwrap();
         let content = render_body_page_content(
             &document.body_pages[0],
             &LayoutGeometry::default(),
@@ -5058,7 +6049,7 @@ mod tests {
         let geometry = LayoutGeometry::default();
         let document = build_render_document(&screenplay, PdfRenderOptions::default(), &geometry);
         let tagged_document = build_tagged_document(&screenplay, &geometry);
-        let fonts = EmbeddedFonts::new(&document);
+        let fonts = EmbeddedFonts::new(&document, None).unwrap();
         let content = render_title_page_content(
             document.title_page.as_ref().expect("expected title page"),
             tagged_document
@@ -5150,7 +6141,7 @@ mod tests {
         let geometry = LayoutGeometry::default();
         let document = build_render_document(&screenplay, PdfRenderOptions::default(), &geometry);
         let tagged_document = build_tagged_document(&screenplay, &geometry);
-        let fonts = EmbeddedFonts::new(&document);
+        let fonts = EmbeddedFonts::new(&document, None).unwrap();
         let mut content = Content::new();
         let mut underlines = Vec::new();
         let mut next_mcid = 0i32;
@@ -5202,7 +6193,7 @@ mod tests {
         let geometry = LayoutGeometry::default();
         let document = build_render_document(&screenplay, PdfRenderOptions::default(), &geometry);
         let tagged_document = build_tagged_document(&screenplay, &geometry);
-        let fonts = EmbeddedFonts::new(&document);
+        let fonts = EmbeddedFonts::new(&document, None).unwrap();
         let mut content = Content::new();
         let mut underlines = Vec::new();
         let mut next_mcid = 0i32;
@@ -5255,7 +6246,7 @@ mod tests {
 
         let geometry = LayoutGeometry::default();
         let document = build_render_document(&screenplay, PdfRenderOptions::default(), &geometry);
-        let fonts = EmbeddedFonts::new(&document);
+        let fonts = EmbeddedFonts::new(&document, None).unwrap();
         let content = render_body_page_content(
             &document.body_pages[0],
             &LayoutGeometry::default(),
@@ -5311,7 +6302,7 @@ mod tests {
         let geometry = LayoutGeometry::default();
         let document = build_render_document(&screenplay, PdfRenderOptions::default(), &geometry);
         let tagged_document = build_tagged_document(&screenplay, &geometry);
-        let fonts = EmbeddedFonts::new(&document);
+        let fonts = EmbeddedFonts::new(&document, None).unwrap();
         let mut content = Content::new();
         let mut underlines = Vec::new();
         let mut next_mcid = 0i32;
@@ -5362,7 +6353,7 @@ mod tests {
         let geometry = LayoutGeometry::default();
         let document = build_render_document(&screenplay, PdfRenderOptions::default(), &geometry);
         let tagged_document = build_tagged_document(&screenplay, &geometry);
-        let fonts = EmbeddedFonts::new(&document);
+        let fonts = EmbeddedFonts::new(&document, None).unwrap();
         let mut content = Content::new();
         let mut underlines = Vec::new();
         let mut next_mcid = 0i32;
@@ -5419,7 +6410,7 @@ mod tests {
         let geometry = LayoutGeometry::default();
         let document = build_render_document(&screenplay, PdfRenderOptions::default(), &geometry);
         let tagged_document = build_tagged_document(&screenplay, &geometry);
-        let fonts = EmbeddedFonts::new(&document);
+        let fonts = EmbeddedFonts::new(&document, None).unwrap();
         let mut content = Content::new();
         let mut underlines = Vec::new();
         let mut next_mcid = 0i32;
@@ -5472,7 +6463,7 @@ mod tests {
 
         let geometry = LayoutGeometry::default();
         let document = build_render_document(&screenplay, PdfRenderOptions::default(), &geometry);
-        let fonts = EmbeddedFonts::new(&document);
+        let fonts = EmbeddedFonts::new(&document, None).unwrap();
         let content = render_body_page_content(
             &document.body_pages[0],
             &LayoutGeometry::default(),
@@ -5501,7 +6492,7 @@ mod tests {
 
         let geometry = LayoutGeometry::default();
         let document = build_render_document(&screenplay, PdfRenderOptions::default(), &geometry);
-        let fonts = EmbeddedFonts::new(&document);
+        let fonts = EmbeddedFonts::new(&document, None).unwrap();
         let content = render_body_page_content(
             &document.body_pages[0],
             &LayoutGeometry::default(),
@@ -5529,7 +6520,7 @@ mod tests {
 
         let geometry = LayoutGeometry::default();
         let document = build_render_document(&screenplay, PdfRenderOptions::default(), &geometry);
-        let fonts = EmbeddedFonts::new(&document);
+        let fonts = EmbeddedFonts::new(&document, None).unwrap();
         let content = render_body_page_content(
             &document.body_pages[0],
             &LayoutGeometry::default(),
@@ -5549,7 +6540,7 @@ mod tests {
             title_overflow_pages: Vec::new(),
             body_pages: vec![],
         };
-        let fonts = EmbeddedFonts::new(&document);
+        let fonts = EmbeddedFonts::new(&document, None).unwrap();
         let mut content = Content::new();
         let mut underlines = Vec::new();
         content.begin_text();

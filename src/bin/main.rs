@@ -34,7 +34,7 @@ struct Args {
     #[arg(long)]
     exact_wraps: bool,
 
-    /// Embed Courier Prime font files directly into HTML CSS
+    /// Embed bundled Courier Prime, or the family from --font-dir, directly into HTML CSS
     #[arg(long)]
     embed_courier_prime: bool,
 
@@ -53,6 +53,10 @@ struct Args {
     /// Suppress title-page output for HTML and PDF renders
     #[arg(long)]
     no_title_page: bool,
+
+    /// PDF, or HTML with --embed-courier-prime: directory containing regular.ttf, bold.ttf, italic.ttf, and bold-italic.ttf. You are responsible for font licensing.
+    #[arg(long, value_name = "DIR")]
+    font_dir: Option<PathBuf>,
 
     /// Input file, pass a dash ("-") to receive stdin
     input: PathBuf,
@@ -140,6 +144,18 @@ fn main() {
         std::process::exit(2);
     }
 
+    if opt.font_dir.is_some() && format != "html" && (!pdf_output_enabled() || format != "pdf") {
+        eprintln!(
+            "Error: --font-dir is only supported with --format pdf, or with --format html and --embed-courier-prime."
+        );
+        std::process::exit(2);
+    }
+
+    if opt.font_dir.is_some() && format == "html" && !opt.embed_courier_prime {
+        eprintln!("Error: --font-dir with --format html requires --embed-courier-prime.");
+        std::process::exit(2);
+    }
+
     let output_bytes = match format.as_str() {
         "fountain" => screenplay.to_fountain().into_bytes(),
         "json" => match serde_json::to_string_pretty(&screenplay) {
@@ -150,17 +166,26 @@ fn main() {
             }
         },
         "fdx" => screenplay.to_final_draft().into_bytes(),
-        "html" => screenplay
-            .to_html_with_options(jumpcut::rendering::html::HtmlRenderOptions {
-                head: true,
-                exact_wraps: opt.exact_wraps || opt.paginate,
-                paginated: opt.paginate,
-                render_continueds: !opt.no_continueds,
-                render_title_page: !opt.no_title_page,
-                embed_courier_prime: opt.embed_courier_prime,
-                embedded_courier_prime_css: None,
-            })
-            .into_bytes(),
+        "html" => {
+            let embedded_courier_prime_css = opt.font_dir.as_ref().map(|font_dir| {
+                jumpcut::rendering::html::embedded_courier_prime_css_from_directory(font_dir)
+                    .unwrap_or_else(|error| {
+                        eprintln!("Error: {error}");
+                        std::process::exit(2);
+                    })
+            });
+            screenplay
+                .to_html_with_options(jumpcut::rendering::html::HtmlRenderOptions {
+                    head: true,
+                    exact_wraps: opt.exact_wraps || opt.paginate,
+                    paginated: opt.paginate,
+                    render_continueds: !opt.no_continueds,
+                    render_title_page: !opt.no_title_page,
+                    embed_courier_prime: opt.embed_courier_prime,
+                    embedded_courier_prime_css,
+                })
+                .into_bytes()
+        }
         "text" => screenplay
             .to_text(&jumpcut::rendering::text::TextRenderOptions {
                 paginated: opt.paginate,
@@ -169,10 +194,27 @@ fn main() {
             })
             .into_bytes(),
         #[cfg(feature = "pdf")]
-        "pdf" => screenplay.to_pdf_with_options(jumpcut::rendering::pdf::PdfRenderOptions {
-            render_continueds: !opt.no_continueds,
-            render_title_page: !opt.no_title_page,
-        }),
+        "pdf" => {
+            let options = jumpcut::rendering::pdf::PdfRenderOptions {
+                render_continueds: !opt.no_continueds,
+                render_title_page: !opt.no_title_page,
+            };
+            if let Some(font_dir) = &opt.font_dir {
+                let font_family = jumpcut::rendering::pdf::PdfFontFamily::from_directory(font_dir)
+                    .unwrap_or_else(|error| {
+                        eprintln!("Error: {error}");
+                        std::process::exit(2);
+                    });
+                screenplay
+                    .to_pdf_with_font_family(options, &font_family)
+                    .unwrap_or_else(|error| {
+                        eprintln!("Error: {error}");
+                        std::process::exit(2);
+                    })
+            } else {
+                screenplay.to_pdf_with_options(options)
+            }
+        }
         _ => b"nothing".to_vec(),
     };
 
@@ -393,7 +435,7 @@ mod tests {
         parse_cli_input, resolve_metadata_path, resolve_output_path, Args, InputFormat,
         RenderProfile,
     };
-    use clap::Parser;
+    use clap::{CommandFactory, Parser};
     use jumpcut::{ElementText, Metadata};
     use std::path::{Path, PathBuf};
 
@@ -557,6 +599,28 @@ mod tests {
             "--no-title-page"
         ])
         .is_ok());
+    }
+
+    #[cfg(feature = "pdf")]
+    #[test]
+    fn cli_accepts_and_documents_custom_pdf_font_directory() {
+        let args = Args::try_parse_from([
+            "jumpcut",
+            "script.fountain",
+            "--format",
+            "pdf",
+            "--font-dir",
+            "./my-fonts",
+        ])
+        .expect("--font-dir should parse");
+        assert_eq!(args.font_dir, Some(PathBuf::from("./my-fonts")));
+
+        let mut help = Vec::new();
+        Args::command().write_long_help(&mut help).unwrap();
+        let help = String::from_utf8(help).unwrap();
+        assert!(help.contains("--font-dir <DIR>"));
+        assert!(help.contains("regular.ttf"));
+        assert!(help.contains("responsible for font licensing"));
     }
 
     #[cfg(not(feature = "pdf"))]

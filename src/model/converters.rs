@@ -67,6 +67,15 @@ impl Screenplay {
         crate::rendering::pdf::render_with_options(self, options)
     }
 
+    #[cfg(feature = "pdf")]
+    pub fn to_pdf_with_font_family(
+        &self,
+        options: crate::rendering::pdf::PdfRenderOptions,
+        font_family: &crate::rendering::pdf::PdfFontFamily,
+    ) -> Result<Vec<u8>, crate::rendering::pdf::PdfFontError> {
+        crate::rendering::pdf::render_with_font_family(self, options, font_family)
+    }
+
     pub fn to_json_string(self) -> String {
         serde_json::to_string(&self)
             .expect("Should be impossible for this JSON serialization to fail.")

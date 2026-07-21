@@ -14,6 +14,14 @@ CLI:
 jumpcut --format html --embed-courier-prime input.fountain output.html
 ```
 
+To embed a custom four-face TrueType family instead of the bundled Courier Prime files, use the `--font-dir` option alongside `--embed-courier-prime`:
+
+```sh
+jumpcut --format html --embed-courier-prime --font-dir ./my-fonts input.fountain output.html
+```
+
+The directory must contain `regular.ttf`, `bold.ttf`, `italic.ttf`, and `bold-italic.ttf`, or the Courier Prime-style aliases documented in the README. The custom faces are mapped to the CSS family name `Courier Prime`, so the existing screenplay stylesheet uses them without other changes.
+
 Rust:
 
 ```rust
@@ -75,5 +83,3 @@ const html = parse_to_html_string_with_embedded_courier_prime(
 ## Size Notes
 
 Embedding Courier Prime materially increases HTML size because the font data is stored inline.
-
-That is intentional for the standalone export case, but it should remain opt-in.

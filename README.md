@@ -16,7 +16,7 @@ cargo install jumpcut
 
 To use JumpCut as a library, you can specify the following in your Cargo.toml so that the command-line features are not added to your project:
 
-`jumpcut = { version = "1.0.0-beta.1", default-features = false, features = ["lib-only"] }`
+`jumpcut = { version = "1.0.0-beta.2", default-features = false, features = ["lib-only"] }`
 
 ## Usage
 
@@ -39,7 +39,7 @@ Options:
       --exact-wraps
           Render HTML output with exact Final Draft-style wraps
       --embed-courier-prime
-          Embed Courier Prime font files directly into HTML CSS
+          Embed bundled Courier Prime, or the family from --font-dir, directly into HTML CSS
       --line-numbers
           Show line numbers in text output
       --render-profile <RENDER_PROFILE>
@@ -48,6 +48,8 @@ Options:
           Suppress (CONT'D)/(MORE) style continued markers in render outputs
       --no-title-page
           Suppress title-page output for HTML and PDF renders
+      --font-dir <DIR>
+          PDF, or HTML with --embed-courier-prime: directory containing regular.ttf, bold.ttf, italic.ttf, and bold-italic.ttf. You are responsible for font licensing
   -o, --output <FILE>
           Output file
   -w, --write
@@ -75,7 +77,43 @@ jumpcut script.fountain -w -f pdf   # writes script.pdf
 
 `-w` is the explicit "write next to the source" mode. `-o` always expects a file path.
 
-To use JumpCut within a Rust program, look at [main.rs](src/bin/main.rs) file for an example of calling the library, but the basics are...
+### PDF bookmarks
+
+PDF output includes a document outline built from screenplay scene headings.
+
+### Custom PDF and HTML fonts
+
+By default, PDF output uses an embedded Courier Prime family. To use a custom family (for example, one that covers Cyrillic characters) pass `--font-dir` with a directory containing all four TrueType faces.
+
+```text
+my-fonts/
+├── regular.ttf
+├── bold.ttf
+├── italic.ttf
+└── bold-italic.ttf
+```
+
+The following Courier Prime-style aliases are also accepted, one per role:
+
+```text
+courier-prime.ttf
+courier-prime-bold.ttf
+courier-prime-italic.ttf
+courier-prime-bold-italic.ttf
+```
+
+Only TrueType-outline `.ttf` files are supported.
+
+For HTML output, combine `--font-dir` with `--embed-courier-prime`; the custom faces are embedded as `data:` URLs in place of the bundled Courier Prime files.
+
+```sh
+jumpcut screenplay.fountain --format pdf --output screenplay.pdf --font-dir ./my-fonts
+jumpcut screenplay.fountain --format html --output screenplay.html --embed-courier-prime --font-dir ./my-fonts
+```
+
+## Library Usage
+
+To use JumpCut within a Rust program, look at [main.rs](src/bin/main.rs) for an example of calling the library, but the basics are...
 
 ```rust
 let mut screenplay: Screenplay = parse(&content); // content is a String of fountain text
@@ -90,7 +128,7 @@ You can customize JumpCut's output.
 There are two built-in profiles that act like presets. They bundle together different pagination and output settings:
 
 - `industry`: the default. This aims for the kind of screenplay pagination and continuation behavior used by major industry tools (like Final Draft).
-- `balanced`: a more opinionated profile that aims for cleaner-looking page breaks, dash wrapping, and `(MORE)` / `(CONT'D)` choices. NOTE: This profile is subject to changes based on the changing opinions of the software's author.
+- `balanced`: a more opinionated profile that aims for cleaner-looking page breaks, dash wrapping, and `(MORE)` / `(CONT'D)` choices. NOTE: This profile is subject to change based on the whims and opinions of the software's author.
 
 You can set those presets (called render-profiles by the app) and other frequent customizations with CLI flags like `--render-profile`, `--no-continueds`, and `--no-title-page`
 

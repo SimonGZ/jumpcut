@@ -14,7 +14,13 @@ use crate::styled_text::{StyledRun, StyledText};
 use crate::title_page::{TitlePage, TitlePageBlockKind};
 use crate::{Attributes, Element, ElementText, Screenplay};
 use std::collections::HashSet;
+#[cfg(not(target_arch = "wasm32"))]
+use std::error::Error;
 use std::fmt::Write;
+#[cfg(not(target_arch = "wasm32"))]
+use std::fs;
+#[cfg(not(target_arch = "wasm32"))]
+use std::path::Path;
 
 const HTML_STYLE: &str = include_str!("../templates/html_style.css");
 #[cfg(not(target_arch = "wasm32"))]
@@ -28,6 +34,33 @@ const COURIER_PRIME_BOLD_TTF: &[u8] = include_bytes!("../templates/fonts/Courier
 #[cfg(not(target_arch = "wasm32"))]
 const COURIER_PRIME_BOLD_ITALIC_TTF: &[u8] =
     include_bytes!("../templates/fonts/CourierPrime-BoldItalic.ttf");
+#[cfg(not(target_arch = "wasm32"))]
+const MAX_EMBEDDED_FONT_FILE_SIZE: u64 = 32 * 1024 * 1024;
+
+#[cfg(not(target_arch = "wasm32"))]
+#[derive(Clone, Debug)]
+pub struct HtmlFontError {
+    message: String,
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl HtmlFontError {
+    fn new(message: impl Into<String>) -> Self {
+        Self {
+            message: message.into(),
+        }
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl std::fmt::Display for HtmlFontError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(&self.message)
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl Error for HtmlFontError {}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct HtmlRenderOptions {
@@ -67,6 +100,148 @@ pub fn embedded_courier_prime_css_from_base64(
         embedded_font_face_from_base64("Courier Prime", 700, "italic", bold_italic_ttf_base64),
     ]
     .join("\n")
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub fn embedded_courier_prime_css_from_directory(
+    directory: impl AsRef<Path>,
+) -> Result<String, HtmlFontError> {
+    let directory = directory.as_ref();
+    let metadata = fs::symlink_metadata(directory).map_err(|error| {
+        HtmlFontError::new(format!(
+            "custom font directory '{}': {error}",
+            directory.display()
+        ))
+    })?;
+    if metadata.file_type().is_symlink() {
+        return Err(HtmlFontError::new(format!(
+            "custom font directory '{}' must not be a symbolic link",
+            directory.display()
+        )));
+    }
+    if !metadata.is_dir() {
+        return Err(HtmlFontError::new(format!(
+            "custom font path '{}' is not a directory",
+            directory.display()
+        )));
+    }
+
+    let regular = load_embedded_font(directory, "regular", "regular.ttf", "courier-prime.ttf")?;
+    let italic = load_embedded_font(
+        directory,
+        "italic",
+        "italic.ttf",
+        "courier-prime-italic.ttf",
+    )?;
+    let bold = load_embedded_font(directory, "bold", "bold.ttf", "courier-prime-bold.ttf")?;
+    let bold_italic = load_embedded_font(
+        directory,
+        "bold-italic",
+        "bold-italic.ttf",
+        "courier-prime-bold-italic.ttf",
+    )?;
+
+    Ok([
+        embedded_font_face("Courier Prime", 400, "normal", &regular),
+        embedded_font_face("Courier Prime", 400, "italic", &italic),
+        embedded_font_face("Courier Prime", 700, "normal", &bold),
+        embedded_font_face("Courier Prime", 700, "italic", &bold_italic),
+    ]
+    .join("\n"))
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn load_embedded_font(
+    directory: &Path,
+    style: &str,
+    generic_name: &str,
+    alias_name: &str,
+) -> Result<Vec<u8>, HtmlFontError> {
+    let generic_path = directory.join(generic_name);
+    let alias_path = directory.join(alias_name);
+    let generic_exists = embedded_font_entry_exists(&generic_path, style)?;
+    let alias_exists = embedded_font_entry_exists(&alias_path, style)?;
+    let path = match (generic_exists, alias_exists) {
+        (true, true) => {
+            return Err(HtmlFontError::new(format!(
+                "custom {style} font is ambiguous: both '{}' and '{}' exist",
+                generic_path.display(),
+                alias_path.display()
+            )));
+        }
+        (true, false) => generic_path,
+        (false, true) => alias_path,
+        (false, false) => {
+            return Err(HtmlFontError::new(format!(
+                "custom font directory '{}' is missing the {style} face; expected '{generic_name}' or '{alias_name}'",
+                directory.display()
+            )));
+        }
+    };
+
+    let metadata = fs::symlink_metadata(&path).map_err(|error| {
+        HtmlFontError::new(format!(
+            "cannot inspect custom {style} font '{}': {error}",
+            path.display()
+        ))
+    })?;
+    if metadata.file_type().is_symlink() {
+        return Err(HtmlFontError::new(format!(
+            "custom {style} font '{}' must not be a symbolic link",
+            path.display()
+        )));
+    }
+    if !metadata.is_file() {
+        return Err(HtmlFontError::new(format!(
+            "custom {style} font '{}' is not a regular file",
+            path.display()
+        )));
+    }
+    if metadata.len() > MAX_EMBEDDED_FONT_FILE_SIZE {
+        return Err(HtmlFontError::new(format!(
+            "custom {style} font '{}' is larger than the 32 MiB limit",
+            path.display()
+        )));
+    }
+
+    let bytes = fs::read(&path).map_err(|error| {
+        HtmlFontError::new(format!(
+            "cannot read custom {style} font '{}': {error}",
+            path.display()
+        ))
+    })?;
+    if !matches!(bytes.get(..4), Some([0, 1, 0, 0]) | Some(b"true")) {
+        return Err(HtmlFontError::new(format!(
+            "custom {style} font '{}' is not a supported TrueType .ttf font",
+            path.display()
+        )));
+    }
+    let face = ttf_parser::Face::parse(&bytes, 0).map_err(|error| {
+        HtmlFontError::new(format!(
+            "custom {style} font '{}' is malformed or unsupported: {error}",
+            path.display()
+        ))
+    })?;
+    if face.tables().glyf.is_none() {
+        return Err(HtmlFontError::new(format!(
+            "custom {style} font '{}' does not contain TrueType outlines",
+            path.display()
+        )));
+    }
+
+    Ok(bytes)
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn embedded_font_entry_exists(path: &Path, style: &str) -> Result<bool, HtmlFontError> {
+    match fs::symlink_metadata(path) {
+        Ok(_) => Ok(true),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(false),
+        Err(error) => Err(HtmlFontError::new(format!(
+            "cannot inspect custom {style} font path '{}': {error}",
+            path.display()
+        ))),
+    }
 }
 
 fn embedded_font_face_from_base64(
@@ -1149,6 +1324,43 @@ mod tests {
 
         assert!(output.contains("data:font/ttf;base64,"));
         assert!(output.contains("font-family: \"Courier Prime\";"));
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn html_can_embed_custom_font_directory() {
+        let directory =
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/fonts/cyrillic-test-family");
+        let css = embedded_courier_prime_css_from_directory(directory)
+            .expect("custom fixture font family should load");
+
+        assert_eq!(css.matches("@font-face").count(), 4);
+        assert_eq!(css.matches("data:font/ttf;base64,").count(), 4);
+        assert!(css.contains("font-weight: 400;"));
+        assert!(css.contains("font-weight: 700;"));
+        assert!(css.contains("font-style: italic;"));
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn html_custom_font_directory_requires_all_four_faces() {
+        let directory = std::env::temp_dir().join(format!(
+            "jumpcut-html-font-test-{}-{}",
+            std::process::id(),
+            std::thread::current().name().unwrap_or("unnamed")
+        ));
+        fs::create_dir_all(&directory).unwrap();
+        fs::copy(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("tests/fixtures/fonts/cyrillic-test-family/regular.ttf"),
+            directory.join("regular.ttf"),
+        )
+        .unwrap();
+
+        let error = embedded_courier_prime_css_from_directory(&directory).unwrap_err();
+        assert!(error.to_string().contains("missing the italic face"));
+
+        fs::remove_dir_all(directory).unwrap();
     }
 
     #[test]

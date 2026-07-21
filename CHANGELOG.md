@@ -16,6 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added a dedicated formatting and metadata reference document at [`docs/formatting-and-metadata.md`](docs/formatting-and-metadata.md).
 - Added an explicit `--write` / `-w` CLI mode for auto-derived output paths while keeping stdout as the default.
 - Added `--no-title-page` support for HTML and PDF output.
+- Added PDF scene bookmarks that navigate directly to scene headings.
+- Added `--font-dir` support for custom four-face TrueType families in PDF output and embedded-font HTML output.
 - Added a clearer user-facing WASM packaging entrypoint under `scripts/wasm/generate-package.sh`.
 - Added a feature-gated PDF export to the wasm wrapper and extended the wasm size/runtime report to cover `pdf_only`.
 
