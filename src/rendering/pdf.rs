@@ -23,15 +23,19 @@ use pdf_writer::types::{
     ArtifactAttachment, ArtifactSubtype, ArtifactType, CidFontType, FontFlags, NumberingStyle,
     PageMode, StructRole, SystemInfo, UnicodeCmap,
 };
-use pdf_writer::{Content, Date, Finish, Name, Pdf, Rect, Ref, Str, TextStr};
+use pdf_writer::{Content, Date, Filter, Finish, Name, Pdf, Rect, Ref, Str, TextStr, XRefFilter};
+use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::error::Error;
 use std::fmt;
+use std::io::Write as _;
 #[cfg(not(target_arch = "wasm32"))]
 use std::fs;
 #[cfg(not(target_arch = "wasm32"))]
 use std::path::Path;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
+#[cfg(feature = "pdf-font-subsetting")]
+use subsetter::GlyphRemapper;
 use ttf_parser::{name_id, Face};
 
 const BODY_TEXT_FONT_SIZE: f32 = 12.0;
@@ -633,7 +637,7 @@ struct EmbeddedFont<'a> {
     resource_name: Name<'static>,
     base_font_name: Vec<u8>,
     family_name: Vec<u8>,
-    font_bytes: &'a [u8],
+    font_bytes: Cow<'a, [u8]>,
     cid_by_char: BTreeMap<char, u16>,
     font_descriptor: EmbeddedFontDescriptor,
     cid_widths: Vec<f32>,
@@ -978,7 +982,8 @@ fn render_internal(
     if let (Some(title_page), Some(tagged_title_page)) =
         (&document.title_page, &tagged_document.title_page)
     {
-        pdf.stream(
+        write_compressed_pdf_stream(
+            &mut pdf,
             content_ids[content_index],
             &render_title_page_content(title_page, tagged_title_page, &fonts, &geometry),
         );
@@ -986,7 +991,8 @@ fn render_internal(
     }
 
     for title_overflow_page in &document.title_overflow_pages {
-        pdf.stream(
+        write_compressed_pdf_stream(
+            &mut pdf,
             content_ids[content_index],
             &render_title_overflow_page_content(title_overflow_page, &geometry, &fonts),
         );
@@ -994,7 +1000,8 @@ fn render_internal(
     }
 
     for body_page in &document.body_pages {
-        pdf.stream(
+        write_compressed_pdf_stream(
+            &mut pdf,
             content_ids[content_index],
             &render_body_page_content(body_page, &geometry, &fonts, &profile),
         );
@@ -1104,7 +1111,28 @@ fn render_internal(
         }
     }
 
-    Ok(pdf.finish())
+    Ok(pdf.finish_with_xref_stream_and_filter(Ref::new(next_object_id), |xref| {
+        (
+            compress_pdf_stream(xref),
+            XRefFilter::Single(Filter::FlateDecode),
+        )
+    }))
+}
+
+fn compress_pdf_stream(data: &[u8]) -> Vec<u8> {
+    let mut encoder =
+        flate2::write::ZlibEncoder::new(Vec::new(), flate2::Compression::best());
+    encoder
+        .write_all(data)
+        .expect("writing PDF stream into memory should succeed");
+    encoder
+        .finish()
+        .expect("finishing PDF stream compression should succeed")
+}
+
+fn write_compressed_pdf_stream(pdf: &mut Pdf, id: Ref, data: &[u8]) {
+    let compressed = compress_pdf_stream(data);
+    pdf.stream(id, &compressed).filter(Filter::FlateDecode);
 }
 
 fn build_scene_bookmark_plans(
@@ -2176,12 +2204,15 @@ fn write_embedded_font_objects(pdf: &mut Pdf, font: &EmbeddedFont<'_>, ids: Font
         .missing_width(font.font_descriptor.missing_width)
         .font_file2(ids.font_file_id);
 
-    let mut font_file_stream = pdf.stream(ids.font_file_id, font.font_bytes);
-    font_file_stream.pair(Name(b"Length1"), font.font_bytes.len() as i32);
+    let compressed_font_bytes = compress_pdf_stream(font.font_bytes.as_ref());
+    let mut font_file_stream = pdf.stream(ids.font_file_id, &compressed_font_bytes);
+    font_file_stream
+        .filter(Filter::FlateDecode)
+        .pair(Name(b"Length1"), font.font_bytes.len() as i32);
     font_file_stream.finish();
 
-    pdf.stream(ids.to_unicode_id, &font.to_unicode_cmap);
-    pdf.stream(ids.cid_to_gid_map_id, &font.cid_to_gid_map);
+    write_compressed_pdf_stream(pdf, ids.to_unicode_id, &font.to_unicode_cmap);
+    write_compressed_pdf_stream(pdf, ids.cid_to_gid_map_id, &font.cid_to_gid_map);
 }
 
 fn title_page_line_left(text: &str, region: PdfTitleBlockRegion, geometry: &LayoutGeometry) -> f32 {
@@ -2518,6 +2549,10 @@ impl<'a> EmbeddedFont<'a> {
         let mut cid_widths = Vec::new();
         let mut cid_to_gid_map = vec![0_u8, 0_u8];
         let mut to_unicode = UnicodeCmap::new(cmap_name, ADOBE_IDENTITY);
+        #[cfg(feature = "pdf-font-subsetting")]
+        let mut glyph_remapper = GlyphRemapper::new();
+        #[cfg(feature = "pdf-font-subsetting")]
+        let mut glyphs = Vec::new();
 
         for (index, character) in chars.into_iter().enumerate() {
             let cid = u16::try_from(index + 1).map_err(|_| {
@@ -2542,9 +2577,35 @@ impl<'a> EmbeddedFont<'a> {
 
             cid_by_char.insert(character, cid);
             cid_widths.push(width as f32 * scale);
+            #[cfg(feature = "pdf-font-subsetting")]
+            {
+                glyph_remapper.remap(glyph_id.0);
+                glyphs.push(glyph_id.0);
+            }
+            #[cfg(not(feature = "pdf-font-subsetting"))]
             cid_to_gid_map.extend_from_slice(&glyph_id.0.to_be_bytes());
             to_unicode.pair(cid, character);
         }
+
+        #[cfg(feature = "pdf-font-subsetting")]
+        for glyph_id in glyphs {
+            let subset_glyph_id = glyph_remapper.get(glyph_id).ok_or_else(|| {
+                PdfFontError::new(format!(
+                    "font subset for {style} face '{source}' lost glyph ID {glyph_id}"
+                ))
+            })?;
+            cid_to_gid_map.extend_from_slice(&subset_glyph_id.to_be_bytes());
+        }
+        #[cfg(feature = "pdf-font-subsetting")]
+        let embedded_font_bytes = Cow::Owned(
+            subsetter::subset(font_bytes, 0, &glyph_remapper).map_err(|error| {
+                PdfFontError::new(format!(
+                    "could not subset {style} font '{source}' for PDF embedding: {error}"
+                ))
+            })?,
+        );
+        #[cfg(not(feature = "pdf-font-subsetting"))]
+        let embedded_font_bytes = Cow::Borrowed(font_bytes);
 
         let bbox = face.global_bounding_box();
         let widths = cid_widths.clone();
@@ -2553,7 +2614,7 @@ impl<'a> EmbeddedFont<'a> {
             resource_name,
             base_font_name,
             family_name,
-            font_bytes,
+            font_bytes: embedded_font_bytes,
             cid_by_char,
             font_descriptor: EmbeddedFontDescriptor {
                 ascent: face.ascender() as f32 * scale,
@@ -3911,6 +3972,7 @@ mod tests {
     use crate::{blank_attributes, p, tr, Attributes, Element, Metadata};
     use regex::Regex;
     use std::fs;
+    use std::io::Read as _;
     use std::path::{Path, PathBuf};
     use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -4001,14 +4063,26 @@ mod tests {
             std::str::from_utf8(&fonts.bold_italic.base_font_name).unwrap(),
             "JCBITA+DejaVuSansMono-BoldOblique"
         );
-        for font in [&fonts.regular, &fonts.bold, &fonts.italic, &fonts.bold_italic] {
+        for (font, original) in [
+            (&fonts.regular, &family.regular),
+            (&fonts.bold, &family.bold),
+            (&fonts.italic, &family.italic),
+            (&fonts.bold_italic, &family.bold_italic),
+        ] {
             assert!(font.cid_by_char.contains_key(&'Ж'));
             assert!(String::from_utf8_lossy(&font.to_unicode_cmap).contains("0416"));
+            #[cfg(feature = "pdf-font-subsetting")]
+            assert!(
+                font.font_bytes.len() < original.bytes.len(),
+                "embedded font subset should be smaller than its source face"
+            );
+            #[cfg(not(feature = "pdf-font-subsetting"))]
+            assert_eq!(font.font_bytes.len(), original.bytes.len());
         }
 
         let pdf = render_with_font_family(&screenplay, PdfRenderOptions::default(), &family)
             .expect("custom font PDF");
-        let pdf_text = String::from_utf8_lossy(&pdf);
+        let pdf_text = pdf_inspection_text(&pdf);
         assert!(pdf_text.contains("/BaseFont /JCREGA+DejaVuSansMono"));
         assert!(pdf_text.contains("/BaseFont /JCBOLD+DejaVuSansMono-Bold"));
         assert!(pdf_text.contains("/BaseFont /JCITAL+DejaVuSansMono-Oblique"));
@@ -4348,7 +4422,7 @@ mod tests {
     }
 
     fn inspect_tagged_pdf(pdf: &[u8]) -> TaggedPdfInspection {
-        let pdf_text = String::from_utf8_lossy(pdf);
+        let pdf_text = pdf_inspection_text(pdf);
         let role_map_entries = extract_name_pairs_from_dict(&pdf_text, "/RoleMap");
         let struct_elem_objects = pdf_text
             .split("endobj")
@@ -4382,6 +4456,50 @@ mod tests {
             property_marked_content: extract_property_marked_content(&pdf_text),
             xmp_metadata: extract_metadata_stream(&pdf_text),
         }
+    }
+
+    fn pdf_inspection_text(pdf: &[u8]) -> String {
+        let mut text = String::from_utf8_lossy(pdf).into_owned();
+        let mut cursor = 0;
+
+        while let Some(relative_marker) = pdf[cursor..]
+            .windows(b"stream\n".len())
+            .position(|window| window == b"stream\n")
+        {
+            let marker = cursor + relative_marker;
+            if marker >= b"end".len() && &pdf[marker - b"end".len()..marker] == b"end" {
+                cursor = marker + b"stream\n".len();
+                continue;
+            }
+            let object_start = pdf[..marker]
+                .windows(b"obj\n".len())
+                .rposition(|window| window == b"obj\n")
+                .map(|position| position + b"obj\n".len())
+                .unwrap_or(0);
+            let header = String::from_utf8_lossy(&pdf[object_start..marker]);
+            let data_start = marker + b"stream\n".len();
+
+            if header.contains("/Filter /FlateDecode") {
+                if let Some(length) = extract_first_marker_int(&header, "/Length ")
+                    .and_then(|length| usize::try_from(length).ok())
+                {
+                    if let Some(data) = pdf.get(data_start..data_start.saturating_add(length)) {
+                        let mut decoded = Vec::new();
+                        flate2::read::ZlibDecoder::new(data)
+                            .read_to_end(&mut decoded)
+                            .expect("valid FlateDecode test stream");
+                        text.push('\n');
+                        text.push_str(&String::from_utf8_lossy(&decoded));
+                        cursor = data_start + length;
+                        continue;
+                    }
+                }
+            }
+
+            cursor = data_start;
+        }
+
+        text
     }
 
     fn inspect_artifact_properties(stream: &[u8]) -> Vec<InspectedArtifact> {
@@ -5031,6 +5149,8 @@ mod tests {
         assert!(pdf_text.contains("/Subtype /Type0"));
         assert!(pdf_text.contains("/FontFile2"));
         assert!(pdf_text.contains("/BaseFont /AAAAAA+CourierPrime-Regular"));
+        assert!(pdf_text.contains("/Filter /FlateDecode"));
+        assert!(pdf_text.contains("/Type /XRef"));
     }
 
     #[test]

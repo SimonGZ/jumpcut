@@ -13,7 +13,7 @@ Embedded Courier Prime HTML export is documented separately in [`html-embedded-f
 
 ## Feature Model
 
-JumpCut uses Cargo features so that consumers can choose how much functionality to compile into a wasm build.
+JumpCut uses Cargo features so you can choose how much functionality to compile into a WASM build.
 
 Current wasm feature slices:
 
@@ -21,10 +21,27 @@ Current wasm feature slices:
 - HTML: optional
 - FDX: optional
 - PDF: optional
+- PDF font subsetting: optional through `pdf-font-subsetting`
 
-The default wasm build includes HTML, FDX, and PDF.
+### PDF Font Subsetting And Bundle Size
 
-That means you can keep the default "everything on" build for a full web app, or build narrower packages when file size matters more than format coverage.
+Font subsetting embeds only the glyphs used by the current document. This can materially reduce generated PDFs, especially short documents where the four font faces account for most of the file, but the subsetting implementation also adds substantial code to the wasm module, so it's an opt-in choice:
+
+```sh
+wasm-pack build --release --target web jumpcut-wasm --features pdf-font-subsetting
+```
+
+The `pdf-font-subsetting` feature includes `pdf`; it does not need to be listed separately.
+
+The default WASM package keeps lossless PDF stream compression but does not subset fonts. Native JumpCut builds subset fonts by default. With the repository's release profile and `wasm-opt -Os`, the tradeoff measured as follows:
+
+| Build | Raw WASM | gzip | Brotli |
+| --- | ---: | ---: | ---: |
+| PDF before stream compression | 1,627,578 bytes | 667,190 bytes | 497,466 bytes |
+| Default WASM with PDF compression | 1,655,073 bytes | 678,912 bytes | 506,150 bytes |
+| PDF compression and font subsetting | 2,260,714 bytes | 901,770 bytes | 672,320 bytes |
+
+Compression adds about 27 KB of raw WASM, while subsetting adds about 606 KB. The latter can meaningfully reduce generated PDFs, especially short documents where fonts account for most of the file, but most web applications should prefer the smaller default bundle.
 
 ## JS-Facing Exports
 
@@ -119,7 +136,7 @@ The repo includes helper scripts for the wasm workflow:
   - runs the smoke package-generation path
 - `./scripts/wasm/report.sh`
   - repo-internal benchmark/size-report helper
-  - emits bundle-size metrics, feature-slice metrics (`json_only`, `html_only`, `fdx_only`, `pdf_only`), native guardrail metrics, and Node-side wasm runtime metrics
+  - emits bundle-size metrics, feature-slice metrics (`json_only`, `html_only`, `fdx_only`, `pdf_only`, `pdf_subset`), native guardrail metrics, and Node-side wasm runtime metrics
 
 The current benchmark baseline artifact lives at:
 

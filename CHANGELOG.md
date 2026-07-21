@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `--font-dir` support for custom four-face TrueType families in PDF output and embedded-font HTML output.
 - Added a clearer user-facing WASM packaging entrypoint under `scripts/wasm/generate-package.sh`.
 - Added a feature-gated PDF export to the wasm wrapper and extended the wasm size/runtime report to cover `pdf_only`.
+- Added an opt-in `pdf-font-subsetting` wasm feature and a corresponding `pdf_subset` size-report slice.
 
 ### Changed
 - Promoted the project to a `1.0.0-beta` baseline in crate metadata while preparing for the final `1.0.0` release.
@@ -29,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Split README-heavy formatting and metadata material into a dedicated reference doc and rewrote that guidance in more user-facing language.
 - Separated normal wasm package generation from the older research-era script naming.
 - Preserved paragraph-level `SpaceBefore` and `RightIndent` deviations through FDX import/export and structural act-break upgrades instead of flattening them into only document-level defaults.
+- Kept lossless PDF compression in the default wasm build while reserving font subsetting for native defaults and explicit wasm opt-in, avoiding roughly 606 KB of raw wasm in the default package.
 
 ### Fixed
 - Fixed wasm package generation so the wrapper no longer pulled in native-only diagnostics code.

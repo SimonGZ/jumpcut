@@ -144,6 +144,8 @@ JumpCut also ships an in-repo wasm wrapper crate at [jumpcut-wasm](jumpcut-wasm)
 
 For the wasm wrapper API, Cargo feature model, package-generation workflow, and internal size/report tooling, see [`docs/wasm.md`](docs/wasm.md).
 
+The default wasm PDF renderer uses lossless stream compression without font subsetting to keep the downloaded module smaller. Native builds subset fonts by default; wasm consumers can opt into the same smaller generated PDFs with the `pdf-font-subsetting` feature. The measured bundle and PDF size tradeoffs are documented in [`docs/wasm.md`](docs/wasm.md#pdf-font-subsetting-and-bundle-size).
+
 Embedded Courier Prime HTML export is documented in [`docs/html-embedded-fonts.md`](docs/html-embedded-fonts.md).
 
 ## Diagnostics
