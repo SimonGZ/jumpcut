@@ -16,7 +16,7 @@ pub mod visual_lines;
 pub mod wrapping;
 
 pub use comparison::{
-    compare_paginated_to_fixture, ComparisonIssue, ComparisonIssueKind, ComparisonReport,
+    ComparisonIssue, ComparisonIssueKind, ComparisonReport, compare_paginated_to_fixture,
 };
 pub use fixtures::{
     Fragment, LineRange, NormalizedElement, NormalizedScreenplay, PageBreakFixture,
@@ -32,8 +32,8 @@ pub use layout_profile::{
 pub use margin::{Alignment, FdxExtractedSettings, FdxParagraphStyle, LayoutGeometry};
 pub use normalized::normalize_screenplay;
 pub use semantic::{
-    build_semantic_screenplay, build_semantic_screenplay_with_options, Cohesion, DialoguePart,
-    DialoguePartKind, DialogueUnit, DualDialogueSide, DualDialogueUnit, FlowKind, FlowUnit,
-    LyricUnit, PageStartUnit, SemanticOptions, SemanticScreenplay, SemanticUnit,
+    Cohesion, DialoguePart, DialoguePartKind, DialogueUnit, DualDialogueSide, DualDialogueUnit,
+    FlowKind, FlowUnit, LyricUnit, PageStartUnit, SemanticOptions, SemanticScreenplay,
+    SemanticUnit, build_semantic_screenplay, build_semantic_screenplay_with_options,
 };
 pub use wrapping::InterruptionDashWrap;

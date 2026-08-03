@@ -1,6 +1,6 @@
 use crate::pagination::sentence_boundary::{sentence_boundary_offsets, text_ends_sentence};
 use crate::pagination::split_scoring::choose_best_scored_split;
-use crate::pagination::wrapping::{wrap_text_for_element, WrapConfig};
+use crate::pagination::wrapping::{WrapConfig, wrap_text_for_element};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct FlowSplitDecision {
@@ -82,7 +82,7 @@ fn choose_flow_split_with_policy(
 ) -> Option<FlowSplitPlan> {
     let candidate_offsets = sentence_boundary_offsets(text);
 
-    choose_best_scored_split(candidate_offsets.into_iter(), |offset| {
+    choose_best_scored_split(candidate_offsets, |offset| {
         if offset == 0 || offset >= text.len() {
             return None;
         }

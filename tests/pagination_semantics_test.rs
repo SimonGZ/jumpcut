@@ -1,11 +1,11 @@
 use jumpcut::pagination::{
-    build_semantic_screenplay, build_semantic_screenplay_with_options, normalize_screenplay,
     Cohesion, DialoguePartKind, FlowKind, NormalizedElement, NormalizedScreenplay, SemanticOptions,
-    SemanticUnit,
+    SemanticUnit, build_semantic_screenplay, build_semantic_screenplay_with_options,
+    normalize_screenplay,
 };
 use jumpcut::render_attributes::RenderAttributes;
 use jumpcut::styled_text::{StyledRun, StyledText};
-use jumpcut::{blank_attributes, p, parse, tr, Attributes, Element, ElementText, Screenplay};
+use jumpcut::{Attributes, Element, ElementText, Screenplay, blank_attributes, p, parse, tr};
 use pretty_assertions::assert_eq;
 
 #[test]

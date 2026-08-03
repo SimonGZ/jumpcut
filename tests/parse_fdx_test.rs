@@ -1,8 +1,8 @@
 use jumpcut::pagination::{Alignment, ScreenplayLayoutProfile, StyleProfile};
 use jumpcut::title_page::{TitlePage, TitlePageBlockKind};
 use jumpcut::{
-    blank_attributes, p, parse_fdx, Attributes, Element, ElementText::Styled, ImportedElementKind,
-    ImportedTitlePageAlignment, ImportedTitlePageTabStopKind, TextRun,
+    Attributes, Element, ElementText::Styled, ImportedElementKind, ImportedTitlePageAlignment,
+    ImportedTitlePageTabStopKind, TextRun, blank_attributes, p, parse_fdx,
 };
 use pretty_assertions::assert_eq;
 use std::collections::HashSet;
@@ -277,7 +277,9 @@ fn it_preserves_body_paragraph_layout_deviations_as_element_overrides() {
     assert_eq!(action_style.right_indent, Some(7.5));
     assert_eq!(action_style.spacing_before, Some(1.0));
     assert_eq!(
-        imported_layout.element_styles.get(&ImportedElementKind::Dialogue),
+        imported_layout
+            .element_styles
+            .get(&ImportedElementKind::Dialogue),
         None
     );
 
@@ -491,7 +493,7 @@ fn it_imports_public_vikings_title_page_draft_date() {
         screenplay.metadata.get("draft date"),
         Some(&vec!["Axaky 3, 3132".into()])
     );
-    assert!(screenplay.metadata.get("source").is_some());
+    assert!(screenplay.metadata.contains_key("source"));
     assert!(TitlePage::from_metadata(&screenplay.metadata).is_some());
 }
 
@@ -664,7 +666,8 @@ fn it_preserves_title_page_overflow_pages_without_promoting_centered_page_two_co
         ImportedTitlePageAlignment::Center
     );
     assert_eq!(
-        imported_title_page.pages[1].paragraphs[3].tab_stops
+        imported_title_page.pages[1].paragraphs[3]
+            .tab_stops
             .iter()
             .map(|tab_stop| (tab_stop.position, tab_stop.kind))
             .collect::<Vec<_>>(),
@@ -819,13 +822,12 @@ fn fdx_export_preserves_imported_title_page_overflow_pages() {
 
 #[test]
 fn title_page_frontmatter_count_is_available_for_pagination_scope() {
-    use jumpcut::title_page::TitlePage;
     use jumpcut::Metadata;
+    use jumpcut::title_page::TitlePage;
 
     // Script with no frontmatter: title page count contribution from frontmatter = 0
     let mut metadata_no_fm = Metadata::new();
     metadata_no_fm.insert("title".into(), vec!["MY SCREENPLAY".into()]);
     let tp_no_fm = TitlePage::from_metadata(&metadata_no_fm).expect("should have title page");
     assert_eq!(tp_no_fm.frontmatter.len(), 0);
-
 }

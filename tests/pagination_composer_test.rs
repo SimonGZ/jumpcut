@@ -1,10 +1,10 @@
 // tests/pagination_composer_test.rs
 use jumpcut::pagination::composer::compose;
-use jumpcut::pagination::{build_semantic_screenplay, normalize_screenplay};
 use jumpcut::pagination::{
     Cohesion, DialoguePart, DialoguePartKind, DialogueUnit, DualDialogueSide, DualDialogueUnit,
     FlowKind, FlowUnit, LayoutGeometry, PaginationConfig, SemanticUnit,
 };
+use jumpcut::pagination::{build_semantic_screenplay, normalize_screenplay};
 use jumpcut::{parse, parse_fdx};
 
 fn mock_action(id: &str, text: &str) -> SemanticUnit {
@@ -278,7 +278,8 @@ fn composer_uses_action_layout_override_width_deltas_from_real_parser_output() {
 #[test]
 fn composer_uses_imported_fdx_spacing_deltas_through_the_same_path_as_fountain() {
     let fountain = parse("Alpha.\n\nBravo[[ .lift-1 ]]");
-    let fountain_semantic = build_semantic_screenplay(normalize_screenplay("fountain-lift", &fountain));
+    let fountain_semantic =
+        build_semantic_screenplay(normalize_screenplay("fountain-lift", &fountain));
     let fountain_blocks = compose(&fountain_semantic.units, &LayoutGeometry::default());
 
     let fdx = parse_fdx(
@@ -300,7 +301,10 @@ fn composer_uses_imported_fdx_spacing_deltas_through_the_same_path_as_fountain()
     assert_eq!(fountain_blocks.len(), 2);
     assert_eq!(fdx_blocks.len(), 2);
     assert_eq!(fountain_blocks[1].spacing_above, 0.0);
-    assert_eq!(fdx_blocks[1].spacing_above, fountain_blocks[1].spacing_above);
+    assert_eq!(
+        fdx_blocks[1].spacing_above,
+        fountain_blocks[1].spacing_above
+    );
 }
 
 #[test]
@@ -330,7 +334,10 @@ fn composer_uses_imported_fdx_width_deltas_through_the_same_path_as_fountain() {
     assert_eq!(fountain_blocks.len(), 1);
     assert_eq!(fdx_blocks.len(), 1);
     assert_eq!(fountain_blocks[0].content_lines, 1.0);
-    assert_eq!(fdx_blocks[0].content_lines, fountain_blocks[0].content_lines);
+    assert_eq!(
+        fdx_blocks[0].content_lines,
+        fountain_blocks[0].content_lines
+    );
 }
 
 #[test]

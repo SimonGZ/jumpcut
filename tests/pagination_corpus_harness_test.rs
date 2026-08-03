@@ -1,12 +1,12 @@
 use jumpcut::pagination::{
-    build_semantic_screenplay, compare_paginated_to_fixture, margin::line_height_for_element_type,
-    normalize_screenplay, wrapping::ElementType, ComparisonIssueKind, DialoguePartKind, FlowKind,
-    Fragment, InterruptionDashWrap, LayoutGeometry, LineRange, NormalizedElement,
-    NormalizedScreenplay, PageBreakFixture, PaginatedScreenplay, PaginationConfig,
+    ComparisonIssueKind, DialoguePartKind, FlowKind, Fragment, InterruptionDashWrap,
+    LayoutGeometry, LineRange, NormalizedElement, NormalizedScreenplay, PageBreakFixture,
+    PaginatedScreenplay, PaginationConfig, build_semantic_screenplay, compare_paginated_to_fixture,
+    margin::line_height_for_element_type, normalize_screenplay, wrapping::ElementType,
 };
 use jumpcut::parse;
-use serde::de::DeserializeOwned;
 use serde::Serialize;
+use serde::de::DeserializeOwned;
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;

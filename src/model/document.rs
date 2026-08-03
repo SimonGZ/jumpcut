@@ -265,7 +265,7 @@ impl Serialize for Element {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize)]
 pub struct Attributes {
     pub centered: bool,
     pub starts_new_page: bool,
@@ -338,18 +338,6 @@ where
     let mut styles: Vec<String> = x.clone().into_iter().collect();
     styles.sort();
     styles.serialize(s)
-}
-
-impl Default for Attributes {
-    fn default() -> Self {
-        Attributes {
-            centered: false,
-            starts_new_page: false,
-            scene_number: None,
-            notes: None,
-            layout_overrides: ElementLayoutOverrides::default(),
-        }
-    }
 }
 
 pub fn blank_attributes() -> Attributes {

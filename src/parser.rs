@@ -6,8 +6,8 @@ use std::str::Lines;
 
 use crate::Element::PageBreak;
 use crate::{
-    blank_attributes, text_style_parser, Attributes, Element, ElementLayoutOverrides, ElementText,
-    Metadata, Screenplay,
+    Attributes, Element, ElementLayoutOverrides, ElementText, Metadata, Screenplay,
+    blank_attributes, text_style_parser,
 };
 use ElementText::*;
 
@@ -284,7 +284,7 @@ fn make_single_line_element(line: &str) -> Element {
             ..attributes
         };
     }
-    match make_forced(&line) {
+    match make_forced(line) {
         Some(make_element) => {
             let stripped: &str = trim_classifier_start(line)
                 .trim_start_matches(&['!', '@', '~', '.', '>', '='][..])
@@ -318,7 +318,7 @@ fn make_single_line_element(line: &str) -> Element {
                 make_element(Plain(final_text), attributes)
             }
         }
-        _ if is_scene(&line) => {
+        _ if is_scene(line) => {
             let line = trim_classifier_edges(line);
             // Handle special case of scene numbers on scene headings
             if extract_scene_number(line).is_some() {
@@ -346,7 +346,7 @@ fn make_single_line_element(line: &str) -> Element {
                 Element::SceneHeading(Plain(final_text), attributes)
             }
         }
-        _ if is_transition(&line) => {
+        _ if is_transition(line) => {
             let line = classifier_trimmed(line);
             let final_text = if line_has_note {
                 remove_notes(line)
@@ -355,7 +355,7 @@ fn make_single_line_element(line: &str) -> Element {
             };
             Element::Transition(Plain(final_text), attributes)
         }
-        _ if is_centered(&line) => {
+        _ if is_centered(line) => {
             let line = trim_classifier_edges(line);
             let final_text = if line_has_note {
                 remove_notes(trim_centered_marks(line))
@@ -540,7 +540,7 @@ pub fn is_cold_opening(line: &str) -> bool {
     )
 }
 
-fn split_lowercase_tokens<'a>(line: &'a str) -> Vec<&'a str> {
+fn split_lowercase_tokens(line: &str) -> Vec<&str> {
     line.split(|ch: char| !ch.is_ascii_alphanumeric())
         .filter(|token| !token.is_empty())
         .collect()
@@ -717,7 +717,7 @@ fn make_dialogue_block(hunk: Vec<&str>) -> Element {
                 .trim();
             if let Element::Lyric(Plain(s), _) = elements.last_mut().unwrap() {
                 // if previous element was lyric and so is this one, add this line to that previous lyric
-                s.push_str("\n");
+                s.push('\n');
                 s.push_str(stripped_line);
             } else {
                 // this line is lyric but previous line wasn't, create new lyric element
@@ -725,7 +725,7 @@ fn make_dialogue_block(hunk: Vec<&str>) -> Element {
             }
         } else if let Element::Dialogue(Plain(s), _) = elements.last_mut().unwrap() {
             // if previous element was dialogue, add this line to that dialogue
-            s.push_str("\n");
+            s.push('\n');
             let trimmed = processed_line.as_ref();
             let trimmed = if trimmed.trim().is_empty() {
                 trimmed
@@ -760,9 +760,8 @@ fn retrieve_notes(line: &str) -> Option<Vec<String>> {
     }
     let mut result = vec![];
     for mat in RE.find_iter(line) {
-        match line.get(mat.start() + 2..mat.end() - 2) {
-            Some(str) => result.push(str.to_string()),
-            None => (),
+        if let Some(str) = line.get(mat.start() + 2..mat.end() - 2) {
+            result.push(str.to_string())
         }
     }
     Some(result)
@@ -803,9 +802,7 @@ fn extract_layout_modifiers_from_notes(
     )
 }
 
-fn extract_layout_modifiers_from_note(
-    note: &str,
-) -> (Option<String>, ElementLayoutOverrides) {
+fn extract_layout_modifiers_from_note(note: &str) -> (Option<String>, ElementLayoutOverrides) {
     let mut layout_overrides = ElementLayoutOverrides::default();
     let mut remaining_tokens = Vec::new();
     let mut saw_modifier = false;
@@ -815,12 +812,14 @@ fn extract_layout_modifiers_from_note(
             Some((space_before_delta, right_indent_delta)) => {
                 saw_modifier = true;
                 if let Some(space_before_delta) = space_before_delta {
-                    layout_overrides.space_before_delta =
-                        Some(layout_overrides.space_before_delta.unwrap_or(0.0) + space_before_delta);
+                    layout_overrides.space_before_delta = Some(
+                        layout_overrides.space_before_delta.unwrap_or(0.0) + space_before_delta,
+                    );
                 }
                 if let Some(right_indent_delta) = right_indent_delta {
-                    layout_overrides.right_indent_delta =
-                        Some(layout_overrides.right_indent_delta.unwrap_or(0.0) + right_indent_delta);
+                    layout_overrides.right_indent_delta = Some(
+                        layout_overrides.right_indent_delta.unwrap_or(0.0) + right_indent_delta,
+                    );
                 }
             }
             None => remaining_tokens.push(token),
@@ -859,7 +858,7 @@ fn parse_layout_modifier_token(token: &str) -> Option<(Option<f32>, Option<f32>)
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{p, tr, ElementText::Styled};
+    use crate::{ElementText::Styled, p, tr};
 
     #[test]
     fn test_lines_to_hunks() {

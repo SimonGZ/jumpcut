@@ -2,15 +2,15 @@ use crate::pagination::composer::{self, LayoutBlock};
 use crate::pagination::margin::line_height_for_element_type;
 use crate::pagination::paginator;
 use crate::pagination::wrapping::{
-    self, wrap_config_with_overrides, ElementType, InterruptionDashWrap, WrappedStyledFragment,
+    self, ElementType, InterruptionDashWrap, WrappedStyledFragment, wrap_config_with_overrides,
 };
 use crate::pagination::{
-    build_semantic_screenplay_with_options, normalize_screenplay, DialoguePartKind, LayoutGeometry,
-    Page, PageKind, PaginatedScreenplay, PaginationConfig, PaginationScope,
-    ScreenplayLayoutProfile, SemanticOptions, SemanticUnit, StyleProfile,
+    DialoguePartKind, LayoutGeometry, Page, PageKind, PaginatedScreenplay, PaginationConfig,
+    PaginationScope, ScreenplayLayoutProfile, SemanticOptions, SemanticUnit, StyleProfile,
+    build_semantic_screenplay_with_options, normalize_screenplay,
 };
 use crate::styled_text::{StyledRun, StyledText};
-use crate::title_page::{frontmatter_count, TitlePage};
+use crate::title_page::{TitlePage, frontmatter_count};
 use crate::{ElementLayoutOverrides, Screenplay};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -151,20 +151,18 @@ fn default_pagination_scope(
     screenplay: &Screenplay,
     options: VisualRenderOptions,
 ) -> PaginationScope {
-    if options.render_title_page {
-        if TitlePage::from_screenplay(screenplay).is_some() {
-            let count = frontmatter_count(screenplay).unwrap_or(1);
-            let first_page_number = if screenplay.metadata.contains_key("frontmatter-page-count") {
-                Some(2)
-            } else {
-                Some(count + 1)
-            };
-            return PaginationScope {
-                first_page_number,
-                title_page_count: Some(count),
-                body_start_page: Some(count + 1),
-            };
-        }
+    if options.render_title_page && TitlePage::from_screenplay(screenplay).is_some() {
+        let count = frontmatter_count(screenplay).unwrap_or(1);
+        let first_page_number = if screenplay.metadata.contains_key("frontmatter-page-count") {
+            Some(2)
+        } else {
+            Some(count + 1)
+        };
+        return PaginationScope {
+            first_page_number,
+            title_page_count: Some(count),
+            body_start_page: Some(count + 1),
+        };
     }
     PaginationScope {
         first_page_number: None,
@@ -265,82 +263,80 @@ fn render_layout_block_lines(
         );
     }
 
-    if let SemanticUnit::Flow(flow) = block.unit {
-        if let Some(plan) = block.flow_split.as_ref() {
-            let element_type = ElementType::from_flow_kind(&flow.kind);
-            let lines = if let Some(inline_text) = &flow.inline_text {
-                let fragment_text = match block.fragment {
-                    crate::pagination::Fragment::ContinuedToNext => {
-                        inline_text.slice(0, plan.top_end_offset)
-                    }
-                    crate::pagination::Fragment::ContinuedFromPrev => {
-                        inline_text.slice(plan.bottom_start_offset, inline_text.plain_text.len())
-                    }
-                    crate::pagination::Fragment::ContinuedFromPrevAndToNext => {
-                        inline_text.slice(0, plan.top_end_offset)
-                    }
-                    crate::pagination::Fragment::Whole => inline_text.clone(),
-                };
-
-                render_indented_styled_lines(
-                    &fragment_text,
-                    element_type,
-                    &flow.render_attributes.layout_overrides,
-                    geometry,
-                    interruption_dash_wrap,
-                    flow.render_attributes.centered,
-                )
-                .into_iter()
-                .enumerate()
-                .map(|(line_index, line)| {
-                    let mut el = rendered_element_line_from_styled(
-                        line,
-                        element_type,
-                        flow.render_attributes.centered,
-                    );
-                    if line_index == 0 {
-                        el.scene_number = flow.render_attributes.scene_number.clone();
-                    }
-                    el
-                })
-                .collect()
-            } else {
-                let text = match block.fragment {
-                    crate::pagination::Fragment::ContinuedToNext => plan.top_text.clone(),
-                    crate::pagination::Fragment::ContinuedFromPrev => plan.bottom_text.clone(),
-                    crate::pagination::Fragment::ContinuedFromPrevAndToNext => {
-                        plan.top_text.clone()
-                    }
-                    crate::pagination::Fragment::Whole => flow.text.clone(),
-                };
-
-                render_indented_lines(
-                    &text,
-                    element_type,
-                    &flow.render_attributes.layout_overrides,
-                    geometry,
-                    interruption_dash_wrap,
-                    flow.render_attributes.centered,
-                )
-                .into_iter()
-                .enumerate()
-                .map(|(line_index, text)| RenderedElementLine {
-                    fragments: vec![plain_fragment_for_text(&text)],
-                    text,
-                    element_type,
-                    centered: flow.render_attributes.centered,
-                    dual: None,
-                    scene_number: if line_index == 0 {
-                        flow.render_attributes.scene_number.clone()
-                    } else {
-                        None
-                    },
-                })
-                .collect()
+    if let SemanticUnit::Flow(flow) = block.unit
+        && let Some(plan) = block.flow_split.as_ref()
+    {
+        let element_type = ElementType::from_flow_kind(&flow.kind);
+        let lines = if let Some(inline_text) = &flow.inline_text {
+            let fragment_text = match block.fragment {
+                crate::pagination::Fragment::ContinuedToNext => {
+                    inline_text.slice(0, plan.top_end_offset)
+                }
+                crate::pagination::Fragment::ContinuedFromPrev => {
+                    inline_text.slice(plan.bottom_start_offset, inline_text.plain_text.len())
+                }
+                crate::pagination::Fragment::ContinuedFromPrevAndToNext => {
+                    inline_text.slice(0, plan.top_end_offset)
+                }
+                crate::pagination::Fragment::Whole => inline_text.clone(),
             };
 
-            return counted_visual_lines(lines, geometry);
-        }
+            render_indented_styled_lines(
+                &fragment_text,
+                element_type,
+                &flow.render_attributes.layout_overrides,
+                geometry,
+                interruption_dash_wrap,
+                flow.render_attributes.centered,
+            )
+            .into_iter()
+            .enumerate()
+            .map(|(line_index, line)| {
+                let mut el = rendered_element_line_from_styled(
+                    line,
+                    element_type,
+                    flow.render_attributes.centered,
+                );
+                if line_index == 0 {
+                    el.scene_number = flow.render_attributes.scene_number.clone();
+                }
+                el
+            })
+            .collect()
+        } else {
+            let text = match block.fragment {
+                crate::pagination::Fragment::ContinuedToNext => plan.top_text.clone(),
+                crate::pagination::Fragment::ContinuedFromPrev => plan.bottom_text.clone(),
+                crate::pagination::Fragment::ContinuedFromPrevAndToNext => plan.top_text.clone(),
+                crate::pagination::Fragment::Whole => flow.text.clone(),
+            };
+
+            render_indented_lines(
+                &text,
+                element_type,
+                &flow.render_attributes.layout_overrides,
+                geometry,
+                interruption_dash_wrap,
+                flow.render_attributes.centered,
+            )
+            .into_iter()
+            .enumerate()
+            .map(|(line_index, text)| RenderedElementLine {
+                fragments: vec![plain_fragment_for_text(&text)],
+                text,
+                element_type,
+                centered: flow.render_attributes.centered,
+                dual: None,
+                scene_number: if line_index == 0 {
+                    flow.render_attributes.scene_number.clone()
+                } else {
+                    None
+                },
+            })
+            .collect()
+        };
+
+        return counted_visual_lines(lines, geometry);
     }
 
     let all_lines =

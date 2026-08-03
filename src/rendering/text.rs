@@ -2,14 +2,14 @@ use crate::pagination::composer::{self, LayoutBlock};
 use crate::pagination::margin::{calculate_element_width, line_height_for_element_type};
 use crate::pagination::paginator;
 use crate::pagination::wrapping::{
-    self, wrap_config_with_overrides, ElementType, InterruptionDashWrap,
+    self, ElementType, InterruptionDashWrap, wrap_config_with_overrides,
 };
 use crate::pagination::{
-    build_semantic_screenplay_with_options, normalize_screenplay, DialoguePartKind, LayoutGeometry,
-    Page, PageKind, PaginatedScreenplay, PaginationConfig, PaginationScope,
-    ScreenplayLayoutProfile, SemanticOptions, SemanticUnit, StyleProfile,
+    DialoguePartKind, LayoutGeometry, Page, PageKind, PaginatedScreenplay, PaginationConfig,
+    PaginationScope, ScreenplayLayoutProfile, SemanticOptions, SemanticUnit, StyleProfile,
+    build_semantic_screenplay_with_options, normalize_screenplay,
 };
-use crate::title_page::{frontmatter_count, TitlePage};
+use crate::title_page::{TitlePage, frontmatter_count};
 use crate::{ElementLayoutOverrides, Screenplay};
 
 const DEFAULT_LINES_PER_PAGE: f32 = 54.0;
@@ -190,7 +190,7 @@ fn page_number_indent_spaces(geometry: &LayoutGeometry) -> usize {
 
 fn alternating_dash_prefix(width: usize) -> String {
     let dash_width = width.saturating_sub(PAGE_NUMBER_GAP_WIDTH);
-    let repeated = "- ".repeat((dash_width + 1) / 2);
+    let repeated = "- ".repeat(dash_width.div_ceil(2));
     let mut prefix = repeated.chars().take(dash_width).collect::<String>();
     let leading_blank = PAGE_DELIMITER_LEADING_SPACE_WIDTH.min(prefix.len());
     prefix.replace_range(0..leading_blank, &" ".repeat(leading_blank));
@@ -315,30 +315,30 @@ fn render_layout_block_lines(
         );
     }
 
-    if let SemanticUnit::Flow(flow) = block.unit {
-        if let Some(plan) = block.flow_split.as_ref() {
-            let text = match block.fragment {
-                crate::pagination::Fragment::ContinuedToNext => plan.top_text.clone(),
-                crate::pagination::Fragment::ContinuedFromPrev => plan.bottom_text.clone(),
-                crate::pagination::Fragment::ContinuedFromPrevAndToNext => plan.top_text.clone(),
-                crate::pagination::Fragment::Whole => flow.text.clone(),
-            };
-            let element_type = ElementType::from_flow_kind(&flow.kind);
+    if let SemanticUnit::Flow(flow) = block.unit
+        && let Some(plan) = block.flow_split.as_ref()
+    {
+        let text = match block.fragment {
+            crate::pagination::Fragment::ContinuedToNext => plan.top_text.clone(),
+            crate::pagination::Fragment::ContinuedFromPrev => plan.bottom_text.clone(),
+            crate::pagination::Fragment::ContinuedFromPrevAndToNext => plan.top_text.clone(),
+            crate::pagination::Fragment::Whole => flow.text.clone(),
+        };
+        let element_type = ElementType::from_flow_kind(&flow.kind);
 
-            return counted_rendered_lines(
-                render_indented_lines(
-                    &text,
-                    element_type,
-                    &flow.render_attributes.layout_overrides,
-                    geometry,
-                    interruption_dash_wrap,
-                )
-                    .into_iter()
-                    .map(|text| RenderedElementLine { text, element_type })
-                    .collect(),
+        return counted_rendered_lines(
+            render_indented_lines(
+                &text,
+                element_type,
+                &flow.render_attributes.layout_overrides,
                 geometry,
-            );
-        }
+                interruption_dash_wrap,
+            )
+            .into_iter()
+            .map(|text| RenderedElementLine { text, element_type })
+            .collect(),
+            geometry,
+        );
     }
 
     let all_lines =
@@ -556,9 +556,9 @@ fn render_semantic_unit_lines(
                 geometry,
                 interruption_dash_wrap,
             )
-                .into_iter()
-                .map(|text| RenderedElementLine { text, element_type })
-                .collect()
+            .into_iter()
+            .map(|text| RenderedElementLine { text, element_type })
+            .collect()
         }
         SemanticUnit::Lyric(lyric) => render_indented_lines(
             &lyric.text,
@@ -826,7 +826,7 @@ struct RenderedTextLine {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{blank_attributes, p, parse_fdx, Attributes, Element, Metadata};
+    use crate::{Attributes, Element, Metadata, blank_attributes, p, parse_fdx};
 
     #[test]
     fn text_output_honors_imported_dialogue_width_overrides() {
@@ -883,10 +883,12 @@ mod tests {
             },
         );
 
-        assert!(output
-            .lines()
-            .next()
-            .is_some_and(|line| line.trim() == "FIRST PAGE"));
+        assert!(
+            output
+                .lines()
+                .next()
+                .is_some_and(|line| line.trim() == "FIRST PAGE")
+        );
         assert!(output.contains("SECOND PAGE"));
         let page_two_header = output
             .lines()
@@ -963,10 +965,12 @@ mod tests {
             },
         );
 
-        assert!(output
-            .lines()
-            .next()
-            .is_some_and(|line| line.trim() == "BODY PAGE ONE"));
+        assert!(
+            output
+                .lines()
+                .next()
+                .is_some_and(|line| line.trim() == "BODY PAGE ONE")
+        );
         let page_two_header = output
             .lines()
             .find(|line| line.trim().ends_with("2."))

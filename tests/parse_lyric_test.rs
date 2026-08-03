@@ -1,4 +1,4 @@
-use jumpcut::{blank_attributes, p, parse, Element};
+use jumpcut::{Element, blank_attributes, p, parse};
 use pretty_assertions::assert_eq;
 
 #[test]
@@ -37,7 +37,9 @@ fn it_handles_longer_multiple_line_lyric() {
     let expected = vec![Element::DialogueBlock(vec![
         Element::Character(p("SINGER"), blank_attributes()),
         Element::Lyric(
-            p("Some holidays we ring in wholeheartedly:\nMothers’ Day, Fathers’ Day, or Martin Luther King.\nBut some we celebrate a bit more guardedly.\nTheir history\nTurns out to be\nA complex issue, racially.\nSo thoughtfully we sinnnnnng..."),
+            p(
+                "Some holidays we ring in wholeheartedly:\nMothers’ Day, Fathers’ Day, or Martin Luther King.\nBut some we celebrate a bit more guardedly.\nTheir history\nTurns out to be\nA complex issue, racially.\nSo thoughtfully we sinnnnnng...",
+            ),
             blank_attributes(),
         ),
     ])];

@@ -5,8 +5,6 @@ use jumpcut::ElementText;
 #[cfg(feature = "cli")]
 use jumpcut::{parse, parse_fdx};
 #[cfg(feature = "cli")]
-use serde_json;
-#[cfg(feature = "cli")]
 use std::fs;
 #[cfg(feature = "cli")]
 use std::io::{self, Read, Write};
@@ -20,7 +18,6 @@ use std::path::{Path, PathBuf};
     about = "A tool for converting Fountain and Final Draft screenplay documents into Fountain, FDX, HTML, JSON, text, and optional PDF formats.",
     version
 )]
-#[cfg(feature = "cli")]
 struct Args {
     /// Formats (Fountain, FDX, HTML, JSON, text, PDF)
     #[arg(short, long, value_parser = parse_output_format)]
@@ -458,9 +455,9 @@ mod tests {
     #[cfg(not(feature = "pdf"))]
     use super::pdf_output_enabled;
     use super::{
-        apply_render_profile_override, infer_format, infer_input_format, looks_like_fdx,
-        parse_cli_input, resolve_metadata_path, resolve_output_path, Args, InputFormat,
-        RenderProfile,
+        Args, InputFormat, RenderProfile, apply_render_profile_override, infer_format,
+        infer_input_format, looks_like_fdx, parse_cli_input, resolve_metadata_path,
+        resolve_output_path,
     };
     use clap::{CommandFactory, Parser};
     use jumpcut::{ElementText, Metadata};
@@ -616,22 +613,20 @@ mod tests {
     #[cfg(feature = "pdf")]
     #[test]
     fn cli_accepts_no_title_page_for_html_and_pdf() {
-        assert!(Args::try_parse_from([
-            "jumpcut",
-            "script.fountain",
-            "-f",
-            "html",
-            "--no-title-page"
-        ])
-        .is_ok());
-        assert!(Args::try_parse_from([
-            "jumpcut",
-            "script.fountain",
-            "-f",
-            "pdf",
-            "--no-title-page"
-        ])
-        .is_ok());
+        assert!(
+            Args::try_parse_from([
+                "jumpcut",
+                "script.fountain",
+                "-f",
+                "html",
+                "--no-title-page"
+            ])
+            .is_ok()
+        );
+        assert!(
+            Args::try_parse_from(["jumpcut", "script.fountain", "-f", "pdf", "--no-title-page"])
+                .is_ok()
+        );
     }
 
     #[cfg(feature = "pdf")]
@@ -659,14 +654,16 @@ mod tests {
     #[cfg(not(feature = "pdf"))]
     #[test]
     fn cli_only_accepts_no_title_page_for_html_when_pdf_output_is_disabled() {
-        assert!(Args::try_parse_from([
-            "jumpcut",
-            "script.fountain",
-            "-f",
-            "html",
-            "--no-title-page"
-        ])
-        .is_ok());
+        assert!(
+            Args::try_parse_from([
+                "jumpcut",
+                "script.fountain",
+                "-f",
+                "html",
+                "--no-title-page"
+            ])
+            .is_ok()
+        );
         assert!(!pdf_output_enabled());
     }
 

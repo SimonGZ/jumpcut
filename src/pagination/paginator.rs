@@ -1,17 +1,17 @@
+use crate::pagination::LayoutGeometry;
+use crate::pagination::SemanticUnit;
 use crate::pagination::composer::LayoutBlock;
 use crate::pagination::dialogue_split::{
-    plan_dialogue_split, plan_dialogue_split_parts, DialogueSplitPlan, DialogueTextPart,
+    DialogueSplitPlan, DialogueTextPart, plan_dialogue_split, plan_dialogue_split_parts,
 };
 use crate::pagination::fixtures::Fragment;
 use crate::pagination::flow_split::{
-    choose_flow_split, choose_flow_split_allow_exact_fit_sentence_runt, FlowSplitPlan,
+    FlowSplitPlan, choose_flow_split, choose_flow_split_allow_exact_fit_sentence_runt,
 };
 use crate::pagination::margin::line_height_for_element_type;
 use crate::pagination::wrapping::{
-    wrap_config_with_overrides, wrap_text_for_element, ElementType, InterruptionDashWrap,
+    ElementType, InterruptionDashWrap, wrap_config_with_overrides, wrap_text_for_element,
 };
-use crate::pagination::LayoutGeometry;
-use crate::pagination::SemanticUnit;
 
 pub struct Page<'a> {
     pub blocks: Vec<LayoutBlock<'a>>,
@@ -120,8 +120,8 @@ pub fn paginate_with_mode<'a>(
         }
 
         if current_page_lines + chunk_height > page_limit_lines {
-            if chunk.blocks.len() == 2 {
-                if let Some(split) = choose_keep_with_next_split(
+            if chunk.blocks.len() == 2
+                && let Some(split) = choose_keep_with_next_split(
                     chunk.blocks[0],
                     chunk.blocks[1],
                     current_page_blocks.iter().any(block_has_visible_content),
@@ -129,48 +129,48 @@ pub fn paginate_with_mode<'a>(
                     page_limit_lines,
                     geometry,
                     interruption_dash_wrap,
-                ) {
-                    current_page_blocks.push(LayoutBlock {
-                        unit: split.lead_block.unit,
-                        fragment: split.lead_block.fragment.clone(),
-                        spacing_above: split.lead_spacing,
-                        content_lines: split.lead_block.content_lines,
-                        dialogue_split: split.lead_block.dialogue_split.clone(),
-                        flow_split: split.lead_block.flow_split.clone(),
-                        keep_with_next: false,
-                        can_split: false,
-                        widow_penalty: split.lead_block.widow_penalty,
-                    });
-                    current_page_blocks.push(LayoutBlock {
-                        unit: split.split_block.unit,
-                        fragment: Fragment::ContinuedToNext,
-                        spacing_above: split.split_block.spacing_above,
-                        content_lines: split.split.top_lines,
-                        dialogue_split: split.split.dialogue_split.clone(),
-                        flow_split: split.split.flow_split.clone(),
-                        keep_with_next: false,
-                        can_split: false,
-                        widow_penalty: 0.0,
-                    });
+                )
+            {
+                current_page_blocks.push(LayoutBlock {
+                    unit: split.lead_block.unit,
+                    fragment: split.lead_block.fragment.clone(),
+                    spacing_above: split.lead_spacing,
+                    content_lines: split.lead_block.content_lines,
+                    dialogue_split: split.lead_block.dialogue_split.clone(),
+                    flow_split: split.lead_block.flow_split.clone(),
+                    keep_with_next: false,
+                    can_split: false,
+                    widow_penalty: split.lead_block.widow_penalty,
+                });
+                current_page_blocks.push(LayoutBlock {
+                    unit: split.split_block.unit,
+                    fragment: Fragment::ContinuedToNext,
+                    spacing_above: split.split_block.spacing_above,
+                    content_lines: split.split.top_lines,
+                    dialogue_split: split.split.dialogue_split.clone(),
+                    flow_split: split.split.flow_split.clone(),
+                    keep_with_next: false,
+                    can_split: false,
+                    widow_penalty: 0.0,
+                });
 
-                    pages.push(Page {
-                        blocks: current_page_blocks,
-                    });
+                pages.push(Page {
+                    blocks: current_page_blocks,
+                });
 
-                    current_page_blocks = vec![LayoutBlock {
-                        unit: split.split_block.unit,
-                        fragment: Fragment::ContinuedFromPrev,
-                        spacing_above: 0.0,
-                        content_lines: split.split.bottom_lines + split.split_block.widow_penalty,
-                        dialogue_split: split.split.dialogue_split,
-                        flow_split: split.split.flow_split,
-                        keep_with_next: split.split_block.keep_with_next,
-                        can_split: split.split_block.can_split,
-                        widow_penalty: 0.0,
-                    }];
-                    current_page_lines = current_page_blocks[0].content_lines;
-                    continue;
-                }
+                current_page_blocks = vec![LayoutBlock {
+                    unit: split.split_block.unit,
+                    fragment: Fragment::ContinuedFromPrev,
+                    spacing_above: 0.0,
+                    content_lines: split.split.bottom_lines + split.split_block.widow_penalty,
+                    dialogue_split: split.split.dialogue_split,
+                    flow_split: split.split.flow_split,
+                    keep_with_next: split.split_block.keep_with_next,
+                    can_split: split.split_block.can_split,
+                    widow_penalty: 0.0,
+                }];
+                current_page_lines = current_page_blocks[0].content_lines;
+                continue;
             }
 
             if chunk.blocks.len() == 1 && chunk.blocks[0].can_split {
@@ -225,57 +225,55 @@ pub fn paginate_with_mode<'a>(
 
             if chunk_starts_with_transition(&chunk)
                 && current_page_blocks.iter().any(block_has_visible_content)
-            {
-                if let Some(moved_block) =
+                && let Some(moved_block) =
                     pull_last_visible_block_for_transition(&mut current_page_blocks)
-                {
-                    if !current_page_blocks.is_empty() {
-                        pages.push(Page {
-                            blocks: current_page_blocks,
-                        });
-                    }
-
-                    current_page_blocks = vec![LayoutBlock {
-                        unit: moved_block.unit,
-                        fragment: moved_block.fragment,
-                        spacing_above: 0.0,
-                        content_lines: moved_block.content_lines,
-                        dialogue_split: moved_block.dialogue_split,
-                        flow_split: moved_block.flow_split,
-                        keep_with_next: moved_block.keep_with_next,
-                        can_split: moved_block.can_split,
-                        widow_penalty: moved_block.widow_penalty,
-                    }];
-                    current_page_lines = current_page_blocks[0].content_lines;
-
-                    let mut page_has_visible_content = true;
-                    for block in &chunk.blocks {
-                        let effective_spacing =
-                            if !page_has_visible_content && block_has_visible_content(block) {
-                                0.0
-                            } else {
-                                block.spacing_above
-                            };
-
-                        current_page_blocks.push(LayoutBlock {
-                            unit: block.unit,
-                            fragment: block.fragment.clone(),
-                            spacing_above: effective_spacing,
-                            content_lines: block.content_lines,
-                            dialogue_split: block.dialogue_split.clone(),
-                            flow_split: block.flow_split.clone(),
-                            keep_with_next: block.keep_with_next,
-                            can_split: block.can_split,
-                            widow_penalty: block.widow_penalty,
-                        });
-
-                        current_page_lines += effective_spacing + block.content_lines;
-                        if block_has_visible_content(block) {
-                            page_has_visible_content = true;
-                        }
-                    }
-                    continue;
+            {
+                if !current_page_blocks.is_empty() {
+                    pages.push(Page {
+                        blocks: current_page_blocks,
+                    });
                 }
+
+                current_page_blocks = vec![LayoutBlock {
+                    unit: moved_block.unit,
+                    fragment: moved_block.fragment,
+                    spacing_above: 0.0,
+                    content_lines: moved_block.content_lines,
+                    dialogue_split: moved_block.dialogue_split,
+                    flow_split: moved_block.flow_split,
+                    keep_with_next: moved_block.keep_with_next,
+                    can_split: moved_block.can_split,
+                    widow_penalty: moved_block.widow_penalty,
+                }];
+                current_page_lines = current_page_blocks[0].content_lines;
+
+                let mut page_has_visible_content = true;
+                for block in &chunk.blocks {
+                    let effective_spacing =
+                        if !page_has_visible_content && block_has_visible_content(block) {
+                            0.0
+                        } else {
+                            block.spacing_above
+                        };
+
+                    current_page_blocks.push(LayoutBlock {
+                        unit: block.unit,
+                        fragment: block.fragment.clone(),
+                        spacing_above: effective_spacing,
+                        content_lines: block.content_lines,
+                        dialogue_split: block.dialogue_split.clone(),
+                        flow_split: block.flow_split.clone(),
+                        keep_with_next: block.keep_with_next,
+                        can_split: block.can_split,
+                        widow_penalty: block.widow_penalty,
+                    });
+
+                    current_page_lines += effective_spacing + block.content_lines;
+                    if block_has_visible_content(block) {
+                        page_has_visible_content = true;
+                    }
+                }
+                continue;
             }
 
             if !current_page_blocks.is_empty() {
@@ -371,7 +369,7 @@ fn choose_split_lines(
         return None;
     }
 
-    let decision = match block.unit {
+    match block.unit {
         SemanticUnit::Dialogue(dialogue) => {
             let max_top_height = available_lines - effective_spacing;
 
@@ -482,8 +480,7 @@ fn choose_split_lines(
                 flow_split: Some(plan),
             })
         }
-    };
-    decision
+    }
 }
 
 fn choose_keep_with_next_split<'a>(

@@ -3,13 +3,14 @@ use std::fs;
 use std::os::unix::fs::symlink;
 use std::path::{Path, PathBuf};
 
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 use crate::pagination::{
-    build_semantic_screenplay, compare_paginated_to_fixture, margin::line_height_for_element_type,
-    normalize_screenplay, wrapping::ElementType, ComparisonIssueKind, DialoguePartKind, FlowKind,
-    Fragment, LayoutGeometry, LineRange, NormalizedElement, NormalizedScreenplay, PageBreakFixture,
-    PageBreakFixtureSourceRefs, PaginatedScreenplay, PaginationConfig, SemanticUnit,
+    ComparisonIssueKind, DialoguePartKind, FlowKind, Fragment, LayoutGeometry, LineRange,
+    NormalizedElement, NormalizedScreenplay, PageBreakFixture, PageBreakFixtureSourceRefs,
+    PaginatedScreenplay, PaginationConfig, SemanticUnit, build_semantic_screenplay,
+    compare_paginated_to_fixture, margin::line_height_for_element_type, normalize_screenplay,
+    wrapping::ElementType,
 };
 use crate::parse;
 
@@ -1402,7 +1403,7 @@ fn debug_page(
 
     DebugPageBreakFixturePage {
         number: page.metadata.number,
-        label: diagnostic_page_label(page.metadata.number, &page_mappings),
+        label: diagnostic_page_label(page.metadata.number, page_mappings),
         block_total_lines,
         item_count: page.items.len(),
         block_count: page.blocks.len(),
@@ -1755,24 +1756,24 @@ fn render_layout_block_lines(
         );
     }
 
-    if let SemanticUnit::Flow(flow) = block.unit {
-        if let Some(plan) = block.flow_split.as_ref() {
-            let text = match block.fragment {
-                Fragment::ContinuedToNext => plan.top_text.clone(),
-                Fragment::ContinuedFromPrev => plan.bottom_text.clone(),
-                Fragment::ContinuedFromPrevAndToNext => plan.top_text.clone(),
-                Fragment::Whole => flow.text.clone(),
-            };
-            let element_type = ElementType::from_flow_kind(&flow.kind);
+    if let SemanticUnit::Flow(flow) = block.unit
+        && let Some(plan) = block.flow_split.as_ref()
+    {
+        let text = match block.fragment {
+            Fragment::ContinuedToNext => plan.top_text.clone(),
+            Fragment::ContinuedFromPrev => plan.bottom_text.clone(),
+            Fragment::ContinuedFromPrevAndToNext => plan.top_text.clone(),
+            Fragment::Whole => flow.text.clone(),
+        };
+        let element_type = ElementType::from_flow_kind(&flow.kind);
 
-            return counted_rendered_lines(
-                render_indented_lines(&text, element_type, geometry)
-                    .into_iter()
-                    .map(|text| RenderedElementLine { text, element_type })
-                    .collect(),
-                geometry,
-            );
-        }
+        return counted_rendered_lines(
+            render_indented_lines(&text, element_type, geometry)
+                .into_iter()
+                .map(|text| RenderedElementLine { text, element_type })
+                .collect(),
+            geometry,
+        );
     }
 
     let all_lines = render_semantic_unit_lines(block.unit, geometry);
@@ -1803,13 +1804,15 @@ fn collect_fd_probe_matches(
         .iter()
         .zip(layout_pages.iter())
         .flat_map(|(page, layout_page)| {
-            layout_page.blocks.iter().filter_map(|block| {
-                fd_probe_block_matches(block, &spec.target).then(|| FdProbeActualMatch {
+            layout_page
+                .blocks
+                .iter()
+                .filter(|&block| fd_probe_block_matches(block, &spec.target))
+                .map(|block| FdProbeActualMatch {
                     page_number: page.metadata.number,
                     fragment: block.fragment.clone(),
                     text: fd_probe_rendered_block_text(block, &spec.target.kind),
                 })
-            })
         })
         .collect()
 }

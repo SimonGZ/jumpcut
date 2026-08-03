@@ -2,12 +2,12 @@ use super::shared::{escape_html, join_metadata, sorted_style_names};
 
 use crate::pagination::margin::dual_dialogue_character_left_indent;
 use crate::pagination::visual_lines::{
-    display_page_number, render_paginated_visual_pages_with_options,
-    render_unpaginated_visual_lines_with_options, visual_line_class_name, VisualLine,
-    VisualRenderOptions,
+    VisualLine, VisualRenderOptions, display_page_number,
+    render_paginated_visual_pages_with_options, render_unpaginated_visual_lines_with_options,
+    visual_line_class_name,
 };
 use crate::pagination::wrapping::{
-    wrap_styled_text_for_element, wrap_text_for_element, ElementType, WrapConfig,
+    ElementType, WrapConfig, wrap_styled_text_for_element, wrap_text_for_element,
 };
 use crate::pagination::{ScreenplayLayoutProfile, StyleProfile};
 use crate::styled_text::{StyledRun, StyledText};
@@ -510,24 +510,22 @@ fn render_visual_line(
         out.push_str("&nbsp;");
     } else if let Some(dual) = &line.dual {
         render_visual_dual_line(out, dual, layout_profile);
+    } else if let Some(scene_number) = &line.scene_number {
+        write!(
+            out,
+            "<span class=\"sceneNumberLeft\">{}</span>",
+            escape_html(scene_number)
+        )
+        .unwrap();
+        render_visual_fragments(out, &line.fragments);
+        write!(
+            out,
+            "<span class=\"sceneNumberRight\">{}</span>",
+            escape_html(scene_number)
+        )
+        .unwrap();
     } else {
-        if let Some(scene_number) = &line.scene_number {
-            write!(
-                out,
-                "<span class=\"sceneNumberLeft\">{}</span>",
-                escape_html(scene_number)
-            )
-            .unwrap();
-            render_visual_fragments(out, &line.fragments);
-            write!(
-                out,
-                "<span class=\"sceneNumberRight\">{}</span>",
-                escape_html(scene_number)
-            )
-            .unwrap();
-        } else {
-            render_visual_fragments(out, &line.fragments);
-        }
+        render_visual_fragments(out, &line.fragments);
     }
     out.push_str("</div>\n");
 }
@@ -657,26 +655,26 @@ fn render_paragraph(out: &mut String, element: &Element, layout_profile: &Screen
         out.push_str(" centered");
     }
     out.push_str("\">");
-    if type_name == "Scene Heading" {
-        if let Some(scene_number) = &attributes.scene_number {
-            write!(
-                out,
-                "<span class=\"sceneNumberLeft\">{}</span>",
-                escape_html(scene_number)
-            )
-            .unwrap();
-        }
+    if type_name == "Scene Heading"
+        && let Some(scene_number) = &attributes.scene_number
+    {
+        write!(
+            out,
+            "<span class=\"sceneNumberLeft\">{}</span>",
+            escape_html(scene_number)
+        )
+        .unwrap();
     }
     render_text(out, text);
-    if type_name == "Scene Heading" {
-        if let Some(scene_number) = &attributes.scene_number {
-            write!(
-                out,
-                "<span class=\"sceneNumberRight\">{}</span>",
-                escape_html(scene_number)
-            )
-            .unwrap();
-        }
+    if type_name == "Scene Heading"
+        && let Some(scene_number) = &attributes.scene_number
+    {
+        write!(
+            out,
+            "<span class=\"sceneNumberRight\">{}</span>",
+            escape_html(scene_number)
+        )
+        .unwrap();
     }
     out.push_str("</p>\n");
 }
@@ -718,10 +716,10 @@ fn default_styles_for_type_name<'a>(
     }
 }
 
-fn default_styles_for_element_type<'a>(
+fn default_styles_for_element_type(
     element_type: crate::pagination::wrapping::ElementType,
-    layout_profile: &'a ScreenplayLayoutProfile,
-) -> Option<&'a crate::pagination::layout_profile::ScreenplayElementStyle> {
+    layout_profile: &ScreenplayLayoutProfile,
+) -> Option<&crate::pagination::layout_profile::ScreenplayElementStyle> {
     use crate::pagination::wrapping::ElementType as ET;
     match element_type {
         ET::Action => Some(&layout_profile.styles.action),
@@ -791,7 +789,7 @@ fn embedded_font_face(
     font_style: &str,
     bytes: &[u8],
 ) -> String {
-    use base64::{engine::general_purpose::STANDARD, Engine as _};
+    use base64::{Engine as _, engine::general_purpose::STANDARD};
 
     format!(
         "@font-face {{\n  font-family: \"{font_family}\";\n  src: url(data:font/ttf;base64,{}) format(\"truetype\");\n  font-weight: {font_weight};\n  font-style: {font_style};\n}}\n",
@@ -883,7 +881,8 @@ fn render_imported_title_pages(
         )
         .unwrap();
 
-        if renders_page_numbers && (index > 0 || imported_title_page.header_footer.header_first_page)
+        if renders_page_numbers
+            && (index > 0 || imported_title_page.header_footer.header_first_page)
         {
             write!(
                 out,
@@ -958,8 +957,10 @@ fn render_tabbed_imported_title_paragraph(
     let prefix = combine_element_text_segments(prefix_segments);
     let description_left =
         advance_through_html_tab_stops(first_line_left, prefix_segments, &paragraph.tab_stops);
-    let description_lines =
-        wrap_element_text_to_lines_html(description_segment, width_chars_between(description_left, 7.5));
+    let description_lines = wrap_element_text_to_lines_html(
+        description_segment,
+        width_chars_between(description_left, 7.5),
+    );
 
     write!(
         out,
@@ -1223,7 +1224,7 @@ fn class_name(type_name: &str) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{blank_attributes, p, parse_fdx, tr, Attributes, Element, ElementText, Metadata};
+    use crate::{Attributes, Element, ElementText, Metadata, blank_attributes, p, parse_fdx, tr};
 
     fn html_options(head: bool, exact_wraps: bool, paginated: bool) -> HtmlRenderOptions {
         HtmlRenderOptions {
@@ -1471,8 +1472,10 @@ mod tests {
 
         let output = render_document(&screenplay, html_options(false, true, false));
 
-        assert!(output
-            .contains("<div class=\"visualLine parenthetical\">              (quietly)</div>"));
+        assert!(
+            output
+                .contains("<div class=\"visualLine parenthetical\">              (quietly)</div>")
+        );
     }
 
     #[test]
@@ -1594,9 +1597,7 @@ mod tests {
         let output = render_document(&screenplay, html_options(false, false, false));
 
         assert!(output.contains("importedTitlePage"));
-        assert!(output.contains(
-            ".screenplay .title-page.importedTitlePage.unpaginatedTitlePage"
-        ));
+        assert!(output.contains(".screenplay .title-page.importedTitlePage.unpaginatedTitlePage"));
         assert!(output.contains("GUY TEXT"));
         assert!(output.contains("THE GUYS"));
         assert!(!output.contains("<div class=\"titlePageBlock titlePageCenterMeta\">"));
@@ -1610,9 +1611,14 @@ mod tests {
 
         let output = render_document(&screenplay, html_options(false, false, true));
 
-        assert!(output.contains("<section class=\"title-page importedTitlePage paginatedTitlePage\""));
+        assert!(
+            output.contains("<section class=\"title-page importedTitlePage paginatedTitlePage\"")
+        );
         assert!(output.contains(".screenplay .title-page.importedTitlePage {\n  padding-left: 0;\n  padding-right: 0;\n}"));
-        assert!(output.contains("class=\"importedTitlePageParagraph importedTitlePageTabbedParagraph\""));
+        assert!(
+            output
+                .contains("class=\"importedTitlePageParagraph importedTitlePageTabbedParagraph\"")
+        );
         assert!(output.contains("class=\"importedTitlePageTabbedLine\""));
         assert!(output.contains("class=\"importedTitlePageSegment\" style=\"left:"));
         assert!(output.contains("VIK"));
@@ -1875,6 +1881,8 @@ mod tests {
         assert!(output.contains(
             "class=\"dualSegment dualDialogueParentheticalRight\" style=\"left: 3.375in;\""
         ));
-        assert!(output.contains("class=\"dualSegment dualDialogueRight\" style=\"left: 3.125in;\""));
+        assert!(
+            output.contains("class=\"dualSegment dualDialogueRight\" style=\"left: 3.125in;\"")
+        );
     }
 }

@@ -1,5 +1,5 @@
 use crate::{
-    render_attributes::RenderAttributes, styled_text::StyledText, Element, ElementText, Screenplay,
+    Element, ElementText, Screenplay, render_attributes::RenderAttributes, styled_text::StyledText,
 };
 
 use super::fixtures::{NormalizedElement, NormalizedScreenplay};
@@ -82,55 +82,48 @@ impl NormalizedCollector {
         dual_dialogue_group: Option<&str>,
         dual_dialogue_side: Option<u8>,
     ) {
-        let (
-            kind,
-            text,
-            inline_text,
-            centered,
-            starts_new_page,
-            scene_number,
-            layout_overrides,
-        ) = match element {
-            Element::Action(text, attributes)
-            | Element::Character(text, attributes)
-            | Element::SceneHeading(text, attributes)
-            | Element::Lyric(text, attributes)
-            | Element::Parenthetical(text, attributes)
-            | Element::Dialogue(text, attributes)
-            | Element::Transition(text, attributes)
-            | Element::ColdOpening(text, attributes)
-            | Element::NewAct(text, attributes)
-            | Element::EndOfAct(text, attributes) => (
-                element.name().to_string(),
-                flatten_text(text),
-                StyledText::from_element_text(text),
-                attributes.centered,
-                attributes.starts_new_page,
-                attributes.scene_number.clone(),
-                attributes.layout_overrides.clone(),
-            ),
-            Element::Section(text, attributes, _) => (
-                "Section".to_string(),
-                flatten_text(text),
-                StyledText::from_element_text(text),
-                attributes.centered,
-                attributes.starts_new_page,
-                attributes.scene_number.clone(),
-                attributes.layout_overrides.clone(),
-            ),
-            Element::Synopsis(text) => (
-                "Synopsis".to_string(),
-                flatten_text(text),
-                StyledText::from_element_text(text),
-                false,
-                false,
-                None,
-                Default::default(),
-            ),
-            Element::DialogueBlock(_) | Element::DualDialogueBlock(_) | Element::PageBreak => {
-                return
-            }
-        };
+        let (kind, text, inline_text, centered, starts_new_page, scene_number, layout_overrides) =
+            match element {
+                Element::Action(text, attributes)
+                | Element::Character(text, attributes)
+                | Element::SceneHeading(text, attributes)
+                | Element::Lyric(text, attributes)
+                | Element::Parenthetical(text, attributes)
+                | Element::Dialogue(text, attributes)
+                | Element::Transition(text, attributes)
+                | Element::ColdOpening(text, attributes)
+                | Element::NewAct(text, attributes)
+                | Element::EndOfAct(text, attributes) => (
+                    element.name().to_string(),
+                    flatten_text(text),
+                    StyledText::from_element_text(text),
+                    attributes.centered,
+                    attributes.starts_new_page,
+                    attributes.scene_number.clone(),
+                    attributes.layout_overrides.clone(),
+                ),
+                Element::Section(text, attributes, _) => (
+                    "Section".to_string(),
+                    flatten_text(text),
+                    StyledText::from_element_text(text),
+                    attributes.centered,
+                    attributes.starts_new_page,
+                    attributes.scene_number.clone(),
+                    attributes.layout_overrides.clone(),
+                ),
+                Element::Synopsis(text) => (
+                    "Synopsis".to_string(),
+                    flatten_text(text),
+                    StyledText::from_element_text(text),
+                    false,
+                    false,
+                    None,
+                    Default::default(),
+                ),
+                Element::DialogueBlock(_) | Element::DualDialogueBlock(_) | Element::PageBreak => {
+                    return;
+                }
+            };
 
         self.next_element_id += 1;
         self.elements.push(NormalizedElement {

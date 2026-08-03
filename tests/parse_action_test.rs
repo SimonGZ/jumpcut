@@ -1,4 +1,4 @@
-use jumpcut::{blank_attributes, p, parse, Attributes, Element};
+use jumpcut::{Attributes, Element, blank_attributes, p, parse};
 use pretty_assertions::assert_eq;
 
 #[test]
@@ -31,7 +31,12 @@ fn it_handles_basic_action() {
 #[test]
 fn it_handles_multiline_action() {
     let text = "\nDavid looks around the room cautiously.\nShe's gone. He heads for the drawer, tip-toeing.\nThis is it. The moment he's been waiting for.";
-    let expected = vec![Element::Action(p("David looks around the room cautiously.\nShe's gone. He heads for the drawer, tip-toeing.\nThis is it. The moment he's been waiting for."), blank_attributes())];
+    let expected = vec![Element::Action(
+        p(
+            "David looks around the room cautiously.\nShe's gone. He heads for the drawer, tip-toeing.\nThis is it. The moment he's been waiting for.",
+        ),
+        blank_attributes(),
+    )];
 
     assert_eq!(
         parse(text).elements,
@@ -43,7 +48,24 @@ fn it_handles_multiline_action() {
 #[test]
 fn it_handles_shane_black() {
     let text = "Murtaugh, springing hell bent for leather -- and folks, grab your hats ... because just then, a BELL COBRA HELICOPTER crests the edge of the bluff.\n\nAn explosion of sound...\nAs it rises like an avenging angel ...\nHovers, shattering the air with turbo-throb, sandblasting the hillside with a roto-wash of loose dirt, tables, chairs, everything that's not nailed down ...\n\nScreaming, chaos, frenzy.\nThree words that apply to this scene.";
-    let expected = vec![Element::Action(p("Murtaugh, springing hell bent for leather -- and folks, grab your hats ... because just then, a BELL COBRA HELICOPTER crests the edge of the bluff."), blank_attributes()), Element::Action(p("An explosion of sound...\nAs it rises like an avenging angel ...\nHovers, shattering the air with turbo-throb, sandblasting the hillside with a roto-wash of loose dirt, tables, chairs, everything that's not nailed down ..."), blank_attributes()), Element::Action(p("Screaming, chaos, frenzy.\nThree words that apply to this scene."), blank_attributes())];
+    let expected = vec![
+        Element::Action(
+            p(
+                "Murtaugh, springing hell bent for leather -- and folks, grab your hats ... because just then, a BELL COBRA HELICOPTER crests the edge of the bluff.",
+            ),
+            blank_attributes(),
+        ),
+        Element::Action(
+            p(
+                "An explosion of sound...\nAs it rises like an avenging angel ...\nHovers, shattering the air with turbo-throb, sandblasting the hillside with a roto-wash of loose dirt, tables, chairs, everything that's not nailed down ...",
+            ),
+            blank_attributes(),
+        ),
+        Element::Action(
+            p("Screaming, chaos, frenzy.\nThree words that apply to this scene."),
+            blank_attributes(),
+        ),
+    ];
 
     assert_eq!(
         parse(text).elements,

@@ -1,4 +1,4 @@
-use jumpcut::{blank_attributes, Attributes, ElementLayoutOverrides};
+use jumpcut::{Attributes, ElementLayoutOverrides, blank_attributes};
 
 #[test]
 fn blank_attributes_and_default_attributes_start_with_empty_layout_overrides() {

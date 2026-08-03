@@ -1,23 +1,23 @@
 #![allow(dead_code)]
 
-use crate::pagination::margin::{dual_dialogue_character_left_indent, LayoutGeometry};
+use crate::pagination::ScreenplayLayoutProfile;
+use crate::pagination::margin::{LayoutGeometry, dual_dialogue_character_left_indent};
 use crate::pagination::visual_lines::{
-    display_page_number, render_paginated_visual_pages_with_options, VisualDualLine,
-    VisualDualSide, VisualFragment, VisualRenderOptions,
+    VisualDualLine, VisualDualSide, VisualFragment, VisualRenderOptions, display_page_number,
+    render_paginated_visual_pages_with_options,
 };
 use crate::pagination::wrapping::{
-    wrap_styled_text_for_element, wrap_text_for_element, ElementType, WrapConfig,
+    ElementType, WrapConfig, wrap_styled_text_for_element, wrap_text_for_element,
 };
-use crate::pagination::ScreenplayLayoutProfile;
 use crate::pagination::{
     BlockPlacement, ContinuationMarker, Fragment, PageItem, PaginatedScreenplay, PaginationScope,
 };
 use crate::title_page::{
-    frontmatter_count, plain_title_uses_all_caps, TitlePage, TitlePageBlockKind, TitlePageRegion,
+    TitlePage, TitlePageBlockKind, TitlePageRegion, frontmatter_count, plain_title_uses_all_caps,
 };
 use crate::{
-    styled_text::{StyledRun, StyledText},
     ElementText, ImportedTitlePageAlignment, ImportedTitlePageTabStop, Metadata, Screenplay,
+    styled_text::{StyledRun, StyledText},
 };
 use pdf_writer::types::{
     ArtifactAttachment, ArtifactSubtype, ArtifactType, CidFontType, FontFlags, NumberingStyle,
@@ -28,15 +28,15 @@ use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::error::Error;
 use std::fmt;
-use std::io::Write as _;
 #[cfg(not(target_arch = "wasm32"))]
 use std::fs;
+use std::io::Write as _;
 #[cfg(not(target_arch = "wasm32"))]
 use std::path::Path;
-use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 #[cfg(feature = "pdf-font-subsetting")]
 use subsetter::GlyphRemapper;
-use ttf_parser::{name_id, Face};
+use time::{OffsetDateTime, format_description::well_known::Rfc3339};
+use ttf_parser::{Face, name_id};
 
 const BODY_TEXT_FONT_SIZE: f32 = 12.0;
 const BOOKMARK_DESTINATION_CONTEXT_LINES: f32 = 1.0;
@@ -146,16 +146,8 @@ impl PdfFontFamily {
                 "regular.ttf".into(),
                 regular,
             )?,
-            bold: PdfFontFace::from_ttf_bytes(
-                PdfFontStyle::Bold,
-                "bold.ttf".into(),
-                bold,
-            )?,
-            italic: PdfFontFace::from_ttf_bytes(
-                PdfFontStyle::Italic,
-                "italic.ttf".into(),
-                italic,
-            )?,
+            bold: PdfFontFace::from_ttf_bytes(PdfFontStyle::Bold, "bold.ttf".into(), bold)?,
+            italic: PdfFontFace::from_ttf_bytes(PdfFontStyle::Italic, "italic.ttf".into(), italic)?,
             bold_italic: PdfFontFace::from_ttf_bytes(
                 PdfFontStyle::BoldItalic,
                 "bold-italic.ttf".into(),
@@ -297,7 +289,7 @@ fn load_font_face(directory: &Path, style: PdfFontStyle) -> Result<PdfFontFace, 
                 "custom {style} font is ambiguous: both '{}' and '{}' exist",
                 generic_path.display(),
                 alias_path.display()
-            )))
+            )));
         }
         (true, false) => generic_path,
         (false, true) => alias_path,
@@ -378,10 +370,7 @@ fn font_file_names(style: PdfFontStyle) -> (&'static str, &'static str) {
         PdfFontStyle::Regular => ("regular.ttf", "courier-prime.ttf"),
         PdfFontStyle::Bold => ("bold.ttf", "courier-prime-bold.ttf"),
         PdfFontStyle::Italic => ("italic.ttf", "courier-prime-italic.ttf"),
-        PdfFontStyle::BoldItalic => (
-            "bold-italic.ttf",
-            "courier-prime-bold-italic.ttf",
-        ),
+        PdfFontStyle::BoldItalic => ("bold-italic.ttf", "courier-prime-bold-italic.ttf"),
     }
 }
 
@@ -720,17 +709,17 @@ pub(crate) fn build_render_document(
     };
 
     let rendered_title_page = title_page.as_ref().map(|title_page| PdfTitlePage {
-            plain_title_all_caps: plain_title_uses_all_caps(&screenplay.metadata),
-            blocks: title_page
-                .blocks
-                .iter()
-                .map(|block| PdfTitleBlock {
-                    kind: block.kind.into(),
-                    region: block.region.into(),
-                    lines: block.lines.clone(),
-                })
-                .collect(),
-        });
+        plain_title_all_caps: plain_title_uses_all_caps(&screenplay.metadata),
+        blocks: title_page
+            .blocks
+            .iter()
+            .map(|block| PdfTitleBlock {
+                kind: block.kind.into(),
+                region: block.region.into(),
+                lines: block.lines.clone(),
+            })
+            .collect(),
+    });
     let title_overflow_pages = if options.render_title_page {
         if let Some(imported_title_page) = &screenplay.imported_title_page {
             render_imported_title_pages(imported_title_page, geometry)
@@ -840,9 +829,8 @@ fn render_internal(
     let fonts = EmbeddedFonts::new(&document, font_family)?;
     let body_page_count = document.body_pages.len() as i32;
     let title_overflow_page_count = document.title_overflow_pages.len() as i32;
-    let page_count = body_page_count
-        + title_overflow_page_count
-        + i32::from(document.title_page.is_some());
+    let page_count =
+        body_page_count + title_overflow_page_count + i32::from(document.title_page.is_some());
     let struct_parent_keys = (0..page_count).collect::<Vec<_>>();
     let struct_element_plans = build_struct_element_plans(&structure_pages);
     let page_label_plans = build_page_label_plans(&document);
@@ -1111,17 +1099,18 @@ fn render_internal(
         }
     }
 
-    Ok(pdf.finish_with_xref_stream_and_filter(Ref::new(next_object_id), |xref| {
-        (
-            compress_pdf_stream(xref),
-            XRefFilter::Single(Filter::FlateDecode),
-        )
-    }))
+    Ok(
+        pdf.finish_with_xref_stream_and_filter(Ref::new(next_object_id), |xref| {
+            (
+                compress_pdf_stream(xref),
+                XRefFilter::Single(Filter::FlateDecode),
+            )
+        }),
+    )
 }
 
 fn compress_pdf_stream(data: &[u8]) -> Vec<u8> {
-    let mut encoder =
-        flate2::write::ZlibEncoder::new(Vec::new(), flate2::Compression::best());
+    let mut encoder = flate2::write::ZlibEncoder::new(Vec::new(), flate2::Compression::best());
     encoder
         .write_all(data)
         .expect("writing PDF stream into memory should succeed");
@@ -1166,11 +1155,9 @@ fn build_scene_bookmark_plans(
                 .get(&item.element_id)
                 .filter(|label| !label.trim().is_empty())
             {
-                let Some(line_index) = find_scene_heading_line(
-                    rendered_page,
-                    label,
-                    next_rendered_line,
-                ) else {
+                let Some(line_index) =
+                    find_scene_heading_line(rendered_page, label, next_rendered_line)
+                else {
                     continue;
                 };
                 next_rendered_line = line_index + 1;
@@ -1186,11 +1173,7 @@ fn build_scene_bookmark_plans(
     plans
 }
 
-fn find_scene_heading_line(
-    page: &PdfRenderPage,
-    label: &str,
-    start_index: usize,
-) -> Option<usize> {
+fn find_scene_heading_line(page: &PdfRenderPage, label: &str, start_index: usize) -> Option<usize> {
     let uppercase_label = label.trim().to_uppercase();
     page.lines
         .iter()
@@ -1220,11 +1203,7 @@ fn find_scene_heading_line(
         })
 }
 
-fn scene_bookmark_top(
-    page: &PdfRenderPage,
-    line_index: usize,
-    geometry: &LayoutGeometry,
-) -> f32 {
+fn scene_bookmark_top(page: &PdfRenderPage, line_index: usize, geometry: &LayoutGeometry) -> f32 {
     let baseline = first_body_line_y_for_page(page, geometry)
         - (line_index as f32 * body_line_step_points(geometry));
     (baseline + BOOKMARK_DESTINATION_CONTEXT_LINES * body_line_step_points(geometry))
@@ -1253,11 +1232,7 @@ fn document_title(metadata: &Metadata) -> Option<String> {
         .trim()
         .to_string();
 
-    if title.is_empty() {
-        None
-    } else {
-        Some(title)
-    }
+    if title.is_empty() { None } else { Some(title) }
 }
 
 fn document_creators(metadata: &Metadata) -> Vec<String> {
@@ -1628,18 +1603,13 @@ fn build_page_label_plans(document: &PdfRenderDocument) -> Vec<PdfPageLabelPlan>
         .title_page
         .iter()
         .map(|_| PdfPageLabelStyle::Blank)
-        .chain(
-            document
-                .title_overflow_pages
-                .iter()
-                .map(|page| {
-                    page.display_page_number
-                        .map(|number| PdfPageLabelStyle::LowerRoman {
-                            offset: number as i32,
-                        })
-                        .unwrap_or(PdfPageLabelStyle::Blank)
-                }),
-        )
+        .chain(document.title_overflow_pages.iter().map(|page| {
+            page.display_page_number
+                .map(|number| PdfPageLabelStyle::LowerRoman {
+                    offset: number as i32,
+                })
+                .unwrap_or(PdfPageLabelStyle::Blank)
+        }))
         .chain(document.body_pages.iter().map(|page| {
             page.display_page_number
                 .map(|number| PdfPageLabelStyle::Arabic {
@@ -1663,11 +1633,21 @@ fn build_page_label_plans(document: &PdfRenderDocument) -> Vec<PdfPageLabelPlan>
         let page_index = page_index as i32;
         let should_start_new_plan = match (current_numbered_start, style) {
             (
-                Some((start_page_index, PdfPageLabelStyle::LowerRoman { offset: start_offset })),
+                Some((
+                    start_page_index,
+                    PdfPageLabelStyle::LowerRoman {
+                        offset: start_offset,
+                    },
+                )),
                 PdfPageLabelStyle::LowerRoman { offset },
             )
             | (
-                Some((start_page_index, PdfPageLabelStyle::Arabic { offset: start_offset })),
+                Some((
+                    start_page_index,
+                    PdfPageLabelStyle::Arabic {
+                        offset: start_offset,
+                    },
+                )),
                 PdfPageLabelStyle::Arabic { offset },
             ) => offset != start_offset + (page_index - start_page_index),
             (Some(_), PdfPageLabelStyle::Blank) => true,
@@ -1768,8 +1748,7 @@ fn render_fixed_cell_runs(
                     0.0,
                     0.0,
                     1.0,
-                    line_left
-                        + (cell_index as f32 * BODY_TEXT_CELL_WIDTH)
+                    line_left + (cell_index as f32 * BODY_TEXT_CELL_WIDTH)
                         - ordinary_character_contd_suffix_x_offset(
                             cell_index,
                             contd_suffix_start_cell,
@@ -2505,21 +2484,24 @@ impl<'a> EmbeddedFont<'a> {
         face: &'a PdfFontFace,
         style: PdfFontStyle,
     ) -> Result<Self, PdfFontError> {
-        Self::new(document, EmbeddedFontSource {
-            resource_name,
-            base_font_name: face.base_font_name.clone(),
-            family_name: face.family_name.clone(),
-            font_bytes: &face.bytes,
-            cmap_name: match style {
-                PdfFontStyle::Regular => Name(b"JumpCutCustom-Regular-UTF16"),
-                PdfFontStyle::Bold => Name(b"JumpCutCustom-Bold-UTF16"),
-                PdfFontStyle::Italic => Name(b"JumpCutCustom-Italic-UTF16"),
-                PdfFontStyle::BoldItalic => Name(b"JumpCutCustom-BoldItalic-UTF16"),
+        Self::new(
+            document,
+            EmbeddedFontSource {
+                resource_name,
+                base_font_name: face.base_font_name.clone(),
+                family_name: face.family_name.clone(),
+                font_bytes: &face.bytes,
+                cmap_name: match style {
+                    PdfFontStyle::Regular => Name(b"JumpCutCustom-Regular-UTF16"),
+                    PdfFontStyle::Bold => Name(b"JumpCutCustom-Bold-UTF16"),
+                    PdfFontStyle::Italic => Name(b"JumpCutCustom-Italic-UTF16"),
+                    PdfFontStyle::BoldItalic => Name(b"JumpCutCustom-BoldItalic-UTF16"),
+                },
+                style,
+                source: &face.source,
+                strict_glyphs: true,
             },
-            style,
-            source: &face.source,
-            strict_glyphs: true,
-        })
+        )
     }
 
     fn new(
@@ -2556,7 +2538,9 @@ impl<'a> EmbeddedFont<'a> {
 
         for (index, character) in chars.into_iter().enumerate() {
             let cid = u16::try_from(index + 1).map_err(|_| {
-                PdfFontError::new("document contains too many distinct characters for PDF font embedding")
+                PdfFontError::new(
+                    "document contains too many distinct characters for PDF font embedding",
+                )
             })?;
             let glyph_id = match face.glyph_index(character) {
                 Some(glyph_id) => glyph_id,
@@ -2565,7 +2549,7 @@ impl<'a> EmbeddedFont<'a> {
                         "custom {style} font '{source}' is missing glyph '{}' (U+{:04X}) required by the document",
                         character.escape_default(),
                         character as u32
-                    )))
+                    )));
                 }
                 None => face.glyph_index('?').ok_or_else(|| {
                     PdfFontError::new(format!(
@@ -2728,7 +2712,8 @@ fn render_imported_title_pages(
         .iter()
         .enumerate()
         .map(|(index, page)| {
-            let header_allows_this_page = index > 0 || imported_title_page.header_footer.header_first_page;
+            let header_allows_this_page =
+                index > 0 || imported_title_page.header_footer.header_first_page;
             PdfTitleOverflowPage {
                 page_number: index as u32 + 1,
                 display_page_number: (renders_page_numbers && header_allows_this_page)
@@ -2860,9 +2845,7 @@ fn render_imported_title_overflow_paragraph(
 }
 
 fn title_page_space_before_lines(space_before: Option<f32>) -> usize {
-    (space_before.unwrap_or(0.0) / 12.0)
-        .round()
-        .max(0.0) as usize
+    (space_before.unwrap_or(0.0) / 12.0).round().max(0.0) as usize
 }
 
 fn render_tabbed_title_overflow_paragraph(
@@ -2887,7 +2870,8 @@ fn render_tabbed_title_overflow_paragraph(
     let prefix_text = fragments_text(&prefix_fragments);
     let description_left =
         advance_through_tab_stops(page_left, prefix_segments, &paragraph.tab_stops);
-    let description_lines = wrap_fragments_to_lines(description, width_chars_between(description_left, 7.5));
+    let description_lines =
+        wrap_fragments_to_lines(description, width_chars_between(description_left, 7.5));
 
     let mut lines = Vec::new();
     if let Some(first_description_line) = description_lines.first() {
@@ -2952,12 +2936,19 @@ fn advance_through_tab_stops(
     tab_stops: &[ImportedTitlePageTabStop],
 ) -> f32 {
     let mut current = page_left;
-    let mut sorted_tab_positions = tab_stops.iter().map(|tab_stop| tab_stop.position).collect::<Vec<_>>();
+    let mut sorted_tab_positions = tab_stops
+        .iter()
+        .map(|tab_stop| tab_stop.position)
+        .collect::<Vec<_>>();
     sorted_tab_positions.sort_by(|left, right| left.partial_cmp(right).unwrap());
 
     for segment in segments_before_description {
         current += (fragments_text(segment).chars().count() as f32 * BODY_TEXT_CELL_WIDTH) / 72.0;
-        if let Some(next_tab) = sorted_tab_positions.iter().copied().find(|position| *position > current) {
+        if let Some(next_tab) = sorted_tab_positions
+            .iter()
+            .copied()
+            .find(|position| *position > current)
+        {
             current = next_tab;
         }
     }
@@ -2991,10 +2982,15 @@ fn split_fragments_on_tabs(fragments: &[PdfRenderFragment]) -> Vec<Vec<PdfRender
 }
 
 fn width_chars_between(left: f32, right: f32) -> usize {
-    (((right - left) * 72.0) / BODY_TEXT_CELL_WIDTH).floor().max(1.0) as usize
+    (((right - left) * 72.0) / BODY_TEXT_CELL_WIDTH)
+        .floor()
+        .max(1.0) as usize
 }
 
-fn wrap_element_text_to_lines(text: &ElementText, width_chars: usize) -> Vec<Vec<PdfRenderFragment>> {
+fn wrap_element_text_to_lines(
+    text: &ElementText,
+    width_chars: usize,
+) -> Vec<Vec<PdfRenderFragment>> {
     wrap_fragments_to_lines(&element_text_to_fragments(text), width_chars)
 }
 
@@ -3036,16 +3032,19 @@ fn wrap_fragments_to_lines(
         .collect();
     }
 
-    wrap_text_for_element(&plain_text, &WrapConfig::with_exact_width_chars(width_chars))
-        .into_iter()
-        .map(|text| {
-            vec![PdfRenderFragment {
-                actual_text: None,
-                text,
-                styles: Vec::new(),
-            }]
-        })
-        .collect()
+    wrap_text_for_element(
+        &plain_text,
+        &WrapConfig::with_exact_width_chars(width_chars),
+    )
+    .into_iter()
+    .map(|text| {
+        vec![PdfRenderFragment {
+            actual_text: None,
+            text,
+            styles: Vec::new(),
+        }]
+    })
+    .collect()
 }
 
 fn element_text_to_fragments(text: &ElementText) -> Vec<PdfRenderFragment> {
@@ -3071,7 +3070,10 @@ fn element_text_to_fragments(text: &ElementText) -> Vec<PdfRenderFragment> {
 }
 
 fn fragments_text(fragments: &[PdfRenderFragment]) -> String {
-    fragments.iter().map(|fragment| fragment.text.as_str()).collect()
+    fragments
+        .iter()
+        .map(|fragment| fragment.text.as_str())
+        .collect()
 }
 
 fn render_title_overflow_page_content(
@@ -3195,23 +3197,27 @@ pub(crate) fn build_tagged_document(
     screenplay: &Screenplay,
     geometry: &LayoutGeometry,
 ) -> PdfTaggedDocument {
-    let title_page = screenplay.imported_title_page.is_none().then(|| {
-        TitlePage::from_screenplay(screenplay).map(|title_page| PdfTaggedTitlePage {
-            blocks: title_page
-                .blocks
-                .into_iter()
-                .enumerate()
-                .map(|(index, block)| PdfTaggedTitleBlock {
-                    id: format!("title-page-{:02}-{:02}", index + 1, block.kind.sort_order()),
-                    kind: block.kind.into(),
-                    role: PdfTaggedRole::Title,
-                    region: block.region.into(),
-                    lines: block.lines,
-                    artifact: false,
-                })
-                .collect(),
+    let title_page = screenplay
+        .imported_title_page
+        .is_none()
+        .then(|| {
+            TitlePage::from_screenplay(screenplay).map(|title_page| PdfTaggedTitlePage {
+                blocks: title_page
+                    .blocks
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, block)| PdfTaggedTitleBlock {
+                        id: format!("title-page-{:02}-{:02}", index + 1, block.kind.sort_order()),
+                        kind: block.kind.into(),
+                        role: PdfTaggedRole::Title,
+                        region: block.region.into(),
+                        lines: block.lines,
+                        artifact: false,
+                    })
+                    .collect(),
+            })
         })
-    }).flatten();
+        .flatten();
 
     let paginated = PaginatedScreenplay::from_screenplay(
         "screenplay",
@@ -3675,26 +3681,26 @@ fn emitted_structure_lines_for_page(page: &PdfRenderPage) -> Vec<PdfEmittedStruc
                     break;
                 };
 
-                if let Some(left) = &dual.left {
-                    if let Some(role) = tagged_role_for_line_kind(left.kind) {
-                        emitted.push(PdfEmittedStructLine {
-                            mcid: next_mcid,
-                            role,
-                            dual_side: Some(1),
-                        });
-                        next_mcid += 1;
-                    }
+                if let Some(left) = &dual.left
+                    && let Some(role) = tagged_role_for_line_kind(left.kind)
+                {
+                    emitted.push(PdfEmittedStructLine {
+                        mcid: next_mcid,
+                        role,
+                        dual_side: Some(1),
+                    });
+                    next_mcid += 1;
                 }
 
-                if let Some(right) = &dual.right {
-                    if let Some(role) = tagged_role_for_line_kind(right.kind) {
-                        emitted.push(PdfEmittedStructLine {
-                            mcid: next_mcid,
-                            role,
-                            dual_side: Some(2),
-                        });
-                        next_mcid += 1;
-                    }
+                if let Some(right) = &dual.right
+                    && let Some(role) = tagged_role_for_line_kind(right.kind)
+                {
+                    emitted.push(PdfEmittedStructLine {
+                        mcid: next_mcid,
+                        role,
+                        dual_side: Some(2),
+                    });
+                    next_mcid += 1;
                 }
 
                 line_index += 1;
@@ -3968,8 +3974,8 @@ impl From<VisualDualSide> for PdfRenderDualSide {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{Attributes, Element, Metadata, blank_attributes, p, tr};
     use crate::{parse, parse_fdx};
-    use crate::{blank_attributes, p, tr, Attributes, Element, Metadata};
     use regex::Regex;
     use std::fs;
     use std::io::Read as _;
@@ -3983,10 +3989,8 @@ mod tests {
     impl TestTempDir {
         fn new(label: &str) -> Self {
             let id = NEXT_TEMP_DIR.fetch_add(1, Ordering::Relaxed);
-            let path = std::env::temp_dir().join(format!(
-                "jumpcut-{label}-{}-{id}",
-                std::process::id()
-            ));
+            let path =
+                std::env::temp_dir().join(format!("jumpcut-{label}-{}-{id}", std::process::id()));
             fs::create_dir(&path).expect("create isolated test directory");
             Self(path)
         }
@@ -4003,14 +4007,16 @@ mod tests {
     }
 
     fn fixture_font_directory() -> PathBuf {
-        Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("tests/fixtures/fonts/cyrillic-test-family")
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/fonts/cyrillic-test-family")
     }
 
     fn copy_fixture_fonts(directory: &Path) {
         for filename in ["regular.ttf", "bold.ttf", "italic.ttf", "bold-italic.ttf"] {
-            fs::copy(fixture_font_directory().join(filename), directory.join(filename))
-                .expect("copy font fixture");
+            fs::copy(
+                fixture_font_directory().join(filename),
+                directory.join(filename),
+            )
+            .expect("copy font fixture");
         }
     }
 
@@ -4038,11 +4044,10 @@ mod tests {
 
     #[test]
     fn custom_font_family_embeds_all_four_faces_and_cyrillic_unicode_maps() {
-        let family = PdfFontFamily::from_directory(fixture_font_directory())
-            .expect("valid custom family");
-        let screenplay = parse(
-            "INT. КУХНЯ - НОЧЬ\n\nRegular Привет. **Bold Ж** *Italic Я* ***Both Ю***",
-        );
+        let family =
+            PdfFontFamily::from_directory(fixture_font_directory()).expect("valid custom family");
+        let screenplay =
+            parse("INT. КУХНЯ - НОЧЬ\n\nRegular Привет. **Bold Ж** *Italic Я* ***Both Ю***");
         let geometry = LayoutGeometry::default();
         let document = build_render_document(&screenplay, PdfRenderOptions::default(), &geometry);
         let fonts = EmbeddedFonts::new(&document, Some(&family)).expect("custom fonts embed");
@@ -4096,10 +4101,8 @@ mod tests {
 
     #[test]
     fn custom_font_directory_reports_missing_path_and_non_directory() {
-        let missing = std::env::temp_dir().join(format!(
-            "jumpcut-missing-fonts-{}",
-            std::process::id()
-        ));
+        let missing =
+            std::env::temp_dir().join(format!("jumpcut-missing-fonts-{}", std::process::id()));
         let error = PdfFontFamily::from_directory(&missing).unwrap_err();
         assert!(error.to_string().contains("custom font directory"));
         assert!(error.to_string().contains(&missing.display().to_string()));
@@ -4171,7 +4174,7 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn custom_font_directory_rejects_symbolic_links_and_unreadable_files() {
-        use std::os::unix::fs::{symlink, PermissionsExt};
+        use std::os::unix::fs::{PermissionsExt, symlink};
 
         let symlinked_face = TestTempDir::new("symlinked-font-face");
         copy_fixture_fonts(symlinked_face.path());
@@ -4198,7 +4201,11 @@ mod tests {
         permissions.set_mode(0o000);
         fs::set_permissions(&regular, permissions).unwrap();
         let error = PdfFontFamily::from_directory(unreadable.path()).unwrap_err();
-        assert!(error.to_string().contains("cannot read custom regular font"));
+        assert!(
+            error
+                .to_string()
+                .contains("cannot read custom regular font")
+        );
         let mut permissions = fs::metadata(&regular).unwrap().permissions();
         permissions.set_mode(0o600);
         fs::set_permissions(&regular, permissions).unwrap();
@@ -4246,15 +4253,22 @@ mod tests {
 </FinalDraft>"#;
 
         let screenplay = parse_fdx(xml).expect("fdx should parse");
-        let geometry = ScreenplayLayoutProfile::from_screenplay(&screenplay).to_pagination_geometry();
+        let geometry =
+            ScreenplayLayoutProfile::from_screenplay(&screenplay).to_pagination_geometry();
         let document = build_render_document(&screenplay, PdfRenderOptions::default(), &geometry);
 
         let page = document.body_pages.first().expect("expected body page");
-        let body_lines = page.lines.iter().map(|line| line.text.as_str()).collect::<Vec<_>>();
-
-        assert!(body_lines
+        let body_lines = page
+            .lines
             .iter()
-            .any(|line| line.contains("(WRITING) “Girl know you want my tasty D”")));
+            .map(|line| line.text.as_str())
+            .collect::<Vec<_>>();
+
+        assert!(
+            body_lines
+                .iter()
+                .any(|line| line.contains("(WRITING) “Girl know you want my tasty D”"))
+        );
         assert!(!body_lines.iter().any(|line| line.trim() == "D”"));
     }
 
@@ -4391,9 +4405,7 @@ mod tests {
             let bytes = hex
                 .as_bytes()
                 .chunks_exact(2)
-                .map(|pair| {
-                    u8::from_str_radix(std::str::from_utf8(pair).ok()?, 16).ok()
-                })
+                .map(|pair| u8::from_str_radix(std::str::from_utf8(pair).ok()?, 16).ok())
                 .collect::<Option<Vec<_>>>()?;
             let utf16 = bytes
                 .strip_prefix(&[0xFE, 0xFF])?
@@ -4479,21 +4491,19 @@ mod tests {
             let header = String::from_utf8_lossy(&pdf[object_start..marker]);
             let data_start = marker + b"stream\n".len();
 
-            if header.contains("/Filter /FlateDecode") {
-                if let Some(length) = extract_first_marker_int(&header, "/Length ")
+            if header.contains("/Filter /FlateDecode")
+                && let Some(length) = extract_first_marker_int(&header, "/Length ")
                     .and_then(|length| usize::try_from(length).ok())
-                {
-                    if let Some(data) = pdf.get(data_start..data_start.saturating_add(length)) {
-                        let mut decoded = Vec::new();
-                        flate2::read::ZlibDecoder::new(data)
-                            .read_to_end(&mut decoded)
-                            .expect("valid FlateDecode test stream");
-                        text.push('\n');
-                        text.push_str(&String::from_utf8_lossy(&decoded));
-                        cursor = data_start + length;
-                        continue;
-                    }
-                }
+                && let Some(data) = pdf.get(data_start..data_start.saturating_add(length))
+            {
+                let mut decoded = Vec::new();
+                flate2::read::ZlibDecoder::new(data)
+                    .read_to_end(&mut decoded)
+                    .expect("valid FlateDecode test stream");
+                text.push('\n');
+                text.push_str(&String::from_utf8_lossy(&decoded));
+                cursor = data_start + length;
+                continue;
             }
 
             cursor = data_start;
@@ -4837,14 +4847,18 @@ mod tests {
         assert_eq!(document.title_overflow_pages[1].page_number, 2);
         assert_eq!(document.title_overflow_pages[1].display_page_number, None);
         assert_eq!(document.body_pages[0].page_number, 3);
-        assert!(document.title_overflow_pages[0]
-            .lines
-            .iter()
-            .any(|line| line.text.contains("GUY TEXT")));
-        assert!(document.title_overflow_pages[1]
-            .lines
-            .iter()
-            .any(|line| line.text.contains("THE GUYS")));
+        assert!(
+            document.title_overflow_pages[0]
+                .lines
+                .iter()
+                .any(|line| line.text.contains("GUY TEXT"))
+        );
+        assert!(
+            document.title_overflow_pages[1]
+                .lines
+                .iter()
+                .any(|line| line.text.contains("THE GUYS"))
+        );
     }
 
     #[test]
@@ -4859,14 +4873,18 @@ mod tests {
         let document = build_render_document(&screenplay, PdfRenderOptions::default(), &geometry);
 
         assert!(document.title_page.is_none());
-        assert!(document.title_overflow_pages[0]
-            .lines
-            .iter()
-            .any(|line| line.text.contains("BIG FISH")));
-        assert!(!document.title_overflow_pages[0]
-            .lines
-            .iter()
-            .any(|line| line.text.contains("Big Fish")));
+        assert!(
+            document.title_overflow_pages[0]
+                .lines
+                .iter()
+                .any(|line| line.text.contains("BIG FISH"))
+        );
+        assert!(
+            !document.title_overflow_pages[0]
+                .lines
+                .iter()
+                .any(|line| line.text.contains("Big Fish"))
+        );
     }
 
     #[test]
@@ -4901,7 +4919,10 @@ mod tests {
 
         assert_eq!(document.title_overflow_pages.len(), 2);
         assert_eq!(document.title_overflow_pages[0].display_page_number, None);
-        assert_eq!(document.title_overflow_pages[1].display_page_number, Some(2));
+        assert_eq!(
+            document.title_overflow_pages[1].display_page_number,
+            Some(2)
+        );
     }
 
     #[test]
@@ -4918,7 +4939,10 @@ mod tests {
             + usize::from(document.title_page.is_some());
 
         assert_eq!(inspection.struct_parents.len(), expected_page_count);
-        assert_eq!(inspection.struct_parents, (0..expected_page_count as i32).collect::<Vec<_>>());
+        assert_eq!(
+            inspection.struct_parents,
+            (0..expected_page_count as i32).collect::<Vec<_>>()
+        );
     }
 
     #[test]
@@ -4980,26 +5004,28 @@ mod tests {
             .filter(|(_, _, block)| !block.continuation_markers.is_empty())
             .collect::<Vec<_>>();
 
-        let [(first_page_number, first_body_page_number, outgoing), (second_page_number, second_body_page_number, incoming)] =
-            split_blocks
-                .windows(2)
-                .find(|pair| {
-                    pair[0].2.id == pair[1].2.id
-                        && pair[0].2.continuation_markers == vec![ContinuationMarker::More]
-                        && pair[1].2.continuation_markers == vec![ContinuationMarker::Continued]
-                        && pair[0]
-                            .2
-                            .items
-                            .iter()
-                            .any(|item| item.role == PdfTaggedRole::Dialogue)
-                        && pair[1]
-                            .2
-                            .items
-                            .iter()
-                            .any(|item| item.role == PdfTaggedRole::Dialogue)
-                })
-                .map(|pair| [pair[0], pair[1]])
-                .expect("expected a split dialogue block in the real corpus screenplay");
+        let [
+            (first_page_number, first_body_page_number, outgoing),
+            (second_page_number, second_body_page_number, incoming),
+        ] = split_blocks
+            .windows(2)
+            .find(|pair| {
+                pair[0].2.id == pair[1].2.id
+                    && pair[0].2.continuation_markers == vec![ContinuationMarker::More]
+                    && pair[1].2.continuation_markers == vec![ContinuationMarker::Continued]
+                    && pair[0]
+                        .2
+                        .items
+                        .iter()
+                        .any(|item| item.role == PdfTaggedRole::Dialogue)
+                    && pair[1]
+                        .2
+                        .items
+                        .iter()
+                        .any(|item| item.role == PdfTaggedRole::Dialogue)
+            })
+            .map(|pair| [pair[0], pair[1]])
+            .expect("expected a split dialogue block in the real corpus screenplay");
 
         assert!(tagged.title_page.is_some());
         assert_eq!(outgoing.id, incoming.id);
@@ -5037,8 +5063,8 @@ mod tests {
             incoming_dialogue.continuation_markers,
             vec![ContinuationMarker::Continued]
         );
-        assert_eq!(outgoing_dialogue.artifact, false);
-        assert_eq!(incoming_dialogue.artifact, false);
+        assert!(!outgoing_dialogue.artifact);
+        assert!(!incoming_dialogue.artifact);
     }
 
     #[test]
@@ -5285,9 +5311,7 @@ mod tests {
         assert!(xmp.contains(&format!(
             "<xmp:CreatorTool>JumpCut {version}</xmp:CreatorTool>"
         )));
-        assert!(xmp.contains(&format!(
-            "<pdf:Producer>JumpCut {version}</pdf:Producer>"
-        )));
+        assert!(xmp.contains(&format!("<pdf:Producer>JumpCut {version}</pdf:Producer>")));
         assert!(xmp.contains("<xmp:CreateDate>"));
         assert!(xmp.contains("<xmp:ModifyDate>"));
         assert!(xmp.contains("<xmp:MetadataDate>"));
@@ -5502,10 +5526,12 @@ mod tests {
                 "title-page-04-05",
             ]
         );
-        assert!(structure_page
-            .tagged_lines
-            .iter()
-            .all(|line| line.role == PdfTaggedRole::Title));
+        assert!(
+            structure_page
+                .tagged_lines
+                .iter()
+                .all(|line| line.role == PdfTaggedRole::Title)
+        );
         assert_eq!(
             structure_page
                 .tagged_lines
@@ -5554,7 +5580,9 @@ mod tests {
                     Element::Character(p("BRICK"), blank_attributes()),
                     Element::Parenthetical(p("(whispering)"), blank_attributes()),
                     Element::Dialogue(
-                        p("Left side gets the longer speech so it wraps onto another line in the dual dialogue lane."),
+                        p(
+                            "Left side gets the longer speech so it wraps onto another line in the dual dialogue lane.",
+                        ),
                         blank_attributes(),
                     ),
                 ]),
@@ -6689,7 +6717,7 @@ mod tests {
         );
         content.end_text();
         render_underlines(&mut content, &underlines);
-        let stream = String::from_utf8_lossy(&content.finish().to_vec()).into_owned();
+        let stream = String::from_utf8_lossy(&content.finish()).into_owned();
 
         assert!(stream.contains("108 718.5 m"));
         assert!(stream.contains("136 718.5 l"));

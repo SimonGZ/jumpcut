@@ -1,4 +1,4 @@
-use jumpcut::pagination::{build_semantic_screenplay, Fragment, PaginationConfig};
+use jumpcut::pagination::{Fragment, PaginationConfig, build_semantic_screenplay};
 use jumpcut::parse;
 use serde::Deserialize;
 use std::fs;

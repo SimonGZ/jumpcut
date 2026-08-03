@@ -1,10 +1,10 @@
-use jumpcut::{blank_attributes, p, parse, Element};
+use jumpcut::{Element, blank_attributes, p, parse};
 use pretty_assertions::assert_eq;
 
 #[test]
 fn it_handles_typical_transitions() {
     let transitions: [&str; 4] = ["\nCUT TO:\n", "\nSMASH TO:", "\nfade to:", "abrupt Cut to:"];
-    let expecteds = vec![
+    let expecteds = [
         vec![Element::Transition(p("CUT TO:"), blank_attributes())],
         vec![Element::Transition(p("SMASH TO:"), blank_attributes())],
         vec![Element::Transition(p("fade to:"), blank_attributes())],
@@ -29,7 +29,7 @@ fn it_doesnt_turn_words_ending_in_to_into_transitions() {
         "\nINT. HOUSE - DAY\n\nalto:\n",
         "\nINT. HOUSE - DAY\n\nonto:",
     ];
-    let expecteds = vec![
+    let expecteds = [
         vec![
             Element::SceneHeading(p("INT. HOUSE - DAY"), blank_attributes()),
             Element::Action(p("alto:"), blank_attributes()),

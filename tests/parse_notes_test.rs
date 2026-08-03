@@ -1,4 +1,4 @@
-use jumpcut::{blank_attributes, p, parse, Attributes, Element, ElementLayoutOverrides};
+use jumpcut::{Attributes, Element, ElementLayoutOverrides, blank_attributes, p, parse};
 use pretty_assertions::assert_eq;
 
 #[test]
@@ -26,10 +26,13 @@ fn it_handles_single_line_interspersed_notes() {
 fn it_handles_multi_line_interspersed_notes() {
     let text = "His hand is an inch from the receiver when the phone RINGS.  Scott pauses for a moment, suspicious for some reason.[[This section needs work.\nEither that, or I need coffee.\n  \nDefinitely coffee.]] He looks around.  Phone ringing.";
     let expected = vec![Element::Action(
-        p(        "His hand is an inch from the receiver when the phone RINGS.  Scott pauses for a moment, suspicious for some reason. He looks around.  Phone ringing."),
+        p(
+            "His hand is an inch from the receiver when the phone RINGS.  Scott pauses for a moment, suspicious for some reason. He looks around.  Phone ringing.",
+        ),
         Attributes {
             notes: Some(vec![
-                "This section needs work.\nEither that, or I need coffee.\n  \nDefinitely coffee.".to_string(),
+                "This section needs work.\nEither that, or I need coffee.\n  \nDefinitely coffee."
+                    .to_string(),
             ]),
             ..Attributes::default()
         },

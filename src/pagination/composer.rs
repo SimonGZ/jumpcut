@@ -1,13 +1,13 @@
+use crate::pagination::LayoutGeometry;
 use crate::pagination::dialogue_split::DialogueSplitPlan;
 use crate::pagination::fixtures::Fragment;
 use crate::pagination::flow_split::FlowSplitPlan;
 use crate::pagination::margin::line_height_for_element_type;
 use crate::pagination::semantic::{DialoguePartKind, FlowKind, SemanticUnit};
 use crate::pagination::wrapping::{
-    wrap_config_with_overrides, wrap_text_for_element, ElementType, InterruptionDashWrap,
-    WrapConfig,
+    ElementType, InterruptionDashWrap, WrapConfig, wrap_config_with_overrides,
+    wrap_text_for_element,
 };
-use crate::pagination::LayoutGeometry;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct LayoutBlock<'a> {
@@ -33,7 +33,7 @@ pub fn compose_with_mode<'a>(
 ) -> Vec<LayoutBlock<'a>> {
     let mut measured = Vec::new();
 
-    for (_i, unit) in units.iter().enumerate() {
+    for unit in units.iter() {
         let (content_lines, spacing_above) = match unit {
             // ... (the match block stays as is)
             SemanticUnit::Flow(flow) => {

@@ -1,15 +1,15 @@
 use std::cmp::Ordering;
 use std::collections::BTreeMap;
 
+use crate::ElementLayoutOverrides;
 use crate::pagination::margin::line_height_for_element_type;
 use crate::pagination::sentence_boundary::sentence_boundary_offsets;
 use crate::pagination::split_scoring::choose_best_scored_split;
 use crate::pagination::wrapping::{
-    wrap_config_with_overrides, wrap_text_for_element, ElementType, InterruptionDashWrap,
-    WrapConfig,
+    ElementType, InterruptionDashWrap, WrapConfig, wrap_config_with_overrides,
+    wrap_text_for_element,
 };
 use crate::pagination::{DialoguePartKind, DialogueUnit, LayoutGeometry};
-use crate::ElementLayoutOverrides;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DialoguePartSplitLines {
@@ -142,10 +142,11 @@ pub fn plan_dialogue_split_parts(
                 candidate.mid_part_sentence_boundary_eligible,
                 candidate.same_top_line_extension,
             ),
-            fuller_top_fragment: policy
-                .prefer_fuller_top_fragment
-                .then_some(candidate.plan.top_line_count)
-                .unwrap_or(0),
+            fuller_top_fragment: if policy.prefer_fuller_top_fragment {
+                candidate.plan.top_line_count
+            } else {
+                0
+            },
             balance_score: balance_score(
                 candidate.top_dialogue_lines,
                 candidate.bottom_dialogue_lines,
@@ -333,11 +334,7 @@ fn build_candidate(
     })
 }
 
-fn split_part_text<'a>(
-    text: &'a str,
-    part_index: usize,
-    boundary: DialogueSplitBoundary,
-) -> (&'a str, &'a str) {
+fn split_part_text(text: &str, part_index: usize, boundary: DialogueSplitBoundary) -> (&str, &str) {
     if part_index < boundary.part_index {
         return (text, "");
     }

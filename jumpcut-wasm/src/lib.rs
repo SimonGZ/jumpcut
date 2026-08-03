@@ -43,15 +43,17 @@ pub fn parse_fdx_to_html_string_with_options(
 ) -> Result<String, JsValue> {
     let mut screenplay =
         jumpcut::parse_fdx(text).map_err(|e| JsValue::from_str(&format!("{:?}", e)))?;
-    Ok(screenplay.to_html_with_options(jumpcut::rendering::html::HtmlRenderOptions {
-        head: include_head,
-        exact_wraps: exact_wraps || paginated,
-        paginated,
-        render_title_page: true,
-        embed_courier_prime: false,
-        embedded_courier_prime_css: None,
-        ..Default::default()
-    }))
+    Ok(
+        screenplay.to_html_with_options(jumpcut::rendering::html::HtmlRenderOptions {
+            head: include_head,
+            exact_wraps: exact_wraps || paginated,
+            paginated,
+            render_title_page: true,
+            embed_courier_prime: false,
+            embedded_courier_prime_css: None,
+            ..Default::default()
+        }),
+    )
 }
 
 #[cfg(all(feature = "fdx", feature = "pdf"))]

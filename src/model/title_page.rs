@@ -1,6 +1,4 @@
-use crate::{
-    ElementText, ImportedTitlePageAlignment, Metadata, Screenplay,
-};
+use crate::{ElementText, ImportedTitlePageAlignment, Metadata, Screenplay};
 
 const TITLE_PAGE_METADATA_KEYS: [&str; 7] = [
     "title",
@@ -99,7 +97,10 @@ impl TitlePage {
     }
 }
 
-fn build_title_page(metadata: &Metadata, imported_frontmatter: Vec<FrontmatterPage>) -> Option<TitlePage> {
+fn build_title_page(
+    metadata: &Metadata,
+    imported_frontmatter: Vec<FrontmatterPage>,
+) -> Option<TitlePage> {
     let has_title_keys = TITLE_PAGE_METADATA_KEYS
         .iter()
         .chain(["contact"].iter())
@@ -192,7 +193,9 @@ pub fn frontmatter_count(screenplay: &Screenplay) -> Option<u32> {
         .and_then(|value| value.plain_text().trim().parse::<u32>().ok())
         .filter(|count| *count > 0)
         .map(|count| count + 1)
-        .or_else(|| TitlePage::from_screenplay(screenplay).map(|title_page| title_page.total_page_count()))
+        .or_else(|| {
+            TitlePage::from_screenplay(screenplay).map(|title_page| title_page.total_page_count())
+        })
 }
 
 pub fn plain_title_uses_all_caps(metadata: &Metadata) -> bool {
@@ -224,8 +227,8 @@ fn push_block(
 mod tests {
     use super::*;
     use crate::{
-        tr, ElementText::Styled, ImportedTitlePage, ImportedTitlePagePage,
-        ImportedTitlePageParagraph,
+        ElementText::Styled, ImportedTitlePage, ImportedTitlePagePage, ImportedTitlePageParagraph,
+        tr,
     };
 
     #[test]

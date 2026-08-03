@@ -1,4 +1,4 @@
-use jumpcut::{blank_attributes, p, parse, tr, Element, ElementText::Styled, Screenplay};
+use jumpcut::{Element, ElementText::Styled, Screenplay, blank_attributes, p, parse, tr};
 use pretty_assertions::assert_eq;
 use std::collections::HashMap;
 

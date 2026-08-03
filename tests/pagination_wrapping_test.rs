@@ -8,8 +8,8 @@
 use std::fs;
 
 use jumpcut::pagination::wrapping::{
-    wrap_styled_text_for_element, wrap_text_for_element, wrap_text_for_element_with_offsets,
     ElementType, InterruptionDashWrap, WrapConfig, WrappedStyledFragment,
+    wrap_styled_text_for_element, wrap_text_for_element, wrap_text_for_element_with_offsets,
 };
 use jumpcut::pagination::{FdxExtractedSettings, LayoutGeometry};
 use jumpcut::styled_text::{StyledRun, StyledText};

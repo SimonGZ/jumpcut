@@ -10,9 +10,11 @@ use std::fmt::Write;
 pub(crate) fn prepare_screenplay(screenplay: &mut Screenplay) {
     add_fdx_formatting(&mut screenplay.metadata);
 
-    screenplay.elements.retain(|e| match e {
-        Element::PageBreak | Element::Section(_, _, _) | Element::Synopsis(_) => false,
-        _ => true,
+    screenplay.elements.retain(|e| {
+        !matches!(
+            e,
+            Element::PageBreak | Element::Section(_, _, _) | Element::Synopsis(_)
+        )
     });
 }
 
@@ -47,26 +49,23 @@ pub(crate) fn add_fdx_formatting(metadata: &mut Metadata) {
     let mut font_choice = "Courier Prime".to_string();
     let mut style_profile = None;
 
-    if let Some(opts_vec) = metadata.get_mut("fmt") {
-        if let Some(opts_string) = opts_vec.first() {
-            let opts_string = opts_string.plain_text();
-            for option in opts_string.split_whitespace() {
-                if option.eq_ignore_ascii_case("multicam") {
-                    style_profile = Some("multicam".to_string());
-                } else if matches_fmt_option(option, &["bsh", "bold-scene-headings"]) {
-                    scene_heading_styles.push("Bold");
-                } else if matches_fmt_option(option, &["ush", "underline-scene-headings"]) {
-                    scene_heading_styles.push("Underline");
-                } else if matches_fmt_option(option, &["acat", "all-caps-action"]) {
-                    action_text_style.push_str("AllCaps");
-                } else if matches_fmt_option(
-                    option,
-                    &["ssbsh", "single-space-before-scene-headings"],
-                ) {
-                    space_before_heading = "12".to_string();
-                } else if matches_fmt_option(option, &["cfd", "courier-final-draft"]) {
-                    font_choice = "Courier Final Draft".to_string();
-                }
+    if let Some(opts_vec) = metadata.get_mut("fmt")
+        && let Some(opts_string) = opts_vec.first()
+    {
+        let opts_string = opts_string.plain_text();
+        for option in opts_string.split_whitespace() {
+            if option.eq_ignore_ascii_case("multicam") {
+                style_profile = Some("multicam".to_string());
+            } else if matches_fmt_option(option, &["bsh", "bold-scene-headings"]) {
+                scene_heading_styles.push("Bold");
+            } else if matches_fmt_option(option, &["ush", "underline-scene-headings"]) {
+                scene_heading_styles.push("Underline");
+            } else if matches_fmt_option(option, &["acat", "all-caps-action"]) {
+                action_text_style.push_str("AllCaps");
+            } else if matches_fmt_option(option, &["ssbsh", "single-space-before-scene-headings"]) {
+                space_before_heading = "12".to_string();
+            } else if matches_fmt_option(option, &["cfd", "courier-final-draft"]) {
+                font_choice = "Courier Final Draft".to_string();
             }
         }
     }
@@ -130,7 +129,11 @@ pub(crate) fn insert_metadata_value(metadata: &mut Metadata, key: &str, value: &
     metadata.insert(key.to_string(), vec![value.into()]);
 }
 
-fn render_content(out: &mut String, screenplay: &Screenplay, layout_profile: &ScreenplayLayoutProfile) {
+fn render_content(
+    out: &mut String,
+    screenplay: &Screenplay,
+    layout_profile: &ScreenplayLayoutProfile,
+) {
     for element in &screenplay.elements {
         match element {
             Element::DialogueBlock(block) => {
@@ -186,7 +189,8 @@ fn render_paragraph(out: &mut String, element: &Element, layout_profile: &Screen
         out.push_str(" Alignment=\"Center\"");
     }
     if let Some(base_style) = base_style_for_element(layout_profile, element) {
-        let effective_style = base_style.apply_element_layout_overrides(&attributes.layout_overrides);
+        let effective_style =
+            base_style.apply_element_layout_overrides(&attributes.layout_overrides);
         if !approx_eq(effective_style.right_indent, base_style.right_indent) {
             write!(
                 out,
@@ -658,10 +662,7 @@ fn start_imported_title_paragraph(
     .unwrap();
 }
 
-fn end_imported_title_paragraph(
-    out: &mut String,
-    paragraph: &crate::ImportedTitlePageParagraph,
-) {
+fn end_imported_title_paragraph(out: &mut String, paragraph: &crate::ImportedTitlePageParagraph) {
     if !paragraph.tab_stops.is_empty() {
         out.push_str("        <Tabstops>\n");
         for tab_stop in &paragraph.tab_stops {

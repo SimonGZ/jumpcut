@@ -72,7 +72,7 @@ pub(crate) fn parse_plain_text_markup(txt: &mut String) -> ElementText {
         Plain(mem::take(txt))
     } else {
         let mut prepared_text = if has_bold_italic {
-            RE_BOLD_ITALIC.replace_all(&txt, "⏋$1⏋").into_owned()
+            RE_BOLD_ITALIC.replace_all(txt, "⏋$1⏋").into_owned()
         } else {
             txt.to_string()
         };
@@ -597,14 +597,18 @@ mod tests {
             )
         );
         element = Action(
-            p("As he rattles off the long list, Brick and Steel *share a look.\nThis is going to be BAD.*"),
+            p(
+                "As he rattles off the long list, Brick and Steel *share a look.\nThis is going to be BAD.*",
+            ),
             blank_attributes(),
         );
         element.parse_and_convert_markup();
         assert_eq!(
             element,
             Action(
-                p("As he rattles off the long list, Brick and Steel *share a look.\nThis is going to be BAD.*"),
+                p(
+                    "As he rattles off the long list, Brick and Steel *share a look.\nThis is going to be BAD.*"
+                ),
                 blank_attributes()
             )
         );

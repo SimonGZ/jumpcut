@@ -60,15 +60,19 @@ fn export_metadata(screenplay: &Screenplay) -> Metadata {
     let mut metadata = screenplay.metadata.clone();
     metadata.remove("frontmatter");
 
-    if let Some(imported_title_page) = &screenplay.imported_title_page {
-        if imported_title_page.pages.len() > 1 {
-            metadata.insert(
-                "frontmatter-page-count".into(),
-                vec![ElementText::Plain(
-                    imported_title_page.pages.len().saturating_sub(1).to_string(),
-                )],
-            );
-        }
+    if let Some(imported_title_page) = &screenplay.imported_title_page
+        && imported_title_page.pages.len() > 1
+    {
+        metadata.insert(
+            "frontmatter-page-count".into(),
+            vec![ElementText::Plain(
+                imported_title_page
+                    .pages
+                    .len()
+                    .saturating_sub(1)
+                    .to_string(),
+            )],
+        );
     }
 
     metadata
@@ -404,9 +408,7 @@ fn render_text_with_notes(text: &ElementText, attributes: &Attributes) -> String
     rendered
 }
 
-fn render_layout_modifier_note(
-    layout_overrides: &crate::ElementLayoutOverrides,
-) -> Option<String> {
+fn render_layout_modifier_note(layout_overrides: &crate::ElementLayoutOverrides) -> Option<String> {
     let mut tokens = Vec::new();
 
     if let Some(space_before_delta) = layout_overrides.space_before_delta {
@@ -512,7 +514,7 @@ fn action_requires_force(text: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{blank_attributes, p, tr, ElementLayoutOverrides, ElementText::Styled};
+    use crate::{ElementLayoutOverrides, ElementText::Styled, blank_attributes, p, tr};
 
     #[test]
     fn serializer_round_trips_metadata_and_core_body() {

@@ -92,10 +92,10 @@ impl Screenplay {
 mod tests {
     use super::*;
     use crate::rendering::fdx::{add_fdx_formatting, insert_metadata_value};
-    use crate::{blank_attributes, p, tr, Element, ElementText, Metadata};
+    use crate::{Element, ElementText, Metadata, blank_attributes, p, tr};
     use handlebars::{Handlebars, JsonRender};
     use pretty_assertions::assert_eq;
-    use serde_json::{json, Map, Value};
+    use serde_json::{Map, Value, json};
     use std::collections::HashMap;
 
     #[test]
@@ -301,8 +301,11 @@ mod tests {
         assert!(actual.contains("<Text Style=\"Bold\">BOLD</Text>"));
         assert!(actual.contains("<DualDialogue>"));
         assert!(actual.contains("<ElementSettings Type=\"Dialogue\">"));
-        assert!(actual
-            .contains("LeftIndent=\"2.50\" RightIndent=\"6.00\" SpaceBefore=\"0\" Spacing=\"1\""));
+        assert!(
+            actual.contains(
+                "LeftIndent=\"2.50\" RightIndent=\"6.00\" SpaceBefore=\"0\" Spacing=\"1\""
+            )
+        );
         assert!(actual.contains("<Text AdornmentStyle=\"-1\""));
         assert!(actual.contains("Font=\"Courier Prime\""));
         assert!(actual.contains(">DRAFT</Text>"));
@@ -319,8 +322,11 @@ mod tests {
         let actual = screenplay.to_final_draft();
 
         assert!(actual.contains("<ElementSettings Type=\"Dialogue\">"));
-        assert!(actual
-            .contains("LeftIndent=\"2.25\" RightIndent=\"5.75\" SpaceBefore=\"0\" Spacing=\"2\""));
+        assert!(
+            actual.contains(
+                "LeftIndent=\"2.25\" RightIndent=\"5.75\" SpaceBefore=\"0\" Spacing=\"2\""
+            )
+        );
         assert!(actual.contains("<ElementSettings Type=\"Character\">"));
         assert!(actual.contains("RightIndent=\"6.25\" SpaceBefore=\"12\""));
         assert!(actual.contains("<ElementSettings Type=\"Parenthetical\">"));
@@ -454,7 +460,9 @@ mod tests {
             ">based on the novel</Text>\n      </Paragraph>\n      <Paragraph Alignment=\"Center\""
         ));
         assert!(actual.contains(">by J.R.R. Smithee</Text>"));
-        assert!(!actual.contains(">based on the novel</Text>\n        <Text AdornmentStyle=\"-1\""));
+        assert!(
+            !actual.contains(">based on the novel</Text>\n        <Text AdornmentStyle=\"-1\"")
+        );
     }
 
     #[test]
@@ -722,11 +730,7 @@ mod tests {
         let paragraph = body_content
             .split("<Paragraph ")
             .skip(1)
-            .find_map(|segment| {
-                segment
-                    .contains(&format!("<Text>{text}</Text>"))
-                    .then_some(segment)
-            })
+            .find(|segment| segment.contains(&format!("<Text>{text}</Text>")))
             .expect("expected body paragraph for requested text");
 
         paragraph

@@ -1,7 +1,7 @@
 use jumpcut::pagination::{
-    compare_paginated_to_fixture, normalize_screenplay, BlockPlacement, ComparisonIssueKind,
-    ContinuationMarker, NormalizedElement, NormalizedScreenplay, PageBreakFixture, PageKind,
-    PaginatedScreenplay, PaginationScope,
+    BlockPlacement, ComparisonIssueKind, ContinuationMarker, NormalizedElement,
+    NormalizedScreenplay, PageBreakFixture, PageKind, PaginatedScreenplay, PaginationScope,
+    compare_paginated_to_fixture, normalize_screenplay,
 };
 use jumpcut::parse;
 use pretty_assertions::assert_eq;

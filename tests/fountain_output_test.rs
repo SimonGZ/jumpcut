@@ -1,6 +1,6 @@
 use jumpcut::{
-    blank_attributes, p, parse, parse_fdx, tr, Attributes, Element, ElementText::Styled, Metadata,
-    Screenplay,
+    Attributes, Element, ElementText::Styled, Metadata, Screenplay, blank_attributes, p, parse,
+    parse_fdx, tr,
 };
 use pretty_assertions::assert_eq;
 

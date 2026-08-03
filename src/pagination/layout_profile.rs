@@ -679,10 +679,10 @@ fn apply_fmt_geometry_override_option(profile: &mut ScreenplayLayoutProfile, opt
         if let Ok(margin) = value.parse::<f32>() {
             profile.footer_margin = margin;
         }
-    } else if let Some(value) = option.strip_prefix("lpp-") {
-        if let Ok(lpp) = value.parse::<f32>() {
-            profile.lines_per_page = lpp;
-        }
+    } else if let Some(value) = option.strip_prefix("lpp-")
+        && let Ok(lpp) = value.parse::<f32>()
+    {
+        profile.lines_per_page = lpp;
     }
 }
 

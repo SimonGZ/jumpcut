@@ -1,5 +1,5 @@
 use jumpcut::pagination::dialogue_split::{
-    plan_dialogue_split, plan_dialogue_split_parts, DialogueTextPart,
+    DialogueTextPart, plan_dialogue_split, plan_dialogue_split_parts,
 };
 use jumpcut::pagination::{
     Cohesion, DialoguePart, DialoguePartKind, DialogueUnit, InterruptionDashWrap, LayoutGeometry,

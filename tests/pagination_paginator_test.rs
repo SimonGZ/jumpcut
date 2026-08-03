@@ -129,8 +129,7 @@ fn paginator_ignores_page_start_markers_when_stripping_top_of_page_spacing() {
     assert_eq!(pages.len(), 1);
     assert_eq!(pages[0].blocks.len(), 2);
     assert_eq!(
-        pages[0].blocks[1].spacing_above,
-        0.0,
+        pages[0].blocks[1].spacing_above, 0.0,
         "the first visible block on a page should strip intrinsic spacing even if a PageStart marker precedes it",
     );
 }
@@ -316,8 +315,7 @@ fn paginator_pulls_a_transition_off_the_top_of_the_next_page() {
     ));
     assert_eq!(pages[1].blocks[0].spacing_above, 0.0);
     assert_eq!(
-        pages[1].blocks[1].spacing_above,
-        1.0,
+        pages[1].blocks[1].spacing_above, 1.0,
         "The transition should keep its intrinsic spacing once it is no longer the first visible block on the page",
     );
 }

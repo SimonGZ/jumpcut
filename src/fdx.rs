@@ -3,18 +3,18 @@ use quick_xml::events::{BytesStart, Event};
 use quick_xml::{Reader, XmlVersion};
 use std::collections::{BTreeMap, HashSet};
 
-use crate::parser::{is_cold_opening, is_end_act, is_new_act};
 use crate::pagination::{
-    wrapping::{wrap_text_for_element, WrapConfig},
     ScreenplayElementStyle, ScreenplayLayoutProfile,
+    wrapping::{WrapConfig, wrap_text_for_element},
 };
+use crate::parser::{is_cold_opening, is_end_act, is_new_act};
 use crate::{
-    blank_attributes, Element, ElementText, ImportedAlignment, ImportedDialogueContinueds,
-    ImportedElementKind, ImportedElementStyle, ImportedLayoutOverrides, ImportedMoresAndContinueds,
+    Element, ElementText, ImportedAlignment, ImportedDialogueContinueds, ImportedElementKind,
+    ImportedElementStyle, ImportedLayoutOverrides, ImportedMoresAndContinueds,
     ImportedPageLayoutOverrides, ImportedSceneContinueds, ImportedTitlePage,
-    ImportedTitlePageAlignment, ImportedTitlePagePage, ImportedTitlePageParagraph,
-    ImportedTitlePageHeaderFooter, ImportedTitlePageTabStop, ImportedTitlePageTabStopKind,
-    Metadata, Screenplay, TextRun,
+    ImportedTitlePageAlignment, ImportedTitlePageHeaderFooter, ImportedTitlePagePage,
+    ImportedTitlePageParagraph, ImportedTitlePageTabStop, ImportedTitlePageTabStopKind, Metadata,
+    Screenplay, TextRun, blank_attributes,
 };
 
 #[derive(Debug)]
@@ -305,7 +305,10 @@ fn is_active_paragraph(paragraph_depth: usize, in_dual_dialogue: bool) -> bool {
     (!in_dual_dialogue && paragraph_depth == 1) || (in_dual_dialogue && paragraph_depth == 2)
 }
 
-fn block_to_element(block: FdxBlock, baseline_profile: &ScreenplayLayoutProfile) -> Option<Element> {
+fn block_to_element(
+    block: FdxBlock,
+    baseline_profile: &ScreenplayLayoutProfile,
+) -> Option<Element> {
     match block {
         FdxBlock::Paragraph(paragraph) => paragraph_to_element(paragraph, baseline_profile),
         FdxBlock::DualDialogue(paragraphs) => {
@@ -386,7 +389,9 @@ fn extract_title_page_data(
     Ok((metadata, imported_title_page))
 }
 
-fn parse_title_page_header_footer(xml: &str) -> Result<ImportedTitlePageHeaderFooter, FdxParseError> {
+fn parse_title_page_header_footer(
+    xml: &str,
+) -> Result<ImportedTitlePageHeaderFooter, FdxParseError> {
     let mut reader = Reader::from_str(xml);
     reader.config_mut().trim_text(false);
 
@@ -487,9 +492,9 @@ fn parse_title_page_paragraphs(xml: &str) -> Result<Vec<FdxTitlePageParagraph>, 
                             .and_then(|value| value.parse::<f64>().ok());
                         paragraph_space_before = optional_attr(&reader, &event, b"SpaceBefore")?
                             .and_then(|value| value.parse::<f64>().ok());
-                        paragraph_starts_new_page = optional_attr(&reader, &event, b"StartsNewPage")?
-                            .as_deref()
-                            == Some("Yes");
+                        paragraph_starts_new_page =
+                            optional_attr(&reader, &event, b"StartsNewPage")?.as_deref()
+                                == Some("Yes");
                         paragraph_tab_stops.clear();
                         text_chunks.clear();
                         adornment_styles.clear();
@@ -610,12 +615,12 @@ fn map_title_page_paragraphs_to_metadata(paragraphs: &[FdxTitlePageParagraph]) -
                     .left_indent
                     .map(|indent| indent >= 1.50 - f64::EPSILON)
                     .unwrap_or(false);
-                if !(is_action_indent && !element_text_is_blank(&paragraph.text)) {
+                if !is_action_indent || element_text_is_blank(&paragraph.text) {
                     let (left, right) = split_title_page_bottom_columns(&paragraph.text);
-                    if let Some(left) = left.filter(|value| !element_text_is_blank(value)) {
-                        if !is_copyright_like(&left.plain_text()) {
-                            contact_lines.push(left);
-                        }
+                    if let Some(left) = left.filter(|value| !element_text_is_blank(value))
+                        && !is_copyright_like(&left.plain_text())
+                    {
+                        contact_lines.push(left);
                     }
                     if let Some(right) = right.filter(|value| !element_text_is_blank(value)) {
                         right_lines.push(right);
@@ -623,10 +628,10 @@ fn map_title_page_paragraphs_to_metadata(paragraphs: &[FdxTitlePageParagraph]) -
                 }
             }
             Some("Right") => {
-                if !element_text_is_blank(&paragraph.text) {
-                    if !is_copyright_like(&paragraph.text.plain_text()) {
-                        right_lines.push(paragraph.text.clone());
-                    }
+                if !element_text_is_blank(&paragraph.text)
+                    && !is_copyright_like(&paragraph.text.plain_text())
+                {
+                    right_lines.push(paragraph.text.clone());
                 }
             }
             _ => {}
@@ -681,7 +686,8 @@ fn apply_centered_title_page_metadata(metadata: &mut Metadata, groups: Vec<Title
     while index < groups.len() {
         let group = &groups[index];
         if group_is_credit(group) {
-            if let Some((credit, inline_author_lines)) = split_credit_and_author_lines(&group.lines) {
+            if let Some((credit, inline_author_lines)) = split_credit_and_author_lines(&group.lines)
+            {
                 metadata.insert("credit".into(), vec![credit]);
                 let mut author_lines = inline_author_lines;
                 index += 1;
@@ -709,7 +715,10 @@ fn apply_centered_title_page_metadata(metadata: &mut Metadata, groups: Vec<Title
             continue;
         }
 
-        if !metadata.contains_key("author") && !metadata.contains_key("authors") && group_can_be_author(group) {
+        if !metadata.contains_key("author")
+            && !metadata.contains_key("authors")
+            && group_can_be_author(group)
+        {
             insert_author_metadata(metadata, group.lines.clone());
             index += 1;
             continue;
@@ -762,15 +771,22 @@ fn is_draft_like(text: &str) -> bool {
 
 fn is_copyright_like(text: &str) -> bool {
     let normalized = text.trim().to_ascii_lowercase();
-    normalized.contains("copyright") || normalized.contains('©') || normalized.contains("all rights reserved")
+    normalized.contains("copyright")
+        || normalized.contains('©')
+        || normalized.contains("all rights reserved")
 }
 
 fn group_starts_non_title_section(group: &TitlePageGroup) -> bool {
-    group_is_credit(group) || group_is_source(group) || group_is_draft(group) || group_is_date(group) || group_is_copyright(group)
+    group_is_credit(group)
+        || group_is_source(group)
+        || group_is_draft(group)
+        || group_is_date(group)
+        || group_is_copyright(group)
 }
 
 fn group_is_credit(group: &TitlePageGroup) -> bool {
-    group.lines
+    group
+        .lines
         .first()
         .is_some_and(|line| is_credit_like(&line.plain_text()))
 }
@@ -784,7 +800,10 @@ fn group_is_source(group: &TitlePageGroup) -> bool {
 }
 
 fn group_is_draft(group: &TitlePageGroup) -> bool {
-    group.lines.iter().any(|line| is_draft_like(&line.plain_text()))
+    group
+        .lines
+        .iter()
+        .any(|line| is_draft_like(&line.plain_text()))
 }
 
 fn group_is_date(group: &TitlePageGroup) -> bool {
@@ -856,7 +875,10 @@ fn build_imported_title_page(
         .filter(|page| !page.paragraphs.is_empty())
         .collect::<Vec<_>>();
 
-    (!pages.is_empty()).then_some(ImportedTitlePage { header_footer, pages })
+    (!pages.is_empty()).then_some(ImportedTitlePage {
+        header_footer,
+        pages,
+    })
 }
 
 fn imported_title_page_page_from_paragraphs(
@@ -890,13 +912,9 @@ fn title_page_page_ranges(paragraphs: &[FdxTitlePageParagraph]) -> Vec<(usize, u
 
     for (index, paragraph) in paragraphs.iter().enumerate() {
         let paragraph_lines = title_page_paragraph_total_lines(paragraph);
-        if index > page_start && paragraph.starts_new_page {
-            ranges.push((page_start, index));
-            page_start = index;
-            used_lines = 0;
-        } else if index > page_start
-            && used_lines > 0
-            && used_lines + paragraph_lines > TITLE_PAGE_LINES_PER_PAGE
+        if index > page_start
+            && (paragraph.starts_new_page
+                || (used_lines > 0 && used_lines + paragraph_lines > TITLE_PAGE_LINES_PER_PAGE))
         {
             ranges.push((page_start, index));
             page_start = index;
@@ -910,14 +928,11 @@ fn title_page_page_ranges(paragraphs: &[FdxTitlePageParagraph]) -> Vec<(usize, u
 }
 
 fn title_page_paragraph_total_lines(paragraph: &FdxTitlePageParagraph) -> usize {
-    title_page_space_before_lines(paragraph.space_before)
-        + title_page_wrapped_line_count(paragraph)
+    title_page_space_before_lines(paragraph.space_before) + title_page_wrapped_line_count(paragraph)
 }
 
 fn title_page_space_before_lines(space_before: Option<f64>) -> usize {
-    (space_before.unwrap_or(0.0) / 12.0)
-        .round()
-        .max(0.0) as usize
+    (space_before.unwrap_or(0.0) / 12.0).round().max(0.0) as usize
 }
 
 fn title_page_wrapped_line_count(paragraph: &FdxTitlePageParagraph) -> usize {
@@ -925,10 +940,12 @@ fn title_page_wrapped_line_count(paragraph: &FdxTitlePageParagraph) -> usize {
         return 1;
     }
 
-    let left = paragraph.left_indent.unwrap_or(match paragraph.alignment.as_deref() {
-        Some("Center") | Some("Right") | Some("Full") => 1.0,
-        _ => 1.5,
-    }) as f32;
+    let left = paragraph
+        .left_indent
+        .unwrap_or(match paragraph.alignment.as_deref() {
+            Some("Center") | Some("Right") | Some("Full") => 1.0,
+            _ => 1.5,
+        }) as f32;
     let width_chars = (((7.5 - left) * 72.0) / 7.0).floor().max(1.0) as usize;
     wrap_text_for_element(
         &paragraph.text.plain_text(),
@@ -942,8 +959,8 @@ fn parse_title_page_tab_stop(
     reader: &Reader<&[u8]>,
     event: &BytesStart<'_>,
 ) -> Result<Option<ImportedTitlePageTabStop>, FdxParseError> {
-    let Some(position) = optional_attr(reader, event, b"Position")?
-        .and_then(|value| value.parse::<f32>().ok())
+    let Some(position) =
+        optional_attr(reader, event, b"Position")?.and_then(|value| value.parse::<f32>().ok())
     else {
         return Ok(None);
     };
@@ -982,8 +999,7 @@ fn split_title_page_bottom_columns(
             let mut parts = value.split('\t');
             let left = parts.next().unwrap_or_default().to_string();
             let right = parts
-                .filter(|part| !part.is_empty())
-                .next_back()
+                .rfind(|part| !part.is_empty())
                 .unwrap_or_default()
                 .to_string();
             (
@@ -1072,7 +1088,7 @@ fn extract_import_settings(xml: &str) -> Result<ImportedFdxSettings, FdxParseErr
                             settings
                                 .paragraph_styles
                                 .entry(type_name.to_string())
-                                .or_insert_with(|| ImportedParagraphStyle::default()),
+                                .or_insert_with(ImportedParagraphStyle::default),
                         )?;
                     }
                 }
@@ -1115,7 +1131,7 @@ fn extract_import_settings(xml: &str) -> Result<ImportedFdxSettings, FdxParseErr
                             settings
                                 .paragraph_styles
                                 .entry(type_name.to_string())
-                                .or_insert_with(|| ImportedParagraphStyle::default()),
+                                .or_insert_with(ImportedParagraphStyle::default),
                         )?;
                     }
                 }
@@ -1323,15 +1339,14 @@ fn normalize_settings_to_fmt(settings: &ImportedFdxSettings) -> String {
         tokens.push("multicam".to_string());
     }
 
-    if let Some(style) = settings.paragraph_styles.get("Scene Heading") {
-        if style
+    if let Some(style) = settings.paragraph_styles.get("Scene Heading")
+        && style
             .space_before
             .is_some_and(|scene_heading_spacing_before| {
                 approx_eq(scene_heading_spacing_before, 1.0)
             })
-        {
-            tokens.push("ssbsh".to_string());
-        }
+    {
+        tokens.push("ssbsh".to_string());
     }
 
     if let Some(style) = settings.paragraph_styles.get("Dialogue") {
@@ -1446,9 +1461,7 @@ fn imported_settings_to_layout_overrides(
                 let new_is_used = used_paragraph_types.contains(name);
                 let existing_is_used = used_paragraph_types.contains(*existing_name);
 
-                if new_is_used && !existing_is_used {
-                    element_styles.insert(kind, (name, entry));
-                } else if !new_is_used && !existing_is_used {
+                if new_is_used || !existing_is_used {
                     element_styles.insert(kind, (name, entry));
                 }
             } else {
@@ -1511,11 +1524,11 @@ fn collapse_text_chunks(chunks: Vec<TextChunk>) -> ElementText {
 
     let mut runs: Vec<TextRun> = Vec::new();
     for chunk in chunks {
-        if let Some(last) = runs.last_mut() {
-            if last.text_style == chunk.styles {
-                last.content.push_str(&chunk.content);
-                continue;
-            }
+        if let Some(last) = runs.last_mut()
+            && last.text_style == chunk.styles
+        {
+            last.content.push_str(&chunk.content);
+            continue;
         }
 
         runs.push(TextRun {
@@ -1550,9 +1563,7 @@ fn paragraph_to_element(
     let text_plain = paragraph.text.plain_text();
     let resolved_type =
         resolved_body_paragraph_type(&paragraph.paragraph_type, attributes.centered, &text_plain)?;
-    if let Some(base_style) =
-        baseline_style_for_paragraph_type(resolved_type, baseline_profile)
-    {
+    if let Some(base_style) = baseline_style_for_paragraph_type(resolved_type, baseline_profile) {
         if let Some(right_indent) = paragraph.right_indent {
             let delta = right_indent - base_style.right_indent;
             if !approx_eq(delta, 0.0) {

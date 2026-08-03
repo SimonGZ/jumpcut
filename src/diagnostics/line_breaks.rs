@@ -5,8 +5,8 @@ use std::path::Path;
 use serde::{Deserialize, Serialize};
 
 use crate::pagination::{
-    normalize_screenplay, wrapping::ElementType, DialoguePartKind, FlowKind, Fragment,
-    LayoutGeometry, LineRange, NormalizedElement, PageBreakFixture, PaginationConfig,
+    DialoguePartKind, FlowKind, Fragment, LayoutGeometry, LineRange, NormalizedElement,
+    PageBreakFixture, PaginationConfig, normalize_screenplay, wrapping::ElementType,
 };
 use crate::parse;
 

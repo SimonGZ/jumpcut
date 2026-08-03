@@ -1,3 +1,6 @@
+use crate::Screenplay;
+use crate::pagination::LayoutGeometry;
+use crate::pagination::ScreenplayLayoutProfile;
 use crate::pagination::dialogue_split::DialogueSplitPlan;
 use crate::pagination::fixtures::{
     Fragment, NormalizedElement, NormalizedScreenplay, PageBreakFixture,
@@ -6,15 +9,12 @@ use crate::pagination::fixtures::{
 use crate::pagination::margin::line_height_for_element_type;
 use crate::pagination::normalize_screenplay;
 use crate::pagination::semantic::{
-    build_semantic_screenplay, DialoguePartKind, DialogueUnit, FlowKind, FlowUnit,
-    SemanticScreenplay, SemanticUnit,
+    DialoguePartKind, DialogueUnit, FlowKind, FlowUnit, SemanticScreenplay, SemanticUnit,
+    build_semantic_screenplay,
 };
 use crate::pagination::wrapping::{
-    wrap_config_with_overrides, wrap_text_for_element, ElementType, InterruptionDashWrap,
+    ElementType, InterruptionDashWrap, wrap_config_with_overrides, wrap_text_for_element,
 };
-use crate::pagination::LayoutGeometry;
-use crate::pagination::ScreenplayLayoutProfile;
-use crate::Screenplay;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ContinuationMarker {
@@ -480,19 +480,19 @@ fn dialogue_fragment_items_from_plan(
 
     match fragment {
         Fragment::ContinuedToNext => {
-            if let Some(last) = items.last_mut() {
-                if last.line_range.is_some() {
-                    last.fragment = merge_fragment(&last.fragment, &Fragment::ContinuedToNext);
-                    last.continuation_markers = continuation_markers_for_fragment(&last.fragment);
-                }
+            if let Some(last) = items.last_mut()
+                && last.line_range.is_some()
+            {
+                last.fragment = merge_fragment(&last.fragment, &Fragment::ContinuedToNext);
+                last.continuation_markers = continuation_markers_for_fragment(&last.fragment);
             }
         }
         Fragment::ContinuedFromPrev => {
-            if let Some(first) = items.first_mut() {
-                if first.line_range.is_some() {
-                    first.fragment = merge_fragment(&first.fragment, &Fragment::ContinuedFromPrev);
-                    first.continuation_markers = continuation_markers_for_fragment(&first.fragment);
-                }
+            if let Some(first) = items.first_mut()
+                && first.line_range.is_some()
+            {
+                first.fragment = merge_fragment(&first.fragment, &Fragment::ContinuedFromPrev);
+                first.continuation_markers = continuation_markers_for_fragment(&first.fragment);
             }
         }
         Fragment::Whole | Fragment::ContinuedFromPrevAndToNext => {}
@@ -523,18 +523,18 @@ fn dialogue_items_with_fragment_markers(
         })
         .collect();
 
-    if let Some(first) = items.first_mut() {
-        if continued_from_prev {
-            first.fragment = merge_fragment(&first.fragment, &Fragment::ContinuedFromPrev);
-            first.continuation_markers = continuation_markers_for_fragment(&first.fragment);
-        }
+    if let Some(first) = items.first_mut()
+        && continued_from_prev
+    {
+        first.fragment = merge_fragment(&first.fragment, &Fragment::ContinuedFromPrev);
+        first.continuation_markers = continuation_markers_for_fragment(&first.fragment);
     }
 
-    if let Some(last) = items.last_mut() {
-        if continued_to_next {
-            last.fragment = merge_fragment(&last.fragment, &Fragment::ContinuedToNext);
-            last.continuation_markers = continuation_markers_for_fragment(&last.fragment);
-        }
+    if let Some(last) = items.last_mut()
+        && continued_to_next
+    {
+        last.fragment = merge_fragment(&last.fragment, &Fragment::ContinuedToNext);
+        last.continuation_markers = continuation_markers_for_fragment(&last.fragment);
     }
 
     items

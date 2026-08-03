@@ -1,4 +1,4 @@
-use jumpcut::{blank_attributes, p, parse, Attributes, Element};
+use jumpcut::{Attributes, Element, blank_attributes, p, parse};
 use pretty_assertions::assert_eq;
 
 #[test]

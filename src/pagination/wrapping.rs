@@ -1,6 +1,6 @@
-use crate::pagination::margin::calculate_element_width;
-use crate::pagination::LayoutGeometry;
 use crate::ElementLayoutOverrides;
+use crate::pagination::LayoutGeometry;
+use crate::pagination::margin::calculate_element_width;
 use crate::styled_text::{StyledRun, StyledText};
 
 #[derive(Debug, Clone, Copy)]
