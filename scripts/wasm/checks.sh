@@ -13,3 +13,5 @@ cargo check -p jumpcut-wasm --target wasm32-unknown-unknown --release --no-defau
 cargo check -p jumpcut-wasm --target wasm32-unknown-unknown --release --no-default-features --features pdf
 cargo check -p jumpcut-wasm --target wasm32-unknown-unknown --release --no-default-features --features pdf-font-subsetting
 "$SCRIPT_DIR/generate-package.sh" --target nodejs --smoke >/dev/null
+node "$SCRIPT_DIR/validate-node.mjs" \
+    --pkg-dir "$ROOT_DIR/target/wasm-package/node-full"

@@ -133,7 +133,8 @@ The repo includes helper scripts for the wasm workflow:
 - `./scripts/wasm/checks.sh`
   - repo-internal validation helper for wasm changes
   - runs tests and `wasm32` checks
-  - runs the smoke package-generation path
+  - generates a Node package, loads the compiled WASM, and validates every
+    default-feature JS export against a small Fountain/FDX fixture
 - `./scripts/wasm/report.sh`
   - repo-internal benchmark/size-report helper
   - emits bundle-size metrics, feature-slice metrics (`json_only`, `html_only`, `fdx_only`, `pdf_only`, `pdf_subset`), native guardrail metrics, and Node-side wasm runtime metrics
