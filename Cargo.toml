@@ -1,12 +1,14 @@
 [package]
 name = "jumpcut"
-version = "1.0.0-beta.2"
+version = "1.0.0"
 edition = "2024"
+rust-version = "1.88"
 license = "MIT"
 description = "JumpCut is a library and CLI for converting Fountain-formatted text files into FDX, HTML, JSON, text, and PDF formats."
 homepage = "https://github.com/SimonGZ/jumpcut"
 repository = "https://github.com/SimonGZ/jumpcut"
 keywords = ["fountain", "screenwriting"]
+categories = ["command-line-utilities", "text-processing"]
 default-run = "jumpcut"
 readme = "README.md"
 include = [
@@ -17,6 +19,7 @@ include = [
     "docs/*.md",
     "src/**/*.rs",
     "src/templates/**/*.ttf",
+    "src/templates/fonts/OFL.txt",
     "src/templates/*.css",
     "src/templates/*.hbs",
 ]
@@ -28,17 +31,28 @@ resolver = "2"
 [[bin]]
 name = "jumpcut"
 path = "src/bin/main.rs"
+required-features = ["cli"]
+
+[[bin]]
+name = "autoresearch_native_bench"
+path = "src/bin/autoresearch_native_bench.rs"
+required-features = ["internal-tools"]
+
+[[bin]]
+name = "pagination-diagnostics"
+path = "src/bin/pagination-diagnostics.rs"
+required-features = ["internal-tools"]
 
 [dependencies]
-base64 = "0.22.1"
+base64 = { version = "0.22.1", optional = true }
 lazy_static = "1.5.0"
-pdf-writer = "0.15.0"
+pdf-writer = { version = "0.15.0", optional = true }
 flate2 = { version = "1.1.9", default-features = false, features = ["rust_backend"], optional = true }
 subsetter = { version = "0.2.6", optional = true }
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.150"
-time = { version = "0.3.44", features = ["formatting"] }
-ttf-parser = "0.25.1"
+time = { version = "0.3.44", features = ["formatting"], optional = true }
+ttf-parser = { version = "0.25.1", optional = true }
 clap = { version = "4.6.1", features = ["derive"], optional = true }
 quick-xml = "0.41.0"
 
@@ -50,12 +64,13 @@ regex = { version = "1.12.4", default-features = false, features = ["std", "perf
 
 [features]
 default = ["html", "fdx", "pdf", "pdf-font-subsetting", "cli"]
-html = []
+html = ["dep:base64", "dep:ttf-parser"]
 fdx = []
-pdf = ["dep:flate2"]
+pdf = ["dep:flate2", "dep:pdf-writer", "dep:time", "dep:ttf-parser"]
 pdf-font-subsetting = ["pdf", "dep:subsetter"]
-cli = ["clap"]
+cli = ["dep:clap", "html", "fdx"]
 lib-only = ["html", "fdx", "pdf", "pdf-font-subsetting"]
+internal-tools = []
 
 [dev-dependencies]
 criterion = "0.8.2"

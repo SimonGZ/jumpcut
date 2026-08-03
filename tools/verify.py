@@ -86,7 +86,16 @@ def build_steps(mode: str) -> list[tuple[str, list[str]]]:
         steps.append(
             (
                 "pagination-diagnostics",
-                ["cargo", "run", "--bin", "pagination-diagnostics", "--", "all"],
+                [
+                    "cargo",
+                    "run",
+                    "--features",
+                    "internal-tools",
+                    "--bin",
+                    "pagination-diagnostics",
+                    "--",
+                    "all",
+                ],
             )
         )
     if mode == "full":

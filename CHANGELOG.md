@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.0] - Unreleased
+## [1.0.0] - 2026-08-02
 
 ### Added
 - Added first-class PDF output, including tagged-PDF structure, XMP metadata, author metadata, and page labels that follow visible screenplay numbering.
@@ -23,7 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added an opt-in `pdf-font-subsetting` wasm feature and a corresponding `pdf_subset` size-report slice.
 
 ### Changed
-- Promoted the project to a `1.0.0-beta` baseline in crate metadata while preparing for the final `1.0.0` release.
+- Stabilized the crate and CLI metadata for the final `1.0.0` release.
 - Renamed the default render profile from `final-draft` to `industry`.
 - Reworked paginated HTML so page-size/layout overrides flow through the shared layout profile instead of being hard-coded to Letter.
 - Derived PDF title-page vertical placement from shared geometry instead of a separate letter-specific coordinate system.
@@ -35,6 +35,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Fixed wasm package generation so the wrapper no longer pulled in native-only diagnostics code.
 - Fixed wasm PDF generation on `wasm32-unknown-unknown` by removing its dependency on a native wall-clock source.
+- Fixed standalone WASM feature builds so FDX-only builds no longer reference disabled HTML and PDF APIs.
+- Fixed the WASM packaging helper so its `wasm-bindgen-cli` version follows the Rust crate version in `Cargo.lock`.
+- Fixed Cargo feature boundaries so library-only builds skip the CLI and optional renderer dependencies.
+- Fixed the CLI so unsupported output formats produce an argument error instead of successful placeholder output.
 - Fixed headless paginated HTML fragments so they carry the layout CSS they need for A4 and other page-geometry overrides.
 - Fixed feature-boundary issues that produced large `dead_code` warning clusters in non-HTML/non-PDF wasm slices.
 

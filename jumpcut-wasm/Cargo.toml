@@ -1,7 +1,8 @@
 [package]
 name = "jumpcut-wasm"
-version = "1.0.0-beta.2"
+version = "1.0.0"
 edition = "2021"
+rust-version = "1.88"
 publish = false
 license = "MIT"
 description = "wasm-bindgen wrapper crate for JumpCut"

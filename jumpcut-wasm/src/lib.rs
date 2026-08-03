@@ -27,13 +27,13 @@ pub fn parse_fdx_to_fountain_string(text: &str) -> Result<String, JsValue> {
     Ok(screenplay.to_fountain())
 }
 
-#[cfg(feature = "fdx")]
+#[cfg(all(feature = "fdx", feature = "html"))]
 #[wasm_bindgen]
 pub fn parse_fdx_to_html_string(text: &str, include_head: bool) -> Result<String, JsValue> {
     parse_fdx_to_html_string_with_options(text, include_head, false, false)
 }
 
-#[cfg(feature = "fdx")]
+#[cfg(all(feature = "fdx", feature = "html"))]
 #[wasm_bindgen]
 pub fn parse_fdx_to_html_string_with_options(
     text: &str,
@@ -54,7 +54,7 @@ pub fn parse_fdx_to_html_string_with_options(
     }))
 }
 
-#[cfg(feature = "fdx")]
+#[cfg(all(feature = "fdx", feature = "pdf"))]
 #[wasm_bindgen]
 pub fn parse_fdx_to_pdf_bytes(text: &str) -> Result<Vec<u8>, JsValue> {
     let screenplay =

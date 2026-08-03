@@ -5281,8 +5281,13 @@ mod tests {
         assert!(pdf_text.contains("/Subtype /XML"));
         assert!(xmp.contains("<dc:title><rdf:Alt>"));
         assert!(xmp.contains("<rdf:li xml:lang=\"x-default\">My Screenplay</rdf:li>"));
-        assert!(xmp.contains("<xmp:CreatorTool>JumpCut 1.0.0-beta.2</xmp:CreatorTool>"));
-        assert!(xmp.contains("<pdf:Producer>JumpCut 1.0.0-beta.2</pdf:Producer>"));
+        let version = env!("CARGO_PKG_VERSION");
+        assert!(xmp.contains(&format!(
+            "<xmp:CreatorTool>JumpCut {version}</xmp:CreatorTool>"
+        )));
+        assert!(xmp.contains(&format!(
+            "<pdf:Producer>JumpCut {version}</pdf:Producer>"
+        )));
         assert!(xmp.contains("<xmp:CreateDate>"));
         assert!(xmp.contains("<xmp:ModifyDate>"));
         assert!(xmp.contains("<xmp:MetadataDate>"));

@@ -23,7 +23,7 @@ use std::path::{Path, PathBuf};
 #[cfg(feature = "cli")]
 struct Args {
     /// Formats (Fountain, FDX, HTML, JSON, text, PDF)
-    #[arg(short, long)]
+    #[arg(short, long, value_parser = parse_output_format)]
     format: Option<String>,
 
     /// Render text output with pagination
@@ -215,18 +215,45 @@ fn main() {
                 screenplay.to_pdf_with_options(options)
             }
         }
-        _ => b"nothing".to_vec(),
+        _ => unreachable!("output formats are validated by clap"),
     };
 
-    match output_path {
-        Some(outfile) => fs::write(outfile, output_bytes).expect("Unable to write file."),
+    let write_result = match output_path {
+        Some(outfile) => fs::write(&outfile, output_bytes)
+            .map_err(|error| format!("Could not write '{}': {error}", outfile.display())),
         None => {
             let stdout = io::stdout();
             let mut handle = io::BufWriter::new(stdout);
-            handle
-                .write_all(&output_bytes)
-                .expect("Unable to write to buffer.");
+            handle.write_all(&output_bytes).map_err(|error| {
+                format!("Could not write converted document to standard output: {error}")
+            })
         }
+    };
+    if let Err(error) = write_result {
+        eprintln!("Error: {error}");
+        std::process::exit(1);
+    }
+}
+
+#[cfg(feature = "cli")]
+fn parse_output_format(value: &str) -> Result<String, String> {
+    let normalized = value.to_ascii_lowercase();
+    let supported = matches!(
+        normalized.as_str(),
+        "fountain" | "fdx" | "html" | "json" | "text"
+    ) || (cfg!(feature = "pdf") && normalized == "pdf");
+
+    if supported {
+        Ok(normalized)
+    } else {
+        Err(format!(
+            "unsupported format '{value}'; expected fountain, fdx, html, json, text{}",
+            if cfg!(feature = "pdf") {
+                ", or pdf"
+            } else {
+                ""
+            }
+        ))
     }
 }
 
@@ -482,6 +509,12 @@ mod tests {
         let parsed =
             Args::try_parse_from(["jumpcut", "script.fountain", "--render-profile", "industry"]);
         assert!(parsed.is_ok());
+    }
+
+    #[test]
+    fn cli_rejects_unknown_output_format() {
+        let parsed = Args::try_parse_from(["jumpcut", "script.fountain", "--format", "docx"]);
+        assert!(parsed.is_err());
     }
 
     #[test]

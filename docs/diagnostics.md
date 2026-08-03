@@ -25,7 +25,7 @@ just pagination-diagnostics
 That recipe calls the dedicated Rust diagnostics tool directly:
 
 ```sh
-cargo run --bin pagination-diagnostics -- all
+cargo run --features internal-tools --bin pagination-diagnostics -- all
 ```
 
 The main run currently regenerates:
