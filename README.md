@@ -43,13 +43,13 @@ Options:
       --line-numbers
           Show line numbers in text output
       --render-profile <RENDER_PROFILE>
-          Override the layout/render profile instead of using fmt metadata [possible values: industry, balanced]
+          Override the layout/render profile [possible values: industry, balanced]
       --no-continueds
-          Suppress (CONT'D)/(MORE) style continued markers in render outputs
+          Suppress (CONT'D)/(MORE) markers in render outputs
       --no-title-page
           Suppress title-page output for HTML and PDF renders
       --font-dir <DIR>
-          PDF, or HTML with --embed-courier-prime: directory containing regular.ttf, bold.ttf, italic.ttf, and bold-italic.ttf. You are responsible for font licensing
+          Provide custom font family containing regular.ttf, bold.ttf, italic.ttf, and bold-italic.ttf (Only for PDF/HTML; must be used with --embed-courier-prime)
   -o, --output <FILE>
           Output file
   -w, --write
@@ -71,11 +71,8 @@ jumpcut script.fountain script.fdx
 jumpcut script.fountain -o script.fdx
 
 # Auto-derive the output path from the input
-jumpcut script.fountain -w
-jumpcut script.fountain -w -f pdf   # writes script.pdf
+jumpcut script.fountain -w -f pdf   # writes script.pdf in same directory
 ```
-
-`-w` is the explicit "write next to the source" mode. `-o` always expects a file path.
 
 ### PDF bookmarks
 
@@ -130,11 +127,11 @@ There are two built-in profiles that act like presets. They bundle together diff
 - `industry`: the default. This aims for the kind of screenplay pagination and continuation behavior used by major industry tools (like Final Draft).
 - `balanced`: a more opinionated profile that aims for cleaner-looking page breaks, dash wrapping, and `(MORE)` / `(CONT'D)` choices. NOTE: This profile is subject to change based on the whims and opinions of the software's author.
 
-You can set those presets (called render-profiles by the app) and other frequent customizations with CLI flags like `--render-profile`, `--no-continueds`, and `--no-title-page`
+You can set these presets (called render-profiles by the app) and other frequent customizations with CLI flags like `--render-profile`, `--no-continueds`, and `--no-title-page`
 
 More specific formatting, margin, and pagination tweaks can be set in a `fmt` string in the metadata section at the top of a Fountain document.
 
-JumpCut also supports per-element layout overrides (aka "cheats"). These modify an individual paragraph to change the margins or spacing, which can be useful when trying to pull up a line and fit more on a page. In Fountain, those can be written as modifier notes like `[[ .lift-1 ]]` and `[[ .widen-2 ]]`, and equivalent paragraph-level spacing / width deviations are preserved during FDX import and export.
+JumpCut also supports per-element layout overrides (aka "cheats"). These modify an individual paragraph to change the margins or spacing, which can be useful when trying to pull up a line and fit more on a page. In Fountain, those can be written as modifier notes like `[[ .lift-1 ]]` and `[[ .widen-2 ]]`. These paragraph-level spacing / width tweaks are preserved during FDX import and export.
 
 If you want the full reference for `fmt`, profile overrides, and `--metadata` / `-m`, see [`docs/formatting-and-metadata.md`](docs/formatting-and-metadata.md).
 
