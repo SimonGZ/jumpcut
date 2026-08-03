@@ -39,11 +39,11 @@ struct Args {
     #[arg(long)]
     line_numbers: bool,
 
-    /// Override the layout/render profile instead of using fmt metadata
+    /// Override the layout/render profile
     #[arg(long, value_enum)]
     render_profile: Option<RenderProfile>,
 
-    /// Suppress (CONT'D)/(MORE) style continued markers in render outputs
+    /// Suppress (CONT'D)/(MORE) markers in render outputs
     #[arg(long)]
     no_continueds: bool,
 
@@ -51,7 +51,7 @@ struct Args {
     #[arg(long)]
     no_title_page: bool,
 
-    /// PDF, or HTML with --embed-courier-prime: directory containing regular.ttf, bold.ttf, italic.ttf, and bold-italic.ttf. You are responsible for font licensing.
+    /// Provide custom font family containing regular.ttf, bold.ttf, italic.ttf, and bold-italic.ttf (Only for PDF/HTML; must be used with --embed-courier-prime)
     #[arg(long, value_name = "DIR")]
     font_dir: Option<PathBuf>,
 
@@ -647,8 +647,8 @@ mod tests {
         Args::command().write_long_help(&mut help).unwrap();
         let help = String::from_utf8(help).unwrap();
         assert!(help.contains("--font-dir <DIR>"));
-        assert!(help.contains("regular.ttf"));
-        assert!(help.contains("responsible for font licensing"));
+        assert!(help.contains("Provide custom font family containing regular.ttf"));
+        assert!(help.contains("Only for PDF/HTML; must be used with --embed-courier-prime"));
     }
 
     #[cfg(not(feature = "pdf"))]
