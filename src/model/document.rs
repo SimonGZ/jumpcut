@@ -86,6 +86,7 @@ pub struct ImportedPageLayoutOverrides {
     pub bottom_margin: Option<f32>,
     pub header_margin: Option<f32>,
     pub footer_margin: Option<f32>,
+    pub break_dialogue_and_action_at_sentences: Option<bool>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]

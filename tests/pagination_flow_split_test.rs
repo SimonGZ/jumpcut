@@ -1,6 +1,6 @@
 use jumpcut::pagination::flow_split::{
     choose_flow_split, choose_flow_split_allow_exact_fit_sentence_runt,
-    choose_flow_split_final_draft,
+    choose_flow_split_final_draft, choose_flow_split_final_draft_without_sentence_correction,
 };
 use jumpcut::pagination::wrapping::WrapConfig;
 
@@ -24,6 +24,20 @@ fn flow_split_prefers_a_sentence_boundary_when_a_legal_split_exists() {
             .trim_start()
             .starts_with("Friendly but a little drunk")
     );
+}
+
+#[test]
+fn final_draft_flow_split_can_use_the_physical_line_when_sentence_correction_is_disabled() {
+    let text = "Alpha beta gamma delta epsilon zeta eta theta iota kappa lambda mu.";
+    let config = WrapConfig::with_exact_width_chars(20);
+
+    assert!(choose_flow_split_final_draft(text, &config, 2, 1, 1).is_none());
+    let decision =
+        choose_flow_split_final_draft_without_sentence_correction(text, &config, 2, 1, 1)
+            .expect("physical line split should remain available");
+
+    assert_eq!(decision.top_line_count, 2);
+    assert!(decision.bottom_line_count >= 1);
 }
 
 #[test]

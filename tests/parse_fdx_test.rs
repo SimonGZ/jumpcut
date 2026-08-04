@@ -185,6 +185,7 @@ fn it_normalizes_imported_fdx_settings_into_shared_layout_metadata() {
 fn it_preserves_richer_imported_layout_overrides_beyond_fmt_metadata() {
     let xml = r#"<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
 <FinalDraft DocumentType="Script" Template="No" Version="4">
+  <PageLayout BreakDialogueAndActionAtSentences="No"/>
   <Content>
     <Paragraph Type="Action">
       <Text>Centered sample.</Text>
@@ -200,7 +201,7 @@ fn it_preserves_richer_imported_layout_overrides_beyond_fmt_metadata() {
   </MoresAndContinueds>
 </FinalDraft>"#;
 
-    let screenplay = parse_fdx(xml).expect("fdx should parse");
+    let mut screenplay = parse_fdx(xml).expect("fdx should parse");
     let imported_layout = screenplay
         .imported_layout
         .as_ref()
@@ -217,6 +218,10 @@ fn it_preserves_richer_imported_layout_overrides_beyond_fmt_metadata() {
     assert_eq!(action_style.line_spacing, Some(1.5));
     assert_eq!(action_style.bold, Some(true));
     assert_eq!(action_style.italic, Some(true));
+    assert_eq!(
+        imported_layout.page.break_dialogue_and_action_at_sentences,
+        Some(false)
+    );
     assert_eq!(
         imported_layout
             .mores_and_continueds
@@ -236,6 +241,33 @@ fn it_preserves_richer_imported_layout_overrides_beyond_fmt_metadata() {
     assert!(resolved.styles.action.italic);
     assert!(resolved.styles.action.starts_new_page);
     assert!(!resolved.automatic_character_continueds);
+    assert!(!resolved.break_dialogue_and_action_at_sentences);
+
+    let exported = screenplay.to_final_draft();
+    assert!(exported.contains("BreakDialogueAndActionAtSentences=\"No\""));
+}
+
+#[test]
+fn it_uses_fdx_paginate_as_for_custom_element_types() {
+    let xml = r#"<?xml version="1.0" encoding="UTF-8"?>
+<FinalDraft DocumentType="Script" Template="No" Version="4">
+  <Content>
+    <Paragraph Type="Shot"><Text>AERIAL VIEW</Text></Paragraph>
+  </Content>
+  <ElementSettings Type="Shot">
+    <ParagraphSpec Alignment="Left" LeftIndent="1.75" RightIndent="7.25"/>
+    <Behavior PaginateAs="Action" ReturnKey="Action" Shortcut=""/>
+  </ElementSettings>
+</FinalDraft>"#;
+
+    let screenplay = parse_fdx(xml).expect("fdx should parse");
+    assert!(matches!(
+        screenplay.elements.as_slice(),
+        [Element::Action(..)]
+    ));
+    let profile = ScreenplayLayoutProfile::from_screenplay(&screenplay);
+    assert_eq!(profile.styles.action.left_indent, 1.75);
+    assert_eq!(profile.styles.action.right_indent, 7.25);
 }
 
 #[test]

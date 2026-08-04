@@ -68,6 +68,7 @@ pub struct ScreenplayElementStyles {
 pub struct ScreenplayLayoutProfile {
     pub style_profile: StyleProfile,
     pub pagination_mode: PaginationMode,
+    pub break_dialogue_and_action_at_sentences: bool,
     pub interruption_dash_wrap: InterruptionDashWrap,
     pub dual_dialogue_counts_for_contd: bool,
     pub automatic_character_continueds: bool,
@@ -137,6 +138,7 @@ impl ScreenplayLayoutProfile {
     pub fn to_pagination_geometry(&self) -> LayoutGeometry {
         let mut geometry = LayoutGeometry {
             pagination_mode: self.pagination_mode,
+            break_dialogue_and_action_at_sentences: self.break_dialogue_and_action_at_sentences,
             ..LayoutGeometry::default()
         };
 
@@ -254,6 +256,7 @@ impl ScreenplayLayoutProfile {
         Self {
             style_profile: StyleProfile::Screenplay,
             pagination_mode: PaginationMode::Ranked,
+            break_dialogue_and_action_at_sentences: true,
             interruption_dash_wrap: InterruptionDashWrap::FinalDraft,
             dual_dialogue_counts_for_contd: true,
             automatic_character_continueds: true,
@@ -494,6 +497,9 @@ impl ScreenplayLayoutProfile {
         }
         if let Some(footer_margin) = imported_layout.page.footer_margin {
             self.footer_margin = footer_margin;
+        }
+        if let Some(value) = imported_layout.page.break_dialogue_and_action_at_sentences {
+            self.break_dialogue_and_action_at_sentences = value;
         }
 
         for (kind, style) in &imported_layout.element_styles {

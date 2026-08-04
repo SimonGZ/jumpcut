@@ -126,7 +126,7 @@ There are three built-in profiles that act like presets. They bundle together di
 
 - `industry`: the default. This aims for the kind of screenplay pagination and continuation behavior used by major industry tools (like Final Draft).
 - `balanced`: a more opinionated profile that aims for cleaner-looking page breaks, dash wrapping, and `(MORE)` / `(CONT'D)` choices. NOTE: This profile is subject to change based on the whims and opinions of the software's author.
-- `final-draft`: an experimental compatibility profile that applies the recovered Final Draft 11 sentence-boundary and dialogue-break rules while preserving JumpCut's proven widow/orphan and continuation-quality safeguards.
+- `final-draft`: an experimental compatibility profile that starts from the physical line break and applies the recovered Final Draft 11 ordered correction rules. FDX sentence-correction and `PaginateAs` settings are carried into pagination.
 
 You can set these presets (called render-profiles by the app) and other frequent customizations with CLI flags like `--render-profile`, `--no-continueds`, and `--no-title-page`
 

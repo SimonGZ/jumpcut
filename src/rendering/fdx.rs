@@ -272,11 +272,16 @@ fn render_page_layout(out: &mut String, layout_profile: &ScreenplayLayoutProfile
     let bottom_margin = (layout_profile.bottom_margin * 72.0).round() as i32;
     let header_margin = (layout_profile.header_margin * 72.0).round() as i32;
     let footer_margin = (layout_profile.footer_margin * 72.0).round() as i32;
+    let break_at_sentences = if layout_profile.break_dialogue_and_action_at_sentences {
+        "Yes"
+    } else {
+        "No"
+    };
 
     writeln!(
         out,
-        "    <PageLayout BackgroundColor=\"#FFFFFFFFFFFF\" BottomMargin=\"{}\" BreakDialogueAndActionAtSentences=\"Yes\" DocumentLeading=\"Normal\" FooterMargin=\"{}\" ForegroundColor=\"#000000000000\" HeaderMargin=\"{}\" InvisiblesColor=\"#C0C0C0C0C0C0\" TopMargin=\"{}\" UsesSmartQuotes=\"Yes\">",
-        bottom_margin, footer_margin, header_margin, top_margin
+        "    <PageLayout BackgroundColor=\"#FFFFFFFFFFFF\" BottomMargin=\"{}\" BreakDialogueAndActionAtSentences=\"{}\" DocumentLeading=\"Normal\" FooterMargin=\"{}\" ForegroundColor=\"#000000000000\" HeaderMargin=\"{}\" InvisiblesColor=\"#C0C0C0C0C0C0\" TopMargin=\"{}\" UsesSmartQuotes=\"Yes\">",
+        bottom_margin, break_at_sentences, footer_margin, header_margin, top_margin
     )
     .unwrap();
     writeln!(

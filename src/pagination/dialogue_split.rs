@@ -9,7 +9,7 @@ use crate::pagination::sentence_boundary::{
 use crate::pagination::split_scoring::choose_best_scored_split;
 use crate::pagination::wrapping::{
     ElementType, InterruptionDashWrap, WrapConfig, wrap_config_with_overrides,
-    wrap_text_for_element,
+    wrap_text_for_element, wrap_text_for_element_with_offsets,
 };
 use crate::pagination::{DialoguePartKind, DialogueUnit, LayoutGeometry};
 
@@ -117,12 +117,7 @@ pub fn plan_dialogue_split_parts(
     min_bottom_content_lines: usize,
 ) -> Option<DialogueSplitPlan> {
     let policy = DialogueSplitPolicy::default();
-    let candidates = generate_dialogue_split_candidates(
-        parts,
-        geometry,
-        interruption_dash_wrap,
-        DialogueBoundaryMode::Ranked,
-    );
+    let candidates = generate_dialogue_split_candidates(parts, geometry, interruption_dash_wrap);
 
     let winner = choose_best_scored_split(0..candidates.len(), |candidate_index| {
         let candidate = &candidates[candidate_index];
@@ -200,53 +195,195 @@ pub fn plan_dialogue_split_parts_final_draft(
     min_top_content_lines: usize,
     min_bottom_content_lines: usize,
 ) -> Option<DialogueSplitPlan> {
-    let candidates = generate_dialogue_split_candidates(
-        parts,
-        geometry,
-        interruption_dash_wrap,
-        DialogueBoundaryMode::FinalDraft,
-    );
-    let winner = choose_best_scored_split(0..candidates.len(), |candidate_index| {
-        let candidate = &candidates[candidate_index];
-        if candidate.plan.top_height > max_top_height
-            || candidate.top_dialogue_lines < min_top_content_lines
-            || candidate.bottom_dialogue_lines < min_bottom_content_lines
+    let records = final_draft_dialogue_line_records(parts, geometry, interruption_dash_wrap);
+    let split_index = final_draft_physical_split_index(&records, max_top_height)?;
+    let bottom_record_index = final_draft_dialogue_handler_bottom_index(&records, split_index)?;
+    let physical_boundary = final_draft_boundary_before(&records[bottom_record_index]);
+    let boundary = if geometry.break_dialogue_and_action_at_sentences {
+        final_draft_correct_dialogue_boundary(
+            parts,
+            &records,
+            bottom_record_index,
+            physical_boundary,
+        )?
+    } else {
+        physical_boundary
+    };
+    let candidate = build_candidate(parts, geometry, interruption_dash_wrap, boundary)?;
+
+    (candidate.plan.top_height <= max_top_height
+        && candidate.top_dialogue_lines >= min_top_content_lines
+        && candidate.bottom_dialogue_lines >= min_bottom_content_lines)
+        .then_some(candidate.plan)
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct FinalDraftDialogueLineRecord {
+    part_index: usize,
+    kind: DialoguePartKind,
+    start_offset: usize,
+    paragraph_start: bool,
+    line_height_bits: u32,
+}
+
+impl FinalDraftDialogueLineRecord {
+    fn line_height(&self) -> f32 {
+        f32::from_bits(self.line_height_bits)
+    }
+}
+
+fn final_draft_dialogue_line_records(
+    parts: &[DialogueTextPart],
+    geometry: &LayoutGeometry,
+    interruption_dash_wrap: InterruptionDashWrap,
+) -> Vec<FinalDraftDialogueLineRecord> {
+    let mut records = Vec::new();
+
+    for (part_index, part) in parts.iter().enumerate() {
+        let config = wrap_config_with_overrides(
+            geometry,
+            element_type_for_part_kind(part.kind.clone()),
+            &part.layout_overrides,
+            interruption_dash_wrap,
+        );
+        let line_height = line_height_for_part_kind(part.kind.clone(), geometry).to_bits();
+        for (line_index, line) in wrap_text_for_element_with_offsets(&part.text, &config)
+            .into_iter()
+            .enumerate()
         {
+            records.push(FinalDraftDialogueLineRecord {
+                part_index,
+                kind: part.kind.clone(),
+                start_offset: line.start_offset,
+                paragraph_start: line_index == 0,
+                line_height_bits: line_height,
+            });
+        }
+    }
+
+    records
+}
+
+fn final_draft_physical_split_index(
+    records: &[FinalDraftDialogueLineRecord],
+    max_top_height: f32,
+) -> Option<usize> {
+    let mut height = 0.0;
+    let mut split_index = 0;
+    while split_index < records.len()
+        && height + records[split_index].line_height() <= max_top_height
+    {
+        height += records[split_index].line_height();
+        split_index += 1;
+    }
+
+    (split_index > 0 && split_index < records.len()).then_some(split_index)
+}
+
+fn final_draft_cache_record(
+    records: &[FinalDraftDialogueLineRecord],
+    split_index: usize,
+    cache_index: usize,
+) -> Option<&FinalDraftDialogueLineRecord> {
+    // Cache record 5 is the physical line proposed as the first line of the
+    // next page. Record 4 is immediately above the proposed break.
+    let record_index = split_index as isize + cache_index as isize - 5;
+    (record_index >= 0)
+        .then_some(record_index as usize)
+        .and_then(|index| records.get(index))
+}
+
+fn final_draft_is_dialogue_content(kind: &DialoguePartKind) -> bool {
+    matches!(
+        kind,
+        DialoguePartKind::Dialogue | DialoguePartKind::Lyric | DialoguePartKind::Parenthetical
+    )
+}
+
+fn final_draft_dialogue_handler_bottom_index(
+    records: &[FinalDraftDialogueLineRecord],
+    split_index: usize,
+) -> Option<usize> {
+    let line_five = final_draft_cache_record(records, split_index, 5)?;
+    let line_six = final_draft_cache_record(records, split_index, 6);
+
+    // Dialogue/Parenthetical handler, first branch: line 5 is the last line of
+    // the dialogue group. Look back through cache positions 4, 3, and 2 for
+    // the Character cue. If found, the handler moves the break before the cue.
+    // Within this block that means the whole dialogue must move to the next page.
+    if final_draft_is_dialogue_content(&line_five.kind)
+        && !line_six.is_some_and(|line| final_draft_is_dialogue_content(&line.kind))
+    {
+        if (2..=4).any(|cache_index| {
+            final_draft_cache_record(records, split_index, cache_index)
+                .is_some_and(|line| matches!(line.kind, DialoguePartKind::Character))
+        }) {
             return None;
         }
 
-        Some(SplitScore {
-            ends_sentence: candidate.ends_sentence,
-            substantial_bottom: substantial_bottom(
-                candidate.bottom_spoken_lines,
-                candidate.bottom_first_spoken_line_chars,
-                candidate.bottom_terminal_spoken_line_chars,
-                candidate.mid_part_sentence_boundary_eligible,
-                candidate.same_top_line_extension,
-            ),
-            fuller_top_fragment: candidate.plan.top_line_count,
-            balance_score: balance_score(
-                candidate.top_dialogue_lines,
-                candidate.bottom_dialogue_lines,
-            ),
-            top_content_bytes: candidate.top_content_bytes,
-        })
-    });
+        // With no nearby Character cue, Final Draft moves the proposal from
+        // cache line 5 to line 4 and asks sentence correction to search there.
+        return split_index.checked_sub(1);
+    }
 
-    winner.map(|candidate_index| candidates[candidate_index].plan.clone())
+    // Dialogue/Parenthetical handler, internal-group branch: Character at line
+    // 3 followed by content at lines 4 and 5 is kept with the group below.
+    let starts_short_group = final_draft_cache_record(records, split_index, 3)
+        .is_some_and(|line| matches!(line.kind, DialoguePartKind::Character))
+        && final_draft_cache_record(records, split_index, 4)
+            .is_some_and(|line| final_draft_is_dialogue_content(&line.kind))
+        && final_draft_is_dialogue_content(&line_five.kind);
+    if starts_short_group {
+        return None;
+    }
+
+    Some(split_index)
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum DialogueBoundaryMode {
-    Ranked,
-    FinalDraft,
+fn final_draft_boundary_before(record: &FinalDraftDialogueLineRecord) -> DialogueSplitBoundary {
+    DialogueSplitBoundary {
+        part_index: record.part_index,
+        offset: record.start_offset,
+        ends_sentence: false,
+    }
+}
+
+fn final_draft_correct_dialogue_boundary(
+    parts: &[DialogueTextPart],
+    records: &[FinalDraftDialogueLineRecord],
+    bottom_record_index: usize,
+    physical_boundary: DialogueSplitBoundary,
+) -> Option<DialogueSplitBoundary> {
+    let top_line = records.get(bottom_record_index.checked_sub(1)?)?;
+    let bottom_line = &records[bottom_record_index];
+
+    // Paragraph boundaries are already valid physical boundaries. Sentence
+    // correction is only applied inside one Action/Dialogue/Parenthetical
+    // paragraph whose pagination types agree on both sides.
+    if bottom_line.paragraph_start
+        || top_line.part_index != bottom_line.part_index
+        || top_line.kind != bottom_line.kind
+        || !final_draft_is_dialogue_content(&top_line.kind)
+    {
+        return Some(physical_boundary);
+    }
+
+    let part = &parts[top_line.part_index];
+    final_draft_sentence_boundary_offsets(&part.text)
+        .into_iter()
+        .filter(|offset| *offset > 0 && *offset <= bottom_line.start_offset)
+        .max()
+        .map(|offset| DialogueSplitBoundary {
+            part_index: top_line.part_index,
+            offset,
+            ends_sentence: true,
+        })
 }
 
 fn generate_dialogue_split_candidates(
     parts: &[DialogueTextPart],
     geometry: &LayoutGeometry,
     interruption_dash_wrap: InterruptionDashWrap,
-    mode: DialogueBoundaryMode,
 ) -> Vec<DialogueSplitCandidate> {
     let mut boundaries: BTreeMap<(usize, usize), bool> = BTreeMap::new();
 
@@ -256,18 +393,10 @@ fn generate_dialogue_split_candidates(
             .entry((part_index, part.text.len()))
             .or_insert(false);
 
-        let supports_internal_split = match mode {
-            DialogueBoundaryMode::Ranked => matches!(
-                part.kind,
-                DialoguePartKind::Dialogue | DialoguePartKind::Lyric
-            ),
-            DialogueBoundaryMode::FinalDraft => matches!(
-                part.kind,
-                DialoguePartKind::Dialogue
-                    | DialoguePartKind::Lyric
-                    | DialoguePartKind::Parenthetical
-            ),
-        };
+        let supports_internal_split = matches!(
+            part.kind,
+            DialoguePartKind::Dialogue | DialoguePartKind::Lyric
+        );
         if !supports_internal_split {
             continue;
         }
@@ -282,15 +411,11 @@ fn generate_dialogue_split_candidates(
 
         // Only allow mid-text sentence splits for parts with at least 3 wrapped lines.
         // A 2-line part is too compact to split cleanly.
-        if mode == DialogueBoundaryMode::Ranked && total_wrapped_lines < 3 {
+        if total_wrapped_lines < 3 {
             continue;
         }
 
-        let sentence_offsets = match mode {
-            DialogueBoundaryMode::Ranked => sentence_boundary_offsets(&part.text),
-            DialogueBoundaryMode::FinalDraft => final_draft_sentence_boundary_offsets(&part.text),
-        };
-        for offset in sentence_offsets {
+        for offset in sentence_boundary_offsets(&part.text) {
             boundaries
                 .entry((part_index, offset))
                 .and_modify(|ends_sentence| *ends_sentence = true)

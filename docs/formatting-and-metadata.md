@@ -18,7 +18,7 @@ The three built-in profiles are:
 
 - `industry`: the default behavior. This aims for the kind of pagination, page-break decisions, and `(MORE)` / `(CONT'D)` behavior used by major industry tools (like Final Draft).
 - `balanced`: a more opinionated profile. This keeps JumpCut in the same general screenplay format, but prefers cleaner dash wrapping and less intrusive continuation behavior when that produces nicer-looking pages.
-- `final-draft`: an experimental compatibility mode. It uses the recovered Final Draft 11 sentence recognizer (including semicolon boundaries and its abbreviation exceptions), permits correction inside parentheticals, and retains JumpCut's continuation-quality safeguards where corpus evidence shows that Final Draft does not merely choose the latest sentence that fits.
+- `final-draft`: an experimental compatibility mode. It starts with the physical wrapped-line boundary, applies the recovered local dialogue-group corrections, and then backtracks Action, Dialogue, Lyric, or Parenthetical text with Final Draft 11's sentence recognizer (including semicolons and abbreviation exceptions). Imported FDX files honor `BreakDialogueAndActionAtSentences` and custom element `PaginateAs` behavior.
 
 If both Fountain metadata and `--render-profile` are present, the CLI option wins. The override only replaces profile-level `fmt` tokens such as `balanced`, `final-draft`, `clean-dashes`, and `no-dual-contds`; unrelated knobs like `allow-lowercase-title` or `dl-*` / `dr-*` are left alone.
 

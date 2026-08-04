@@ -2,7 +2,9 @@ use crate::pagination::sentence_boundary::{
     final_draft_sentence_boundary_offsets, sentence_boundary_offsets, text_ends_sentence,
 };
 use crate::pagination::split_scoring::choose_best_scored_split;
-use crate::pagination::wrapping::{WrapConfig, wrap_text_for_element};
+use crate::pagination::wrapping::{
+    WrapConfig, wrap_text_for_element, wrap_text_for_element_with_offsets,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct FlowSplitDecision {
@@ -119,16 +121,116 @@ fn choose_flow_split_final_draft_with_policy(
     min_bottom_lines: usize,
     policy: FlowSplitPolicy,
 ) -> Option<FlowSplitPlan> {
-    choose_flow_split_from_offsets(
+    choose_flow_split_final_draft_physical(
         text,
         config,
         max_top_lines,
         min_top_lines,
         min_bottom_lines,
         policy,
-        final_draft_sentence_boundary_offsets(text),
         true,
     )
+}
+
+pub fn choose_flow_split_final_draft_without_sentence_correction(
+    text: &str,
+    config: &WrapConfig,
+    max_top_lines: usize,
+    min_top_lines: usize,
+    min_bottom_lines: usize,
+) -> Option<FlowSplitPlan> {
+    choose_flow_split_final_draft_physical(
+        text,
+        config,
+        max_top_lines,
+        min_top_lines,
+        min_bottom_lines,
+        FlowSplitPolicy::default(),
+        false,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn choose_flow_split_final_draft_physical(
+    text: &str,
+    config: &WrapConfig,
+    max_top_lines: usize,
+    min_top_lines: usize,
+    min_bottom_lines: usize,
+    policy: FlowSplitPolicy,
+    correct_to_sentence: bool,
+) -> Option<FlowSplitPlan> {
+    let physical_lines = wrap_text_for_element_with_offsets(text, config);
+    if max_top_lines == 0 || max_top_lines >= physical_lines.len() {
+        return None;
+    }
+    let physical_offset = physical_lines[max_top_lines].start_offset;
+
+    let candidate_offsets = if correct_to_sentence {
+        final_draft_sentence_boundary_offsets(text)
+            .into_iter()
+            .filter(|offset| *offset <= physical_offset)
+            .rev()
+            .collect::<Vec<_>>()
+    } else {
+        vec![physical_offset]
+    };
+
+    candidate_offsets.into_iter().find_map(|offset| {
+        build_flow_split_plan(
+            text,
+            config,
+            offset,
+            max_top_lines,
+            min_top_lines,
+            min_bottom_lines,
+            policy,
+            correct_to_sentence,
+        )
+    })
+}
+
+#[allow(clippy::too_many_arguments)]
+fn build_flow_split_plan(
+    text: &str,
+    config: &WrapConfig,
+    offset: usize,
+    max_top_lines: usize,
+    min_top_lines: usize,
+    min_bottom_lines: usize,
+    policy: FlowSplitPolicy,
+    ends_sentence: bool,
+) -> Option<FlowSplitPlan> {
+    if offset == 0 || offset >= text.len() {
+        return None;
+    }
+    let (top_text, bottom_text) = text.split_at(offset);
+    let top_lines = wrap_fragment_lines(top_text, config);
+    let bottom_lines = wrap_fragment_lines(bottom_text, config);
+    let top_line_count = top_lines.len();
+    let bottom_line_count = bottom_lines.len();
+    if top_line_count < min_top_lines
+        || bottom_line_count < min_bottom_lines
+        || top_line_count > max_top_lines
+    {
+        return None;
+    }
+    if has_discouraged_runt_top_line(&top_lines, top_text)
+        && !(policy.allow_exact_fit_sentence_runt
+            && ends_sentence
+            && top_line_count == max_top_lines)
+    {
+        return None;
+    }
+
+    Some(FlowSplitPlan {
+        top_text: top_text.to_string(),
+        bottom_text: bottom_text.to_string(),
+        top_end_offset: offset,
+        bottom_start_offset: offset,
+        top_line_count,
+        bottom_line_count,
+    })
 }
 
 fn choose_flow_split_with_policy(

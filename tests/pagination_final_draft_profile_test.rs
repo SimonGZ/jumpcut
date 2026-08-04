@@ -1,6 +1,11 @@
 use std::fs;
 
-use jumpcut::pagination::{PageBreakFixture, PaginatedScreenplay, compare_paginated_to_fixture};
+use jumpcut::pagination::composer::compose_with_mode;
+use jumpcut::pagination::paginator::paginate_with_mode;
+use jumpcut::pagination::{
+    Fragment, PageBreakFixture, PaginatedScreenplay, ScreenplayLayoutProfile, SemanticUnit,
+    build_semantic_screenplay, compare_paginated_to_fixture, normalize_screenplay,
+};
 use jumpcut::{ElementText, parse};
 
 const PUBLIC_CORPUS: &[&str] = &[
@@ -68,4 +73,43 @@ fn final_draft_profile_public_corpus_snapshot() {
             baseline_report.total_issues()
         );
     }
+}
+
+#[test]
+fn final_draft_pushes_three_line_giants_dialogue_whole_to_next_page() {
+    let source = include_str!("fixtures/pagination/final-draft/giants-short-dialogue.fountain");
+    let mut screenplay = parse(source);
+    screenplay
+        .metadata
+        .insert("fmt".into(), vec![ElementText::Plain("final-draft".into())]);
+    let profile = ScreenplayLayoutProfile::from_screenplay(&screenplay);
+    let geometry = profile.to_pagination_geometry();
+    let normalized = normalize_screenplay("giants-short-dialogue", &screenplay);
+    let semantic = build_semantic_screenplay(normalized);
+    let blocks = compose_with_mode(&semantic.units, &geometry, profile.interruption_dash_wrap);
+    let pages = paginate_with_mode(
+        &blocks,
+        profile.lines_per_page,
+        &geometry,
+        profile.interruption_dash_wrap,
+    );
+
+    let placements = pages
+        .iter()
+        .enumerate()
+        .flat_map(|(page_index, page)| {
+            page.blocks.iter().filter_map(move |block| {
+                let SemanticUnit::Dialogue(dialogue) = block.unit else {
+                    return None;
+                };
+                dialogue
+                    .parts
+                    .iter()
+                    .any(|part| part.text.starts_with("And it's been sitting"))
+                    .then_some((page_index, block.fragment.clone()))
+            })
+        })
+        .collect::<Vec<_>>();
+
+    assert_eq!(placements, vec![(1, Fragment::Whole)]);
 }

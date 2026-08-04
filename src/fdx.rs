@@ -34,14 +34,24 @@ pub fn parse_fdx(xml: &str) -> Result<Screenplay, FdxParseError> {
     let (title_page_metadata, imported_title_page) = extract_title_page_data(xml)?;
     metadata.extend(title_page_metadata);
 
-    let blocks = parse_blocks(xml)?;
+    let mut blocks = parse_blocks(xml)?;
 
     let mut used_paragraph_types = HashSet::new();
     for block in &blocks {
-        if let FdxBlock::Paragraph(p) = block {
-            used_paragraph_types.insert(p.paragraph_type.clone());
+        match block {
+            FdxBlock::Paragraph(paragraph) => {
+                used_paragraph_types.insert(paragraph.paragraph_type.clone());
+            }
+            FdxBlock::DualDialogue(paragraphs) => {
+                used_paragraph_types.extend(
+                    paragraphs
+                        .iter()
+                        .map(|paragraph| paragraph.paragraph_type.clone()),
+                );
+            }
         }
     }
+    apply_paginate_as_types(&mut blocks, &imported_settings);
 
     let imported_layout =
         imported_settings_to_layout_overrides(&imported_settings, &used_paragraph_types);
@@ -99,12 +109,14 @@ struct ImportedFdxSettings {
     bottom_margin: Option<f32>,
     header_margin: Option<f32>,
     footer_margin: Option<f32>,
+    break_dialogue_and_action_at_sentences: Option<bool>,
     mores_and_continueds: ImportedMoresAndContinueds,
     paragraph_styles: BTreeMap<String, ImportedParagraphStyle>,
 }
 
 #[derive(Clone, Debug, Default)]
 struct ImportedParagraphStyle {
+    paginate_as: Option<String>,
     first_indent: Option<f32>,
     left_indent: Option<f32>,
     right_indent: Option<f32>,
@@ -1104,6 +1116,15 @@ fn extract_import_settings(xml: &str) -> Result<ImportedFdxSettings, FdxParseErr
                         );
                     }
                 }
+                b"Behavior" => {
+                    if let Some(type_name) = current_element_settings_type.as_deref() {
+                        settings
+                            .paragraph_styles
+                            .entry(type_name.to_string())
+                            .or_insert_with(ImportedParagraphStyle::default)
+                            .paginate_as = optional_attr(&reader, &event, b"PaginateAs")?;
+                    }
+                }
                 b"DialogueBreaks" => {
                     apply_dialogue_break_attrs(
                         &reader,
@@ -1145,6 +1166,15 @@ fn extract_import_settings(xml: &str) -> Result<ImportedFdxSettings, FdxParseErr
                                 .or_insert_with(ImportedParagraphStyle::default),
                             paragraph_spec,
                         );
+                    }
+                }
+                b"Behavior" => {
+                    if let Some(type_name) = current_element_settings_type.as_deref() {
+                        settings
+                            .paragraph_styles
+                            .entry(type_name.to_string())
+                            .or_insert_with(ImportedParagraphStyle::default)
+                            .paginate_as = optional_attr(&reader, &event, b"PaginateAs")?;
                     }
                 }
                 b"DialogueBreaks" => apply_dialogue_break_attrs(
@@ -1189,6 +1219,8 @@ fn apply_page_layout_attrs(
         parse_attr_f32(reader, event, b"HeaderMargin")?.map(|value| value / 72.0);
     settings.footer_margin =
         parse_attr_f32(reader, event, b"FooterMargin")?.map(|value| value / 72.0);
+    settings.break_dialogue_and_action_at_sentences =
+        parse_yes_no_attr(reader, event, b"BreakDialogueAndActionAtSentences")?;
     Ok(())
 }
 
@@ -1207,6 +1239,7 @@ fn parse_paragraph_spec(
     event: &BytesStart<'_>,
 ) -> Result<ImportedParagraphStyle, FdxParseError> {
     Ok(ImportedParagraphStyle {
+        paginate_as: None,
         first_indent: parse_attr_f32(reader, event, b"FirstIndent")?,
         left_indent: parse_attr_f32(reader, event, b"LeftIndent")?,
         right_indent: parse_attr_f32(reader, event, b"RightIndent")?,
@@ -1221,6 +1254,9 @@ fn parse_paragraph_spec(
 }
 
 fn merge_paragraph_style(target: &mut ImportedParagraphStyle, parsed: ImportedParagraphStyle) {
+    if parsed.paginate_as.is_some() {
+        target.paginate_as = parsed.paginate_as;
+    }
     if parsed.first_indent.is_some() {
         target.first_indent = parsed.first_indent;
     }
@@ -1443,7 +1479,9 @@ fn imported_settings_to_layout_overrides(
 ) -> Option<ImportedLayoutOverrides> {
     let mut element_styles = std::collections::BTreeMap::new();
     for (name, style) in &settings.paragraph_styles {
-        if let Some(kind) = imported_element_kind(name) {
+        if let Some(kind) = imported_element_kind(name)
+            .or_else(|| style.paginate_as.as_deref().and_then(imported_element_kind))
+        {
             let entry = ImportedElementStyle {
                 first_indent: style.first_indent,
                 left_indent: style.left_indent,
@@ -1478,6 +1516,7 @@ fn imported_settings_to_layout_overrides(
             bottom_margin: settings.bottom_margin,
             header_margin: settings.header_margin,
             footer_margin: settings.footer_margin,
+            break_dialogue_and_action_at_sentences: settings.break_dialogue_and_action_at_sentences,
         },
         element_styles: element_styles
             .into_iter()
@@ -1506,6 +1545,36 @@ fn imported_element_kind(name: &str) -> Option<ImportedElementKind> {
         "New Act" => Some(ImportedElementKind::NewAct),
         "End of Act" | "End Of Act" => Some(ImportedElementKind::EndOfAct),
         _ => None,
+    }
+}
+
+fn apply_paginate_as_types(blocks: &mut [FdxBlock], settings: &ImportedFdxSettings) {
+    fn apply(paragraph: &mut FdxParagraph, settings: &ImportedFdxSettings) {
+        if imported_element_kind(&paragraph.paragraph_type).is_some() {
+            return;
+        }
+        let Some(paginate_as) = settings
+            .paragraph_styles
+            .get(&paragraph.paragraph_type)
+            .and_then(|style| style.paginate_as.as_deref())
+        else {
+            return;
+        };
+
+        if imported_element_kind(paginate_as).is_some() {
+            paragraph.paragraph_type = paginate_as.to_string();
+        }
+    }
+
+    for block in blocks {
+        match block {
+            FdxBlock::Paragraph(paragraph) => apply(paragraph, settings),
+            FdxBlock::DualDialogue(paragraphs) => {
+                for paragraph in paragraphs {
+                    apply(paragraph, settings);
+                }
+            }
+        }
     }
 }
 

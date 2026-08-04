@@ -10,6 +10,7 @@ use crate::pagination::fixtures::Fragment;
 use crate::pagination::flow_split::{
     FlowSplitPlan, choose_flow_split, choose_flow_split_allow_exact_fit_sentence_runt,
     choose_flow_split_final_draft, choose_flow_split_final_draft_allow_exact_fit_sentence_runt,
+    choose_flow_split_final_draft_without_sentence_correction,
 };
 use crate::pagination::margin::line_height_for_element_type;
 use crate::pagination::wrapping::{
@@ -491,7 +492,15 @@ fn choose_split_lines(
             }
 
             let plan = if geometry.pagination_mode == PaginationMode::FinalDraft {
-                if allow_exact_fit_sentence_runt {
+                if !geometry.break_dialogue_and_action_at_sentences {
+                    choose_flow_split_final_draft_without_sentence_correction(
+                        &flow.text,
+                        &config,
+                        max_top_lines,
+                        geometry.orphan_limit,
+                        geometry.widow_limit,
+                    )?
+                } else if allow_exact_fit_sentence_runt {
                     choose_flow_split_final_draft_allow_exact_fit_sentence_runt(
                         &flow.text,
                         &config,
