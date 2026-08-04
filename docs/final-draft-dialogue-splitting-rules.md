@@ -4,6 +4,13 @@ This document outlines the current dialogue-splitting rules JumpCut uses to
 match Final Draft behavior, based on the active fd-probe set and the corpus
 checks that still serve as parity guards.
 
+> **Compatibility note:** Static analysis of Final Draft 11 shows that these
+> rules describe JumpCut's current empirical model, not the literal structure
+> of Final Draft's algorithm. Final Draft uses an ordered local correction pass,
+> and sentence correction is a configurable document option that also covers
+> Action and Parenthetical pagination types. See
+> [Final Draft 11 pagination reverse engineering](final-draft-11-pagination-reverse-engineering.md).
+
 ## Core Rules
 
 ### 1. The (MORE) Overflow

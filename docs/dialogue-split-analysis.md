@@ -1,5 +1,11 @@
 # How Dialogue Split Decisions Work
 
+> **Scope:** This explains JumpCut's current candidate-and-score implementation.
+> It should not be read as a decompilation of Final Draft's implementation.
+> Static analysis found that Final Draft 11 instead adjusts an initial physical
+> break through ordered rules over a local line window. See
+> [Final Draft 11 pagination reverse engineering](final-draft-11-pagination-reverse-engineering.md).
+
 This document explains how JumpCut currently decides dialogue splits during
 pagination to match Final Draft behavior.
 
