@@ -43,7 +43,7 @@ Options:
       --line-numbers
           Show line numbers in text output
       --render-profile <RENDER_PROFILE>
-          Override the layout/render profile [possible values: industry, balanced]
+          Override the layout/render profile [possible values: industry, balanced, final-draft]
       --no-continueds
           Suppress (CONT'D)/(MORE) markers in render outputs
       --no-title-page
@@ -122,10 +122,11 @@ let output_html: String = screenplay.to_html();
 
 You can customize JumpCut's output.
 
-There are two built-in profiles that act like presets. They bundle together different pagination and output settings:
+There are three built-in profiles that act like presets. They bundle together different pagination and output settings:
 
 - `industry`: the default. This aims for the kind of screenplay pagination and continuation behavior used by major industry tools (like Final Draft).
 - `balanced`: a more opinionated profile that aims for cleaner-looking page breaks, dash wrapping, and `(MORE)` / `(CONT'D)` choices. NOTE: This profile is subject to change based on the whims and opinions of the software's author.
+- `final-draft`: an experimental compatibility profile that applies the recovered Final Draft 11 sentence-boundary and dialogue-break rules while preserving JumpCut's proven widow/orphan and continuation-quality safeguards.
 
 You can set these presets (called render-profiles by the app) and other frequent customizations with CLI flags like `--render-profile`, `--no-continueds`, and `--no-title-page`
 

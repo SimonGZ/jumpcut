@@ -77,6 +77,9 @@ pub fn render(screenplay: &Screenplay, options: &TextRenderOptions) -> String {
 }
 
 fn style_profile_name(layout_profile: &ScreenplayLayoutProfile) -> &'static str {
+    if layout_profile.pagination_mode == crate::pagination::PaginationMode::FinalDraft {
+        return "final-draft";
+    }
     match layout_profile.style_profile {
         StyleProfile::Screenplay => "standard",
         StyleProfile::Multicam => "multicam",

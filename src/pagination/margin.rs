@@ -32,8 +32,16 @@ pub enum Alignment {
     Right,
 }
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum PaginationMode {
+    #[default]
+    Ranked,
+    FinalDraft,
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct LayoutGeometry {
+    pub pagination_mode: PaginationMode,
     pub action_first_indent: f32,
     pub cold_opening_first_indent: f32,
     pub new_act_first_indent: f32,
@@ -134,6 +142,7 @@ pub struct LayoutGeometry {
 impl Default for LayoutGeometry {
     fn default() -> Self {
         Self {
+            pagination_mode: PaginationMode::Ranked,
             action_first_indent: 0.0,
             cold_opening_first_indent: 0.0,
             new_act_first_indent: 0.0,

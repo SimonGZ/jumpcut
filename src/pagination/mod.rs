@@ -29,7 +29,9 @@ pub use ir::{
 pub use layout_profile::{
     ScreenplayElementStyle, ScreenplayElementStyles, ScreenplayLayoutProfile, StyleProfile,
 };
-pub use margin::{Alignment, FdxExtractedSettings, FdxParagraphStyle, LayoutGeometry};
+pub use margin::{
+    Alignment, FdxExtractedSettings, FdxParagraphStyle, LayoutGeometry, PaginationMode,
+};
 pub use normalized::normalize_screenplay;
 pub use semantic::{
     Cohesion, DialoguePart, DialoguePartKind, DialogueUnit, DualDialogueSide, DualDialogueUnit,

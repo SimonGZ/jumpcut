@@ -141,6 +141,9 @@ pub(crate) fn render_unpaginated_visual_lines_with_options(
 }
 
 fn style_profile_name(layout_profile: &ScreenplayLayoutProfile) -> &'static str {
+    if layout_profile.pagination_mode == crate::pagination::PaginationMode::FinalDraft {
+        return "final-draft";
+    }
     match layout_profile.style_profile {
         StyleProfile::Screenplay => "standard",
         StyleProfile::Multicam => "multicam",

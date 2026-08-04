@@ -1,12 +1,15 @@
 use crate::pagination::LayoutGeometry;
+use crate::pagination::PaginationMode;
 use crate::pagination::SemanticUnit;
 use crate::pagination::composer::LayoutBlock;
 use crate::pagination::dialogue_split::{
-    DialogueSplitPlan, DialogueTextPart, plan_dialogue_split, plan_dialogue_split_parts,
+    DialogueSplitPlan, DialogueTextPart, plan_dialogue_split, plan_dialogue_split_final_draft,
+    plan_dialogue_split_parts, plan_dialogue_split_parts_final_draft,
 };
 use crate::pagination::fixtures::Fragment;
 use crate::pagination::flow_split::{
     FlowSplitPlan, choose_flow_split, choose_flow_split_allow_exact_fit_sentence_runt,
+    choose_flow_split_final_draft, choose_flow_split_final_draft_allow_exact_fit_sentence_runt,
 };
 use crate::pagination::margin::line_height_for_element_type;
 use crate::pagination::wrapping::{
@@ -373,8 +376,41 @@ fn choose_split_lines(
         SemanticUnit::Dialogue(dialogue) => {
             let max_top_height = available_lines - effective_spacing;
 
-            let plan = match (&block.fragment, block.dialogue_split.as_ref()) {
-                (Fragment::ContinuedFromPrev, Some(previous_plan)) => {
+            let plan = match (
+                geometry.pagination_mode,
+                &block.fragment,
+                block.dialogue_split.as_ref(),
+            ) {
+                (PaginationMode::FinalDraft, Fragment::ContinuedFromPrev, Some(previous_plan)) => {
+                    let current_parts = dialogue
+                        .parts
+                        .iter()
+                        .zip(previous_plan.parts.iter())
+                        .map(|(part, split)| DialogueTextPart {
+                            kind: part.kind.clone(),
+                            text: split.bottom_text.clone(),
+                            layout_overrides: part.render_attributes.layout_overrides.clone(),
+                        })
+                        .collect::<Vec<_>>();
+
+                    plan_dialogue_split_parts_final_draft(
+                        &current_parts,
+                        geometry,
+                        interruption_dash_wrap,
+                        max_top_height,
+                        geometry.orphan_limit,
+                        geometry.widow_limit,
+                    )?
+                }
+                (PaginationMode::FinalDraft, _, _) => plan_dialogue_split_final_draft(
+                    dialogue,
+                    geometry,
+                    interruption_dash_wrap,
+                    max_top_height,
+                    geometry.orphan_limit,
+                    geometry.widow_limit,
+                )?,
+                (_, Fragment::ContinuedFromPrev, Some(previous_plan)) => {
                     let current_parts = dialogue
                         .parts
                         .iter()
@@ -454,7 +490,25 @@ fn choose_split_lines(
                 return None;
             }
 
-            let plan = if allow_exact_fit_sentence_runt {
+            let plan = if geometry.pagination_mode == PaginationMode::FinalDraft {
+                if allow_exact_fit_sentence_runt {
+                    choose_flow_split_final_draft_allow_exact_fit_sentence_runt(
+                        &flow.text,
+                        &config,
+                        max_top_lines,
+                        geometry.orphan_limit,
+                        geometry.widow_limit,
+                    )?
+                } else {
+                    choose_flow_split_final_draft(
+                        &flow.text,
+                        &config,
+                        max_top_lines,
+                        geometry.orphan_limit,
+                        geometry.widow_limit,
+                    )?
+                }
+            } else if allow_exact_fit_sentence_runt {
                 choose_flow_split_allow_exact_fit_sentence_runt(
                     &flow.text,
                     &config,

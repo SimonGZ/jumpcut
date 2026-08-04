@@ -11,14 +11,16 @@ The CLI can override the metadata-driven render profile for `pdf`, `text`, or `h
 ```sh
 jumpcut -f pdf --render-profile industry script.fountain script.pdf
 jumpcut -f text --render-profile balanced --paginate script.fountain
+jumpcut -f pdf --render-profile final-draft script.fountain final-draft.pdf
 ```
 
-The two built-in profiles are:
+The three built-in profiles are:
 
 - `industry`: the default behavior. This aims for the kind of pagination, page-break decisions, and `(MORE)` / `(CONT'D)` behavior used by major industry tools (like Final Draft).
 - `balanced`: a more opinionated profile. This keeps JumpCut in the same general screenplay format, but prefers cleaner dash wrapping and less intrusive continuation behavior when that produces nicer-looking pages.
+- `final-draft`: an experimental compatibility mode. It uses the recovered Final Draft 11 sentence recognizer (including semicolon boundaries and its abbreviation exceptions), permits correction inside parentheticals, and retains JumpCut's continuation-quality safeguards where corpus evidence shows that Final Draft does not merely choose the latest sentence that fits.
 
-If both Fountain metadata and `--render-profile` are present, the CLI option wins. The override only replaces profile-level `fmt` tokens such as `balanced`, `clean-dashes`, and `no-dual-contds`; unrelated knobs like `allow-lowercase-title` or `dl-*` / `dr-*` are left alone.
+If both Fountain metadata and `--render-profile` are present, the CLI option wins. The override only replaces profile-level `fmt` tokens such as `balanced`, `final-draft`, `clean-dashes`, and `no-dual-contds`; unrelated knobs like `allow-lowercase-title` or `dl-*` / `dr-*` are left alone.
 
 You can also use the CLI to suppress continued markers when you want cleaner reading copies, drafts for informal review, or outputs that should not advertise every page split:
 
@@ -49,7 +51,7 @@ To use these options, add a `fmt` key to your screenplay's metadata at the top o
 
 It helps to think of `fmt` options in three groups:
 
-- profile/template options such as `multicam`, `a4`, and `balanced` choose a starting point
+- profile/template options such as `multicam`, `a4`, `balanced`, and `final-draft` choose a starting point
 - geometry/style overrides such as `double-spaced-dialogue`, `dl-*`, and `dr-*` fine-tune that starting point
 - behavior flags such as `allow-lowercase-title`, `clean-dashes`, and `no-dual-contds` tweak how the renderer behaves without redefining the whole layout
 
@@ -75,6 +77,7 @@ Fmt: bold-scene-headings underline-scene-headings all-caps-action double-spaced-
 - `multicam`: Starts from a multicamera-TV style layout. Use this when the script is fundamentally a multicam document, not just a single-cam screenplay with a few custom tweaks.
 - `a4`: Switches the page from US Letter to A4 and updates the default lines-per-page to match. Use this when the output is meant for A4 paper rather than US screenplay defaults.
 - `balanced`: Switches to the more opinionated pagination/render profile. Use this when you want pages that read more smoothly and are less rigidly tied to Final Draft quirks.
+- `final-draft`: Enables the experimental Final Draft 11 compatibility pagination rules without changing page geometry or discarding other `fmt` overrides.
 
 #### Styling and Layout Tweaks
 

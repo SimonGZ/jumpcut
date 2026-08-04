@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use jumpcut::pagination::{
-    Alignment, InterruptionDashWrap, PaginationConfig, ScreenplayElementStyle,
+    Alignment, InterruptionDashWrap, PaginationConfig, PaginationMode, ScreenplayElementStyle,
     ScreenplayLayoutProfile, StyleProfile,
 };
 use jumpcut::parse;
@@ -285,6 +285,24 @@ fn balanced_fmt_switches_dash_behavior_and_disables_dual_dialogue_contds() {
         InterruptionDashWrap::KeepTogether
     );
     assert!(!profile.dual_dialogue_counts_for_contd);
+}
+
+#[test]
+fn final_draft_fmt_selects_deterministic_break_correction_mode() {
+    let mut metadata = Metadata::new();
+    metadata.insert("fmt".into(), vec!["final-draft".into()]);
+
+    let profile = ScreenplayLayoutProfile::from_metadata(&metadata);
+
+    assert_eq!(profile.pagination_mode, PaginationMode::FinalDraft);
+    assert_eq!(
+        profile.to_pagination_geometry().pagination_mode,
+        PaginationMode::FinalDraft
+    );
+    assert_eq!(
+        profile.interruption_dash_wrap,
+        InterruptionDashWrap::FinalDraft
+    );
 }
 
 #[test]

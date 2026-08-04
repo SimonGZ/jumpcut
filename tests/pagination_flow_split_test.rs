@@ -1,5 +1,6 @@
 use jumpcut::pagination::flow_split::{
     choose_flow_split, choose_flow_split_allow_exact_fit_sentence_runt,
+    choose_flow_split_final_draft,
 };
 use jumpcut::pagination::wrapping::WrapConfig;
 
@@ -69,4 +70,15 @@ fn flow_split_keeps_big_fish_runt_sentence_split_illegal_for_ordinary_action() {
         decision.is_none(),
         "ordinary action flow splits should still reject the Big Fish runt-top-line candidate"
     );
+}
+
+#[test]
+fn final_draft_flow_split_uses_semicolon_and_skips_abbreviation_boundary() {
+    let text = "Dr. Smith waits; Then leaves. Last witness stays behind.";
+    let config = WrapConfig::with_exact_width_chars(20);
+
+    let decision = choose_flow_split_final_draft(text, &config, 1, 1, 1).unwrap();
+
+    assert_eq!(decision.top_text.trim_end(), "Dr. Smith waits;");
+    assert!(decision.bottom_text.starts_with("Then leaves."));
 }

@@ -80,6 +80,7 @@ struct Args {
 enum RenderProfile {
     Industry,
     Balanced,
+    FinalDraft,
 }
 
 #[cfg(feature = "cli")]
@@ -335,7 +336,7 @@ fn apply_cli_render_overrides(screenplay: &mut jumpcut::Screenplay, opt: &Args) 
 
 #[cfg(feature = "cli")]
 fn apply_render_profile_override(metadata: &mut jumpcut::Metadata, render_profile: RenderProfile) {
-    const PROFILE_TOKENS: &[&str] = &["balanced", "clean-dashes", "no-dual-contds"];
+    const PROFILE_TOKENS: &[&str] = &["balanced", "clean-dashes", "no-dual-contds", "final-draft"];
 
     let mut tokens = metadata
         .get("fmt")
@@ -351,8 +352,10 @@ fn apply_render_profile_override(metadata: &mut jumpcut::Metadata, render_profil
         .map(str::to_string)
         .collect::<Vec<_>>();
 
-    if matches!(render_profile, RenderProfile::Balanced) {
-        tokens.push("balanced".to_string());
+    match render_profile {
+        RenderProfile::Industry => {}
+        RenderProfile::Balanced => tokens.push("balanced".to_string()),
+        RenderProfile::FinalDraft => tokens.push("final-draft".to_string()),
     }
 
     if tokens.is_empty() {
@@ -502,6 +505,24 @@ mod tests {
     }
 
     #[test]
+    fn render_profile_override_adds_final_draft_without_dropping_other_fmt_knobs() {
+        let mut metadata = Metadata::new();
+        metadata.insert(
+            "fmt".into(),
+            vec![ElementText::Plain("allow-lowercase-title dl-2.0".into())],
+        );
+
+        apply_render_profile_override(&mut metadata, RenderProfile::FinalDraft);
+
+        let fmt = metadata
+            .get("fmt")
+            .and_then(|values| values.first())
+            .map(|value| value.plain_text())
+            .unwrap();
+        assert_eq!(fmt, "allow-lowercase-title dl-2.0 final-draft");
+    }
+
+    #[test]
     fn cli_accepts_industry_render_profile_name() {
         let parsed =
             Args::try_parse_from(["jumpcut", "script.fountain", "--render-profile", "industry"]);
@@ -515,14 +536,14 @@ mod tests {
     }
 
     #[test]
-    fn cli_rejects_removed_final_draft_render_profile_name() {
+    fn cli_accepts_final_draft_render_profile_name() {
         let parsed = Args::try_parse_from([
             "jumpcut",
             "script.fountain",
             "--render-profile",
             "final-draft",
         ]);
-        assert!(parsed.is_err());
+        assert!(parsed.is_ok());
     }
 
     #[test]

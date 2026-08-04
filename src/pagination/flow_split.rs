@@ -1,4 +1,6 @@
-use crate::pagination::sentence_boundary::{sentence_boundary_offsets, text_ends_sentence};
+use crate::pagination::sentence_boundary::{
+    final_draft_sentence_boundary_offsets, sentence_boundary_offsets, text_ends_sentence,
+};
 use crate::pagination::split_scoring::choose_best_scored_split;
 use crate::pagination::wrapping::{WrapConfig, wrap_text_for_element};
 
@@ -72,6 +74,63 @@ pub fn choose_flow_split_allow_exact_fit_sentence_runt(
     )
 }
 
+pub fn choose_flow_split_final_draft(
+    text: &str,
+    config: &WrapConfig,
+    max_top_lines: usize,
+    min_top_lines: usize,
+    min_bottom_lines: usize,
+) -> Option<FlowSplitPlan> {
+    choose_flow_split_final_draft_with_policy(
+        text,
+        config,
+        max_top_lines,
+        min_top_lines,
+        min_bottom_lines,
+        FlowSplitPolicy::default(),
+    )
+}
+
+pub fn choose_flow_split_final_draft_allow_exact_fit_sentence_runt(
+    text: &str,
+    config: &WrapConfig,
+    max_top_lines: usize,
+    min_top_lines: usize,
+    min_bottom_lines: usize,
+) -> Option<FlowSplitPlan> {
+    choose_flow_split_final_draft_with_policy(
+        text,
+        config,
+        max_top_lines,
+        min_top_lines,
+        min_bottom_lines,
+        FlowSplitPolicy {
+            allow_exact_fit_sentence_runt: true,
+            ..FlowSplitPolicy::default()
+        },
+    )
+}
+
+fn choose_flow_split_final_draft_with_policy(
+    text: &str,
+    config: &WrapConfig,
+    max_top_lines: usize,
+    min_top_lines: usize,
+    min_bottom_lines: usize,
+    policy: FlowSplitPolicy,
+) -> Option<FlowSplitPlan> {
+    choose_flow_split_from_offsets(
+        text,
+        config,
+        max_top_lines,
+        min_top_lines,
+        min_bottom_lines,
+        policy,
+        final_draft_sentence_boundary_offsets(text),
+        true,
+    )
+}
+
 fn choose_flow_split_with_policy(
     text: &str,
     config: &WrapConfig,
@@ -80,8 +139,29 @@ fn choose_flow_split_with_policy(
     min_bottom_lines: usize,
     policy: FlowSplitPolicy,
 ) -> Option<FlowSplitPlan> {
-    let candidate_offsets = sentence_boundary_offsets(text);
+    choose_flow_split_from_offsets(
+        text,
+        config,
+        max_top_lines,
+        min_top_lines,
+        min_bottom_lines,
+        policy,
+        sentence_boundary_offsets(text),
+        false,
+    )
+}
 
+#[allow(clippy::too_many_arguments)]
+fn choose_flow_split_from_offsets(
+    text: &str,
+    config: &WrapConfig,
+    max_top_lines: usize,
+    min_top_lines: usize,
+    min_bottom_lines: usize,
+    policy: FlowSplitPolicy,
+    candidate_offsets: Vec<usize>,
+    offsets_are_recognized_sentences: bool,
+) -> Option<FlowSplitPlan> {
     choose_best_scored_split(candidate_offsets, |offset| {
         if offset == 0 || offset >= text.len() {
             return None;
@@ -92,7 +172,8 @@ fn choose_flow_split_with_policy(
         let bottom_lines = wrap_fragment_lines(bottom_text, config);
         let top_line_count = top_lines.len();
         let bottom_line_count = bottom_lines.len();
-        let ends_sentence = policy.prefer_sentence_boundaries && text_ends_sentence(top_text);
+        let ends_sentence = policy.prefer_sentence_boundaries
+            && (offsets_are_recognized_sentences || text_ends_sentence(top_text));
 
         if top_line_count < min_top_lines || bottom_line_count < min_bottom_lines {
             return None;

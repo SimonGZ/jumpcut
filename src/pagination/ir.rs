@@ -222,6 +222,12 @@ impl PaginatedScreenplay {
     ) -> Self {
         let layout_profile = ScreenplayLayoutProfile::from_screenplay(screenplay);
         let style_profile = match layout_profile.style_profile {
+            crate::pagination::StyleProfile::Screenplay
+                if layout_profile.pagination_mode
+                    == crate::pagination::PaginationMode::FinalDraft =>
+            {
+                "final-draft"
+            }
             crate::pagination::StyleProfile::Screenplay => "standard",
             crate::pagination::StyleProfile::Multicam => "multicam",
         };

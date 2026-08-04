@@ -3,7 +3,9 @@ use std::collections::BTreeMap;
 
 use crate::ElementLayoutOverrides;
 use crate::pagination::margin::line_height_for_element_type;
-use crate::pagination::sentence_boundary::sentence_boundary_offsets;
+use crate::pagination::sentence_boundary::{
+    final_draft_sentence_boundary_offsets, sentence_boundary_offsets,
+};
 use crate::pagination::split_scoring::choose_best_scored_split;
 use crate::pagination::wrapping::{
     ElementType, InterruptionDashWrap, WrapConfig, wrap_config_with_overrides,
@@ -115,7 +117,12 @@ pub fn plan_dialogue_split_parts(
     min_bottom_content_lines: usize,
 ) -> Option<DialogueSplitPlan> {
     let policy = DialogueSplitPolicy::default();
-    let candidates = generate_dialogue_split_candidates(parts, geometry, interruption_dash_wrap);
+    let candidates = generate_dialogue_split_candidates(
+        parts,
+        geometry,
+        interruption_dash_wrap,
+        DialogueBoundaryMode::Ranked,
+    );
 
     let winner = choose_best_scored_split(0..candidates.len(), |candidate_index| {
         let candidate = &candidates[candidate_index];
@@ -158,10 +165,88 @@ pub fn plan_dialogue_split_parts(
     winner.map(|candidate_index| candidates[candidate_index].plan.clone())
 }
 
+pub fn plan_dialogue_split_final_draft(
+    dialogue: &DialogueUnit,
+    geometry: &LayoutGeometry,
+    interruption_dash_wrap: InterruptionDashWrap,
+    max_top_height: f32,
+    min_top_content_lines: usize,
+    min_bottom_content_lines: usize,
+) -> Option<DialogueSplitPlan> {
+    let parts = dialogue
+        .parts
+        .iter()
+        .map(|part| DialogueTextPart {
+            kind: part.kind.clone(),
+            text: part.text.clone(),
+            layout_overrides: part.render_attributes.layout_overrides.clone(),
+        })
+        .collect::<Vec<_>>();
+    plan_dialogue_split_parts_final_draft(
+        &parts,
+        geometry,
+        interruption_dash_wrap,
+        max_top_height,
+        min_top_content_lines,
+        min_bottom_content_lines,
+    )
+}
+
+pub fn plan_dialogue_split_parts_final_draft(
+    parts: &[DialogueTextPart],
+    geometry: &LayoutGeometry,
+    interruption_dash_wrap: InterruptionDashWrap,
+    max_top_height: f32,
+    min_top_content_lines: usize,
+    min_bottom_content_lines: usize,
+) -> Option<DialogueSplitPlan> {
+    let candidates = generate_dialogue_split_candidates(
+        parts,
+        geometry,
+        interruption_dash_wrap,
+        DialogueBoundaryMode::FinalDraft,
+    );
+    let winner = choose_best_scored_split(0..candidates.len(), |candidate_index| {
+        let candidate = &candidates[candidate_index];
+        if candidate.plan.top_height > max_top_height
+            || candidate.top_dialogue_lines < min_top_content_lines
+            || candidate.bottom_dialogue_lines < min_bottom_content_lines
+        {
+            return None;
+        }
+
+        Some(SplitScore {
+            ends_sentence: candidate.ends_sentence,
+            substantial_bottom: substantial_bottom(
+                candidate.bottom_spoken_lines,
+                candidate.bottom_first_spoken_line_chars,
+                candidate.bottom_terminal_spoken_line_chars,
+                candidate.mid_part_sentence_boundary_eligible,
+                candidate.same_top_line_extension,
+            ),
+            fuller_top_fragment: candidate.plan.top_line_count,
+            balance_score: balance_score(
+                candidate.top_dialogue_lines,
+                candidate.bottom_dialogue_lines,
+            ),
+            top_content_bytes: candidate.top_content_bytes,
+        })
+    });
+
+    winner.map(|candidate_index| candidates[candidate_index].plan.clone())
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum DialogueBoundaryMode {
+    Ranked,
+    FinalDraft,
+}
+
 fn generate_dialogue_split_candidates(
     parts: &[DialogueTextPart],
     geometry: &LayoutGeometry,
     interruption_dash_wrap: InterruptionDashWrap,
+    mode: DialogueBoundaryMode,
 ) -> Vec<DialogueSplitCandidate> {
     let mut boundaries: BTreeMap<(usize, usize), bool> = BTreeMap::new();
 
@@ -171,10 +256,19 @@ fn generate_dialogue_split_candidates(
             .entry((part_index, part.text.len()))
             .or_insert(false);
 
-        if !matches!(
-            part.kind,
-            DialoguePartKind::Dialogue | DialoguePartKind::Lyric
-        ) {
+        let supports_internal_split = match mode {
+            DialogueBoundaryMode::Ranked => matches!(
+                part.kind,
+                DialoguePartKind::Dialogue | DialoguePartKind::Lyric
+            ),
+            DialogueBoundaryMode::FinalDraft => matches!(
+                part.kind,
+                DialoguePartKind::Dialogue
+                    | DialoguePartKind::Lyric
+                    | DialoguePartKind::Parenthetical
+            ),
+        };
+        if !supports_internal_split {
             continue;
         }
 
@@ -188,13 +282,15 @@ fn generate_dialogue_split_candidates(
 
         // Only allow mid-text sentence splits for parts with at least 3 wrapped lines.
         // A 2-line part is too compact to split cleanly.
-        if total_wrapped_lines < 3 {
+        if mode == DialogueBoundaryMode::Ranked && total_wrapped_lines < 3 {
             continue;
         }
 
-        // FD only splits dialogue at sentence boundaries, never at arbitrary
-        // wrapped-line breaks.
-        for offset in sentence_boundary_offsets(&part.text) {
+        let sentence_offsets = match mode {
+            DialogueBoundaryMode::Ranked => sentence_boundary_offsets(&part.text),
+            DialogueBoundaryMode::FinalDraft => final_draft_sentence_boundary_offsets(&part.text),
+        };
+        for offset in sentence_offsets {
             boundaries
                 .entry((part_index, offset))
                 .and_modify(|ends_sentence| *ends_sentence = true)

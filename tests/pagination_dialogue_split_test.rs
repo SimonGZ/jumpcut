@@ -1,5 +1,6 @@
 use jumpcut::pagination::dialogue_split::{
     DialogueTextPart, plan_dialogue_split, plan_dialogue_split_parts,
+    plan_dialogue_split_parts_final_draft,
 };
 use jumpcut::pagination::{
     Cohesion, DialoguePart, DialoguePartKind, DialogueUnit, InterruptionDashWrap, LayoutGeometry,
@@ -272,6 +273,41 @@ fn dialogue_split_plan_can_split_at_a_sentence_boundary_inside_a_wrapped_line() 
             .starts_with("And when he finally came back, he looked"),
         "expected continuation text to start at the next sentence boundary, got: {:?}",
         plan.parts[1].bottom_text
+    );
+}
+
+#[test]
+fn final_draft_dialogue_policy_can_correct_inside_a_parenthetical() {
+    let parts = dialogue_parts(&[
+        (DialoguePartKind::Character, "MAYOR"),
+        (
+            DialoguePartKind::Parenthetical,
+            "(First thought stretches across enough words for two lines. Second thought that continues for another line.)",
+        ),
+        (
+            DialoguePartKind::Dialogue,
+            "The continuation still has enough dialogue below it.",
+        ),
+    ]);
+
+    let plan = plan_dialogue_split_parts_final_draft(
+        &parts,
+        &LayoutGeometry::default(),
+        InterruptionDashWrap::FinalDraft,
+        4.0,
+        2,
+        2,
+    )
+    .unwrap();
+
+    assert_eq!(
+        plan.parts[1].top_text.trim_end(),
+        "(First thought stretches across enough words for two lines."
+    );
+    assert!(
+        plan.parts[1]
+            .bottom_text
+            .starts_with("Second thought that continues")
     );
 }
 

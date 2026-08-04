@@ -4,7 +4,7 @@ use crate::{
 };
 
 use super::wrapping::InterruptionDashWrap;
-use super::{Alignment, LayoutGeometry};
+use super::{Alignment, LayoutGeometry, PaginationMode};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum StyleProfile {
@@ -67,6 +67,7 @@ pub struct ScreenplayElementStyles {
 #[derive(Clone, Debug, PartialEq)]
 pub struct ScreenplayLayoutProfile {
     pub style_profile: StyleProfile,
+    pub pagination_mode: PaginationMode,
     pub interruption_dash_wrap: InterruptionDashWrap,
     pub dual_dialogue_counts_for_contd: bool,
     pub automatic_character_continueds: bool,
@@ -134,7 +135,10 @@ impl ScreenplayLayoutProfile {
     }
 
     pub fn to_pagination_geometry(&self) -> LayoutGeometry {
-        let mut geometry = LayoutGeometry::default();
+        let mut geometry = LayoutGeometry {
+            pagination_mode: self.pagination_mode,
+            ..LayoutGeometry::default()
+        };
 
         geometry.action_left = self.styles.action.left_indent;
         geometry.action_first_indent = self.styles.action.first_indent;
@@ -249,6 +253,7 @@ impl ScreenplayLayoutProfile {
     fn default_screenplay() -> Self {
         Self {
             style_profile: StyleProfile::Screenplay,
+            pagination_mode: PaginationMode::Ranked,
             interruption_dash_wrap: InterruptionDashWrap::FinalDraft,
             dual_dialogue_counts_for_contd: true,
             automatic_character_continueds: true,
@@ -633,6 +638,8 @@ fn apply_fmt_template_option(profile: &mut ScreenplayLayoutProfile, option: &str
     } else if option.eq_ignore_ascii_case("balanced") {
         profile.interruption_dash_wrap = InterruptionDashWrap::KeepTogether;
         profile.dual_dialogue_counts_for_contd = false;
+    } else if option.eq_ignore_ascii_case("final-draft") {
+        profile.pagination_mode = PaginationMode::FinalDraft;
     } else if option.eq_ignore_ascii_case("clean-dashes") {
         profile.interruption_dash_wrap = InterruptionDashWrap::KeepTogether;
     } else if option.eq_ignore_ascii_case("no-dual-contds") {
