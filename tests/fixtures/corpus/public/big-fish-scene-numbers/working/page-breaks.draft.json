@@ -7,8 +7,8 @@
     "pdf": "source/source.pdf"
   },
   "scope": {
-    "title_page_count": null,
-    "body_start_page": null
+    "title_page_count": 1,
+    "body_start_page": 2
   },
   "pages": [
     {
