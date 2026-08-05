@@ -1,6 +1,6 @@
 use jumpcut::pagination::flow_split::{
-    choose_flow_split, choose_flow_split_allow_exact_fit_sentence_runt,
-    choose_flow_split_final_draft, choose_flow_split_final_draft_without_sentence_correction,
+    choose_flow_split, choose_flow_split_allow_exact_fit_sentence_runt, choose_flow_split_industry,
+    choose_flow_split_industry_without_sentence_correction,
 };
 use jumpcut::pagination::wrapping::WrapConfig;
 
@@ -27,14 +27,13 @@ fn flow_split_prefers_a_sentence_boundary_when_a_legal_split_exists() {
 }
 
 #[test]
-fn final_draft_flow_split_can_use_the_physical_line_when_sentence_correction_is_disabled() {
+fn industry_flow_split_can_use_the_physical_line_when_sentence_correction_is_disabled() {
     let text = "Alpha beta gamma delta epsilon zeta eta theta iota kappa lambda mu.";
     let config = WrapConfig::with_exact_width_chars(20);
 
-    assert!(choose_flow_split_final_draft(text, &config, 2, 1, 1).is_none());
-    let decision =
-        choose_flow_split_final_draft_without_sentence_correction(text, &config, 2, 1, 1)
-            .expect("physical line split should remain available");
+    assert!(choose_flow_split_industry(text, &config, 2, 1, 1).is_none());
+    let decision = choose_flow_split_industry_without_sentence_correction(text, &config, 2, 1, 1)
+        .expect("physical line split should remain available");
 
     assert_eq!(decision.top_line_count, 2);
     assert!(decision.bottom_line_count >= 1);
@@ -87,11 +86,11 @@ fn flow_split_keeps_big_fish_runt_sentence_split_illegal_for_ordinary_action() {
 }
 
 #[test]
-fn final_draft_flow_split_uses_semicolon_and_skips_abbreviation_boundary() {
+fn industry_flow_split_uses_semicolon_and_skips_abbreviation_boundary() {
     let text = "Dr. Smith waits; Then leaves. Last witness stays behind.";
     let config = WrapConfig::with_exact_width_chars(20);
 
-    let decision = choose_flow_split_final_draft(text, &config, 1, 1, 1).unwrap();
+    let decision = choose_flow_split_industry(text, &config, 1, 1, 1).unwrap();
 
     assert_eq!(decision.top_text.trim_end(), "Dr. Smith waits;");
     assert!(decision.bottom_text.starts_with("Then leaves."));

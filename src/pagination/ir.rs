@@ -1,5 +1,4 @@
 use crate::Screenplay;
-use crate::pagination::LayoutGeometry;
 use crate::pagination::ScreenplayLayoutProfile;
 use crate::pagination::dialogue_split::DialogueSplitPlan;
 use crate::pagination::fixtures::{
@@ -9,12 +8,13 @@ use crate::pagination::fixtures::{
 use crate::pagination::margin::line_height_for_element_type;
 use crate::pagination::normalize_screenplay;
 use crate::pagination::semantic::{
-    DialoguePartKind, DialogueUnit, FlowKind, FlowUnit, SemanticScreenplay, SemanticUnit,
-    build_semantic_screenplay,
+    DialoguePartKind, DialogueUnit, FlowKind, FlowUnit, SemanticOptions, SemanticScreenplay,
+    SemanticUnit, build_semantic_screenplay_with_options,
 };
 use crate::pagination::wrapping::{
     ElementType, InterruptionDashWrap, wrap_config_with_overrides, wrap_text_for_element,
 };
+use crate::pagination::{LayoutGeometry, PaginationPolicy, PaginationProfile};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ContinuationMarker {
@@ -84,7 +84,7 @@ pub struct PaginatedScreenplay {
 #[derive(Clone, Debug, PartialEq)]
 pub struct PaginationConfig {
     pub geometry: LayoutGeometry,
-    pub interruption_dash_wrap: InterruptionDashWrap,
+    pub policy: PaginationPolicy,
 }
 
 impl PaginationConfig {
@@ -93,7 +93,7 @@ impl PaginationConfig {
         geometry.lines_per_page = lines_per_page;
         Self {
             geometry,
-            interruption_dash_wrap: InterruptionDashWrap::FinalDraft,
+            policy: PaginationPolicy::jumpcut(),
         }
     }
 
@@ -103,7 +103,7 @@ impl PaginationConfig {
         geometry.lines_per_page = lines_per_page;
         Self {
             geometry,
-            interruption_dash_wrap: profile.interruption_dash_wrap,
+            policy: profile.pagination,
         }
     }
 }
@@ -121,16 +121,16 @@ impl PaginatedScreenplay {
         let style_profile = style_profile.into();
         let geometry = &config.geometry;
 
-        let blocks = crate::pagination::composer::compose_with_mode(
+        let blocks = crate::pagination::composer::compose_with_wrap(
             &semantic.units,
             geometry,
-            config.interruption_dash_wrap,
+            config.policy.interruption_dash_wrap,
         );
-        let paged_blocks = crate::pagination::paginator::paginate_with_mode(
+        let paged_blocks = crate::pagination::paginator::paginate_with_policy(
             &blocks,
             config.geometry.lines_per_page,
             geometry,
-            config.interruption_dash_wrap,
+            &config.policy,
         );
 
         let mut pages: Vec<Page> = Vec::new();
@@ -223,16 +223,18 @@ impl PaginatedScreenplay {
         let layout_profile = ScreenplayLayoutProfile::from_screenplay(screenplay);
         let style_profile = match layout_profile.style_profile {
             crate::pagination::StyleProfile::Screenplay
-                if layout_profile.pagination_mode
-                    == crate::pagination::PaginationMode::FinalDraft =>
+                if layout_profile.pagination.profile == PaginationProfile::Industry =>
             {
-                "final-draft"
+                "industry"
             }
-            crate::pagination::StyleProfile::Screenplay => "standard",
+            crate::pagination::StyleProfile::Screenplay => "jumpcut",
             crate::pagination::StyleProfile::Multicam => "multicam",
         };
         let normalized = normalize_screenplay(screenplay_id, screenplay);
-        let semantic = build_semantic_screenplay(normalized);
+        let semantic = build_semantic_screenplay_with_options(
+            normalized,
+            SemanticOptions::from_policy(&layout_profile.pagination),
+        );
         let config = PaginationConfig::from_screenplay(screenplay, lines_per_page);
 
         Self::paginate(semantic, config, style_profile, scope)
@@ -567,7 +569,7 @@ fn dialogue_part_line_counts(
                 geometry,
                 element_type,
                 &part.render_attributes.layout_overrides,
-                InterruptionDashWrap::FinalDraft,
+                InterruptionDashWrap::Industry,
             );
             wrap_text_for_element(&part.text, &config).len()
         })

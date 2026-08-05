@@ -1,10 +1,10 @@
-# Final Draft Dialogue Splitting Rules
+# Industry Compatibility Dialogue Splitting Rules
 
-This document outlines the current dialogue-splitting rules JumpCut uses to
-match Final Draft behavior, based on the active fd-probe set and the corpus
-checks that still serve as parity guards.
+This document outlines the dialogue-splitting rules used by JumpCut's Industry
+compatibility profile. Final Draft 11 is one observed reference used by the
+active probe set and corpus parity guards.
 
-> **Compatibility note:** The `final-draft` profile uses the recovered ordered
+> **Compatibility note:** The `industry` profile uses an observed ordered
 > local correction structure rather than JumpCut's ordinary global split
 > ranking. Sentence correction is a configurable document option and covers
 > Action, Dialogue, Lyric, and Parenthetical pagination types. See
@@ -59,5 +59,5 @@ that boundary.
 Compatibility mode does not select a winner from a globally scored candidate
 list. It derives one physical proposal from page geometry, applies the relevant
 local element handler, and optionally corrects that result backward to a
-sentence boundary. The ordinary `industry` profile retains JumpCut's ranked
+sentence boundary. The ordinary `jumpcut` profile retains JumpCut's ranked
 split selection.

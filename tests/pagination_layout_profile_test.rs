@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use jumpcut::pagination::{
-    Alignment, InterruptionDashWrap, PaginationConfig, PaginationMode, ScreenplayElementStyle,
+    Alignment, InterruptionDashWrap, PaginationConfig, PaginationProfile, ScreenplayElementStyle,
     ScreenplayLayoutProfile, StyleProfile,
 };
 use jumpcut::parse;
@@ -9,6 +9,19 @@ use jumpcut::{
     ElementLayoutOverrides, ImportedDialogueContinueds, ImportedElementKind, ImportedElementStyle,
     ImportedLayoutOverrides, ImportedMoresAndContinueds, Metadata,
 };
+
+#[test]
+fn jumpcut_is_the_default_pagination_profile() {
+    let profile = ScreenplayLayoutProfile::from_metadata(&Metadata::new());
+
+    assert_eq!(profile.pagination.profile, PaginationProfile::Jumpcut);
+    assert_eq!(
+        profile.pagination.interruption_dash_wrap,
+        InterruptionDashWrap::KeepTogether
+    );
+    assert!(!profile.pagination.dual_dialogue_counts_for_contd);
+    assert!(profile.pagination.avoid_page_start_parenthetical);
+}
 
 #[test]
 fn element_style_helper_applies_per_element_spacing_and_width_deltas() {
@@ -144,7 +157,7 @@ fn imported_layout_overrides_apply_on_top_of_metadata_defaults_for_render_paths(
 
     assert_eq!(profile.style_profile, StyleProfile::Multicam);
     assert_eq!(
-        profile.interruption_dash_wrap,
+        profile.pagination.interruption_dash_wrap,
         InterruptionDashWrap::KeepTogether
     );
     assert_eq!(profile.styles.dialogue.left_indent, 3.25);
@@ -152,7 +165,7 @@ fn imported_layout_overrides_apply_on_top_of_metadata_defaults_for_render_paths(
     assert_eq!(profile.styles.dialogue.right_indent, 5.5);
     assert_eq!(profile.styles.dialogue.line_spacing, 2.0);
     assert_eq!(profile.styles.transition.alignment, Alignment::Left);
-    assert!(!profile.automatic_character_continueds);
+    assert!(!profile.pagination.automatic_character_continueds);
     assert_eq!(config.geometry.dialogue_left, 3.25);
     assert_eq!(config.geometry.dialogue_first_indent, -0.14);
     assert_eq!(config.geometry.dialogue_right, 5.5);
@@ -265,7 +278,7 @@ fn clean_dashes_fmt_switches_the_wrap_policy_without_changing_geometry() {
     let geometry = profile.to_pagination_geometry();
 
     assert_eq!(
-        profile.interruption_dash_wrap,
+        profile.pagination.interruption_dash_wrap,
         InterruptionDashWrap::KeepTogether
     );
     assert_eq!(geometry.dialogue_left, 2.5);
@@ -274,35 +287,42 @@ fn clean_dashes_fmt_switches_the_wrap_policy_without_changing_geometry() {
 }
 
 #[test]
-fn balanced_fmt_switches_dash_behavior_and_disables_dual_dialogue_contds() {
+fn balanced_fmt_is_a_legacy_alias_for_jumpcut() {
     let mut metadata: Metadata = HashMap::new();
     metadata.insert("fmt".into(), vec!["balanced".into()]);
 
     let profile = ScreenplayLayoutProfile::from_metadata(&metadata);
 
+    assert_eq!(profile.pagination.profile, PaginationProfile::Jumpcut);
     assert_eq!(
-        profile.interruption_dash_wrap,
+        profile.pagination.interruption_dash_wrap,
         InterruptionDashWrap::KeepTogether
     );
-    assert!(!profile.dual_dialogue_counts_for_contd);
+    assert!(!profile.pagination.dual_dialogue_counts_for_contd);
 }
 
 #[test]
-fn final_draft_fmt_selects_deterministic_break_correction_mode() {
+fn industry_fmt_selects_deterministic_break_correction_mode() {
+    let mut metadata = Metadata::new();
+    metadata.insert("fmt".into(), vec!["industry".into()]);
+
+    let profile = ScreenplayLayoutProfile::from_metadata(&metadata);
+
+    assert_eq!(profile.pagination.profile, PaginationProfile::Industry);
+    assert_eq!(
+        profile.pagination.interruption_dash_wrap,
+        InterruptionDashWrap::Industry
+    );
+}
+
+#[test]
+fn legacy_final_draft_fmt_alias_selects_industry() {
     let mut metadata = Metadata::new();
     metadata.insert("fmt".into(), vec!["final-draft".into()]);
 
     let profile = ScreenplayLayoutProfile::from_metadata(&metadata);
 
-    assert_eq!(profile.pagination_mode, PaginationMode::FinalDraft);
-    assert_eq!(
-        profile.to_pagination_geometry().pagination_mode,
-        PaginationMode::FinalDraft
-    );
-    assert_eq!(
-        profile.interruption_dash_wrap,
-        InterruptionDashWrap::FinalDraft
-    );
+    assert_eq!(profile.pagination.profile, PaginationProfile::Industry);
 }
 
 #[test]
@@ -313,8 +333,8 @@ fn no_dual_contds_fmt_only_disables_the_dual_dialogue_contd_rule() {
     let profile = ScreenplayLayoutProfile::from_metadata(&metadata);
 
     assert_eq!(
-        profile.interruption_dash_wrap,
-        InterruptionDashWrap::FinalDraft
+        profile.pagination.interruption_dash_wrap,
+        InterruptionDashWrap::KeepTogether
     );
-    assert!(!profile.dual_dialogue_counts_for_contd);
+    assert!(!profile.pagination.dual_dialogue_counts_for_contd);
 }

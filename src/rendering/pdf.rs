@@ -6850,7 +6850,7 @@ mod tests {
     }
 
     #[test]
-    fn dual_side_left_uses_the_dynamic_final_draft_formula_for_dual_character_cues() {
+    fn dual_side_left_uses_the_dynamic_industry_formula_for_dual_character_cues() {
         let geometry = LayoutGeometry::default();
 
         let short_left = PdfRenderDualSide {
@@ -6869,7 +6869,7 @@ mod tests {
     }
 
     #[test]
-    fn dual_side_left_centers_final_draft_dual_cues_on_the_speaker_name_not_the_contd_suffix() {
+    fn dual_side_left_centers_industry_dual_cues_on_the_speaker_name_not_the_contd_suffix() {
         let geometry = LayoutGeometry::default();
         let right_with_contd = PdfRenderDualSide {
             text: "AMY (CONT'D)".into(),

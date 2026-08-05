@@ -388,12 +388,18 @@ fn speaker_extensions_other_than_voice_over_still_match_for_contd() {
 }
 
 #[test]
-fn dual_dialogue_contd_flags_follow_final_draft_side_state() {
+fn semantic_options_can_count_dual_dialogue_for_contd_context() {
     let screenplay = parse(
         "INT. CARRIAGE - DAY\n\nAMY\nSTOP THE CARRIAGE!\n\nLAURIE\nAMY! You're so /grown up!\n\nAMY ^\n/You wrote you'd come to the hotel!\n\nLAURIE\nI looked for you and couldn't find /you anywhere!\n\nAMY ^\n/You didn't look hard enough!",
     );
 
-    let semantic = build_semantic_screenplay(normalize_screenplay("dual-contd", &screenplay));
+    let semantic = build_semantic_screenplay_with_options(
+        normalize_screenplay("dual-contd-included", &screenplay),
+        SemanticOptions {
+            dual_dialogue_counts_for_contd: true,
+            automatic_character_continueds: true,
+        },
+    );
     let dual = semantic
         .units
         .iter()
@@ -431,13 +437,13 @@ fn dual_dialogue_contd_flags_follow_final_draft_side_state() {
 }
 
 #[test]
-fn dual_dialogue_contd_eligibility_can_be_disabled_for_balanced_mode() {
+fn semantic_options_can_exclude_dual_dialogue_from_contd_context() {
     let screenplay = parse(
         "INT. CARRIAGE - DAY\n\nLAURIE\nHello /there.\n\nAMY ^\n/Hi.\n\nLAURIE\nStill talking.\n\nAMY\nMe too.",
     );
 
     let semantic = build_semantic_screenplay_with_options(
-        normalize_screenplay("dual-contd-balanced", &screenplay),
+        normalize_screenplay("dual-contd-excluded", &screenplay),
         SemanticOptions {
             dual_dialogue_counts_for_contd: false,
             automatic_character_continueds: true,

@@ -175,7 +175,7 @@ Right side.
 
     let original = parse(source);
     let mut fdx_source = parse(source);
-    let fdx = fdx_source.to_final_draft();
+    let fdx = fdx_source.to_fdx();
     let from_fdx = parse_fdx(&fdx).expect("generated fdx should parse");
     let fountain = from_fdx.to_fountain();
     let reparsed = parse(&fountain);

@@ -12,7 +12,7 @@ use crate::pagination::{
     compare_paginated_to_fixture, margin::line_height_for_element_type, normalize_screenplay,
     wrapping::ElementType,
 };
-use crate::parse;
+use crate::{ElementText, Screenplay, parse};
 
 pub fn write_big_fish_public_slice_json(debug_dir: &Path) {
     let fixture: PageBreakFixture =
@@ -222,7 +222,8 @@ pub fn write_little_women_full_script_page_break_packet(debug_dir: &Path) {
     let fountain =
         fs::read_to_string("tests/fixtures/corpus/public/little-women/source/source.fountain")
             .unwrap();
-    let screenplay = parse(&fountain);
+    let mut screenplay = parse(&fountain);
+    select_pagination_profile(&mut screenplay, "industry");
     let normalized = normalize_screenplay("little-women", &screenplay);
     let config = PaginationConfig::from_screenplay(&screenplay, 54.0);
     let actual = PaginatedScreenplay::from_screenplay(
@@ -314,7 +315,8 @@ pub fn write_big_fish_full_script_page_break_packet(debug_dir: &Path) {
     let page_mappings = read_page_mappings(fixture_path);
     let fountain =
         fs::read_to_string("tests/fixtures/corpus/public/big-fish/source/source.fountain").unwrap();
-    let screenplay = parse(&fountain);
+    let mut screenplay = parse(&fountain);
+    select_pagination_profile(&mut screenplay, "industry");
     let normalized = normalize_screenplay("big-fish", &screenplay);
     let config = PaginationConfig::from_screenplay(&screenplay, 54.0);
     let actual =
@@ -405,7 +407,8 @@ pub fn write_mostly_genius_full_script_page_break_packet(debug_dir: &Path) {
     let fountain =
         fs::read_to_string("tests/fixtures/corpus/public/mostly-genius/source/source.fountain")
             .unwrap();
-    let screenplay = parse(&fountain);
+    let mut screenplay = parse(&fountain);
+    select_pagination_profile(&mut screenplay, "industry");
     let normalized = normalize_screenplay("mostly-genius", &screenplay);
     let config = PaginationConfig::from_screenplay(&screenplay, 54.0);
     let actual = PaginatedScreenplay::from_screenplay(
@@ -497,7 +500,8 @@ pub fn write_vikings_full_script_page_break_packet(debug_dir: &Path) {
     let page_mappings = read_page_mappings(fixture_path);
     let fountain =
         fs::read_to_string("tests/fixtures/corpus/public/vikings/source/source.fountain").unwrap();
-    let screenplay = parse(&fountain);
+    let mut screenplay = parse(&fountain);
+    select_pagination_profile(&mut screenplay, "industry");
     let normalized = normalize_screenplay("vikings", &screenplay);
     let config = PaginationConfig::from_screenplay(&screenplay, 54.0);
     let actual =
@@ -579,7 +583,8 @@ pub fn write_gumshoe_full_script_page_break_packet(debug_dir: &Path) {
     let page_mappings = read_page_mappings(fixture_path);
     let fountain =
         fs::read_to_string("tests/fixtures/corpus/public/gumshoe/source/source.fountain").unwrap();
-    let screenplay = parse(&fountain);
+    let mut screenplay = parse(&fountain);
+    select_pagination_profile(&mut screenplay, "industry");
     let normalized = normalize_screenplay("gumshoe", &screenplay);
     let config = PaginationConfig::from_screenplay(&screenplay, 54.0);
     let actual =
@@ -655,6 +660,21 @@ pub fn write_gumshoe_full_script_page_break_packet(debug_dir: &Path) {
     .unwrap();
 }
 
+fn select_pagination_profile(screenplay: &mut Screenplay, profile: &str) {
+    let existing_fmt = screenplay
+        .metadata
+        .get("fmt")
+        .and_then(|values| values.first())
+        .map(|value| value.plain_text())
+        .unwrap_or_default();
+    screenplay.metadata.insert(
+        "fmt".into(),
+        vec![ElementText::Plain(
+            format!("{existing_fmt} {profile}").trim().to_string(),
+        )],
+    );
+}
+
 pub fn write_fd_probe_packets(debug_dir: &Path) {
     fs::create_dir_all(debug_dir).unwrap();
     let probe_root = Path::new("tests/fixtures/fd-probes");
@@ -672,7 +692,7 @@ pub fn write_fd_probe_packets(debug_dir: &Path) {
     for probe_dir in probe_dirs {
         let expected_path = probe_dir.join("expected.json");
         let fountain_path = probe_dir.join("source.fountain");
-        let spec: FinalDraftProbeSpec =
+        let spec: IndustryProbeSpec =
             serde_json::from_str(&fs::read_to_string(&expected_path).unwrap()).unwrap();
         let fountain = fs::read_to_string(&fountain_path).unwrap();
         let screenplay = parse(&fountain);
@@ -685,11 +705,16 @@ pub fn write_fd_probe_packets(debug_dir: &Path) {
             spec_scope(),
         );
         let semantic = build_semantic_screenplay(normalized.clone());
-        let composed = crate::pagination::composer::compose(&semantic.units, &config.geometry);
-        let layout_pages = crate::pagination::paginator::paginate(
+        let composed = crate::pagination::composer::compose_with_wrap(
+            &semantic.units,
+            &config.geometry,
+            config.policy.interruption_dash_wrap,
+        );
+        let layout_pages = crate::pagination::paginator::paginate_with_policy(
             &composed,
             spec.lines_per_page,
             &config.geometry,
+            &config.policy,
         );
         let actual_matches = collect_fd_probe_matches(&spec, &actual, &layout_pages);
 
@@ -880,7 +905,7 @@ pub fn write_visual_comparison_data(debug_dir: &Path) {
             geometry.lines_per_page = lpp as f32;
             let config = PaginationConfig {
                 geometry,
-                interruption_dash_wrap: crate::pagination::InterruptionDashWrap::FinalDraft,
+                policy: crate::pagination::PaginationPolicy::industry(),
             };
             let actual = PaginatedScreenplay::paginate(
                 semantic.clone(),
@@ -941,7 +966,7 @@ pub fn write_visual_comparison_data(debug_dir: &Path) {
                     _ => full_text.clone(),
                 };
                 let element_type = ElementType::from_item_kind(&item.kind, item.dual_dialogue_side);
-                let config = crate::pagination::wrapping::WrapConfig::from_geometry_final_draft(
+                let config = crate::pagination::wrapping::WrapConfig::from_geometry_industry(
                     &run.geometry,
                     element_type,
                 );
@@ -1096,7 +1121,7 @@ fn run_window_diagnostics(
     geometry.lines_per_page = 54.0;
     let config = PaginationConfig {
         geometry: geometry.clone(),
-        interruption_dash_wrap: crate::pagination::InterruptionDashWrap::FinalDraft,
+        policy: crate::pagination::PaginationPolicy::industry(),
     };
     let full_actual = PaginatedScreenplay::paginate(
         semantic.clone(),
@@ -1441,15 +1466,28 @@ fn render_pseudo_pdf_output(
     geometry: &LayoutGeometry,
     page_mappings: &PageLabelMap,
 ) -> String {
-    let semantic = build_semantic_screenplay(normalized.clone());
-    let blocks = crate::pagination::composer::compose(&semantic.units, geometry);
-    let layout_pages = crate::pagination::paginator::paginate(&blocks, lines_per_page, geometry)
-        .into_iter()
-        .filter(|page| {
-            page.blocks
-                .iter()
-                .any(|block| !matches!(block.unit, SemanticUnit::PageStart(_)))
-        });
+    let policy = crate::pagination::PaginationPolicy::industry();
+    let semantic = crate::pagination::build_semantic_screenplay_with_options(
+        normalized.clone(),
+        crate::pagination::SemanticOptions::from_policy(&policy),
+    );
+    let blocks = crate::pagination::composer::compose_with_wrap(
+        &semantic.units,
+        geometry,
+        policy.interruption_dash_wrap,
+    );
+    let layout_pages = crate::pagination::paginator::paginate_with_policy(
+        &blocks,
+        lines_per_page,
+        geometry,
+        &policy,
+    )
+    .into_iter()
+    .filter(|page| {
+        page.blocks
+            .iter()
+            .any(|block| !matches!(block.unit, SemanticUnit::PageStart(_)))
+    });
 
     let mut out = String::new();
     for (page, layout_page) in actual.pages.iter().zip(layout_pages) {
@@ -1550,15 +1588,28 @@ fn rendered_actual_page_lines(
     lines_per_page: f32,
     geometry: &LayoutGeometry,
 ) -> HashMap<u32, Vec<String>> {
-    let semantic = build_semantic_screenplay(normalized.clone());
-    let blocks = crate::pagination::composer::compose(&semantic.units, geometry);
-    let layout_pages = crate::pagination::paginator::paginate(&blocks, lines_per_page, geometry)
-        .into_iter()
-        .filter(|page| {
-            page.blocks
-                .iter()
-                .any(|block| !matches!(block.unit, SemanticUnit::PageStart(_)))
-        });
+    let policy = crate::pagination::PaginationPolicy::industry();
+    let semantic = crate::pagination::build_semantic_screenplay_with_options(
+        normalized.clone(),
+        crate::pagination::SemanticOptions::from_policy(&policy),
+    );
+    let blocks = crate::pagination::composer::compose_with_wrap(
+        &semantic.units,
+        geometry,
+        policy.interruption_dash_wrap,
+    );
+    let layout_pages = crate::pagination::paginator::paginate_with_policy(
+        &blocks,
+        lines_per_page,
+        geometry,
+        &policy,
+    )
+    .into_iter()
+    .filter(|page| {
+        page.blocks
+            .iter()
+            .any(|block| !matches!(block.unit, SemanticUnit::PageStart(_)))
+    });
 
     actual
         .pages
@@ -1660,7 +1711,7 @@ enum ProbeTargetKind {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-struct FinalDraftProbeTarget {
+struct IndustryProbeTarget {
     kind: ProbeTargetKind,
     contains_text: String,
     #[serde(default)]
@@ -1669,7 +1720,7 @@ struct FinalDraftProbeTarget {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(tag = "kind", rename_all = "kebab-case")]
-enum FinalDraftProbeExpectation {
+enum IndustryProbeExpectation {
     Split {
         top_page: u32,
         bottom_page: u32,
@@ -1684,15 +1735,15 @@ enum FinalDraftProbeExpectation {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-struct FinalDraftProbeSpec {
+struct IndustryProbeSpec {
     probe_id: String,
     description: String,
     status: ProbeStatus,
     lines_per_page: f32,
-    target: FinalDraftProbeTarget,
-    expected: FinalDraftProbeExpectation,
+    target: IndustryProbeTarget,
+    expected: IndustryProbeExpectation,
     #[serde(default)]
-    final_draft_notes: Vec<String>,
+    industry_notes: Vec<String>,
 }
 
 #[derive(Serialize)]
@@ -1701,8 +1752,8 @@ struct FdProbeActualObservation {
     description: String,
     status: ProbeStatus,
     lines_per_page: f32,
-    target: FinalDraftProbeTarget,
-    expected: FinalDraftProbeExpectation,
+    target: IndustryProbeTarget,
+    expected: IndustryProbeExpectation,
     actual_matches: Vec<FdProbeActualMatch>,
 }
 
@@ -1795,7 +1846,7 @@ fn render_layout_block_lines(
 }
 
 fn collect_fd_probe_matches(
-    spec: &FinalDraftProbeSpec,
+    spec: &IndustryProbeSpec,
     actual: &PaginatedScreenplay,
     layout_pages: &[crate::pagination::paginator::Page<'_>],
 ) -> Vec<FdProbeActualMatch> {
@@ -1819,7 +1870,7 @@ fn collect_fd_probe_matches(
 
 fn fd_probe_block_matches(
     block: &crate::pagination::composer::LayoutBlock<'_>,
-    target: &FinalDraftProbeTarget,
+    target: &IndustryProbeTarget,
 ) -> bool {
     match (&target.kind, block.unit) {
         (ProbeTargetKind::Dialogue, SemanticUnit::Dialogue(dialogue)) => {
@@ -2148,7 +2199,7 @@ fn render_dual_dialogue_side_lines(
         .iter()
         .flat_map(|part| {
             let element_type = ElementType::from_dual_dialogue_part_kind(&part.kind, side);
-            let config = crate::pagination::wrapping::WrapConfig::from_geometry_final_draft(
+            let config = crate::pagination::wrapping::WrapConfig::from_geometry_industry(
                 geometry,
                 element_type,
             );
@@ -2168,7 +2219,7 @@ fn render_indented_lines(
     geometry: &LayoutGeometry,
 ) -> Vec<String> {
     let config =
-        crate::pagination::wrapping::WrapConfig::from_geometry_final_draft(geometry, element_type);
+        crate::pagination::wrapping::WrapConfig::from_geometry_industry(geometry, element_type);
     let indent = " ".repeat(indent_spaces_for_element_type(element_type, geometry));
     wrapped_visual_lines(element_type, text, &config)
         .into_iter()
@@ -3063,7 +3114,7 @@ fn measured_lines_for_item(
     );
 
     let config =
-        crate::pagination::wrapping::WrapConfig::from_geometry_final_draft(geometry, element_type);
+        crate::pagination::wrapping::WrapConfig::from_geometry_industry(geometry, element_type);
     let text = match item.line_range {
         Some((start, end)) => slice_explicit_lines(&element.text, start, end),
         None => element.text.clone(),
@@ -3103,7 +3154,7 @@ fn measure_visual_item(
 
     let element_type = ElementType::from_item_kind(kind, dual_dialogue_side);
     let config =
-        crate::pagination::wrapping::WrapConfig::from_geometry_final_draft(geometry, element_type);
+        crate::pagination::wrapping::WrapConfig::from_geometry_industry(geometry, element_type);
     let text = match line_range {
         Some((start, end)) => slice_explicit_lines(&element.text, start, end),
         None => element.text.clone(),

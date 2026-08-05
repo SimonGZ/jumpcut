@@ -1,6 +1,18 @@
-# Final Draft Pagination Specification
+# JumpCut Pagination Specification
 
-This is a living document formalizing the mechanics of screenplay pagination and element rendering modeled after industry-standard programs (e.g., Final Draft, Highland).
+This is a living document formalizing JumpCut's shared screenplay layout machinery and its Jumpcut and Industry pagination policies. Commercial applications such as Final Draft and Highland are compatibility references, but they do not name or define JumpCut's internal architecture.
+
+## Testing contracts
+
+Pagination tests are divided by the promise they protect:
+
+- **Shared-engine invariants** cover geometry, composition, wrapping primitives, semantic grouping, paginator mechanics, and rendering behavior that must not depend on a named profile. These tests should select a low-level option explicitly when the option matters instead of relying on a profile default.
+- **Paired profile contracts** run the same focused input through Jumpcut and Industry and assert an intentional difference. Add a case to `tests/pagination_profile_contract_test.rs` whenever a new Jumpcut preference diverges from Industry behavior.
+- **Industry corpus compatibility** must match the canonical public compatibility fixtures without pagination issues.
+- **Jumpcut corpus stability** has its own snapshot of page counts and boundary differences. An intentional Jumpcut policy change updates this snapshot after its focused profile contract has been reviewed.
+- **Legacy corpus parity** preserves the pre-profile hybrid behavior used by older diagnostic fixtures. It is labeled as legacy compatibility and is not evidence for either canonical profile.
+
+This separation allows Jumpcut to evolve deliberately while keeping Industry compatibility strict and keeping shared machinery free of accidental profile assumptions.
 
 ## 1. Page Geometry
 
@@ -27,11 +39,11 @@ Each element type conforms to specific structural constraints defined relative t
 - **Action**
   - Left Indent: 1.5 inches
   - Right Indent: 7.5 inches
-  - Available Width: 6.0 inches (Should be 60 characters, but Final Draft allows 61, so we copy that)
+  - Available Width: 6.0 inches, with a 61-cell compatibility width
 - **Scene Headings*
   - Left Indent: 1.5 inches
   - Right Indent: 7.5 inches
-  - Available Width: 6.0 inches (Should be 60 characters, but Final Draft allows 61, so we copy that)
+  - Available Width: 6.0 inches, with a 61-cell compatibility width
   - **Scene Numbers**
     - Scene numbers are an optional modifier on Scene Headings. They appear on both sides of a scene heading.
     - The left scene number starts at 0.75 inches.
@@ -51,12 +63,12 @@ Each element type conforms to specific structural constraints defined relative t
 - **Parenthetical**
   - Text Left Indent: 3.0 inches (Multi-Cam: 2.75 inches)
   - Right Indent: 5.5 inches
-  - Available Width: 2.5 inches (Should be 25 characters, but Final Draft allows 26, so we copy that)
+  - Available Width: 2.5 inches, with a 26-cell compatibility width
   - The opening `(` hangs one character cell to the left of the text indent. In other words, the parenthetical text block is anchored at the nominal parenthetical margin, but a leading opening parenthesis begins one cell earlier.
 - **Dual Dialogue**
   - _Configured as two side-by-side columns._
   - **Left Column**
-    - Character cues do **not** use a fixed left indent. The best current human model is that Final Draft tries to keep them visually centered on a 3-inch anchor, then snaps the resulting left edge through its own quantization rules.
+    - Character cues do **not** use a fixed left indent. The compatibility model centers them on a 3-inch anchor and snaps the resulting left edge through measured quantization rules.
     - The current measured model that reproduces those probe points is:
       - base left indent of 2.875 inches for a 1-character cue
       - subtract 3/64 inch per additional character
@@ -74,7 +86,7 @@ Each element type conforms to specific structural constraints defined relative t
     - As with ordinary parentheticals, a leading opening parenthesis hangs one character cell to the left of that text indent.
     - Dialogue Left Indent: 1.5 inch
     - Dialogue Right Indent: 4.375 inches
-    - Available Width: 2.875 inches (Should be 28 characters, but Final Draft allows 29, so we copy that)
+    - Available Width: 2.875 inches, with a 29-cell compatibility width
   - **Right Column**
     - Character cues appear to follow the same centering behavior around a 6-inch anchor.
     - The current measured left-indent model is the left-column formula shifted 3.125 inches further right.
@@ -83,7 +95,7 @@ Each element type conforms to specific structural constraints defined relative t
     - As with ordinary parentheticals, a leading opening parenthesis hangs one character cell to the left of that text indent.
     - Dialogue Left Indent: 4.625 inches
     - Dialogue Right Indent: 7.5 inches
-    - Available Width: 2.875 inches (Should be 28 characters, but Final Draft allows 29, so we copy that)
+    - Available Width: 2.875 inches, with a 29-cell compatibility width
 - **Transition**
   - Left Indent: 5.5 inches
   - Right Indent: 7.1 inches (Multi-Cam: 7.25 inches)
@@ -109,6 +121,13 @@ Elements dictate vertical padding above and below themselves by standard multipl
 ## 6. Page Breaks and Flow Control
 
 Pages are filled until visual height is exhausted, prompting a hard pagination move.
+
+JumpCut exposes two policies over the same semantic, measurement, and rendering pipeline:
+
+- **Jumpcut** is the default ranked policy. It uses clean dash wrapping, does not count dual dialogue toward automatic continuation cues, and strongly prefers not to begin a continuation page with a parenthetical.
+- **Industry** is the stable compatibility policy. It preserves ordered physical-boundary corrections, conventional interruption-dash wrapping, and imported sentence-correction settings.
+
+The policy owns behavioral choices such as wrapping, widow/orphan limits, and split ranking. `LayoutGeometry` owns only physical measurements such as margins, widths, spacing, and line height.
 
 ### 6.1 Stranding and Splitting
 

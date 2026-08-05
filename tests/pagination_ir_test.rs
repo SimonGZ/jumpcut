@@ -98,7 +98,7 @@ fn paginated_ir_from_screenplay_matches_brick_n_steel_full_fixture() {
     );
     let report = compare_paginated_to_fixture(&actual, &fixture);
 
-    assert_eq!(actual.style_profile, fixture.style_profile);
+    assert_eq!(actual.style_profile, "jumpcut");
     assert_eq!(report.total_issues(), 0);
     assert_eq!(report.issue_count(ComparisonIssueKind::WrongPage), 0);
     assert_eq!(report.issue_count(ComparisonIssueKind::WrongFragment), 0);

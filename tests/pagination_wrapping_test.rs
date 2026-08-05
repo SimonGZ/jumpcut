@@ -1,7 +1,7 @@
 // tests/pagination_wrapping_test.rs
 //
-// These TDD tests explore the ideal API for the new Final Draft-parity greedy wrapping
-// algorithm. They verify the constraints laid out in the pagination-spec.md.
+// Focused tests for shared wrapping mechanics and the two interruption-dash modes.
+// Paired profile-level expectations live in pagination_profile_contract_test.rs.
 
 // We hypothesize an ideal API that takes raw text, an exact width limit, and applies a configuration
 // for space-preservation specific to screenplay pagination needs.
@@ -119,7 +119,7 @@ fn action_text_wraps_jo_sits_scenario_correctly() {
 }
 
 #[test]
-fn final_draft_discounts_exactly_one_trailing_dash_from_word_width() {
+fn wrapping_discounts_exactly_one_trailing_dash_from_word_width() {
     let config = WrapConfig {
         exact_width_chars: 10,
         interruption_dash_wrap: InterruptionDashWrap::KeepTogether,
@@ -156,10 +156,10 @@ fn final_draft_discounts_exactly_one_trailing_dash_from_word_width() {
 }
 
 #[test]
-fn final_draft_mode_can_split_a_standalone_double_dash_across_lines() {
+fn industry_mode_can_split_a_standalone_double_dash_across_lines() {
     let config = WrapConfig {
         exact_width_chars: 35,
-        interruption_dash_wrap: InterruptionDashWrap::FinalDraft,
+        interruption_dash_wrap: InterruptionDashWrap::Industry,
     };
 
     let text = "everything you said was impossible -- everything! -- I felt like such a fool";
@@ -176,7 +176,7 @@ fn final_draft_mode_can_split_a_standalone_double_dash_across_lines() {
 }
 
 #[test]
-fn clean_mode_keeps_a_standalone_double_dash_together() {
+fn keep_together_mode_keeps_a_standalone_double_dash_together() {
     let config = WrapConfig {
         exact_width_chars: 35,
         interruption_dash_wrap: InterruptionDashWrap::KeepTogether,
@@ -196,10 +196,10 @@ fn clean_mode_keeps_a_standalone_double_dash_together() {
 }
 
 #[test]
-fn final_draft_mode_can_split_a_word_ending_in_double_hyphens() {
+fn industry_mode_can_split_a_word_ending_in_double_hyphens() {
     let config = WrapConfig {
         exact_width_chars: 38,
-        interruption_dash_wrap: InterruptionDashWrap::FinalDraft,
+        interruption_dash_wrap: InterruptionDashWrap::Industry,
     };
 
     let text = "Qaxu, uda owy’ox eqyxu. Y ugyvoju’e ga--";
@@ -209,7 +209,7 @@ fn final_draft_mode_can_split_a_word_ending_in_double_hyphens() {
 }
 
 #[test]
-fn clean_mode_keeps_a_word_ending_in_double_hyphens_together() {
+fn keep_together_mode_keeps_a_word_ending_in_double_hyphens_together() {
     let config = WrapConfig {
         exact_width_chars: 38,
         interruption_dash_wrap: InterruptionDashWrap::KeepTogether,
@@ -222,7 +222,7 @@ fn clean_mode_keeps_a_word_ending_in_double_hyphens_together() {
 }
 
 #[test]
-fn clean_mode_allows_a_gumshoe_style_trailing_double_hyphen_to_hang_at_line_end() {
+fn keep_together_mode_allows_a_trailing_double_hyphen_to_hang_at_line_end() {
     let config = WrapConfig {
         exact_width_chars: 42,
         interruption_dash_wrap: InterruptionDashWrap::KeepTogether,
@@ -241,7 +241,7 @@ fn clean_mode_allows_a_gumshoe_style_trailing_double_hyphen_to_hang_at_line_end(
 }
 
 #[test]
-fn final_draft_discounts_all_trailing_spaces_from_width() {
+fn wrapping_discounts_all_trailing_spaces_from_width() {
     let config = WrapConfig::with_exact_width_chars(10);
 
     // "1234567890" is exactly 10 characters.
@@ -272,7 +272,7 @@ fn final_draft_discounts_all_trailing_spaces_from_width() {
 }
 
 #[test]
-fn final_draft_allows_hyphenated_compounds_to_break_after_a_trailing_hyphen() {
+fn industry_allows_hyphenated_compounds_to_break_after_a_trailing_hyphen() {
     let config = WrapConfig::new(ElementType::Dialogue);
 
     let text = "Did I want to deprive my soon-to-be-born son the chance to catch a fish like this of his own?  This lady fish and I, well, we had the same destiny.";
@@ -291,7 +291,7 @@ fn final_draft_allows_hyphenated_compounds_to_break_after_a_trailing_hyphen() {
 }
 
 #[test]
-fn mostly_genius_action_wrap_allows_the_final_draft_hyphen_split_for_el_00363() {
+fn mostly_genius_action_wrap_allows_the_industry_hyphen_split_for_el_00363() {
     let settings: FdxExtractedSettings = serde_json::from_str(
         &fs::read_to_string(
             "tests/fixtures/corpus/public/mostly-genius/extracted/fdx-settings.json",
@@ -300,7 +300,7 @@ fn mostly_genius_action_wrap_allows_the_final_draft_hyphen_split_for_el_00363() 
     )
     .unwrap();
     let geometry = LayoutGeometry::from_fdx_settings(&settings);
-    let config = WrapConfig::from_geometry_final_draft(&geometry, ElementType::Action);
+    let config = WrapConfig::from_geometry_industry(&geometry, ElementType::Action);
 
     let text = "EWYKO GYJYG WYSOHA, AWUBY. RUS ROGO OV KUQYPAXYDA QAGAGO--YZOVAPYPY REVOQU EQOQ, WUDAWEPAW AKUR HOG GERAB, UKEROJA OSOPOWU YVY. YSUREZU YPUJEJ.";
     let lines = wrap_text_for_element(text, &config);
@@ -325,7 +325,7 @@ fn wrap_config_can_be_created_from_custom_geometry() {
     geometry.dialogue_right = 5.0;
 
     // This constructor doesn't exist yet
-    let config = WrapConfig::from_geometry_final_draft(&geometry, ElementType::Dialogue);
+    let config = WrapConfig::from_geometry_industry(&geometry, ElementType::Dialogue);
 
     assert_eq!(config.exact_width_chars, 25);
 

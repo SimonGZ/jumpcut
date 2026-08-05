@@ -240,10 +240,10 @@ fn it_preserves_richer_imported_layout_overrides_beyond_fmt_metadata() {
     assert!(resolved.styles.action.bold);
     assert!(resolved.styles.action.italic);
     assert!(resolved.styles.action.starts_new_page);
-    assert!(!resolved.automatic_character_continueds);
-    assert!(!resolved.break_dialogue_and_action_at_sentences);
+    assert!(!resolved.pagination.automatic_character_continueds);
+    assert!(!resolved.pagination.break_dialogue_and_action_at_sentences);
 
-    let exported = screenplay.to_final_draft();
+    let exported = screenplay.to_fdx();
     assert!(exported.contains("BreakDialogueAndActionAtSentences=\"No\""));
 }
 
@@ -800,7 +800,7 @@ fn fdx_export_preserves_imported_title_page_overflow_pages() {
         .expect("fixture should load");
 
     let mut screenplay = parse_fdx(&xml).expect("fdx should parse");
-    let fdx = screenplay.to_final_draft();
+    let fdx = screenplay.to_fdx();
 
     assert!(
         fdx.contains("THE GUYS"),

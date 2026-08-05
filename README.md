@@ -1,6 +1,6 @@
 # JumpCut
 
-JumpCut is a Rust utility designed to convert [Fountain screenwriting markup format][fountain] and Final Draft documents (FDX) into Fountain, FDX, HTML, JSON, text, and PDF formats.
+JumpCut is a Rust utility designed to convert [Fountain screenwriting markup format][fountain] and FDX documents into Fountain, FDX, HTML, JSON, text, and PDF formats.
 
 It was created by a working screenwriter to match the industry-standard conventions for Hollywood screenplays (lines per page, margins, dialogue splits, etc).
 
@@ -23,7 +23,7 @@ To use JumpCut as a library, you can specify the following in your Cargo.toml so
 Once installed, you can pass JumpCut a text file and it will parse it and output it as FDX, HTML, JSON, text, or PDF. The full options from the help text are listed below.
 
 ```
-A tool for converting Fountain and Final Draft screenplay documents into Fountain, FDX, HTML, JSON, text, and optional PDF formats.
+A tool for converting Fountain and FDX screenplay documents into Fountain, FDX, HTML, JSON, text, and optional PDF formats.
 
 Usage: jumpcut [OPTIONS] <INPUT> [OUTPUT]
 
@@ -37,13 +37,13 @@ Options:
       --paginate
           Render text output with pagination
       --exact-wraps
-          Render HTML output with exact Final Draft-style wraps
+          Render HTML output with exact screenplay wraps
       --embed-courier-prime
           Embed bundled Courier Prime, or the family from --font-dir, directly into HTML CSS
       --line-numbers
           Show line numbers in text output
       --render-profile <RENDER_PROFILE>
-          Override the layout/render profile [possible values: industry, balanced, final-draft]
+          Override the layout/render profile [possible values: jumpcut, industry]
       --no-continueds
           Suppress (CONT'D)/(MORE) markers in render outputs
       --no-title-page
@@ -114,7 +114,7 @@ To use JumpCut within a Rust program, look at [main.rs](src/bin/main.rs) for an 
 
 ```rust
 let mut screenplay: Screenplay = parse(&content); // content is a String of fountain text
-let output_fdx: String = screenplay.to_final_draft();
+let output_fdx: String = screenplay.to_fdx();
 let output_html: String = screenplay.to_html();
 ```
 
@@ -122,11 +122,12 @@ let output_html: String = screenplay.to_html();
 
 You can customize JumpCut's output.
 
-There are three built-in profiles that act like presets. They bundle together different pagination and output settings:
+There are two canonical profiles that bundle together pagination and output settings:
 
-- `industry`: the default. This aims for the kind of screenplay pagination and continuation behavior used by major industry tools (like Final Draft).
-- `balanced`: a more opinionated profile that aims for cleaner-looking page breaks, dash wrapping, and `(MORE)` / `(CONT'D)` choices. NOTE: This profile is subject to change based on the whims and opinions of the software's author.
-- `final-draft`: an experimental compatibility profile that starts from the physical line break and applies the recovered Final Draft 11 ordered correction rules. FDX sentence-correction and `PaginateAs` settings are carried into pagination.
+- `jumpcut`: the default, opinionated profile. It favors cleaner dash wrapping and page breaks, avoids beginning a continuation page with a parenthetical when another legal split exists, and uses less intrusive continuation behavior.
+- `industry`: the stable compatibility profile. It follows conventional screenplay pagination behavior using an ordered correction model and honors imported FDX sentence-correction and `PaginateAs` settings.
+
+For migration, `balanced` is accepted as an alias for `jumpcut`, and `final-draft` is accepted as an alias for `industry`. Canonical output and new examples use only `jumpcut` and `industry`.
 
 You can set these presets (called render-profiles by the app) and other frequent customizations with CLI flags like `--render-profile`, `--no-continueds`, and `--no-title-page`
 

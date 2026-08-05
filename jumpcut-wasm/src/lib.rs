@@ -16,7 +16,7 @@ pub fn parse_to_fountain_string(text: &str) -> String {
 #[wasm_bindgen]
 pub fn parse_to_fdx_string(text: &str) -> String {
     let mut screenplay = jumpcut::parse(text);
-    screenplay.to_final_draft()
+    screenplay.to_fdx()
 }
 
 #[cfg(feature = "fdx")]

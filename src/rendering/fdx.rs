@@ -272,7 +272,10 @@ fn render_page_layout(out: &mut String, layout_profile: &ScreenplayLayoutProfile
     let bottom_margin = (layout_profile.bottom_margin * 72.0).round() as i32;
     let header_margin = (layout_profile.header_margin * 72.0).round() as i32;
     let footer_margin = (layout_profile.footer_margin * 72.0).round() as i32;
-    let break_at_sentences = if layout_profile.break_dialogue_and_action_at_sentences {
+    let break_at_sentences = if layout_profile
+        .pagination
+        .break_dialogue_and_action_at_sentences
+    {
         "Yes"
     } else {
         "No"

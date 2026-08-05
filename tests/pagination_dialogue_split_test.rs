@@ -1,6 +1,6 @@
 use jumpcut::pagination::dialogue_split::{
     DialogueTextPart, plan_dialogue_split, plan_dialogue_split_parts,
-    plan_dialogue_split_parts_final_draft,
+    plan_dialogue_split_parts_industry,
 };
 use jumpcut::pagination::{
     Cohesion, DialoguePart, DialoguePartKind, DialogueUnit, InterruptionDashWrap, LayoutGeometry,
@@ -47,10 +47,11 @@ fn dialogue_split_prefers_a_sentence_boundary_for_the_mayor_case() {
     let plan = plan_dialogue_split(
         &dialogue,
         &LayoutGeometry::default(),
-        InterruptionDashWrap::FinalDraft,
+        InterruptionDashWrap::Industry,
         5.0,
         2,
         2,
+        false,
     )
     .unwrap();
 
@@ -88,17 +89,18 @@ fn dialogue_split_pushes_the_whole_block_when_only_a_too_short_top_fragment_fits
         &stub_dialogue_unit(),
         &parts,
         &LayoutGeometry::default(),
-        InterruptionDashWrap::FinalDraft,
+        InterruptionDashWrap::Industry,
         2.0,
         2,
         2,
+        false,
     );
 
     assert_eq!(plan, None);
 }
 
 #[test]
-fn dialogue_split_can_start_the_continuation_with_a_parenthetical() {
+fn dialogue_split_can_start_the_continuation_with_a_parenthetical_when_allowed() {
     let parts = dialogue_parts(&[
         (DialoguePartKind::Character, "MAYOR"),
         (
@@ -134,14 +136,51 @@ fn dialogue_split_can_start_the_continuation_with_a_parenthetical() {
         &stub_dialogue_unit(),
         &parts,
         &LayoutGeometry::default(),
-        InterruptionDashWrap::FinalDraft,
+        InterruptionDashWrap::Industry,
         6.0,
         2,
         2,
+        false,
     )
     .unwrap();
 
     assert_eq!(plan.top_line_count, 5);
+}
+
+#[test]
+fn dialogue_split_scoring_can_avoid_starting_a_continuation_with_a_parenthetical() {
+    let parts = dialogue_parts(&[
+        (DialoguePartKind::Character, "MAYOR"),
+        (DialoguePartKind::Dialogue, "First line."),
+        (DialoguePartKind::Dialogue, "Second line."),
+        (DialoguePartKind::Dialogue, "Third line."),
+        (DialoguePartKind::Dialogue, "Fourth line."),
+        (DialoguePartKind::Parenthetical, "(quietly)"),
+        (DialoguePartKind::Dialogue, "The continuation begins here."),
+        (DialoguePartKind::Dialogue, "And it has enough material."),
+    ]);
+
+    let plan = plan_dialogue_split_parts(
+        &stub_dialogue_unit(),
+        &parts,
+        &LayoutGeometry::default(),
+        InterruptionDashWrap::KeepTogether,
+        6.0,
+        2,
+        2,
+        true,
+    )
+    .unwrap();
+
+    let first_continuation_part = parts
+        .iter()
+        .zip(plan.parts.iter())
+        .find(|(_, split)| !split.bottom_text.is_empty())
+        .map(|(part, _)| &part.kind);
+    assert_ne!(
+        first_continuation_part,
+        Some(&DialoguePartKind::Parenthetical)
+    );
 }
 
 #[test]
@@ -195,10 +234,11 @@ fn dialogue_split_prefers_the_sentence_boundary_that_also_fills_the_page() {
         &stub_dialogue_unit(),
         &parts,
         &LayoutGeometry::default(),
-        InterruptionDashWrap::FinalDraft,
+        InterruptionDashWrap::Industry,
         19.0,
         2,
         2,
+        false,
     )
     .unwrap();
 
@@ -246,10 +286,11 @@ fn dialogue_split_plan_can_split_at_a_sentence_boundary_inside_a_wrapped_line() 
     let plan = plan_dialogue_split(
         &dialogue,
         &LayoutGeometry::default(),
-        InterruptionDashWrap::FinalDraft,
+        InterruptionDashWrap::Industry,
         14.0,
         2,
         2,
+        false,
     )
     .unwrap();
 
@@ -277,7 +318,7 @@ fn dialogue_split_plan_can_split_at_a_sentence_boundary_inside_a_wrapped_line() 
 }
 
 #[test]
-fn final_draft_dialogue_policy_can_correct_inside_a_parenthetical() {
+fn industry_dialogue_policy_can_correct_inside_a_parenthetical() {
     let parts = dialogue_parts(&[
         (DialoguePartKind::Character, "MAYOR"),
         (
@@ -290,13 +331,14 @@ fn final_draft_dialogue_policy_can_correct_inside_a_parenthetical() {
         ),
     ]);
 
-    let plan = plan_dialogue_split_parts_final_draft(
+    let plan = plan_dialogue_split_parts_industry(
         &parts,
         &LayoutGeometry::default(),
-        InterruptionDashWrap::FinalDraft,
+        InterruptionDashWrap::Industry,
         4.0,
         2,
         2,
+        true,
     )
     .unwrap();
 

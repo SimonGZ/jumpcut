@@ -8,6 +8,7 @@ pub mod layout_profile;
 pub mod margin;
 mod normalized;
 pub mod paginator;
+mod policy;
 mod semantic;
 mod sentence_boundary;
 mod split_scoring;
@@ -29,10 +30,9 @@ pub use ir::{
 pub use layout_profile::{
     ScreenplayElementStyle, ScreenplayElementStyles, ScreenplayLayoutProfile, StyleProfile,
 };
-pub use margin::{
-    Alignment, FdxExtractedSettings, FdxParagraphStyle, LayoutGeometry, PaginationMode,
-};
+pub use margin::{Alignment, FdxExtractedSettings, FdxParagraphStyle, LayoutGeometry};
 pub use normalized::normalize_screenplay;
+pub use policy::{PaginationPolicy, PaginationProfile};
 pub use semantic::{
     Cohesion, DialoguePart, DialoguePartKind, DialogueUnit, DualDialogueSide, DualDialogueUnit,
     FlowKind, FlowUnit, LyricUnit, PageStartUnit, SemanticOptions, SemanticScreenplay,

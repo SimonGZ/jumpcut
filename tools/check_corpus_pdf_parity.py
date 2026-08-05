@@ -500,6 +500,8 @@ def check_case(case: PdfParityCase) -> list[str]:
             "--",
             "-f",
             "pdf",
+            "--render-profile",
+            "industry",
             str(case.input_script),
             str(output_pdf),
         ],

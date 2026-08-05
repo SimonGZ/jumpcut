@@ -43,25 +43,25 @@ enum ProbeExpectation {
 }
 
 #[derive(Debug, Deserialize)]
-struct FinalDraftProbe {
+struct IndustryProbe {
     probe_id: String,
     description: String,
     status: ProbeStatus,
     lines_per_page: f32,
     target: ProbeTarget,
     expected: ProbeExpectation,
-    #[serde(default)]
-    final_draft_notes: Vec<String>,
+    #[serde(default, rename = "final_draft_notes")]
+    industry_notes: Vec<String>,
 }
 
 #[derive(Debug)]
 struct ProbeFixture {
     dir: PathBuf,
-    spec: FinalDraftProbe,
+    spec: IndustryProbe,
 }
 
 #[test]
-fn final_draft_probe_fixtures_parse() {
+fn industry_probe_fixtures_parse() {
     let probes = load_probe_fixtures();
     assert!(
         !probes.is_empty(),
@@ -91,8 +91,8 @@ fn final_draft_probe_fixtures_parse() {
         );
         if probe.spec.status == ProbeStatus::Active {
             assert!(
-                !probe.spec.final_draft_notes.is_empty(),
-                "{}: active probes should include at least one Final Draft note",
+                !probe.spec.industry_notes.is_empty(),
+                "{}: active probes should include at least one observed-result note",
                 probe.dir.display()
             );
         }
@@ -100,7 +100,7 @@ fn final_draft_probe_fixtures_parse() {
 }
 
 #[test]
-fn active_final_draft_probes_match_expected_split_behavior() {
+fn active_industry_probes_match_expected_split_behavior() {
     for probe in load_probe_fixtures()
         .into_iter()
         .filter(|probe| probe.spec.status == ProbeStatus::Active)
@@ -244,7 +244,7 @@ fn assert_probe_matches(probe: &ProbeFixture) {
 }
 
 fn find_matching_block(
-    spec: &FinalDraftProbe,
+    spec: &IndustryProbe,
     actual: &jumpcut::pagination::PaginatedScreenplay,
     layout_pages: &[jumpcut::pagination::paginator::Page<'_>],
     page_number: u32,
@@ -266,7 +266,7 @@ fn find_matching_block(
 
 fn block_matches_target(
     block: &jumpcut::pagination::composer::LayoutBlock<'_>,
-    spec: &FinalDraftProbe,
+    spec: &IndustryProbe,
 ) -> bool {
     match (spec.target.kind, block.unit) {
         (ProbeTargetKind::Dialogue, jumpcut::pagination::SemanticUnit::Dialogue(dialogue)) => {

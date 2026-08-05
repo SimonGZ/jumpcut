@@ -3,8 +3,7 @@ use crate::{
     ImportedElementStyle, ImportedLayoutOverrides, ImportedSceneContinueds, Metadata, Screenplay,
 };
 
-use super::wrapping::InterruptionDashWrap;
-use super::{Alignment, LayoutGeometry, PaginationMode};
+use super::{Alignment, LayoutGeometry, PaginationPolicy};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum StyleProfile {
@@ -67,11 +66,7 @@ pub struct ScreenplayElementStyles {
 #[derive(Clone, Debug, PartialEq)]
 pub struct ScreenplayLayoutProfile {
     pub style_profile: StyleProfile,
-    pub pagination_mode: PaginationMode,
-    pub break_dialogue_and_action_at_sentences: bool,
-    pub interruption_dash_wrap: InterruptionDashWrap,
-    pub dual_dialogue_counts_for_contd: bool,
-    pub automatic_character_continueds: bool,
+    pub pagination: PaginationPolicy,
     pub styles: ScreenplayElementStyles,
     pub continueds: ScreenplayContinueds,
     pub page_width: f32,
@@ -136,11 +131,7 @@ impl ScreenplayLayoutProfile {
     }
 
     pub fn to_pagination_geometry(&self) -> LayoutGeometry {
-        let mut geometry = LayoutGeometry {
-            pagination_mode: self.pagination_mode,
-            break_dialogue_and_action_at_sentences: self.break_dialogue_and_action_at_sentences,
-            ..LayoutGeometry::default()
-        };
+        let mut geometry = LayoutGeometry::default();
 
         geometry.action_left = self.styles.action.left_indent;
         geometry.action_first_indent = self.styles.action.first_indent;
@@ -255,11 +246,7 @@ impl ScreenplayLayoutProfile {
     fn default_screenplay() -> Self {
         Self {
             style_profile: StyleProfile::Screenplay,
-            pagination_mode: PaginationMode::Ranked,
-            break_dialogue_and_action_at_sentences: true,
-            interruption_dash_wrap: InterruptionDashWrap::FinalDraft,
-            dual_dialogue_counts_for_contd: true,
-            automatic_character_continueds: true,
+            pagination: PaginationPolicy::jumpcut(),
             styles: ScreenplayElementStyles {
                 action: ScreenplayElementStyle {
                     first_indent: 0.0,
@@ -499,7 +486,7 @@ impl ScreenplayLayoutProfile {
             self.footer_margin = footer_margin;
         }
         if let Some(value) = imported_layout.page.break_dialogue_and_action_at_sentences {
-            self.break_dialogue_and_action_at_sentences = value;
+            self.pagination.break_dialogue_and_action_at_sentences = value;
         }
 
         for (kind, style) in &imported_layout.element_styles {
@@ -538,7 +525,7 @@ impl ScreenplayLayoutProfile {
         }
 
         overlay_dialogue_continueds(
-            &mut self.automatic_character_continueds,
+            &mut self.pagination.automatic_character_continueds,
             &mut self.continueds.dialogue,
             &imported_layout.mores_and_continueds.dialogue,
         );
@@ -641,15 +628,16 @@ fn apply_fmt_template_option(profile: &mut ScreenplayLayoutProfile, option: &str
         profile.page_width = 8.26;
         profile.page_height = 11.69;
         profile.lines_per_page = 58.0;
-    } else if option.eq_ignore_ascii_case("balanced") {
-        profile.interruption_dash_wrap = InterruptionDashWrap::KeepTogether;
-        profile.dual_dialogue_counts_for_contd = false;
-    } else if option.eq_ignore_ascii_case("final-draft") {
-        profile.pagination_mode = PaginationMode::FinalDraft;
+    } else if option.eq_ignore_ascii_case("jumpcut") || option.eq_ignore_ascii_case("balanced") {
+        profile.pagination = PaginationPolicy::jumpcut();
+    } else if option.eq_ignore_ascii_case("industry") || option.eq_ignore_ascii_case("final-draft")
+    {
+        profile.pagination = PaginationPolicy::industry();
     } else if option.eq_ignore_ascii_case("clean-dashes") {
-        profile.interruption_dash_wrap = InterruptionDashWrap::KeepTogether;
+        profile.pagination.interruption_dash_wrap =
+            super::wrapping::InterruptionDashWrap::KeepTogether;
     } else if option.eq_ignore_ascii_case("no-dual-contds") {
-        profile.dual_dialogue_counts_for_contd = false;
+        profile.pagination.dual_dialogue_counts_for_contd = false;
     }
 }
 

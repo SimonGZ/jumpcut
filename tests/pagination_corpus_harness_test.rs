@@ -1,8 +1,9 @@
 use jumpcut::pagination::{
     ComparisonIssueKind, DialoguePartKind, FlowKind, Fragment, InterruptionDashWrap,
     LayoutGeometry, LineRange, NormalizedElement, NormalizedScreenplay, PageBreakFixture,
-    PaginatedScreenplay, PaginationConfig, build_semantic_screenplay, compare_paginated_to_fixture,
-    margin::line_height_for_element_type, normalize_screenplay, wrapping::ElementType,
+    PaginatedScreenplay, PaginationConfig, PaginationPolicy, build_semantic_screenplay,
+    compare_paginated_to_fixture, margin::line_height_for_element_type, normalize_screenplay,
+    wrapping::ElementType,
 };
 use jumpcut::parse;
 use serde::Serialize;
@@ -11,7 +12,11 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 
-// This harness mixes two kinds of checks:
+// This harness preserves the pre-profile corpus baseline. It intentionally uses a
+// legacy hybrid policy and is neither the canonical Jumpcut nor Industry contract.
+// Canonical profile corpus coverage lives in pagination_profile_corpus_test.rs.
+//
+// The harness mixes two kinds of checks:
 // - page-break parity tests, which run the main parser -> semantic -> composer -> paginator pipeline
 // - line-break parity diagnostics, which compare PDF-extracted lines against direct wrapping of
 //   normalized items using production wrapping helpers, but do not run the full pagination engine
@@ -196,16 +201,18 @@ fn big_fish_pages_38_39_split_beamen_action_at_sentence_boundary() {
         "tests/fixtures/corpus/public/big-fish/source/source.fountain",
         &fixture,
     );
-    let config = PaginationConfig {
-        geometry: geometry_for_screenplay("big-fish"),
-        interruption_dash_wrap: InterruptionDashWrap::FinalDraft,
-    };
+    let config = legacy_compatibility_config(geometry_for_screenplay("big-fish"));
     let semantic = build_semantic_screenplay(normalized);
-    let blocks = jumpcut::pagination::composer::compose(&semantic.units, &config.geometry);
-    let pages = jumpcut::pagination::paginator::paginate(
+    let blocks = jumpcut::pagination::composer::compose_with_wrap(
+        &semantic.units,
+        &config.geometry,
+        config.policy.interruption_dash_wrap,
+    );
+    let pages = jumpcut::pagination::paginator::paginate_with_policy(
         &blocks,
         config.geometry.lines_per_page,
         &config.geometry,
+        &config.policy,
     );
 
     let page_38_block = pages
@@ -268,15 +275,17 @@ fn big_fish_pages_53_54_split_el_01146_after_was_gone_for_a_long_time() {
         &fixture,
     );
     let semantic = build_semantic_screenplay(normalized);
-    let config = PaginationConfig {
-        geometry: geometry_for_screenplay("big-fish"),
-        interruption_dash_wrap: InterruptionDashWrap::FinalDraft,
-    };
-    let blocks = jumpcut::pagination::composer::compose(&semantic.units, &config.geometry);
-    let pages = jumpcut::pagination::paginator::paginate(
+    let config = legacy_compatibility_config(geometry_for_screenplay("big-fish"));
+    let blocks = jumpcut::pagination::composer::compose_with_wrap(
+        &semantic.units,
+        &config.geometry,
+        config.policy.interruption_dash_wrap,
+    );
+    let pages = jumpcut::pagination::paginator::paginate_with_policy(
         &blocks,
         config.geometry.lines_per_page,
         &config.geometry,
+        &config.policy,
     );
 
     let page_53_block = pages
@@ -339,10 +348,7 @@ fn big_fish_pages_81_82_keep_el_01742_whole_on_page_82() {
         &fixture,
     );
     let semantic = build_semantic_screenplay(normalized);
-    let config = PaginationConfig {
-        geometry: geometry_for_screenplay("big-fish"),
-        interruption_dash_wrap: InterruptionDashWrap::FinalDraft,
-    };
+    let config = legacy_compatibility_config(geometry_for_screenplay("big-fish"));
     let actual = PaginatedScreenplay::paginate(
         semantic,
         config,
@@ -382,10 +388,7 @@ fn big_fish_pages_93_94_keep_block_00582_whole_on_page_94() {
         &fixture,
     );
     let semantic = build_semantic_screenplay(normalized);
-    let config = PaginationConfig {
-        geometry: geometry_for_screenplay("big-fish"),
-        interruption_dash_wrap: InterruptionDashWrap::FinalDraft,
-    };
+    let config = legacy_compatibility_config(geometry_for_screenplay("big-fish"));
     let actual = PaginatedScreenplay::paginate(
         semantic,
         config,
@@ -443,21 +446,23 @@ fn big_fish_pages_89_90_split_hand_around_the_house_after_kittens() {
         &fixture,
     );
     let semantic = build_semantic_screenplay(normalized);
-    let config = PaginationConfig {
-        geometry: geometry_for_screenplay("big-fish"),
-        interruption_dash_wrap: InterruptionDashWrap::FinalDraft,
-    };
+    let config = legacy_compatibility_config(geometry_for_screenplay("big-fish"));
     let actual = PaginatedScreenplay::paginate(
         semantic.clone(),
         config.clone(),
         fixture.style_profile.clone(),
         fixture.scope.clone(),
     );
-    let blocks = jumpcut::pagination::composer::compose(&semantic.units, &config.geometry);
-    let layout_pages = jumpcut::pagination::paginator::paginate(
+    let blocks = jumpcut::pagination::composer::compose_with_wrap(
+        &semantic.units,
+        &config.geometry,
+        config.policy.interruption_dash_wrap,
+    );
+    let layout_pages = jumpcut::pagination::paginator::paginate_with_policy(
         &blocks,
         config.geometry.lines_per_page,
         &config.geometry,
+        &config.policy,
     );
 
     let page_89_block = actual
@@ -534,15 +539,17 @@ fn big_fish_pages_34_35_split_block_00213_after_go() {
         &fixture,
     );
     let semantic = build_semantic_screenplay(normalized);
-    let config = PaginationConfig {
-        geometry: geometry_for_screenplay("big-fish"),
-        interruption_dash_wrap: InterruptionDashWrap::FinalDraft,
-    };
-    let blocks = jumpcut::pagination::composer::compose(&semantic.units, &config.geometry);
-    let pages = jumpcut::pagination::paginator::paginate(
+    let config = legacy_compatibility_config(geometry_for_screenplay("big-fish"));
+    let blocks = jumpcut::pagination::composer::compose_with_wrap(
+        &semantic.units,
+        &config.geometry,
+        config.policy.interruption_dash_wrap,
+    );
+    let pages = jumpcut::pagination::paginator::paginate_with_policy(
         &blocks,
         config.geometry.lines_per_page,
         &config.geometry,
+        &config.policy,
     );
 
     let page_34_block = pages
@@ -830,10 +837,7 @@ fn gumshoe_exact_part_boundary_dialogue_split_keeps_whole_parts_whole() {
         &fixture,
     );
     let semantic = build_semantic_screenplay(normalized);
-    let config = PaginationConfig {
-        geometry: geometry_for_screenplay("gumshoe"),
-        interruption_dash_wrap: InterruptionDashWrap::FinalDraft,
-    };
+    let config = legacy_compatibility_config(geometry_for_screenplay("gumshoe"));
     let full_actual = PaginatedScreenplay::paginate(
         semantic,
         config,
@@ -956,10 +960,7 @@ fn big_fish_pages_115_116_keep_el_02473_and_el_02474_whole_on_page_116() {
         &fixture,
     );
     let semantic = build_semantic_screenplay(normalized);
-    let config = PaginationConfig {
-        geometry: geometry_for_screenplay("big-fish"),
-        interruption_dash_wrap: InterruptionDashWrap::FinalDraft,
-    };
+    let config = legacy_compatibility_config(geometry_for_screenplay("big-fish"));
     let actual = PaginatedScreenplay::paginate(
         semantic,
         config,
@@ -1208,10 +1209,7 @@ fn run_window_parity_check(
     geometry: LayoutGeometry,
 ) -> jumpcut::pagination::ComparisonReport {
     let page_numbers: Vec<u32> = fixture.pages.iter().map(|page| page.number).collect();
-    let config = PaginationConfig {
-        geometry,
-        interruption_dash_wrap: InterruptionDashWrap::FinalDraft,
-    };
+    let config = legacy_compatibility_config(geometry);
     let full_actual = PaginatedScreenplay::paginate(
         semantic.clone(),
         config,
@@ -1220,6 +1218,17 @@ fn run_window_parity_check(
     );
     let actual = slice_paginated_to_fixture_window(&full_actual, &page_numbers);
     compare_paginated_to_fixture(&actual, fixture)
+}
+
+fn legacy_compatibility_config(geometry: LayoutGeometry) -> PaginationConfig {
+    PaginationConfig {
+        geometry,
+        policy: PaginationPolicy {
+            interruption_dash_wrap: InterruptionDashWrap::Industry,
+            avoid_page_start_parenthetical: false,
+            ..PaginationPolicy::jumpcut()
+        },
+    }
 }
 
 fn geometry_for_screenplay(screenplay_id: &str) -> LayoutGeometry {
@@ -1296,10 +1305,8 @@ fn flow_fragment_text(
     }
 
     let element_type = ElementType::from_flow_kind(&flow.kind);
-    let config = jumpcut::pagination::wrapping::WrapConfig::from_geometry_final_draft(
-        geometry,
-        element_type,
-    );
+    let config =
+        jumpcut::pagination::wrapping::WrapConfig::from_geometry_industry(geometry, element_type);
     let wrapped_lines = jumpcut::pagination::wrapping::wrap_text_for_element(&flow.text, &config);
     let fragment_line_count = (block.content_lines
         / line_height_for_element_type(geometry, element_type))
@@ -1822,7 +1829,7 @@ fn build_line_break_parity_item(
     };
 
     let element_type = ElementType::from_item_kind(kind, dual_dialogue_side);
-    let config = jumpcut::pagination::wrapping::WrapConfig::from_geometry_final_draft(
+    let config = jumpcut::pagination::wrapping::WrapConfig::from_geometry_industry(
         measurement,
         element_type,
     );

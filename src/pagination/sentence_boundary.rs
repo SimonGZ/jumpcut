@@ -40,11 +40,11 @@ pub(crate) fn sentence_boundary_offsets(text: &str) -> Vec<usize> {
     offsets
 }
 
-/// Sentence boundaries used by Final Draft 11's pagination correction pass.
+/// Sentence boundaries used by the Industry profile's ordered correction pass.
 ///
 /// This intentionally mirrors the small, English-centric recognizer recovered
 /// from the macOS build rather than attempting general linguistic segmentation.
-pub(crate) fn final_draft_sentence_boundary_offsets(text: &str) -> Vec<usize> {
+pub(crate) fn industry_sentence_boundary_offsets(text: &str) -> Vec<usize> {
     let chars: Vec<(usize, char)> = text.char_indices().collect();
     let mut offsets = Vec::new();
 
@@ -52,7 +52,7 @@ pub(crate) fn final_draft_sentence_boundary_offsets(text: &str) -> Vec<usize> {
         if !matches!(ch, '.' | '!' | '?' | ';') {
             continue;
         }
-        if ch == '.' && is_final_draft_abbreviation(&text[..byte_offset]) {
+        if ch == '.' && is_industry_abbreviation(&text[..byte_offset]) {
             continue;
         }
 
@@ -79,7 +79,7 @@ pub(crate) fn final_draft_sentence_boundary_offsets(text: &str) -> Vec<usize> {
     offsets
 }
 
-fn is_final_draft_abbreviation(prefix: &str) -> bool {
+fn is_industry_abbreviation(prefix: &str) -> bool {
     const ABBREVIATIONS: &[&str] = &["DR", "MR", "MS", "ST", "MRS", "AVE", "BLVD"];
 
     let token_start = prefix
@@ -114,21 +114,21 @@ fn is_sentence_closer(ch: char) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::final_draft_sentence_boundary_offsets;
+    use super::industry_sentence_boundary_offsets;
 
     #[test]
-    fn final_draft_boundaries_include_semicolons() {
+    fn industry_boundaries_include_semicolons() {
         let text = "First clause; Second clause. Third.";
-        let offsets = final_draft_sentence_boundary_offsets(text);
+        let offsets = industry_sentence_boundary_offsets(text);
 
         assert_eq!(&text[offsets[0]..], "Second clause. Third.");
     }
 
     #[test]
-    fn final_draft_boundaries_suppress_recovered_abbreviations() {
+    fn industry_boundaries_suppress_recovered_abbreviations() {
         for abbreviation in ["Dr.", "MR.", "ms.", "St.", "Mrs.", "Ave.", "Blvd."] {
             let text = format!("Ask {abbreviation} Smith. Continue.");
-            let offsets = final_draft_sentence_boundary_offsets(&text);
+            let offsets = industry_sentence_boundary_offsets(&text);
 
             assert_eq!(offsets.len(), 2, "unexpected boundary for {abbreviation}");
             assert_eq!(&text[offsets[0]..], "Continue.");

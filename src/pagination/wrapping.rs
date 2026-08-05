@@ -92,7 +92,7 @@ impl ElementType {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InterruptionDashWrap {
-    FinalDraft,
+    Industry,
     KeepTogether,
 }
 
@@ -131,11 +131,11 @@ struct WrapChunk {
 impl WrapConfig {
     pub fn new(element_type: ElementType) -> Self {
         let geometry = LayoutGeometry::default();
-        Self::from_geometry_final_draft(&geometry, element_type)
+        Self::from_geometry_industry(&geometry, element_type)
     }
 
-    pub fn from_geometry_final_draft(geometry: &LayoutGeometry, element_type: ElementType) -> Self {
-        Self::from_geometry_with_mode(geometry, element_type, InterruptionDashWrap::FinalDraft)
+    pub fn from_geometry_industry(geometry: &LayoutGeometry, element_type: ElementType) -> Self {
+        Self::from_geometry_with_mode(geometry, element_type, InterruptionDashWrap::Industry)
     }
 
     pub fn from_geometry_with_mode(
@@ -152,7 +152,7 @@ impl WrapConfig {
     pub fn with_exact_width_chars(width: usize) -> Self {
         Self {
             exact_width_chars: width,
-            interruption_dash_wrap: InterruptionDashWrap::FinalDraft,
+            interruption_dash_wrap: InterruptionDashWrap::Industry,
         }
     }
 }
@@ -239,7 +239,7 @@ pub fn wrap_text_for_element_with_offsets(text: &str, config: &WrapConfig) -> Ve
             let word_start_offset = line_start_offset_for_chunk(word);
             let combined = format!("{}{}", current_line, word.text);
 
-            // Final Draft explicitly discounts trailing whitespace and exactly
+            // Industry compatibility discounts trailing whitespace and exactly
             // ONE single trailing hyphen from column width limits.
             let trimmed = combined.trim_end_matches(' ');
             let mut effective_combined_len = trimmed.chars().count();
@@ -337,7 +337,7 @@ fn should_split_interruption_dash(
     max_width: usize,
     mode: InterruptionDashWrap,
 ) -> bool {
-    if mode != InterruptionDashWrap::FinalDraft {
+    if mode != InterruptionDashWrap::Industry {
         return false;
     }
 
@@ -378,7 +378,7 @@ fn should_split_trailing_double_hyphen_word(
     max_width: usize,
     mode: InterruptionDashWrap,
 ) -> bool {
-    if mode != InterruptionDashWrap::FinalDraft {
+    if mode != InterruptionDashWrap::Industry {
         return false;
     }
 

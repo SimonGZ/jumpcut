@@ -35,10 +35,6 @@ fn layout_geometry_defaults_match_spec() {
     assert_eq!(geometry.transition_spacing_before, 1.0);
     assert_eq!(geometry.lyric_spacing_before, 0.0);
 
-    // Limits
-    assert_eq!(geometry.orphan_limit, 2);
-    assert_eq!(geometry.widow_limit, 2);
-
     // Spacing
     assert_eq!(geometry.line_height, 1.0);
 }

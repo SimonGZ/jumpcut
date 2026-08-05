@@ -1,5 +1,5 @@
 use crate::pagination::sentence_boundary::{
-    final_draft_sentence_boundary_offsets, sentence_boundary_offsets, text_ends_sentence,
+    industry_sentence_boundary_offsets, sentence_boundary_offsets, text_ends_sentence,
 };
 use crate::pagination::split_scoring::choose_best_scored_split;
 use crate::pagination::wrapping::{
@@ -76,14 +76,14 @@ pub fn choose_flow_split_allow_exact_fit_sentence_runt(
     )
 }
 
-pub fn choose_flow_split_final_draft(
+pub fn choose_flow_split_industry(
     text: &str,
     config: &WrapConfig,
     max_top_lines: usize,
     min_top_lines: usize,
     min_bottom_lines: usize,
 ) -> Option<FlowSplitPlan> {
-    choose_flow_split_final_draft_with_policy(
+    choose_flow_split_industry_with_policy(
         text,
         config,
         max_top_lines,
@@ -93,14 +93,14 @@ pub fn choose_flow_split_final_draft(
     )
 }
 
-pub fn choose_flow_split_final_draft_allow_exact_fit_sentence_runt(
+pub fn choose_flow_split_industry_allow_exact_fit_sentence_runt(
     text: &str,
     config: &WrapConfig,
     max_top_lines: usize,
     min_top_lines: usize,
     min_bottom_lines: usize,
 ) -> Option<FlowSplitPlan> {
-    choose_flow_split_final_draft_with_policy(
+    choose_flow_split_industry_with_policy(
         text,
         config,
         max_top_lines,
@@ -113,7 +113,7 @@ pub fn choose_flow_split_final_draft_allow_exact_fit_sentence_runt(
     )
 }
 
-fn choose_flow_split_final_draft_with_policy(
+fn choose_flow_split_industry_with_policy(
     text: &str,
     config: &WrapConfig,
     max_top_lines: usize,
@@ -121,7 +121,7 @@ fn choose_flow_split_final_draft_with_policy(
     min_bottom_lines: usize,
     policy: FlowSplitPolicy,
 ) -> Option<FlowSplitPlan> {
-    choose_flow_split_final_draft_physical(
+    choose_flow_split_industry_physical(
         text,
         config,
         max_top_lines,
@@ -132,14 +132,14 @@ fn choose_flow_split_final_draft_with_policy(
     )
 }
 
-pub fn choose_flow_split_final_draft_without_sentence_correction(
+pub fn choose_flow_split_industry_without_sentence_correction(
     text: &str,
     config: &WrapConfig,
     max_top_lines: usize,
     min_top_lines: usize,
     min_bottom_lines: usize,
 ) -> Option<FlowSplitPlan> {
-    choose_flow_split_final_draft_physical(
+    choose_flow_split_industry_physical(
         text,
         config,
         max_top_lines,
@@ -151,7 +151,7 @@ pub fn choose_flow_split_final_draft_without_sentence_correction(
 }
 
 #[allow(clippy::too_many_arguments)]
-fn choose_flow_split_final_draft_physical(
+fn choose_flow_split_industry_physical(
     text: &str,
     config: &WrapConfig,
     max_top_lines: usize,
@@ -167,7 +167,7 @@ fn choose_flow_split_final_draft_physical(
     let physical_offset = physical_lines[max_top_lines].start_offset;
 
     let candidate_offsets = if correct_to_sentence {
-        final_draft_sentence_boundary_offsets(text)
+        industry_sentence_boundary_offsets(text)
             .into_iter()
             .filter(|offset| *offset <= physical_offset)
             .rev()

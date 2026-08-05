@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- Added explicit `PaginationPolicy` and `PaginationProfile` types so behavioral pagination rules no longer live in physical layout geometry.
+- Added a Jumpcut preference that avoids beginning a continuation page with a parenthetical when another legal split exists.
+
+### Changed
+- Made `jumpcut` the canonical default profile and `industry` the stable compatibility profile.
+- Kept `balanced` as an alias for `jumpcut` and `final-draft` as an alias for `industry` during migration.
+- Renamed pagination internals around Jumpcut and Industry behavior while retaining commercial product names only in research provenance and FDX schema data.
+- Renamed the FDX serialization API to `Screenplay::to_fdx()`.
+
 ## [1.1.0-beta.1] - 2026-08-03
 
 ### Added

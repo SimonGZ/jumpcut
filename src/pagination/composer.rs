@@ -23,10 +23,10 @@ pub struct LayoutBlock<'a> {
 }
 
 pub fn compose<'a>(units: &'a [SemanticUnit], geometry: &LayoutGeometry) -> Vec<LayoutBlock<'a>> {
-    compose_with_mode(units, geometry, InterruptionDashWrap::FinalDraft)
+    compose_with_wrap(units, geometry, InterruptionDashWrap::KeepTogether)
 }
 
-pub fn compose_with_mode<'a>(
+pub fn compose_with_wrap<'a>(
     units: &'a [SemanticUnit],
     geometry: &LayoutGeometry,
     interruption_dash_wrap: InterruptionDashWrap,

@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 use crate::ElementLayoutOverrides;
 use crate::pagination::margin::line_height_for_element_type;
 use crate::pagination::sentence_boundary::{
-    final_draft_sentence_boundary_offsets, sentence_boundary_offsets,
+    industry_sentence_boundary_offsets, sentence_boundary_offsets,
 };
 use crate::pagination::split_scoring::choose_best_scored_split;
 use crate::pagination::wrapping::{
@@ -44,6 +44,7 @@ pub struct DialogueTextPart {
 struct DialogueSplitPolicy {
     prefer_sentence_boundaries: bool,
     prefer_fuller_top_fragment: bool,
+    avoid_page_start_parenthetical: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -68,6 +69,7 @@ struct DialogueSplitCandidate {
     boundary_offset: usize,
     ends_sentence: bool,
     top_content_bytes: usize,
+    bottom_starts_with_parenthetical: bool,
 }
 
 impl Default for DialogueSplitPolicy {
@@ -75,6 +77,7 @@ impl Default for DialogueSplitPolicy {
         Self {
             prefer_sentence_boundaries: true,
             prefer_fuller_top_fragment: true,
+            avoid_page_start_parenthetical: true,
         }
     }
 }
@@ -86,6 +89,7 @@ pub fn plan_dialogue_split(
     max_top_height: f32,
     min_top_content_lines: usize,
     min_bottom_content_lines: usize,
+    avoid_page_start_parenthetical: bool,
 ) -> Option<DialogueSplitPlan> {
     let parts = dialogue
         .parts
@@ -104,6 +108,7 @@ pub fn plan_dialogue_split(
         max_top_height,
         min_top_content_lines,
         min_bottom_content_lines,
+        avoid_page_start_parenthetical,
     )
 }
 
@@ -115,8 +120,12 @@ pub fn plan_dialogue_split_parts(
     max_top_height: f32,
     min_top_content_lines: usize,
     min_bottom_content_lines: usize,
+    avoid_page_start_parenthetical: bool,
 ) -> Option<DialogueSplitPlan> {
-    let policy = DialogueSplitPolicy::default();
+    let policy = DialogueSplitPolicy {
+        avoid_page_start_parenthetical,
+        ..DialogueSplitPolicy::default()
+    };
     let candidates = generate_dialogue_split_candidates(parts, geometry, interruption_dash_wrap);
 
     let winner = choose_best_scored_split(0..candidates.len(), |candidate_index| {
@@ -136,6 +145,8 @@ pub fn plan_dialogue_split_parts(
         }
 
         Some(SplitScore {
+            avoids_page_start_parenthetical: !policy.avoid_page_start_parenthetical
+                || !candidate.bottom_starts_with_parenthetical,
             ends_sentence: policy.prefer_sentence_boundaries && candidate.ends_sentence,
             substantial_bottom: substantial_bottom(
                 candidate.bottom_spoken_lines,
@@ -160,13 +171,14 @@ pub fn plan_dialogue_split_parts(
     winner.map(|candidate_index| candidates[candidate_index].plan.clone())
 }
 
-pub fn plan_dialogue_split_final_draft(
+pub fn plan_dialogue_split_industry(
     dialogue: &DialogueUnit,
     geometry: &LayoutGeometry,
     interruption_dash_wrap: InterruptionDashWrap,
     max_top_height: f32,
     min_top_content_lines: usize,
     min_bottom_content_lines: usize,
+    break_at_sentences: bool,
 ) -> Option<DialogueSplitPlan> {
     let parts = dialogue
         .parts
@@ -177,35 +189,32 @@ pub fn plan_dialogue_split_final_draft(
             layout_overrides: part.render_attributes.layout_overrides.clone(),
         })
         .collect::<Vec<_>>();
-    plan_dialogue_split_parts_final_draft(
+    plan_dialogue_split_parts_industry(
         &parts,
         geometry,
         interruption_dash_wrap,
         max_top_height,
         min_top_content_lines,
         min_bottom_content_lines,
+        break_at_sentences,
     )
 }
 
-pub fn plan_dialogue_split_parts_final_draft(
+pub fn plan_dialogue_split_parts_industry(
     parts: &[DialogueTextPart],
     geometry: &LayoutGeometry,
     interruption_dash_wrap: InterruptionDashWrap,
     max_top_height: f32,
     min_top_content_lines: usize,
     min_bottom_content_lines: usize,
+    break_at_sentences: bool,
 ) -> Option<DialogueSplitPlan> {
-    let records = final_draft_dialogue_line_records(parts, geometry, interruption_dash_wrap);
-    let split_index = final_draft_physical_split_index(&records, max_top_height)?;
-    let bottom_record_index = final_draft_dialogue_handler_bottom_index(&records, split_index)?;
-    let physical_boundary = final_draft_boundary_before(&records[bottom_record_index]);
-    let boundary = if geometry.break_dialogue_and_action_at_sentences {
-        final_draft_correct_dialogue_boundary(
-            parts,
-            &records,
-            bottom_record_index,
-            physical_boundary,
-        )?
+    let records = industry_dialogue_line_records(parts, geometry, interruption_dash_wrap);
+    let split_index = industry_physical_split_index(&records, max_top_height)?;
+    let bottom_record_index = industry_dialogue_handler_bottom_index(&records, split_index)?;
+    let physical_boundary = industry_boundary_before(&records[bottom_record_index]);
+    let boundary = if break_at_sentences {
+        industry_correct_dialogue_boundary(parts, &records, bottom_record_index, physical_boundary)?
     } else {
         physical_boundary
     };
@@ -218,7 +227,7 @@ pub fn plan_dialogue_split_parts_final_draft(
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-struct FinalDraftDialogueLineRecord {
+struct IndustryDialogueLineRecord {
     part_index: usize,
     kind: DialoguePartKind,
     start_offset: usize,
@@ -226,17 +235,17 @@ struct FinalDraftDialogueLineRecord {
     line_height_bits: u32,
 }
 
-impl FinalDraftDialogueLineRecord {
+impl IndustryDialogueLineRecord {
     fn line_height(&self) -> f32 {
         f32::from_bits(self.line_height_bits)
     }
 }
 
-fn final_draft_dialogue_line_records(
+fn industry_dialogue_line_records(
     parts: &[DialogueTextPart],
     geometry: &LayoutGeometry,
     interruption_dash_wrap: InterruptionDashWrap,
-) -> Vec<FinalDraftDialogueLineRecord> {
+) -> Vec<IndustryDialogueLineRecord> {
     let mut records = Vec::new();
 
     for (part_index, part) in parts.iter().enumerate() {
@@ -251,7 +260,7 @@ fn final_draft_dialogue_line_records(
             .into_iter()
             .enumerate()
         {
-            records.push(FinalDraftDialogueLineRecord {
+            records.push(IndustryDialogueLineRecord {
                 part_index,
                 kind: part.kind.clone(),
                 start_offset: line.start_offset,
@@ -264,8 +273,8 @@ fn final_draft_dialogue_line_records(
     records
 }
 
-fn final_draft_physical_split_index(
-    records: &[FinalDraftDialogueLineRecord],
+fn industry_physical_split_index(
+    records: &[IndustryDialogueLineRecord],
     max_top_height: f32,
 ) -> Option<usize> {
     let mut height = 0.0;
@@ -280,11 +289,11 @@ fn final_draft_physical_split_index(
     (split_index > 0 && split_index < records.len()).then_some(split_index)
 }
 
-fn final_draft_cache_record(
-    records: &[FinalDraftDialogueLineRecord],
+fn industry_cache_record(
+    records: &[IndustryDialogueLineRecord],
     split_index: usize,
     cache_index: usize,
-) -> Option<&FinalDraftDialogueLineRecord> {
+) -> Option<&IndustryDialogueLineRecord> {
     // Cache record 5 is the physical line proposed as the first line of the
     // next page. Record 4 is immediately above the proposed break.
     let record_index = split_index as isize + cache_index as isize - 5;
@@ -293,46 +302,46 @@ fn final_draft_cache_record(
         .and_then(|index| records.get(index))
 }
 
-fn final_draft_is_dialogue_content(kind: &DialoguePartKind) -> bool {
+fn industry_is_dialogue_content(kind: &DialoguePartKind) -> bool {
     matches!(
         kind,
         DialoguePartKind::Dialogue | DialoguePartKind::Lyric | DialoguePartKind::Parenthetical
     )
 }
 
-fn final_draft_dialogue_handler_bottom_index(
-    records: &[FinalDraftDialogueLineRecord],
+fn industry_dialogue_handler_bottom_index(
+    records: &[IndustryDialogueLineRecord],
     split_index: usize,
 ) -> Option<usize> {
-    let line_five = final_draft_cache_record(records, split_index, 5)?;
-    let line_six = final_draft_cache_record(records, split_index, 6);
+    let line_five = industry_cache_record(records, split_index, 5)?;
+    let line_six = industry_cache_record(records, split_index, 6);
 
     // Dialogue/Parenthetical handler, first branch: line 5 is the last line of
     // the dialogue group. Look back through cache positions 4, 3, and 2 for
     // the Character cue. If found, the handler moves the break before the cue.
     // Within this block that means the whole dialogue must move to the next page.
-    if final_draft_is_dialogue_content(&line_five.kind)
-        && !line_six.is_some_and(|line| final_draft_is_dialogue_content(&line.kind))
+    if industry_is_dialogue_content(&line_five.kind)
+        && !line_six.is_some_and(|line| industry_is_dialogue_content(&line.kind))
     {
         if (2..=4).any(|cache_index| {
-            final_draft_cache_record(records, split_index, cache_index)
+            industry_cache_record(records, split_index, cache_index)
                 .is_some_and(|line| matches!(line.kind, DialoguePartKind::Character))
         }) {
             return None;
         }
 
-        // With no nearby Character cue, Final Draft moves the proposal from
+        // With no nearby Character cue, Industry compatibility moves the proposal from
         // cache line 5 to line 4 and asks sentence correction to search there.
         return split_index.checked_sub(1);
     }
 
     // Dialogue/Parenthetical handler, internal-group branch: Character at line
     // 3 followed by content at lines 4 and 5 is kept with the group below.
-    let starts_short_group = final_draft_cache_record(records, split_index, 3)
+    let starts_short_group = industry_cache_record(records, split_index, 3)
         .is_some_and(|line| matches!(line.kind, DialoguePartKind::Character))
-        && final_draft_cache_record(records, split_index, 4)
-            .is_some_and(|line| final_draft_is_dialogue_content(&line.kind))
-        && final_draft_is_dialogue_content(&line_five.kind);
+        && industry_cache_record(records, split_index, 4)
+            .is_some_and(|line| industry_is_dialogue_content(&line.kind))
+        && industry_is_dialogue_content(&line_five.kind);
     if starts_short_group {
         return None;
     }
@@ -340,7 +349,7 @@ fn final_draft_dialogue_handler_bottom_index(
     Some(split_index)
 }
 
-fn final_draft_boundary_before(record: &FinalDraftDialogueLineRecord) -> DialogueSplitBoundary {
+fn industry_boundary_before(record: &IndustryDialogueLineRecord) -> DialogueSplitBoundary {
     DialogueSplitBoundary {
         part_index: record.part_index,
         offset: record.start_offset,
@@ -348,9 +357,9 @@ fn final_draft_boundary_before(record: &FinalDraftDialogueLineRecord) -> Dialogu
     }
 }
 
-fn final_draft_correct_dialogue_boundary(
+fn industry_correct_dialogue_boundary(
     parts: &[DialogueTextPart],
-    records: &[FinalDraftDialogueLineRecord],
+    records: &[IndustryDialogueLineRecord],
     bottom_record_index: usize,
     physical_boundary: DialogueSplitBoundary,
 ) -> Option<DialogueSplitBoundary> {
@@ -363,13 +372,13 @@ fn final_draft_correct_dialogue_boundary(
     if bottom_line.paragraph_start
         || top_line.part_index != bottom_line.part_index
         || top_line.kind != bottom_line.kind
-        || !final_draft_is_dialogue_content(&top_line.kind)
+        || !industry_is_dialogue_content(&top_line.kind)
     {
         return Some(physical_boundary);
     }
 
     let part = &parts[top_line.part_index];
-    final_draft_sentence_boundary_offsets(&part.text)
+    industry_sentence_boundary_offsets(&part.text)
         .into_iter()
         .filter(|offset| *offset > 0 && *offset <= bottom_line.start_offset)
         .max()
@@ -530,6 +539,11 @@ fn build_candidate(
     }
 
     let top_content_bytes: usize = split_parts.iter().map(|p| p.top_text.len()).sum();
+    let bottom_starts_with_parenthetical = parts
+        .iter()
+        .zip(split_parts.iter())
+        .find(|(_, split)| !split.bottom_text.is_empty())
+        .is_some_and(|(part, _)| matches!(part.kind, DialoguePartKind::Parenthetical));
 
     Some(DialogueSplitCandidate {
         plan: DialogueSplitPlan {
@@ -552,6 +566,7 @@ fn build_candidate(
         boundary_offset: boundary.offset,
         ends_sentence: boundary.ends_sentence,
         top_content_bytes,
+        bottom_starts_with_parenthetical,
     })
 }
 
@@ -590,6 +605,7 @@ fn line_height_for_part_kind(kind: DialoguePartKind, geometry: &LayoutGeometry) 
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct SplitScore {
+    avoids_page_start_parenthetical: bool,
     ends_sentence: bool,
     fuller_top_fragment: usize,
     substantial_bottom: bool,
@@ -598,14 +614,16 @@ struct SplitScore {
 }
 
 impl SplitScore {
-    fn priority_tuple(&self) -> (bool, bool, usize, usize, usize) {
+    fn priority_tuple(&self) -> (bool, bool, bool, usize, usize, usize) {
         (
-            // Final Draft-like split ranking is applied in this order:
-            // 1. end on a sentence boundary when possible
-            // 2. prefer a substantial continuation fragment
-            // 3. prefer the fuller top fragment
-            // 4. prefer the more balanced split
-            // 5. prefer keeping more raw content on the top page
+            // JumpCut split ranking is applied in this order:
+            // 1. avoid beginning the next page with a parenthetical
+            // 2. end on a sentence boundary when possible
+            // 3. prefer a substantial continuation fragment
+            // 4. prefer the fuller top fragment
+            // 5. prefer the more balanced split
+            // 6. prefer keeping more raw content on the top page
+            self.avoids_page_start_parenthetical,
             self.ends_sentence,
             self.substantial_bottom,
             self.fuller_top_fragment,

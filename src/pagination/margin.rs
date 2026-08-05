@@ -32,17 +32,8 @@ pub enum Alignment {
     Right,
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum PaginationMode {
-    #[default]
-    Ranked,
-    FinalDraft,
-}
-
 #[derive(Clone, Debug, PartialEq)]
 pub struct LayoutGeometry {
-    pub pagination_mode: PaginationMode,
-    pub break_dialogue_and_action_at_sentences: bool,
     pub action_first_indent: f32,
     pub cold_opening_first_indent: f32,
     pub new_act_first_indent: f32,
@@ -114,10 +105,6 @@ pub struct LayoutGeometry {
     pub transition_spacing_before: f32,
     pub lyric_spacing_before: f32,
 
-    // Orphan/Widow Limits
-    pub orphan_limit: usize,
-    pub widow_limit: usize,
-
     // Spacing
     pub action_line_height: f32,
     pub cold_opening_line_height: f32,
@@ -143,8 +130,6 @@ pub struct LayoutGeometry {
 impl Default for LayoutGeometry {
     fn default() -> Self {
         Self {
-            pagination_mode: PaginationMode::Ranked,
-            break_dialogue_and_action_at_sentences: true,
             action_first_indent: 0.0,
             cold_opening_first_indent: 0.0,
             new_act_first_indent: 0.0,
@@ -215,8 +200,6 @@ impl Default for LayoutGeometry {
             transition_spacing_before: 1.0,
             lyric_spacing_before: 0.0,
 
-            orphan_limit: 2,
-            widow_limit: 2,
             action_line_height: 1.0,
             cold_opening_line_height: 1.0,
             new_act_line_height: 1.0,
@@ -243,7 +226,7 @@ impl LayoutGeometry {
     pub fn from_fdx_settings(settings: &FdxExtractedSettings) -> Self {
         let mut geometry = Self::default();
 
-        let lpi = 6.0; // Default Final Draft lines per inch
+        let lpi = 6.0; // Conventional screenplay lines per inch
 
         if let Some(style) = settings.paragraph_styles.get("Action") {
             geometry.action_first_indent = style.first_indent;
@@ -391,7 +374,7 @@ pub fn calculate_element_width(geometry: &LayoutGeometry, element_type: ElementT
     let width_inches = right_indent - left_indent;
     let mut chars = (width_inches * geometry.cpi).round() as usize;
 
-    // Apply the Final Draft specific quirk for the confirmed full-width family
+    // Apply the Industry compatibility quirk for the confirmed full-width family
     // and parentheticals, which render one character wider than normal rounding.
     if matches!(
         element_type,

@@ -9,24 +9,24 @@ Render profiles are the quickest way to change the overall feel of a screenplay 
 The CLI can override the metadata-driven render profile for `pdf`, `text`, or `html` output:
 
 ```sh
+jumpcut -f text --render-profile jumpcut --paginate script.fountain
 jumpcut -f pdf --render-profile industry script.fountain script.pdf
-jumpcut -f text --render-profile balanced --paginate script.fountain
-jumpcut -f pdf --render-profile final-draft script.fountain final-draft.pdf
 ```
 
-The three built-in profiles are:
+The two canonical built-in profiles are:
 
-- `industry`: the default behavior. This aims for the kind of pagination, page-break decisions, and `(MORE)` / `(CONT'D)` behavior used by major industry tools (like Final Draft).
-- `balanced`: a more opinionated profile. This keeps JumpCut in the same general screenplay format, but prefers cleaner dash wrapping and less intrusive continuation behavior when that produces nicer-looking pages.
-- `final-draft`: an experimental compatibility mode. It starts with the physical wrapped-line boundary, applies the recovered local dialogue-group corrections, and then backtracks Action, Dialogue, Lyric, or Parenthetical text with Final Draft 11's sentence recognizer (including semicolons and abbreviation exceptions). Imported FDX files honor `BreakDialogueAndActionAtSentences` and custom element `PaginateAs` behavior.
+- `jumpcut`: the default, opinionated behavior. It prefers clean dash wrapping, avoids a parenthetical as the first continuation content when another legal split exists, and avoids dual-dialogue continuation counting.
+- `industry`: stable compatibility behavior for conventional screenplay pagination. It begins from the physical wrapped-line boundary, applies ordered local dialogue-group corrections, and optionally corrects Action, Dialogue, Lyric, or Parenthetical text to a recognized sentence boundary. Imported FDX files honor `BreakDialogueAndActionAtSentences` and custom element `PaginateAs` behavior.
 
-If both Fountain metadata and `--render-profile` are present, the CLI option wins. The override only replaces profile-level `fmt` tokens such as `balanced`, `final-draft`, `clean-dashes`, and `no-dual-contds`; unrelated knobs like `allow-lowercase-title` or `dl-*` / `dr-*` are left alone.
+The legacy names `balanced` and `final-draft` remain accepted as aliases for `jumpcut` and `industry`, respectively. They are migration inputs rather than separate profiles.
+
+If both Fountain metadata and `--render-profile` are present, the CLI option wins. The override replaces profile-level `fmt` tokens, including legacy aliases, while leaving unrelated knobs such as `allow-lowercase-title` and `dl-*` / `dr-*` alone.
 
 You can also use the CLI to suppress continued markers when you want cleaner reading copies, drafts for informal review, or outputs that should not advertise every page split:
 
 ```sh
 jumpcut -f text --paginate --no-continueds script.fountain
-jumpcut -f pdf --render-profile balanced --no-continueds script.fountain script.pdf
+jumpcut -f pdf --render-profile jumpcut --no-continueds script.fountain script.pdf
 ```
 
 And you can suppress title-page output for HTML and PDF without deleting title-page metadata from the source file:
@@ -43,7 +43,7 @@ JumpCut uses the `fmt` metadata key to control shared layout and rendering behav
 - "Use A4 instead of Letter."
 - "Make scene headings bold and underlined."
 - "Nudge dialogue margins."
-- "Prefer a more balanced pagination style."
+- "Use JumpCut's opinionated pagination style."
 
 These options can affect pagination itself and, depending on the option, can also influence FDX, HTML, text, and PDF output.
 
@@ -51,15 +51,15 @@ To use these options, add a `fmt` key to your screenplay's metadata at the top o
 
 It helps to think of `fmt` options in three groups:
 
-- profile/template options such as `multicam`, `a4`, `balanced`, and `final-draft` choose a starting point
+- profile/template options such as `jumpcut`, `industry`, `multicam`, and `a4` choose a starting point
 - geometry/style overrides such as `double-spaced-dialogue`, `dl-*`, and `dr-*` fine-tune that starting point
 - behavior flags such as `allow-lowercase-title`, `clean-dashes`, and `no-dual-contds` tweak how the renderer behaves without redefining the whole layout
 
 The `fmt` parser is whitespace-based and case-insensitive for the supported option names, so these are equivalent:
 
 ```text
-Fmt: a4 balanced
-fmt: A4 BALANCED
+Fmt: a4 jumpcut
+fmt: A4 JUMPCUT
 ```
 
 Example:
@@ -76,8 +76,10 @@ Fmt: bold-scene-headings underline-scene-headings all-caps-action double-spaced-
 
 - `multicam`: Starts from a multicamera-TV style layout. Use this when the script is fundamentally a multicam document, not just a single-cam screenplay with a few custom tweaks.
 - `a4`: Switches the page from US Letter to A4 and updates the default lines-per-page to match. Use this when the output is meant for A4 paper rather than US screenplay defaults.
-- `balanced`: Switches to the more opinionated pagination/render profile. Use this when you want pages that read more smoothly and are less rigidly tied to Final Draft quirks.
-- `final-draft`: Enables the experimental Final Draft 11 compatibility pagination rules without changing page geometry or discarding other `fmt` overrides.
+- `jumpcut`: Selects the default opinionated pagination profile.
+- `industry`: Selects stable compatibility pagination without changing page geometry or discarding other `fmt` overrides.
+- `balanced`: Legacy alias for `jumpcut`.
+- `final-draft`: Legacy alias for `industry`.
 
 #### Styling and Layout Tweaks
 
@@ -105,7 +107,7 @@ These are the low-level knobs for directly tweaking element and page margins.
 #### Behavior Flags
 
 - `allow-lowercase-title`: Preserves the original title casing for a plain title page. Useful when you want authored title case instead of automatic uppercase.
-- `clean-dashes`: Keeps interruption dashes and trailing `--` together instead of following Final Draft-style dash splitting. Useful when you prefer cleaner-looking wraps over strict Final Draft parity.
+- `clean-dashes`: Keeps interruption dashes and trailing `--` together. This is already the Jumpcut default and is most useful as an explicit override when combining older metadata.
 - `no-dual-contds`: Prevents dual-dialogue blocks from triggering continuation counting rules. Useful when dual dialogue would otherwise create too many `(CONT'D)`-style markers.
 
 Scene-heading style flags can be combined:
@@ -203,7 +205,7 @@ Preserve the original title casing for a plain title page:
 Fmt: allow-lowercase-title
 ```
 
-Keep interruption dashes together instead of following Final Draft's line-wrap behavior:
+Keep interruption dashes together explicitly:
 
 ```text
 Fmt: clean-dashes
@@ -286,4 +288,4 @@ ETC.
 INT. OFFICE - DAY
 ```
 
-This metadata key is automatically added for you if you are importing a final draft document with multiple title pages. But you can also add it yourself if you are writing fountain documents and are trying to add a cast page or vanity quote page and don't want it to count in the page numbers.
+This metadata key is automatically added when importing an FDX document with multiple title pages. You can also add it to a Fountain document for a cast page or vanity quote page that should not count toward screenplay page numbering.

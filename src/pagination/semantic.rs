@@ -1,6 +1,7 @@
 use std::collections::BTreeSet;
 
 use super::fixtures::{NormalizedElement, NormalizedScreenplay};
+use super::policy::PaginationPolicy;
 use crate::render_attributes::RenderAttributes;
 use crate::styled_text::StyledText;
 
@@ -114,6 +115,15 @@ impl Default for SemanticOptions {
         Self {
             dual_dialogue_counts_for_contd: true,
             automatic_character_continueds: true,
+        }
+    }
+}
+
+impl SemanticOptions {
+    pub fn from_policy(policy: &PaginationPolicy) -> Self {
+        Self {
+            dual_dialogue_counts_for_contd: policy.dual_dialogue_counts_for_contd,
+            automatic_character_continueds: policy.automatic_character_continueds,
         }
     }
 }

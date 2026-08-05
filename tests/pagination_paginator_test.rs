@@ -1,8 +1,9 @@
 // tests/pagination_paginator_test.rs
 use jumpcut::pagination::composer::LayoutBlock;
-use jumpcut::pagination::paginator::paginate;
+use jumpcut::pagination::paginator::{paginate, paginate_with_policy};
 use jumpcut::pagination::{
-    Cohesion, FlowKind, FlowUnit, Fragment, LayoutGeometry, PageStartUnit, SemanticUnit,
+    Cohesion, FlowKind, FlowUnit, Fragment, LayoutGeometry, PageStartUnit, PaginationPolicy,
+    SemanticUnit,
 };
 
 fn mock_block<'a>(
@@ -428,9 +429,12 @@ fn paginator_accounts_for_additional_widow_penalty_lines_when_splitting_dialogue
 
 #[test]
 fn paginator_respects_custom_orphan_widow_limits() {
-    let mut geometry = LayoutGeometry::default();
-    geometry.orphan_limit = 4; // Much higher than default 2
-    geometry.widow_limit = 4;
+    let geometry = LayoutGeometry::default();
+    let policy = PaginationPolicy {
+        orphan_limit: 4,
+        widow_limit: 4,
+        ..PaginationPolicy::jumpcut()
+    };
 
     let page_limit = 54.0;
     let unit1 = visible_unit("1");
@@ -443,7 +447,7 @@ fn paginator_respects_custom_orphan_widow_limits() {
                                                           // Since orphan_limit is 4, it should SPLIT exactly at 4.
     ];
 
-    let pages = paginate(&blocks, page_limit, &geometry);
+    let pages = paginate_with_policy(&blocks, page_limit, &geometry, &policy);
     assert_eq!(
         pages[0].blocks.len(),
         2,
@@ -455,7 +459,7 @@ fn paginator_respects_custom_orphan_widow_limits() {
         mock_block(&unit1, 51.0, 0.0, false, false, 0.0), // 3 lines remaining
         mock_block(&unit2, 10.0, 0.0, false, true, 0.0),
     ];
-    let pages2 = paginate(&blocks2, page_limit, &geometry);
+    let pages2 = paginate_with_policy(&blocks2, page_limit, &geometry, &policy);
     assert_eq!(
         pages2[0].blocks.len(),
         1,
@@ -464,7 +468,7 @@ fn paginator_respects_custom_orphan_widow_limits() {
 }
 
 #[test]
-fn paginator_verifies_final_draft_parity_for_1_5_leading() {
+fn shared_paginator_exactly_fits_blocks_with_1_5_leading() {
     let geometry = LayoutGeometry::default(); // line_height handled in content_lines manually for mock
     let page_limit = 54.0;
 
@@ -494,7 +498,7 @@ fn paginator_verifies_final_draft_parity_for_1_5_leading() {
 }
 
 #[test]
-fn paginator_verifies_final_draft_parity_for_2_0_leading() {
+fn shared_paginator_exactly_fits_blocks_with_2_0_leading() {
     let geometry = LayoutGeometry::default(); // line_height handled in content_lines manually for mock
     let page_limit = 54.0;
 

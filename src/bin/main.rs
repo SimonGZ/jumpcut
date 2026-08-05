@@ -15,7 +15,7 @@ use std::path::{Path, PathBuf};
 #[derive(Parser)]
 #[command(
     name = "JumpCut",
-    about = "A tool for converting Fountain and Final Draft screenplay documents into Fountain, FDX, HTML, JSON, text, and optional PDF formats.",
+    about = "A tool for converting Fountain and FDX screenplay documents into Fountain, FDX, HTML, JSON, text, and optional PDF formats.",
     version
 )]
 struct Args {
@@ -27,7 +27,7 @@ struct Args {
     #[arg(long)]
     paginate: bool,
 
-    /// Render HTML output with exact Final Draft-style wraps
+    /// Render HTML output with exact screenplay wraps
     #[arg(long)]
     exact_wraps: bool,
 
@@ -78,9 +78,10 @@ struct Args {
 #[cfg(feature = "cli")]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, ValueEnum)]
 enum RenderProfile {
+    #[value(alias = "balanced")]
+    Jumpcut,
+    #[value(alias = "final-draft")]
     Industry,
-    Balanced,
-    FinalDraft,
 }
 
 #[cfg(feature = "cli")]
@@ -163,7 +164,7 @@ fn main() {
                 std::process::exit(1);
             }
         },
-        "fdx" => screenplay.to_final_draft().into_bytes(),
+        "fdx" => screenplay.to_fdx().into_bytes(),
         "html" => {
             let embedded_courier_prime_css = opt.font_dir.as_ref().map(|font_dir| {
                 jumpcut::rendering::html::embedded_courier_prime_css_from_directory(font_dir)
@@ -336,7 +337,14 @@ fn apply_cli_render_overrides(screenplay: &mut jumpcut::Screenplay, opt: &Args) 
 
 #[cfg(feature = "cli")]
 fn apply_render_profile_override(metadata: &mut jumpcut::Metadata, render_profile: RenderProfile) {
-    const PROFILE_TOKENS: &[&str] = &["balanced", "clean-dashes", "no-dual-contds", "final-draft"];
+    const PROFILE_TOKENS: &[&str] = &[
+        "jumpcut",
+        "industry",
+        "balanced",
+        "final-draft",
+        "clean-dashes",
+        "no-dual-contds",
+    ];
 
     let mut tokens = metadata
         .get("fmt")
@@ -353,9 +361,8 @@ fn apply_render_profile_override(metadata: &mut jumpcut::Metadata, render_profil
         .collect::<Vec<_>>();
 
     match render_profile {
-        RenderProfile::Industry => {}
-        RenderProfile::Balanced => tokens.push("balanced".to_string()),
-        RenderProfile::FinalDraft => tokens.push("final-draft".to_string()),
+        RenderProfile::Jumpcut => tokens.push("jumpcut".to_string()),
+        RenderProfile::Industry => tokens.push("industry".to_string()),
     }
 
     if tokens.is_empty() {
@@ -467,13 +474,49 @@ mod tests {
     use std::path::{Path, PathBuf};
 
     #[test]
-    fn render_profile_override_replaces_balanced_family_tokens_only() {
+    fn render_profile_override_replaces_profile_tokens_only() {
         let mut metadata = Metadata::new();
         metadata.insert(
             "fmt".into(),
             vec![ElementText::Plain(
                 "allow-lowercase-title balanced clean-dashes no-dual-contds dl-2.0".into(),
             )],
+        );
+
+        apply_render_profile_override(&mut metadata, RenderProfile::Jumpcut);
+
+        let fmt = metadata
+            .get("fmt")
+            .and_then(|values| values.first())
+            .map(|value| value.plain_text())
+            .unwrap();
+        assert_eq!(fmt, "allow-lowercase-title dl-2.0 jumpcut");
+    }
+
+    #[test]
+    fn render_profile_override_adds_jumpcut_without_dropping_other_fmt_knobs() {
+        let mut metadata = Metadata::new();
+        metadata.insert(
+            "fmt".into(),
+            vec![ElementText::Plain("allow-lowercase-title dl-2.0".into())],
+        );
+
+        apply_render_profile_override(&mut metadata, RenderProfile::Jumpcut);
+
+        let fmt = metadata
+            .get("fmt")
+            .and_then(|values| values.first())
+            .map(|value| value.plain_text())
+            .unwrap();
+        assert_eq!(fmt, "allow-lowercase-title dl-2.0 jumpcut");
+    }
+
+    #[test]
+    fn render_profile_override_adds_industry_without_dropping_other_fmt_knobs() {
+        let mut metadata = Metadata::new();
+        metadata.insert(
+            "fmt".into(),
+            vec![ElementText::Plain("allow-lowercase-title dl-2.0".into())],
         );
 
         apply_render_profile_override(&mut metadata, RenderProfile::Industry);
@@ -483,43 +526,7 @@ mod tests {
             .and_then(|values| values.first())
             .map(|value| value.plain_text())
             .unwrap();
-        assert_eq!(fmt, "allow-lowercase-title dl-2.0");
-    }
-
-    #[test]
-    fn render_profile_override_adds_balanced_without_dropping_other_fmt_knobs() {
-        let mut metadata = Metadata::new();
-        metadata.insert(
-            "fmt".into(),
-            vec![ElementText::Plain("allow-lowercase-title dl-2.0".into())],
-        );
-
-        apply_render_profile_override(&mut metadata, RenderProfile::Balanced);
-
-        let fmt = metadata
-            .get("fmt")
-            .and_then(|values| values.first())
-            .map(|value| value.plain_text())
-            .unwrap();
-        assert_eq!(fmt, "allow-lowercase-title dl-2.0 balanced");
-    }
-
-    #[test]
-    fn render_profile_override_adds_final_draft_without_dropping_other_fmt_knobs() {
-        let mut metadata = Metadata::new();
-        metadata.insert(
-            "fmt".into(),
-            vec![ElementText::Plain("allow-lowercase-title dl-2.0".into())],
-        );
-
-        apply_render_profile_override(&mut metadata, RenderProfile::FinalDraft);
-
-        let fmt = metadata
-            .get("fmt")
-            .and_then(|values| values.first())
-            .map(|value| value.plain_text())
-            .unwrap();
-        assert_eq!(fmt, "allow-lowercase-title dl-2.0 final-draft");
+        assert_eq!(fmt, "allow-lowercase-title dl-2.0 industry");
     }
 
     #[test]
@@ -530,19 +537,33 @@ mod tests {
     }
 
     #[test]
+    fn cli_accepts_jumpcut_render_profile_name() {
+        let parsed =
+            Args::try_parse_from(["jumpcut", "script.fountain", "--render-profile", "jumpcut"]);
+        assert!(parsed.is_ok());
+    }
+
+    #[test]
     fn cli_rejects_unknown_output_format() {
         let parsed = Args::try_parse_from(["jumpcut", "script.fountain", "--format", "docx"]);
         assert!(parsed.is_err());
     }
 
     #[test]
-    fn cli_accepts_final_draft_render_profile_name() {
+    fn cli_accepts_legacy_vendor_render_profile_alias() {
         let parsed = Args::try_parse_from([
             "jumpcut",
             "script.fountain",
             "--render-profile",
             "final-draft",
         ]);
+        assert!(parsed.is_ok());
+    }
+
+    #[test]
+    fn cli_accepts_legacy_balanced_render_profile_alias() {
+        let parsed =
+            Args::try_parse_from(["jumpcut", "script.fountain", "--render-profile", "balanced"]);
         assert!(parsed.is_ok());
     }
 

@@ -41,47 +41,52 @@ pub fn render(screenplay: &Screenplay, options: &TextRenderOptions) -> String {
     let normalized = normalize_screenplay(screenplay_id, screenplay);
     let semantic = build_semantic_screenplay_with_options(
         normalized,
-        SemanticOptions {
-            dual_dialogue_counts_for_contd: layout_profile.dual_dialogue_counts_for_contd,
-            automatic_character_continueds: layout_profile.automatic_character_continueds,
-        },
+        SemanticOptions::from_policy(&layout_profile.pagination),
     );
     let mut geometry = layout_profile.to_pagination_geometry();
     geometry.lines_per_page = DEFAULT_LINES_PER_PAGE;
     let config = PaginationConfig {
         geometry,
-        interruption_dash_wrap: layout_profile.interruption_dash_wrap,
+        policy: layout_profile.pagination.clone(),
     };
-    let blocks = composer::compose(&semantic.units, &config.geometry);
+    let blocks = composer::compose_with_wrap(
+        &semantic.units,
+        &config.geometry,
+        config.policy.interruption_dash_wrap,
+    );
 
     if options.paginated {
         let actual =
             PaginatedScreenplay::paginate(semantic.clone(), config.clone(), style_profile, scope);
-        let layout_pages =
-            nonempty_layout_pages(&blocks, &config.geometry, config.geometry.lines_per_page);
+        let layout_pages = nonempty_layout_pages(
+            &blocks,
+            &config.geometry,
+            &config.policy,
+            config.geometry.lines_per_page,
+        );
         render_paginated_text(
             &actual.pages,
             &layout_pages,
             &config.geometry,
-            config.interruption_dash_wrap,
+            config.policy.interruption_dash_wrap,
             options,
         )
     } else {
         render_unpaginated_text(
             &blocks,
             &config.geometry,
-            config.interruption_dash_wrap,
+            config.policy.interruption_dash_wrap,
             options,
         )
     }
 }
 
 fn style_profile_name(layout_profile: &ScreenplayLayoutProfile) -> &'static str {
-    if layout_profile.pagination_mode == crate::pagination::PaginationMode::FinalDraft {
-        return "final-draft";
+    if layout_profile.pagination.profile == crate::pagination::PaginationProfile::Industry {
+        return "industry";
     }
     match layout_profile.style_profile {
-        StyleProfile::Screenplay => "standard",
+        StyleProfile::Screenplay => "jumpcut",
         StyleProfile::Multicam => "multicam",
     }
 }
@@ -111,9 +116,10 @@ fn default_pagination_scope(screenplay: &Screenplay) -> PaginationScope {
 fn nonempty_layout_pages<'a>(
     blocks: &'a [LayoutBlock<'a>],
     geometry: &LayoutGeometry,
+    policy: &crate::pagination::PaginationPolicy,
     lines_per_page: f32,
 ) -> Vec<paginator::Page<'a>> {
-    paginator::paginate(blocks, lines_per_page, geometry)
+    paginator::paginate_with_policy(blocks, lines_per_page, geometry, policy)
         .into_iter()
         .filter(|page| {
             page.blocks

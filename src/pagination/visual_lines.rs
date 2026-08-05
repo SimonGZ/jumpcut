@@ -74,20 +74,25 @@ pub(crate) fn render_paginated_visual_pages_with_options(
     let normalized = normalize_screenplay(screenplay_id, screenplay);
     let semantic = build_semantic_screenplay_with_options(
         normalized,
-        SemanticOptions {
-            dual_dialogue_counts_for_contd: layout_profile.dual_dialogue_counts_for_contd,
-            automatic_character_continueds: layout_profile.automatic_character_continueds,
-        },
+        SemanticOptions::from_policy(&layout_profile.pagination),
     );
     let config = PaginationConfig {
         geometry: layout_profile.to_pagination_geometry(),
-        interruption_dash_wrap: layout_profile.interruption_dash_wrap,
+        policy: layout_profile.pagination.clone(),
     };
-    let blocks = composer::compose(&semantic.units, &config.geometry);
+    let blocks = composer::compose_with_wrap(
+        &semantic.units,
+        &config.geometry,
+        config.policy.interruption_dash_wrap,
+    );
     let actual =
         PaginatedScreenplay::paginate(semantic.clone(), config.clone(), style_profile, scope);
-    let layout_pages =
-        nonempty_layout_pages(&blocks, &config.geometry, config.geometry.lines_per_page);
+    let layout_pages = nonempty_layout_pages(
+        &blocks,
+        &config.geometry,
+        &config.policy,
+        config.geometry.lines_per_page,
+    );
 
     actual
         .pages
@@ -98,7 +103,7 @@ pub(crate) fn render_paginated_visual_pages_with_options(
             lines: render_layout_page_lines(
                 &layout_page,
                 &config.geometry,
-                config.interruption_dash_wrap,
+                config.policy.interruption_dash_wrap,
                 options,
             ),
         })
@@ -114,17 +119,18 @@ pub(crate) fn render_unpaginated_visual_lines_with_options(
     let layout_profile = ScreenplayLayoutProfile::from_screenplay(screenplay);
     let config = PaginationConfig {
         geometry: layout_profile.to_pagination_geometry(),
-        interruption_dash_wrap: layout_profile.interruption_dash_wrap,
+        policy: layout_profile.pagination.clone(),
     };
     let normalized = normalize_screenplay(screenplay_id, screenplay);
     let semantic = build_semantic_screenplay_with_options(
         normalized,
-        SemanticOptions {
-            dual_dialogue_counts_for_contd: layout_profile.dual_dialogue_counts_for_contd,
-            automatic_character_continueds: layout_profile.automatic_character_continueds,
-        },
+        SemanticOptions::from_policy(&layout_profile.pagination),
     );
-    let blocks = composer::compose(&semantic.units, &config.geometry);
+    let blocks = composer::compose_with_wrap(
+        &semantic.units,
+        &config.geometry,
+        config.policy.interruption_dash_wrap,
+    );
 
     blocks
         .iter()
@@ -133,7 +139,7 @@ pub(crate) fn render_unpaginated_visual_lines_with_options(
             render_continuous_block_lines(
                 block,
                 &config.geometry,
-                config.interruption_dash_wrap,
+                config.policy.interruption_dash_wrap,
                 options,
             )
         })
@@ -141,11 +147,11 @@ pub(crate) fn render_unpaginated_visual_lines_with_options(
 }
 
 fn style_profile_name(layout_profile: &ScreenplayLayoutProfile) -> &'static str {
-    if layout_profile.pagination_mode == crate::pagination::PaginationMode::FinalDraft {
-        return "final-draft";
+    if layout_profile.pagination.profile == crate::pagination::PaginationProfile::Industry {
+        return "industry";
     }
     match layout_profile.style_profile {
-        StyleProfile::Screenplay => "standard",
+        StyleProfile::Screenplay => "jumpcut",
         StyleProfile::Multicam => "multicam",
     }
 }
@@ -177,9 +183,10 @@ fn default_pagination_scope(
 fn nonempty_layout_pages<'a>(
     blocks: &'a [LayoutBlock<'a>],
     geometry: &LayoutGeometry,
+    policy: &crate::pagination::PaginationPolicy,
     lines_per_page: f32,
 ) -> Vec<paginator::Page<'a>> {
-    paginator::paginate(blocks, lines_per_page, geometry)
+    paginator::paginate_with_policy(blocks, lines_per_page, geometry, policy)
         .into_iter()
         .filter(|page| {
             page.blocks

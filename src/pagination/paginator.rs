@@ -1,21 +1,18 @@
-use crate::pagination::LayoutGeometry;
-use crate::pagination::PaginationMode;
 use crate::pagination::SemanticUnit;
 use crate::pagination::composer::LayoutBlock;
 use crate::pagination::dialogue_split::{
-    DialogueSplitPlan, DialogueTextPart, plan_dialogue_split, plan_dialogue_split_final_draft,
-    plan_dialogue_split_parts, plan_dialogue_split_parts_final_draft,
+    DialogueSplitPlan, DialogueTextPart, plan_dialogue_split, plan_dialogue_split_industry,
+    plan_dialogue_split_parts, plan_dialogue_split_parts_industry,
 };
 use crate::pagination::fixtures::Fragment;
 use crate::pagination::flow_split::{
     FlowSplitPlan, choose_flow_split, choose_flow_split_allow_exact_fit_sentence_runt,
-    choose_flow_split_final_draft, choose_flow_split_final_draft_allow_exact_fit_sentence_runt,
-    choose_flow_split_final_draft_without_sentence_correction,
+    choose_flow_split_industry, choose_flow_split_industry_allow_exact_fit_sentence_runt,
+    choose_flow_split_industry_without_sentence_correction,
 };
 use crate::pagination::margin::line_height_for_element_type;
-use crate::pagination::wrapping::{
-    ElementType, InterruptionDashWrap, wrap_config_with_overrides, wrap_text_for_element,
-};
+use crate::pagination::wrapping::{ElementType, wrap_config_with_overrides, wrap_text_for_element};
+use crate::pagination::{LayoutGeometry, PaginationPolicy, PaginationProfile};
 
 pub struct Page<'a> {
     pub blocks: Vec<LayoutBlock<'a>>,
@@ -45,19 +42,19 @@ pub fn paginate<'a>(
     page_limit_lines: f32,
     geometry: &LayoutGeometry,
 ) -> Vec<Page<'a>> {
-    paginate_with_mode(
+    paginate_with_policy(
         blocks,
         page_limit_lines,
         geometry,
-        InterruptionDashWrap::FinalDraft,
+        &PaginationPolicy::jumpcut(),
     )
 }
 
-pub fn paginate_with_mode<'a>(
+pub fn paginate_with_policy<'a>(
     blocks: &'a [LayoutBlock<'a>],
     page_limit_lines: f32,
     geometry: &LayoutGeometry,
-    interruption_dash_wrap: InterruptionDashWrap,
+    policy: &PaginationPolicy,
 ) -> Vec<Page<'a>> {
     let mut chunks: Vec<Chunk<'a>> = Vec::new();
     let mut current_chunk: Vec<&LayoutBlock<'a>> = Vec::new();
@@ -132,7 +129,7 @@ pub fn paginate_with_mode<'a>(
                     current_page_lines,
                     page_limit_lines,
                     geometry,
-                    interruption_dash_wrap,
+                    policy,
                 )
             {
                 current_page_blocks.push(LayoutBlock {
@@ -192,7 +189,7 @@ pub fn paginate_with_mode<'a>(
                     available_lines,
                     effective_spacing,
                     geometry,
-                    interruption_dash_wrap,
+                    policy,
                     false,
                 ) {
                     current_page_blocks.push(LayoutBlock {
@@ -366,10 +363,10 @@ fn choose_split_lines(
     available_lines: f32,
     effective_spacing: f32,
     geometry: &LayoutGeometry,
-    interruption_dash_wrap: InterruptionDashWrap,
+    policy: &PaginationPolicy,
     allow_exact_fit_sentence_runt: bool,
 ) -> Option<SplitDecision> {
-    if !has_room_for_minimum_top_fragment(available_lines, effective_spacing, geometry) {
+    if !has_room_for_minimum_top_fragment(available_lines, effective_spacing, policy) {
         return None;
     }
 
@@ -378,11 +375,11 @@ fn choose_split_lines(
             let max_top_height = available_lines - effective_spacing;
 
             let plan = match (
-                geometry.pagination_mode,
+                policy.profile,
                 &block.fragment,
                 block.dialogue_split.as_ref(),
             ) {
-                (PaginationMode::FinalDraft, Fragment::ContinuedFromPrev, Some(previous_plan)) => {
+                (PaginationProfile::Industry, Fragment::ContinuedFromPrev, Some(previous_plan)) => {
                     let current_parts = dialogue
                         .parts
                         .iter()
@@ -394,22 +391,24 @@ fn choose_split_lines(
                         })
                         .collect::<Vec<_>>();
 
-                    plan_dialogue_split_parts_final_draft(
+                    plan_dialogue_split_parts_industry(
                         &current_parts,
                         geometry,
-                        interruption_dash_wrap,
+                        policy.interruption_dash_wrap,
                         max_top_height,
-                        geometry.orphan_limit,
-                        geometry.widow_limit,
+                        policy.orphan_limit,
+                        policy.widow_limit,
+                        policy.break_dialogue_and_action_at_sentences,
                     )?
                 }
-                (PaginationMode::FinalDraft, _, _) => plan_dialogue_split_final_draft(
+                (PaginationProfile::Industry, _, _) => plan_dialogue_split_industry(
                     dialogue,
                     geometry,
-                    interruption_dash_wrap,
+                    policy.interruption_dash_wrap,
                     max_top_height,
-                    geometry.orphan_limit,
-                    geometry.widow_limit,
+                    policy.orphan_limit,
+                    policy.widow_limit,
+                    policy.break_dialogue_and_action_at_sentences,
                 )?,
                 (_, Fragment::ContinuedFromPrev, Some(previous_plan)) => {
                     let current_parts = dialogue
@@ -427,19 +426,21 @@ fn choose_split_lines(
                         dialogue,
                         &current_parts,
                         geometry,
-                        interruption_dash_wrap,
+                        policy.interruption_dash_wrap,
                         max_top_height,
-                        geometry.orphan_limit,
-                        geometry.widow_limit,
+                        policy.orphan_limit,
+                        policy.widow_limit,
+                        policy.avoid_page_start_parenthetical,
                     )?
                 }
                 _ => plan_dialogue_split(
                     dialogue,
                     geometry,
-                    interruption_dash_wrap,
+                    policy.interruption_dash_wrap,
                     max_top_height,
-                    geometry.orphan_limit,
-                    geometry.widow_limit,
+                    policy.orphan_limit,
+                    policy.widow_limit,
+                    policy.avoid_page_start_parenthetical,
                 )?,
             };
             let top_lines = plan.top_height;
@@ -473,14 +474,14 @@ fn choose_split_lines(
                 geometry,
                 element_type,
                 &flow.render_attributes.layout_overrides,
-                interruption_dash_wrap,
+                policy.interruption_dash_wrap,
             );
             let wrapped_lines = wrap_text_for_element(&flow.text, &config);
             if wrapped_lines.len() != target_line_count {
                 let lines_that_fit = available_lines - effective_spacing;
                 let lines_remaining = block.content_lines - lines_that_fit;
 
-                if lines_remaining >= geometry.widow_limit as f32 * element_line_height {
+                if lines_remaining >= policy.widow_limit as f32 * element_line_height {
                     return Some(SplitDecision {
                         top_lines: lines_that_fit,
                         bottom_lines: lines_remaining,
@@ -491,30 +492,30 @@ fn choose_split_lines(
                 return None;
             }
 
-            let plan = if geometry.pagination_mode == PaginationMode::FinalDraft {
-                if !geometry.break_dialogue_and_action_at_sentences {
-                    choose_flow_split_final_draft_without_sentence_correction(
+            let plan = if policy.profile == PaginationProfile::Industry {
+                if !policy.break_dialogue_and_action_at_sentences {
+                    choose_flow_split_industry_without_sentence_correction(
                         &flow.text,
                         &config,
                         max_top_lines,
-                        geometry.orphan_limit,
-                        geometry.widow_limit,
+                        policy.orphan_limit,
+                        policy.widow_limit,
                     )?
                 } else if allow_exact_fit_sentence_runt {
-                    choose_flow_split_final_draft_allow_exact_fit_sentence_runt(
+                    choose_flow_split_industry_allow_exact_fit_sentence_runt(
                         &flow.text,
                         &config,
                         max_top_lines,
-                        geometry.orphan_limit,
-                        geometry.widow_limit,
+                        policy.orphan_limit,
+                        policy.widow_limit,
                     )?
                 } else {
-                    choose_flow_split_final_draft(
+                    choose_flow_split_industry(
                         &flow.text,
                         &config,
                         max_top_lines,
-                        geometry.orphan_limit,
-                        geometry.widow_limit,
+                        policy.orphan_limit,
+                        policy.widow_limit,
                     )?
                 }
             } else if allow_exact_fit_sentence_runt {
@@ -522,16 +523,16 @@ fn choose_split_lines(
                     &flow.text,
                     &config,
                     max_top_lines,
-                    geometry.orphan_limit,
-                    geometry.widow_limit,
+                    policy.orphan_limit,
+                    policy.widow_limit,
                 )?
             } else {
                 choose_flow_split(
                     &flow.text,
                     &config,
                     max_top_lines,
-                    geometry.orphan_limit,
-                    geometry.widow_limit,
+                    policy.orphan_limit,
+                    policy.widow_limit,
                 )?
             };
             let top_lines = plan.top_line_count as f32 * element_line_height;
@@ -553,7 +554,7 @@ fn choose_keep_with_next_split<'a>(
     current_page_lines: f32,
     page_limit_lines: f32,
     geometry: &LayoutGeometry,
-    interruption_dash_wrap: InterruptionDashWrap,
+    policy: &PaginationPolicy,
 ) -> Option<KeepWithNextSplitDecision<'a>> {
     if !lead_block.keep_with_next || !split_block.can_split {
         return None;
@@ -583,9 +584,9 @@ fn choose_keep_with_next_split<'a>(
     // The split block must have enough content that both fragments are substantial.
     // With fewer than orphan_limit + widow_limit + 1 lines, sentence-boundary
     // re-wrapping can inflate the fragment count just enough to pass orphan/widow
-    // checks, but the result is too thin — Final Draft pushes the entire scene to
+    // checks, but the result is too thin — the Industry profile pushes the scene to
     // the next page instead of splitting.
-    let min_splittable_lines = (geometry.orphan_limit + geometry.widow_limit + 1) as f32;
+    let min_splittable_lines = (policy.orphan_limit + policy.widow_limit + 1) as f32;
     if split_block.content_lines < min_splittable_lines {
         return None;
     }
@@ -596,7 +597,7 @@ fn choose_keep_with_next_split<'a>(
         available_lines,
         split_block.spacing_above,
         geometry,
-        interruption_dash_wrap,
+        policy,
         true,
     )?;
 
@@ -611,12 +612,12 @@ fn choose_keep_with_next_split<'a>(
 fn has_room_for_minimum_top_fragment(
     available_lines: f32,
     effective_spacing: f32,
-    geometry: &LayoutGeometry,
+    policy: &PaginationPolicy,
 ) -> bool {
     // This is the paginator's physical-space preflight: if the remaining page
     // budget cannot host spacing plus the minimum top fragment, there is no
     // reason to ask split planners for a candidate.
-    available_lines >= effective_spacing + geometry.orphan_limit as f32
+    available_lines >= effective_spacing + policy.orphan_limit as f32
 }
 
 fn max_top_wrapped_lines(available_lines: f32, effective_spacing: f32, line_height: f32) -> usize {

@@ -29,7 +29,7 @@ impl Screenplay {
     }
 
     #[cfg(feature = "fdx")]
-    pub fn to_final_draft(&mut self) -> String {
+    pub fn to_fdx(&mut self) -> String {
         crate::rendering::fdx::prepare_screenplay(self);
         crate::rendering::fdx::render_document(self)
     }
@@ -293,7 +293,7 @@ mod tests {
     #[test]
     fn test_fdx_renderer_matches_template_output() {
         let mut screenplay = sample_screenplay();
-        let actual = screenplay.to_final_draft();
+        let actual = screenplay.to_fdx();
         assert!(
             actual.contains("<FinalDraft DocumentType=\"Script\" Template=\"No\" Version=\"4\">")
         );
@@ -319,7 +319,7 @@ mod tests {
             .metadata
             .insert("fmt".into(), vec!["multicam dr-5.75".into()]);
 
-        let actual = screenplay.to_final_draft();
+        let actual = screenplay.to_fdx();
 
         assert!(actual.contains("<ElementSettings Type=\"Dialogue\">"));
         assert!(
@@ -345,7 +345,7 @@ mod tests {
             elements: vec![Element::Lyric(p("I love to sing"), blank_attributes())],
         };
 
-        let actual = screenplay.to_final_draft();
+        let actual = screenplay.to_fdx();
 
         assert!(actual.contains("<ElementSettings Type=\"Lyric\">"));
         assert!(actual.contains(
@@ -362,7 +362,7 @@ mod tests {
             elements: vec![Element::Action(p("Body."), blank_attributes())],
         };
 
-        let actual = screenplay.to_final_draft();
+        let actual = screenplay.to_fdx();
         let paragraph_tag = body_paragraph_opening_tag_for_text(&actual, "Body.");
 
         assert_eq!(paragraph_tag, "<Paragraph Type=\"Action\">");
@@ -379,7 +379,7 @@ mod tests {
             elements: vec![Element::Action(p("Body."), attributes)],
         };
 
-        let actual = screenplay.to_final_draft();
+        let actual = screenplay.to_fdx();
         let paragraph_tag = body_paragraph_opening_tag_for_text(&actual, "Body.");
 
         assert!(paragraph_tag.contains("RightIndent=\"7.75\""));
@@ -396,7 +396,7 @@ mod tests {
             elements: vec![Element::Action(p("Body."), attributes)],
         };
 
-        let actual = screenplay.to_final_draft();
+        let actual = screenplay.to_fdx();
         let paragraph_tag = body_paragraph_opening_tag_for_text(&actual, "Body.");
 
         assert!(paragraph_tag.contains("SpaceBefore=\"0\""));
@@ -415,7 +415,7 @@ mod tests {
             elements: vec![],
         };
 
-        let actual = screenplay.to_final_draft();
+        let actual = screenplay.to_fdx();
 
         assert!(actual.contains(">written by</Text>"));
         assert!(!actual.contains(">written by </Text>"));
@@ -433,7 +433,7 @@ mod tests {
             elements: vec![],
         };
 
-        let actual = screenplay.to_final_draft();
+        let actual = screenplay.to_fdx();
 
         assert!(!actual.contains(">by</Text>"));
     }
@@ -454,7 +454,7 @@ mod tests {
             elements: vec![],
         };
 
-        let actual = screenplay.to_final_draft();
+        let actual = screenplay.to_fdx();
 
         assert!(actual.contains(
             ">based on the novel</Text>\n      </Paragraph>\n      <Paragraph Alignment=\"Center\""
@@ -483,7 +483,7 @@ mod tests {
             elements: vec![],
         };
 
-        let actual = screenplay.to_final_draft();
+        let actual = screenplay.to_fdx();
 
         assert!(actual.contains(
             "<Paragraph Alignment=\"Center\" FirstIndent=\"0.00\" Leading=\"Regular\" LeftIndent=\"1.00\" RightIndent=\"7.50\" SpaceBefore=\"0\" Spacing=\"1\" StartsNewPage=\"No\">\n        <Text AdornmentStyle=\"0\" Background=\"#FFFFFFFFFFFF\" Color=\"#000000000000\" Font=\"Courier Prime\" RevisionID=\"0\" Size=\"12\" Style=\"Bold+Underline\">BRICK &amp; STEEL</Text>\n      </Paragraph>"
@@ -614,7 +614,7 @@ mod tests {
             elements: vec![],
         };
 
-        screenplay.to_final_draft()
+        screenplay.to_fdx()
     }
 
     fn assert_title_page_bottom_rows(actual: &str, expected_rows: &[(&[&str], Option<&str>)]) {
