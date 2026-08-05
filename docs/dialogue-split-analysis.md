@@ -1,13 +1,10 @@
 # How Dialogue Split Decisions Work
 
-> **Scope:** This explains JumpCut's current candidate-and-score implementation.
-> It should not be read as a decompilation of Final Draft's implementation.
-> Static analysis found that Final Draft 11 instead adjusts an initial physical
-> break through ordered rules over a local line window. See
-> [Final Draft 11 pagination reverse engineering](final-draft-11-pagination-reverse-engineering.md).
+> **Scope:** This explains JumpCut's current candidate-and-score implementation
+> and the ordered local correction used by the Industry compatibility profile.
 
 This document explains how JumpCut currently decides dialogue splits during
-pagination to match Final Draft behavior.
+pagination.
 
 ## 1. The paginator does the physical-space preflight
 
@@ -100,9 +97,10 @@ When multiple legal split candidates exist, the "best" split is chosen using a s
     As of the `gumshoe` / `two-short-sentences-plus-one-liner` comparison,
     this "substantial bottom" signal is based on spoken continuation lines
     only (`Dialogue` / `Lyric`), not parenthetical lines. Treat that as a
-    tentative Final Draft parity rule, not a proven universal screenplay rule:
-    it currently explains why FD can still strand a parenthetical when the
-    next-page spoken continuation is substantial, while rejecting the
+    tentative compatibility rule, not a proven universal screenplay rule:
+    it currently explains why the industry profile can still strand a
+    parenthetical when the next-page spoken continuation is substantial, while
+    rejecting the
     `gumshoe` split where the continuation was only a one-line spoken fragment
     before another parenthetical.
 3.  **Page Fullness**: Once candidates are equal on that substantial-bottom

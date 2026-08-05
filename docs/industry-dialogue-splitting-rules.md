@@ -1,14 +1,12 @@
 # Industry Compatibility Dialogue Splitting Rules
 
 This document outlines the dialogue-splitting rules used by JumpCut's Industry
-compatibility profile. Final Draft 11 is one observed reference used by the
-active probe set and corpus parity guards.
+compatibility profile.
 
-> **Compatibility note:** The `industry` profile uses an observed ordered
-> local correction structure rather than JumpCut's ordinary global split
-> ranking. Sentence correction is a configurable document option and covers
-> Action, Dialogue, Lyric, and Parenthetical pagination types. See
-> [Final Draft 11 pagination reverse engineering](final-draft-11-pagination-reverse-engineering.md).
+> **Compatibility note:** The `industry` profile uses an ordered local
+> correction structure rather than JumpCut's ordinary global split ranking.
+> Sentence correction is a configurable document option and covers Action,
+> Dialogue, Lyric, and Parenthetical pagination types.
 
 ## Core Rules
 
@@ -29,9 +27,9 @@ lines count as valid content.
 - **Example**: A split that leaves a Character name, one line of dialogue, and a parenthetical on the top page is valid (2 content lines).
 
 ### 3. Local Dialogue-Group Correction
-The first physical line below the proposed page break is cache position 5.
-The recovered dialogue handler inspects the nearby line types instead of
-ranking every possible split:
+The first physical line below the proposed page break is the center of a small
+local line window. The industry correction pass inspects nearby line types
+instead of ranking every possible split:
 
 - If cache position 5 ends a dialogue group and its Character cue occurs in
   positions 2 through 4, the entire short group moves to the next page.
