@@ -1,6 +1,6 @@
-# JumpCut Pagination Specification
+# How JumpCut lays out a screenplay
 
-This is a living document formalizing JumpCut's shared screenplay layout machinery and its Jumpcut and Industry pagination policies. Commercial applications such as Final Draft and Highland are compatibility references, but they do not name or define JumpCut's internal architecture.
+This is the contributor-facing description of JumpCut's page geometry, wrapping, spacing, and pagination profiles. It is useful when changing the layout engine or interpreting a pagination test; most users can start with the [formatting guide](formatting-and-metadata.md) instead.
 
 ## Testing contracts
 
@@ -14,7 +14,7 @@ Pagination tests are divided by the promise they protect:
 
 This separation allows Jumpcut to evolve deliberately while keeping Industry compatibility strict and keeping shared machinery free of accidental profile assumptions.
 
-## 1. Page Geometry
+## Page geometry
 
 - **Page Size**: Configurable. Typically US Letter (8.5" x 11").
 - **Margins**: Configurable constraints for the physical layout.
@@ -24,7 +24,7 @@ This separation allows Jumpcut to evolve deliberately while keeping Industry com
     - Text margins for the body are **1.0 inch** on Top and Bottom.
   - _Print Area_: A standard 11-inch screenplay page affords exactly 9 inches of vertical space for body text elements.
 
-## 2. Font & Measurement
+## Fonts and measurement
 
 - **Typesetting**: Standard format is Courier (or Courier-equivalent monospaced typeface, in our case Courier Prime).
 - **Size**: Usually 12-point.
@@ -32,7 +32,7 @@ This separation allows Jumpcut to evolve deliberately while keeping Industry com
 - **Vertical Pitch/Line Height**: Approximately 6 lines per inch (LPI).
   - _Line Leading (Spacing)_: Configurable (default 1.0). Supported values are 1.0, 1.5, and 2.0. Extra space is added *above* each visual line of text within an element (but not below).
 
-## 3. Element Widths and Indents
+## Element widths and indents
 
 Each element type conforms to specific structural constraints defined relative to the left margin of the page. Different scripts may have different margin settings for elements but these are **the defaults**:
 
@@ -100,14 +100,14 @@ Each element type conforms to specific structural constraints defined relative t
   - Left Indent: 5.5 inches
   - Right Indent: 7.1 inches (Multi-Cam: 7.25 inches)
 
-## 4. Line Wrapping
+## Line wrapping
 
 - **Algorithm**: Greedy matching, preserving spaces.
 - **Space Rendering**:
   - Trailing spaces at the end of a visual line _do not_ prompt a line break.
   - Internal spaces (e.g., double spaces separating sentences) count towards visual line length, therefore affecting wrapping.
 
-## 5. Intrinsic Spacing
+## Spacing
 
 Elements dictate vertical padding above and below themselves by standard multiples of blank lines. The number of blank lines above and below an element is configurable per element type, but there are default values:
 
@@ -118,7 +118,7 @@ Elements dictate vertical padding above and below themselves by standard multipl
 - **Shared Padding**: Intrinsic padding is not strictly additive. Two consecutive action blocks maintain _one_ blank line between them, not two.
 - **Page Boundaries**: Elements placed at the absolute top of a blank page disregard their required top visual spacing metric (no intrinsic blank line added at top). Elements placed at the absolute bottom of a page disregard their bottom visual spacing metric (no intrinsic blank line added at bottom).
 
-## 6. Page Breaks and Flow Control
+## Page breaks and flow
 
 Pages are filled until visual height is exhausted, prompting a hard pagination move.
 
@@ -129,7 +129,7 @@ JumpCut exposes two policies over the same semantic, measurement, and rendering 
 
 The policy owns behavioral choices such as wrapping, widow/orphan limits, and split ranking. `LayoutGeometry` owns only physical measurements such as margins, widths, spacing, and line height.
 
-### 6.1 Stranding and Splitting
+### Avoid stranding and awkward splits
 
 - **Scene Headings**: Must _never_ sit alone at the bottom of the page. It must be paired with at least a small portion of subsequent action or dialogue.
 - **Transitions**: Allowed to be placed as a single isolated line at the end of a page, but they _should avoid_ being placed as the first element of a page with no content above them.
@@ -159,7 +159,7 @@ The policy owns behavioral choices such as wrapping, widow/orphan limits, and sp
     not zero lines. They still follow the normal spacing-above rules, so they
     affect page budget like any other one-line action beat.
 
-### 6.2 Configurable Elements
+### Continuation markers
 
 - **Dialogue Continuation**: Programs optionally allow for continuing split dialogue pages with automatic markers.
   - _(MORE)_ inserted at the bottom flap of the first page.
@@ -167,6 +167,6 @@ The policy owns behavioral choices such as wrapping, widow/orphan limits, and sp
   - In JumpCut's current model, these continuation markers do not consume the
     formal page-height budget.
 
-### 6.3 Forced Page Breaks
+### Forced page breaks
 
 - **Forced Page Breaks**: Manual hard returns (e.g., `===`) immediately truncate the current page. The page stops accepting elements, and the paginator moves onto the next page starting with the next element.

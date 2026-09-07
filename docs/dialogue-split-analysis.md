@@ -1,15 +1,13 @@
-# How Dialogue Split Decisions Work
+# How dialogue splits work
 
-> **Scope:** This explains JumpCut's current candidate-and-score implementation
-> and the ordered local correction used by the Industry compatibility profile.
+> **For contributors:** This explains the current split planner and the separate correction pass used by the Industry compatibility profile.
 
-This document explains how JumpCut currently decides dialogue splits during
-pagination.
+When dialogue crosses a page, JumpCut first checks how much physical room is available, then looks for legal places to split the text. The default `jumpcut` profile ranks those choices; `industry` starts from the physical boundary and applies compatibility corrections.
 
-## 1. The paginator does the physical-space preflight
+## Check page space first
 
 The first gate is in `choose_split_lines` in
-[paginator.rs](/src/pagination/paginator.rs). The paginator now has an explicit
+[paginator.rs](../src/pagination/paginator.rs). The paginator now has an explicit
 physical-space preflight before it even asks the split planner for candidates:
 
 ```rust
@@ -41,7 +39,7 @@ The important distinction is:
 `max_top_lines` is computed from the raw page budget. `(MORE)` is **not**
 counted against that fit check.
 
-## 2. The paginator charges only the raw top fragment height
+## Charge only the text height
 
 Immediately after a split plan is chosen, the paginator calculates the height to be consumed on the current page:
 
@@ -52,7 +50,7 @@ let top_lines = plan.top_line_count as f32 * geometry.line_height;
 Unlike earlier experiments, JumpCut does not charge `(MORE)` into layout
 height. It is outside the formal page budget.
 
-## 3. Candidate boundaries come from text, not arbitrary wrapped lines
+## Find legal split points
 
 JumpCut no longer allows splits at arbitrary wrapped-line breaks. Candidates are generated from only two sources:
 
@@ -65,7 +63,7 @@ Part-boundary candidates are legal, but they do not currently receive the
 sentence-boundary bonus. That bonus is reserved for explicit mid-part sentence
 boundaries discovered from text.
 
-## 4. The planner owns semantic minima
+## Enforce minimum content
 
 Once a boundary is identified, the planner rewraps both halves independently
 and checks semantic minima in content-line units:
@@ -85,7 +83,7 @@ This is now the only place dialogue continuation minima are enforced. The old
 redundant post-selection widow check in the paginator was removed during the
 cleanup pass.
 
-## 5. Scoring Priority
+## Choose the best split
 
 When multiple legal split candidates exist, the "best" split is chosen using a strict priority:
 
@@ -113,7 +111,7 @@ This "substantial bottom continuation" preference is the balancing change that
 resolved the page-54 / Big Fish continued-dialogue disagreement without
 globally charging `(MORE)` into page height or scoring.
 
-## 6. Practical debugging summary
+## Debugging checklist
 
 Dialogue split debugging usually involves these checks:
 

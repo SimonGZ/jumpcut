@@ -1,10 +1,8 @@
-# Embedded HTML Fonts
+# Self-contained HTML with embedded fonts
 
-JumpCut can optionally embed the four Courier Prime TTF files directly into generated HTML as `data:` URLs inside CSS `@font-face` rules.
+JumpCut can put the four Courier Prime font files directly into generated HTML. The result is a single file that keeps its screenplay layout even on a machine without the font installed.
 
-This is useful when you want a single portable HTML file that does not depend on local font installation.
-
-## Native CLI and Rust Library
+## Command line and Rust
 
 The embedded-font path is off by default.
 
@@ -37,7 +35,7 @@ let html = screenplay.to_html_with_options(jumpcut::html_output::HtmlRenderOptio
 
 When `embed_courier_prime` is `false`, JumpCut keeps the normal local-font lookup plus Courier fallbacks.
 
-## WASM
+## JavaScript and WASM
 
 For wasm, JumpCut does **not** compile the Courier Prime font bytes into the `.wasm` binary.
 

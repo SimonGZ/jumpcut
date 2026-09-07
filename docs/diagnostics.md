@@ -1,8 +1,8 @@
-# Diagnostics
+# Pagination and PDF diagnostics
 
-This document covers the repo's internal pagination and PDF parity tooling.
+This is contributor documentation for checking pagination changes against the screenplay fixtures in the repository. The tools create review packets and comparison reports; they are not needed for normal JumpCut use.
 
-## Pagination Diagnostics
+## Rebuild pagination review packets
 
 The pagination/parity harness includes ignored tests and dedicated tooling that generate review packets and debug artifacts under:
 
@@ -47,7 +47,7 @@ just big-fish-diagnostics
 just mostly-genius-diagnostics
 ```
 
-## PDF Parity Checks
+## Compare generated PDFs
 
 The repo also includes a PDF word-position parity checker:
 

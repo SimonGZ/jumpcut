@@ -1,17 +1,17 @@
-# WASM
+# Use JumpCut from JavaScript with WASM
 
-JumpCut ships an in-repo wasm wrapper crate at [`jumpcut-wasm`](../jumpcut-wasm).
+JumpCut ships a small [`jumpcut-wasm`](../jumpcut-wasm) wrapper for browser and Node applications. It can parse Fountain or FDX and return Fountain, JSON, HTML, FDX, or PDF data.
 
-This document covers:
+This page covers the practical pieces:
 
-- what the wasm wrapper exposes
-- how Cargo features affect wasm size
-- how to build a Node-compatible package
-- the internal wasm checks and size-report workflow
+- the JavaScript functions it exposes
+- how to build a package for the web or Node
+- which optional features affect bundle size
+- the repository checks used when changing the wrapper
 
 Embedded Courier Prime HTML export is documented separately in [`html-embedded-fonts.md`](html-embedded-fonts.md).
 
-## Feature Model
+## Choose features
 
 JumpCut uses Cargo features so you can choose how much functionality to compile into a WASM build.
 
@@ -23,7 +23,7 @@ Current wasm feature slices:
 - PDF: optional
 - PDF font subsetting: optional through `pdf-font-subsetting`
 
-### PDF Font Subsetting And Bundle Size
+### PDF font subsetting and bundle size
 
 Font subsetting embeds only the glyphs used by the current document. This can materially reduce generated PDFs, especially short documents where the four font faces account for most of the file, but the subsetting implementation also adds substantial code to the wasm module, so it's an opt-in choice:
 
@@ -43,7 +43,7 @@ The default WASM package keeps lossless PDF stream compression but does not subs
 
 Compression adds about 27 KB of raw WASM, while subsetting adds about 606 KB. The latter can meaningfully reduce generated PDFs, especially short documents where fonts account for most of the file, but most web applications should prefer the smaller default bundle.
 
-## JS-Facing Exports
+## Functions available in JavaScript
 
 The wasm wrapper currently exposes:
 
@@ -58,7 +58,7 @@ The wasm wrapper currently exposes:
 - `parse_fdx_to_html_string(text, include_head)`
 - `parse_fdx_to_pdf_bytes(text)`
 
-## Build The WASM Wrapper
+## Build for the web or Node
 
 The low-level Rust build is:
 
@@ -91,7 +91,7 @@ If you want the generated package without the smoke shortcut, run:
 ./scripts/wasm/generate-package.sh
 ```
 
-## Use The Generated Package From Node
+## Use the generated package from Node
 
 After running `./scripts/wasm/generate-package.sh`, the generated package lives under:
 
@@ -121,7 +121,7 @@ console.log(html.slice(0, 80));
 console.log(fdx.slice(0, 80));
 ```
 
-## Checks And Reports
+## Check a WASM change
 
 The repo includes helper scripts for the wasm workflow:
 
