@@ -709,7 +709,12 @@ fn render_indented_lines(
 ) -> Vec<String> {
     let config =
         wrap_config_with_overrides(geometry, element_type, overrides, interruption_dash_wrap);
-    let indent = " ".repeat(indent_spaces_for_element_type(element_type, geometry));
+    let indent = " ".repeat(
+        (indent_spaces_for_element_type(element_type, geometry) as f32
+            + overrides.left_indent_delta.unwrap_or(0.0) * geometry.cpi)
+            .round()
+            .max(0.0) as usize,
+    );
     wrapped_visual_lines(element_type, text, &config)
         .into_iter()
         .map(|line| format!("{indent}{line}"))

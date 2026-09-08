@@ -191,6 +191,14 @@ fn render_paragraph(out: &mut String, element: &Element, layout_profile: &Screen
     if let Some(base_style) = base_style_for_element(layout_profile, element) {
         let effective_style =
             base_style.apply_element_layout_overrides(&attributes.layout_overrides);
+        if !approx_eq(effective_style.left_indent, base_style.left_indent) {
+            write!(
+                out,
+                " LeftIndent=\"{}\"",
+                format_indent(effective_style.left_indent)
+            )
+            .unwrap();
+        }
         if !approx_eq(effective_style.right_indent, base_style.right_indent) {
             write!(
                 out,

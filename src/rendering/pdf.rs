@@ -573,6 +573,7 @@ pub(crate) struct PdfTitleOverflowSegment {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct PdfRenderLine {
+    pub layout_overrides: crate::ElementLayoutOverrides,
     pub text: String,
     pub counted: bool,
     pub centered: bool,
@@ -748,6 +749,7 @@ pub(crate) fn build_render_document(
             .lines
             .into_iter()
             .map(|line| PdfRenderLine {
+                layout_overrides: line.layout_overrides,
                 text: line.text,
                 counted: line.counted,
                 centered: line.centered,
@@ -2217,6 +2219,7 @@ fn body_line_left(line: &PdfRenderLine, geometry: &LayoutGeometry) -> f32 {
             return (geometry.transition_right * 72.0) - rendered_width;
         }
         return line_kind_left(line.kind, geometry)
+            + line.layout_overrides.left_indent_delta.unwrap_or(0.0) * 72.0
             - parenthetical_hang_offset_points(
                 line.kind,
                 rendered_body_line_text(line, geometry),
@@ -2249,7 +2252,12 @@ fn rendered_body_line_text<'a>(line: &'a PdfRenderLine, geometry: &LayoutGeometr
     let Some(kind) = line.kind else {
         return &line.text;
     };
-    let indent = " ".repeat(body_line_indent_spaces(kind, &line.text, geometry));
+    let indent = " ".repeat(
+        (body_line_indent_spaces(kind, &line.text, geometry) as f32
+            + line.layout_overrides.left_indent_delta.unwrap_or(0.0) * geometry.cpi)
+            .round()
+            .max(0.0) as usize,
+    );
     line.text.strip_prefix(&indent).unwrap_or(&line.text)
 }
 
@@ -3271,7 +3279,10 @@ fn displayed_body_fragments(
     };
     trim_leading_fragment_spaces(
         &line.fragments,
-        body_line_indent_spaces(kind, &line.text, geometry),
+        (body_line_indent_spaces(kind, &line.text, geometry) as f32
+            + line.layout_overrides.left_indent_delta.unwrap_or(0.0) * geometry.cpi)
+            .round()
+            .max(0.0) as usize,
     )
 }
 
@@ -6046,6 +6057,7 @@ mod tests {
                 display_page_number: Some(34),
                 lines: vec![
                     PdfRenderLine {
+                        layout_overrides: crate::ElementLayoutOverrides::default(),
                         text: "MAYOR (CONT'D)".into(),
                         counted: false,
                         centered: false,
@@ -6059,6 +6071,7 @@ mod tests {
                         scene_number: None,
                     },
                     PdfRenderLine {
+                        layout_overrides: crate::ElementLayoutOverrides::default(),
                         text: "INT. HALLWAY - NIGHT".into(),
                         counted: true,
                         centered: false,
@@ -6117,6 +6130,7 @@ mod tests {
                 display_page_number: Some(11),
                 lines: vec![
                     PdfRenderLine {
+                        layout_overrides: crate::ElementLayoutOverrides::default(),
                         text: "        (MORE)".into(),
                         counted: false,
                         centered: false,
@@ -6130,6 +6144,7 @@ mod tests {
                         scene_number: None,
                     },
                     PdfRenderLine {
+                        layout_overrides: crate::ElementLayoutOverrides::default(),
                         text: "HELLO".into(),
                         counted: true,
                         centered: false,
@@ -6791,6 +6806,7 @@ mod tests {
     fn body_line_left_right_aligns_transitions_to_the_transition_right_margin() {
         let geometry = LayoutGeometry::default();
         let line = PdfRenderLine {
+            layout_overrides: crate::ElementLayoutOverrides::default(),
             text: format!("{}CUT TO:", " ".repeat(40)),
             counted: true,
             centered: false,
@@ -6807,6 +6823,7 @@ mod tests {
     fn body_line_left_hangs_opening_parenthetical_by_the_configured_first_indent() {
         let geometry = LayoutGeometry::default();
         let line = PdfRenderLine {
+            layout_overrides: crate::ElementLayoutOverrides::default(),
             text: format!("{}(quietly)", " ".repeat(14)),
             counted: true,
             centered: false,
@@ -6816,6 +6833,7 @@ mod tests {
             scene_number: None,
         };
         let continuation = PdfRenderLine {
+            layout_overrides: crate::ElementLayoutOverrides::default(),
             text: format!("{}quietly", " ".repeat(15)),
             counted: true,
             centered: false,
@@ -6837,6 +6855,7 @@ mod tests {
         geometry.parenthetical_first_indent = -0.14;
 
         let line = PdfRenderLine {
+            layout_overrides: crate::ElementLayoutOverrides::default(),
             text: format!("{}(quietly)", " ".repeat(14)),
             counted: true,
             centered: false,
@@ -6952,6 +6971,7 @@ mod tests {
             display_page_number: Some(34),
             lines: vec![
                 PdfRenderLine {
+                    layout_overrides: crate::ElementLayoutOverrides::default(),
                     text: "MAYOR (CONT'D)".into(),
                     counted: false,
                     centered: false,
@@ -6961,6 +6981,7 @@ mod tests {
                     scene_number: None,
                 },
                 PdfRenderLine {
+                    layout_overrides: crate::ElementLayoutOverrides::default(),
                     text: format!("{}But take with you this Key", " ".repeat(10)),
                     counted: true,
                     centered: false,
@@ -6986,6 +7007,7 @@ mod tests {
             page_number: 35,
             display_page_number: Some(34),
             lines: vec![PdfRenderLine {
+                layout_overrides: crate::ElementLayoutOverrides::default(),
                 text: "MAYOR (CONT'D)".into(),
                 counted: true,
                 centered: false,
@@ -7062,5 +7084,36 @@ mod tests {
             }
         }
         escaped
+    }
+    #[test]
+    fn imported_custom_action_margins_stay_local_in_pdf_lines() {
+        let screenplay = crate::parse_fdx(r#"<FinalDraft><Content>
+          <Paragraph Type="Action"><Text>Ordinary.</Text></Paragraph>
+          <Paragraph Type="Shot"><Text>Inset.</Text></Paragraph>
+          <Paragraph Type="Wide"><Text>Outset.</Text></Paragraph>
+        </Content>
+        <ElementSettings Type="Shot"><ParagraphSpec LeftIndent="3" RightIndent="5"/><Behavior PaginateAs="Action"/></ElementSettings>
+        <ElementSettings Type="Wide"><ParagraphSpec LeftIndent="1" RightIndent="7.5"/><Behavior PaginateAs="Action"/></ElementSettings>
+        </FinalDraft>"#).unwrap();
+        let geometry = crate::pagination::ScreenplayLayoutProfile::from_screenplay(&screenplay)
+            .to_pagination_geometry();
+        let document = build_render_document(&screenplay, PdfRenderOptions::default(), &geometry);
+        for (text, left) in [("Ordinary.", 108.0), ("Inset.", 216.0), ("Outset.", 72.0)] {
+            let line = document
+                .body_pages
+                .iter()
+                .flat_map(|page| &page.lines)
+                .find(|line| line.text.trim() == text)
+                .unwrap();
+            assert_eq!(body_line_left(line, &geometry), left);
+            assert_eq!(rendered_body_line_text(line, &geometry), text);
+            assert_eq!(
+                displayed_body_fragments(line, &geometry)
+                    .iter()
+                    .map(|part| part.text.as_str())
+                    .collect::<String>(),
+                text
+            );
+        }
     }
 }

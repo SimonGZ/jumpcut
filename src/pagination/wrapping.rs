@@ -163,7 +163,11 @@ pub fn wrap_config_with_overrides(
     overrides: &ElementLayoutOverrides,
     interruption_dash_wrap: InterruptionDashWrap,
 ) -> WrapConfig {
-    if let Some(right_indent_delta) = overrides.right_indent_delta {
+    if overrides.right_indent_delta.is_some() || overrides.left_indent_delta.is_some() {
+        // Wrapping needs only the available width; moving the left edge right
+        // reduces that width by the same amount as moving the right edge left.
+        let right_indent_delta = overrides.right_indent_delta.unwrap_or(0.0)
+            - overrides.left_indent_delta.unwrap_or(0.0);
         let mut effective_geometry = geometry.clone();
         apply_right_indent_delta(&mut effective_geometry, element_type, right_indent_delta);
         return WrapConfig::from_geometry_with_mode(

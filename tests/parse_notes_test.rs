@@ -94,6 +94,7 @@ fn it_parses_lift_modifier_notes_into_layout_overrides() {
         p("Jack smells the liquor. "),
         Attributes {
             layout_overrides: ElementLayoutOverrides {
+                left_indent_delta: None,
                 space_before_delta: Some(-1.0),
                 right_indent_delta: None,
             },
@@ -111,6 +112,7 @@ fn it_parses_numeric_lift_and_widen_modifier_notes_into_layout_overrides() {
         p("Jack smells the liquor. "),
         Attributes {
             layout_overrides: ElementLayoutOverrides {
+                left_indent_delta: None,
                 space_before_delta: Some(-2.0),
                 right_indent_delta: Some(0.375),
             },
@@ -129,6 +131,7 @@ fn it_preserves_remaining_note_text_after_parsing_layout_modifiers() {
         Attributes {
             notes: Some(vec!["comment".to_string()]),
             layout_overrides: ElementLayoutOverrides {
+                left_indent_delta: None,
                 space_before_delta: Some(-1.0),
                 right_indent_delta: None,
             },
@@ -146,6 +149,7 @@ fn it_combines_multiple_layout_modifiers_within_one_note() {
         p("Jack smells the liquor. "),
         Attributes {
             layout_overrides: ElementLayoutOverrides {
+                left_indent_delta: None,
                 space_before_delta: Some(-1.0),
                 right_indent_delta: Some(0.25),
             },

@@ -29,6 +29,7 @@ impl Default for VisualRenderOptions {
 }
 #[derive(Clone, Debug)]
 pub(crate) struct VisualLine {
+    pub layout_overrides: ElementLayoutOverrides,
     pub text: String,
     pub counted: bool,
     pub centered: bool,
@@ -206,6 +207,7 @@ fn render_continuous_block_lines(
     let mut lines = Vec::new();
     for _ in 0..(block.spacing_above.round() as usize) {
         lines.push(VisualLine {
+            layout_overrides: ElementLayoutOverrides::default(),
             text: String::new(),
             counted: true,
             centered: false,
@@ -235,6 +237,7 @@ fn render_layout_page_lines(
     for block in &layout_page.blocks {
         for _ in 0..(block.spacing_above.round() as usize) {
             lines.push(VisualLine {
+                layout_overrides: ElementLayoutOverrides::default(),
                 text: String::new(),
                 counted: true,
                 centered: false,
@@ -332,6 +335,7 @@ fn render_layout_block_lines(
             .into_iter()
             .enumerate()
             .map(|(line_index, text)| RenderedElementLine {
+                layout_overrides: flow.render_attributes.layout_overrides.clone(),
                 fragments: vec![plain_fragment_for_text(&text)],
                 text,
                 element_type,
@@ -433,6 +437,7 @@ fn render_dialogue_fragment_lines(
                 let mut lines = continuation_prefix
                     .into_iter()
                     .map(|text| VisualLine {
+                        layout_overrides: ElementLayoutOverrides::default(),
                         fragments: vec![plain_fragment_for_text(&text)],
                         text,
                         counted: false,
@@ -493,6 +498,7 @@ fn render_dialogue_fragment_lines(
         crate::pagination::Fragment::ContinuedFromPrev => continuation_prefix
             .into_iter()
             .map(|text| VisualLine {
+                layout_overrides: ElementLayoutOverrides::default(),
                 fragments: vec![plain_fragment_for_text(&text)],
                 text,
                 counted: false,
@@ -510,6 +516,7 @@ fn render_dialogue_fragment_lines(
             let mut lines = continuation_prefix
                 .into_iter()
                 .map(|text| VisualLine {
+                    layout_overrides: ElementLayoutOverrides::default(),
                     fragments: vec![plain_fragment_for_text(&text)],
                     text,
                     counted: false,
@@ -578,6 +585,7 @@ fn render_split_dialogue_part_lines(
     )
     .into_iter()
     .map(|text| RenderedElementLine {
+        layout_overrides: dialogue_part.render_attributes.layout_overrides.clone(),
         fragments: vec![plain_fragment_for_text(&text)],
         text,
         element_type,
@@ -676,6 +684,7 @@ fn render_more_marker_lines(
 
     if uses_double_spaced_rows(ElementType::Dialogue, geometry) {
         lines.push(VisualLine {
+            layout_overrides: ElementLayoutOverrides::default(),
             text: String::new(),
             counted: false,
             centered: false,
@@ -687,6 +696,7 @@ fn render_more_marker_lines(
     }
 
     lines.push(VisualLine {
+        layout_overrides: ElementLayoutOverrides::default(),
         text: render_indented_lines(
             "(MORE)",
             ElementType::Character,
@@ -761,6 +771,7 @@ fn render_semantic_unit_lines(
             .into_iter()
             .enumerate()
             .map(|(line_index, text)| RenderedElementLine {
+                layout_overrides: flow.render_attributes.layout_overrides.clone(),
                 fragments: vec![plain_fragment_for_text(&text)],
                 text,
                 element_type,
@@ -804,6 +815,7 @@ fn render_semantic_unit_lines(
             )
             .into_iter()
             .map(|text| RenderedElementLine {
+                layout_overrides: lyric.render_attributes.layout_overrides.clone(),
                 fragments: vec![plain_fragment_for_text(&text)],
                 text,
                 element_type: ElementType::Lyric,
@@ -856,6 +868,7 @@ fn render_semantic_unit_lines(
                 )
                 .into_iter()
                 .map(move |text| RenderedElementLine {
+                    layout_overrides: part.render_attributes.layout_overrides.clone(),
                     fragments: vec![plain_fragment_for_text(&text)],
                     text,
                     element_type,
@@ -909,6 +922,7 @@ fn render_semantic_unit_lines(
 
                 if right.text.is_empty() {
                     lines.push(RenderedElementLine {
+                        layout_overrides: ElementLayoutOverrides::default(),
                         dual: Some(RenderedDualLine {
                             left: Some(RenderedDualSide {
                                 text: left.text.clone(),
@@ -930,6 +944,7 @@ fn render_semantic_unit_lines(
                         .chain(right.fragments.clone().into_iter())
                         .collect();
                     lines.push(RenderedElementLine {
+                        layout_overrides: ElementLayoutOverrides::default(),
                         dual: Some(RenderedDualLine {
                             left: None,
                             right: Some(RenderedDualSide {
@@ -956,6 +971,7 @@ fn render_semantic_unit_lines(
                         .chain(right.fragments.clone().into_iter())
                         .collect();
                     lines.push(RenderedElementLine {
+                        layout_overrides: ElementLayoutOverrides::default(),
                         dual: Some(RenderedDualLine {
                             left: Some(RenderedDualSide {
                                 text: left.text.clone(),
@@ -1016,6 +1032,7 @@ fn render_dual_dialogue_side_rendered_lines(
                 wrapping::wrap_styled_text_for_element(&inline_text, &config)
                     .into_iter()
                     .map(|line| RenderedStyledLine {
+                        layout_overrides: ElementLayoutOverrides::default(),
                         text: line.text,
                         element_type,
                         fragments: line
@@ -1034,6 +1051,7 @@ fn render_dual_dialogue_side_rendered_lines(
                 wrapping::wrap_text_for_element(&text, &config)
                     .into_iter()
                     .map(|text| RenderedStyledLine {
+                        layout_overrides: ElementLayoutOverrides::default(),
                         element_type,
                         fragments: vec![plain_fragment_for_text(&text)],
                         text,
@@ -1060,11 +1078,12 @@ fn render_indented_lines(
             let indent = if centered {
                 String::new()
             } else {
-                " ".repeat(indent_spaces_for_rendered_text(
-                    element_type,
-                    &line,
-                    geometry,
-                ))
+                " ".repeat(
+                    (indent_spaces_for_rendered_text(element_type, &line, geometry) as f32
+                        + overrides.left_indent_delta.unwrap_or(0.0) * geometry.cpi)
+                        .round()
+                        .max(0.0) as usize,
+                )
             };
             format!("{indent}{line}")
         })
@@ -1088,11 +1107,12 @@ fn render_indented_styled_lines(
             let indent = if centered {
                 String::new()
             } else {
-                " ".repeat(indent_spaces_for_rendered_text(
-                    element_type,
-                    &line.text,
-                    geometry,
-                ))
+                " ".repeat(
+                    (indent_spaces_for_rendered_text(element_type, &line.text, geometry) as f32
+                        + overrides.left_indent_delta.unwrap_or(0.0) * geometry.cpi)
+                        .round()
+                        .max(0.0) as usize,
+                )
             };
             let mut fragments = Vec::new();
             if !indent.is_empty() {
@@ -1108,6 +1128,7 @@ fn render_indented_styled_lines(
             );
 
             RenderedStyledLine {
+                layout_overrides: overrides.clone(),
                 text: format!("{indent}{}", line.text),
                 element_type,
                 fragments,
@@ -1137,6 +1158,7 @@ fn counted_visual_lines(
     for line in lines {
         if uses_double_spaced_rows(line.element_type, geometry) {
             rendered.push(VisualLine {
+                layout_overrides: ElementLayoutOverrides::default(),
                 text: String::new(),
                 counted: true,
                 centered: false,
@@ -1147,6 +1169,7 @@ fn counted_visual_lines(
             });
         }
         rendered.push(VisualLine {
+            layout_overrides: line.layout_overrides.clone(),
             text: line.text,
             counted: true,
             centered: line.centered,
@@ -1284,6 +1307,7 @@ fn parenthetical_hangs_opening_paren(element_type: ElementType, rendered_text: &
 
 #[derive(Clone)]
 struct RenderedElementLine {
+    pub layout_overrides: ElementLayoutOverrides,
     text: String,
     element_type: ElementType,
     fragments: Vec<VisualFragment>,
@@ -1294,6 +1318,7 @@ struct RenderedElementLine {
 
 #[derive(Clone)]
 struct RenderedStyledLine {
+    pub layout_overrides: ElementLayoutOverrides,
     text: String,
     element_type: ElementType,
     fragments: Vec<VisualFragment>,
@@ -1314,6 +1339,7 @@ struct RenderedDualSide {
 
 fn empty_rendered_styled_line() -> RenderedStyledLine {
     RenderedStyledLine {
+        layout_overrides: ElementLayoutOverrides::default(),
         text: String::new(),
         element_type: ElementType::Dialogue,
         fragments: Vec::new(),
@@ -1378,6 +1404,7 @@ fn rendered_element_line_from_styled(
     centered: bool,
 ) -> RenderedElementLine {
     RenderedElementLine {
+        layout_overrides: line.layout_overrides.clone(),
         text: line.text,
         element_type,
         fragments: line.fragments,

@@ -82,6 +82,7 @@ pub fn parse_fdx(xml: &str) -> Result<Screenplay, FdxParseError> {
 struct FdxParagraph {
     paragraph_type: String,
     alignment: Option<String>,
+    left_indent: Option<f32>,
     right_indent: Option<f32>,
     space_before_points: Option<f32>,
     starts_new_page: bool,
@@ -153,6 +154,7 @@ fn parse_blocks(xml: &str) -> Result<Vec<FdxBlock>, FdxParseError> {
 
     let mut paragraph_type = None;
     let mut paragraph_alignment = None;
+    let mut paragraph_left_indent = None;
     let mut paragraph_right_indent = None;
     let mut paragraph_space_before_points = None;
     let mut paragraph_starts_new_page = false;
@@ -176,6 +178,7 @@ fn parse_blocks(xml: &str) -> Result<Vec<FdxBlock>, FdxParseError> {
                             &event,
                             &mut paragraph_type,
                             &mut paragraph_alignment,
+                            &mut paragraph_left_indent,
                             &mut paragraph_right_indent,
                             &mut paragraph_space_before_points,
                             &mut paragraph_starts_new_page,
@@ -200,6 +203,7 @@ fn parse_blocks(xml: &str) -> Result<Vec<FdxBlock>, FdxParseError> {
                         paragraph_type: required_attr(&reader, &event, b"Type")?
                             .unwrap_or_default(),
                         alignment: optional_attr(&reader, &event, b"Alignment")?,
+                        left_indent: parse_attr_f32(&reader, &event, b"LeftIndent")?,
                         right_indent: parse_attr_f32(&reader, &event, b"RightIndent")?,
                         space_before_points: parse_attr_f32(&reader, &event, b"SpaceBefore")?,
                         starts_new_page: optional_attr(&reader, &event, b"StartsNewPage")?
@@ -254,6 +258,7 @@ fn parse_blocks(xml: &str) -> Result<Vec<FdxBlock>, FdxParseError> {
                         let paragraph = FdxParagraph {
                             paragraph_type: paragraph_type.take().unwrap_or_default(),
                             alignment: paragraph_alignment.take(),
+                            left_indent: paragraph_left_indent.take(),
                             right_indent: paragraph_right_indent.take(),
                             space_before_points: paragraph_space_before_points.take(),
                             starts_new_page: paragraph_starts_new_page,
@@ -296,6 +301,7 @@ fn begin_paragraph(
     event: &BytesStart<'_>,
     paragraph_type: &mut Option<String>,
     paragraph_alignment: &mut Option<String>,
+    paragraph_left_indent: &mut Option<f32>,
     paragraph_right_indent: &mut Option<f32>,
     paragraph_space_before_points: &mut Option<f32>,
     paragraph_starts_new_page: &mut bool,
@@ -304,6 +310,7 @@ fn begin_paragraph(
 ) -> Result<(), FdxParseError> {
     *paragraph_type = required_attr(reader, event, b"Type")?;
     *paragraph_alignment = optional_attr(reader, event, b"Alignment")?;
+    *paragraph_left_indent = parse_attr_f32(reader, event, b"LeftIndent")?;
     *paragraph_right_indent = parse_attr_f32(reader, event, b"RightIndent")?;
     *paragraph_space_before_points = parse_attr_f32(reader, event, b"SpaceBefore")?;
     *paragraph_starts_new_page =
@@ -1479,9 +1486,7 @@ fn imported_settings_to_layout_overrides(
 ) -> Option<ImportedLayoutOverrides> {
     let mut element_styles = std::collections::BTreeMap::new();
     for (name, style) in &settings.paragraph_styles {
-        if let Some(kind) = imported_element_kind(name)
-            .or_else(|| style.paginate_as.as_deref().and_then(imported_element_kind))
-        {
+        if let Some(kind) = imported_element_kind(name) {
             let entry = ImportedElementStyle {
                 first_indent: style.first_indent,
                 left_indent: style.left_indent,
@@ -1553,17 +1558,25 @@ fn apply_paginate_as_types(blocks: &mut [FdxBlock], settings: &ImportedFdxSettin
         if imported_element_kind(&paragraph.paragraph_type).is_some() {
             return;
         }
-        let Some(paginate_as) = settings
-            .paragraph_styles
-            .get(&paragraph.paragraph_type)
-            .and_then(|style| style.paginate_as.as_deref())
+        let Some(style) = settings.paragraph_styles.get(&paragraph.paragraph_type) else {
+            return;
+        };
+        let Some(paginate_as) = style
+            .paginate_as
+            .as_deref()
+            .filter(|name| imported_element_kind(name).is_some())
         else {
             return;
         };
 
-        if imported_element_kind(paginate_as).is_some() {
-            paragraph.paragraph_type = paginate_as.to_string();
-        }
+        // Keep source-type margins on this paragraph, never on the shared
+        // PaginateAs target. Explicit paragraph values override type defaults.
+        paragraph.left_indent = paragraph.left_indent.or(style.left_indent);
+        paragraph.right_indent = paragraph.right_indent.or(style.right_indent);
+        paragraph.space_before_points = paragraph
+            .space_before_points
+            .or(style.space_before.map(|lines| lines * 12.0));
+        paragraph.paragraph_type = paginate_as.to_string();
     }
 
     for block in blocks {
@@ -1633,6 +1646,12 @@ fn paragraph_to_element(
     let resolved_type =
         resolved_body_paragraph_type(&paragraph.paragraph_type, attributes.centered, &text_plain)?;
     if let Some(base_style) = baseline_style_for_paragraph_type(resolved_type, baseline_profile) {
+        if let Some(left_indent) = paragraph.left_indent {
+            let delta = left_indent - base_style.left_indent;
+            if !approx_eq(delta, 0.0) {
+                attributes.layout_overrides.left_indent_delta = Some(delta);
+            }
+        }
         if let Some(right_indent) = paragraph.right_indent {
             let delta = right_indent - base_style.right_indent;
             if !approx_eq(delta, 0.0) {

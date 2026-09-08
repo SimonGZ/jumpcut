@@ -664,6 +664,7 @@ mod tests {
                 p("John enters."),
                 Attributes {
                     layout_overrides: ElementLayoutOverrides {
+                        left_indent_delta: None,
                         space_before_delta: Some(-1.0),
                         right_indent_delta: Some(0.25),
                     },
@@ -689,6 +690,7 @@ mod tests {
                 Attributes {
                     notes: Some(vec!["comment".into()]),
                     layout_overrides: ElementLayoutOverrides {
+                        left_indent_delta: None,
                         space_before_delta: Some(-1.0),
                         right_indent_delta: None,
                     },

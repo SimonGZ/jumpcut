@@ -266,8 +266,13 @@ fn it_uses_fdx_paginate_as_for_custom_element_types() {
         [Element::Action(..)]
     ));
     let profile = ScreenplayLayoutProfile::from_screenplay(&screenplay);
-    assert_eq!(profile.styles.action.left_indent, 1.75);
-    assert_eq!(profile.styles.action.right_indent, 7.25);
+    assert_eq!(profile.styles.action.left_indent, 1.5);
+    assert_eq!(profile.styles.action.right_indent, 7.5);
+    let Element::Action(_, attributes) = &screenplay.elements[0] else {
+        unreachable!()
+    };
+    assert_eq!(attributes.layout_overrides.left_indent_delta, Some(0.25));
+    assert_eq!(attributes.layout_overrides.right_indent_delta, Some(-0.25));
 }
 
 #[test]
@@ -322,6 +327,7 @@ fn it_preserves_body_paragraph_layout_deviations_as_element_overrides() {
                 p("Raised action."),
                 Attributes {
                     layout_overrides: jumpcut::ElementLayoutOverrides {
+                        left_indent_delta: None,
                         space_before_delta: Some(0.5),
                         ..Default::default()
                     },
@@ -862,4 +868,67 @@ fn title_page_frontmatter_count_is_available_for_pagination_scope() {
     metadata_no_fm.insert("title".into(), vec!["MY SCREENPLAY".into()]);
     let tp_no_fm = TitlePage::from_metadata(&metadata_no_fm).expect("should have title page");
     assert_eq!(tp_no_fm.frontmatter.len(), 0);
+}
+
+#[test]
+fn custom_paginate_as_styles_do_not_replace_shared_action_margins() {
+    let xml = r#"<FinalDraft DocumentType="Script" Template="No" Version="4">
+      <Content>
+        <Paragraph Type="Action"><Text>Ordinary action.</Text></Paragraph>
+        <Paragraph Type="Shot"><Text>Custom shot.</Text></Paragraph>
+        <Paragraph Type="Inset" LeftIndent="2.25" RightIndent="6.25" SpaceBefore="12"><Text>Explicit inset.</Text></Paragraph>
+      </Content>
+      <ElementSettings Type="Action"><ParagraphSpec LeftIndent="1.5" RightIndent="7.5" SpaceBefore="12"/></ElementSettings>
+      <ElementSettings Type="Shot"><ParagraphSpec LeftIndent="3" RightIndent="5" SpaceBefore="36"/><Behavior PaginateAs="Action"/></ElementSettings>
+      <ElementSettings Type="Inset"><ParagraphSpec LeftIndent="2" RightIndent="6" SpaceBefore="24"/><Behavior PaginateAs="Action"/></ElementSettings>
+    </FinalDraft>"#;
+    let mut screenplay = parse_fdx(xml).unwrap();
+    let profile = ScreenplayLayoutProfile::from_screenplay(&screenplay);
+    assert_eq!(profile.styles.action.left_indent, 1.5);
+    assert_eq!(profile.styles.action.right_indent, 7.5);
+    assert_eq!(profile.styles.action.spacing_before, 1.0);
+
+    let expected = [(1.5, 7.5, 1.0), (3.0, 5.0, 3.0), (2.25, 6.25, 1.0)];
+    for (element, (left, right, spacing)) in screenplay.elements.iter().zip(expected) {
+        let Element::Action(_, attributes) = element else {
+            panic!("expected action")
+        };
+        let effective = profile
+            .styles
+            .action
+            .apply_element_layout_overrides(&attributes.layout_overrides);
+        assert_eq!(
+            (
+                effective.left_indent,
+                effective.right_indent,
+                effective.spacing_before
+            ),
+            (left, right, spacing)
+        );
+        let config = jumpcut::pagination::wrapping::wrap_config_with_overrides(
+            &profile.to_pagination_geometry(),
+            jumpcut::pagination::wrapping::ElementType::Action,
+            &attributes.layout_overrides,
+            profile.pagination.interruption_dash_wrap,
+        );
+        assert_eq!(
+            config.exact_width_chars,
+            ((right - left) * 10.0).round() as usize + 1
+        );
+    }
+    let text = screenplay.to_text(&jumpcut::rendering::text::TextRenderOptions::default());
+    assert!(text.lines().any(|line| line == "Ordinary action."));
+    assert!(
+        text.lines()
+            .any(|line| line == "               Custom shot.")
+    );
+
+    let exported = screenplay.to_fdx();
+    let reparsed = parse_fdx(&exported).unwrap();
+    for (before, after) in screenplay.elements.iter().zip(&reparsed.elements) {
+        let (Element::Action(_, before), Element::Action(_, after)) = (before, after) else {
+            panic!("expected action")
+        };
+        assert_eq!(before.layout_overrides, after.layout_overrides);
+    }
 }

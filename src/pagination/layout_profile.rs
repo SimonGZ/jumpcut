@@ -31,6 +31,9 @@ impl ScreenplayElementStyle {
         overrides: &ElementLayoutOverrides,
     ) -> ScreenplayElementStyle {
         let mut effective = self.clone();
+        if let Some(delta) = overrides.left_indent_delta {
+            effective.left_indent += delta;
+        }
 
         if let Some(space_before_delta) = overrides.space_before_delta {
             effective.spacing_before += space_before_delta;

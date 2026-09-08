@@ -119,13 +119,17 @@ pub struct ImportedElementStyle {
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct ElementLayoutOverrides {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub left_indent_delta: Option<f32>,
     pub space_before_delta: Option<f32>,
     pub right_indent_delta: Option<f32>,
 }
 
 impl ElementLayoutOverrides {
     pub fn is_empty(&self) -> bool {
-        self.space_before_delta.is_none() && self.right_indent_delta.is_none()
+        self.left_indent_delta.is_none()
+            && self.space_before_delta.is_none()
+            && self.right_indent_delta.is_none()
     }
 }
 

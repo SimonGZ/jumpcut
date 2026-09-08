@@ -39,6 +39,7 @@ fn element_style_helper_applies_per_element_spacing_and_width_deltas() {
     };
 
     let effective = base_style.apply_element_layout_overrides(&ElementLayoutOverrides {
+        left_indent_delta: None,
         space_before_delta: Some(-1.0),
         right_indent_delta: Some(0.25),
     });

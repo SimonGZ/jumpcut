@@ -3,6 +3,7 @@ use jumpcut::{Attributes, ElementLayoutOverrides, blank_attributes};
 #[test]
 fn blank_attributes_and_default_attributes_start_with_empty_layout_overrides() {
     let expected = ElementLayoutOverrides {
+        left_indent_delta: None,
         space_before_delta: None,
         right_indent_delta: None,
     };
