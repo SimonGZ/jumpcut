@@ -695,7 +695,8 @@ pub fn write_fd_probe_packets(debug_dir: &Path) {
         let spec: IndustryProbeSpec =
             serde_json::from_str(&fs::read_to_string(&expected_path).unwrap()).unwrap();
         let fountain = fs::read_to_string(&fountain_path).unwrap();
-        let screenplay = parse(&fountain);
+        let mut screenplay = parse(&fountain);
+        select_pagination_profile(&mut screenplay, "industry");
         let normalized = normalize_screenplay(&spec.probe_id, &screenplay);
         let config = PaginationConfig::from_screenplay(&screenplay, spec.lines_per_page);
         let actual = PaginatedScreenplay::from_screenplay(
@@ -704,7 +705,10 @@ pub fn write_fd_probe_packets(debug_dir: &Path) {
             spec.lines_per_page,
             spec_scope(),
         );
-        let semantic = build_semantic_screenplay(normalized.clone());
+        let semantic = crate::pagination::build_semantic_screenplay_with_options(
+            normalized.clone(),
+            crate::pagination::SemanticOptions::from_policy(&config.policy),
+        );
         let composed = crate::pagination::composer::compose_with_wrap(
             &semantic.units,
             &config.geometry,

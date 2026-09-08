@@ -1,4 +1,7 @@
-use jumpcut::pagination::{Fragment, PaginationConfig, build_semantic_screenplay};
+use jumpcut::pagination::{
+    Fragment, PaginationConfig, PaginationProfile, SemanticOptions,
+    build_semantic_screenplay_with_options,
+};
 use jumpcut::parse;
 use serde::Deserialize;
 use std::fs;
@@ -112,8 +115,12 @@ fn active_industry_probes_match_expected_split_behavior() {
 fn assert_probe_matches(probe: &ProbeFixture) {
     let fountain_path = probe.dir.join("source.fountain");
     let fountain = fs::read_to_string(&fountain_path).unwrap();
-    let screenplay = parse(&fountain);
+    let mut screenplay = parse(&fountain);
+    screenplay
+        .metadata
+        .insert("fmt".into(), vec!["industry".into()]);
     let config = PaginationConfig::from_screenplay(&screenplay, probe.spec.lines_per_page);
+    assert_eq!(config.policy.profile, PaginationProfile::Industry);
     let actual = jumpcut::pagination::PaginatedScreenplay::from_screenplay(
         &probe.spec.probe_id,
         &screenplay,
@@ -124,15 +131,20 @@ fn assert_probe_matches(probe: &ProbeFixture) {
             body_start_page: None,
         },
     );
-    let semantic = build_semantic_screenplay(jumpcut::pagination::normalize_screenplay(
-        &probe.spec.probe_id,
-        &screenplay,
-    ));
-    let composed_blocks = jumpcut::pagination::composer::compose(&semantic.units, &config.geometry);
-    let layout_pages = jumpcut::pagination::paginator::paginate(
+    let semantic = build_semantic_screenplay_with_options(
+        jumpcut::pagination::normalize_screenplay(&probe.spec.probe_id, &screenplay),
+        SemanticOptions::from_policy(&config.policy),
+    );
+    let composed_blocks = jumpcut::pagination::composer::compose_with_wrap(
+        &semantic.units,
+        &config.geometry,
+        config.policy.interruption_dash_wrap,
+    );
+    let layout_pages = jumpcut::pagination::paginator::paginate_with_policy(
         &composed_blocks,
         probe.spec.lines_per_page,
         &config.geometry,
+        &config.policy,
     );
 
     match &probe.spec.expected {
