@@ -1,52 +1,44 @@
 # JumpCut
 
-JumpCut converts screenplay files between [Fountain][fountain] and [FDX][fdx], and can render them as Fountain, FDX, HTML, JSON, plain text, or PDF.
+JumpCut converts screenplays between [Fountain](https://fountain.io/) and Final Draft’s FDX format. It also creates PDFs, HTML, plain text, and JSON.
 
-It is available as a command-line tool, a Rust library, and a WASM package. It is built around the spacing, wrapping, and pagination details that make a screenplay look like a screenplay.
+Use it from the command line, in a Rust application, or from JavaScript through WebAssembly.
 
-## Start here
-
-### Install the command-line tool
+## Install
 
 ```sh
 cargo install jumpcut
 ```
 
-### Convert a screenplay
+## Convert a screenplay
 
 ```sh
-# Convert a Fountain file to FDX
+jumpcut script.fountain script.pdf
 jumpcut script.fountain script.fdx
-
-# Create a PDF with the same filename as the input
-jumpcut script.fountain --format pdf --write
-
-# Read from stdin and write HTML to stdout
-cat script.fountain | jumpcut - --format html
+jumpcut script.fdx script.fountain
 ```
 
-The input may be a `.fountain` or `.fdx` file. If you don't specify an output filename or add `--write`, the result is written to stdout. Run `jumpcut --help` for the short command reference, or see the [CLI guide](docs/cli.md) for examples and all available options.
+JumpCut chooses the output format from the filename. See the [command-line guide](docs/cli.md) for more examples and options.
 
-## Documentation
+## Formatting
 
-### Using JumpCut
+JumpCut handles screenplay formatting and page breaks automatically. You can change the paper size, heading styles, and other formatting through your script’s metadata.
 
-- [Convert files from the command line](docs/cli.md)
-- [Adjust formatting, pagination, and metadata](docs/formatting-and-metadata.md)
-- [Check Fountain syntax supported by JumpCut](docs/fountain-rules.md)
-- [Make a self-contained HTML file with embedded fonts](docs/html-embedded-fonts.md)
-- [Use JumpCut from JavaScript with WASM](docs/wasm.md)
+There are two "profiles" available that bundle together different pagination schemes. The default is called `jumpcut` and is very similar to industry standard programs like Final Draft, but with some small aesthetic tweaks (handles em-dashes better, handles cont'd and mores in dual dialogue more elegantly, avoids starting pages with parenthetical dialogue, etc). This profile reflects the author's tastes and is subject to change.
 
-### Working on JumpCut
+The other profile is called `industry` and produces nearly identical pagination to Final Draft, even in cases that I personally find unattractive like splitting halfway through an em-dash. 
 
-- [Understand the pagination model](docs/pagination-spec.md)
-- [Understand dialogue split decisions](docs/dialogue-split-analysis.md)
-- [See the Industry compatibility rules](docs/industry-dialogue-splitting-rules.md)
-- [Run pagination and PDF diagnostics](docs/diagnostics.md)
+Example:
 
-## Rust library
+```sh
+jumpcut script.fountain script.pdf --render-profile industry
+```
 
-Add JumpCut without its command-line interface:
+See the [formatting guide](docs/formatting-and-metadata.md) for details, or the [Fountain guide](docs/fountain-rules.md) for a syntax example.
+
+## Use in an application
+
+Add JumpCut to a Rust project:
 
 ```toml
 jumpcut = { version = "1.1.0-beta.1", default-features = false, features = ["lib-only"] }
@@ -60,20 +52,8 @@ let fdx = screenplay.to_fdx();
 let html = screenplay.to_html();
 ```
 
-The library exposes the same parsing and rendering pipeline used by the CLI.
-
-## Pagination profiles
-
-JumpCut has two built-in pagination profiles:
-
-- `jumpcut` is the default. It favors clean wraps and balanced continuation pages.
-- `industry` is the compatibility option for conventional screenplay pagination and imported FDX behavior.
-
-Choose a profile with `--render-profile` or the `fmt` metadata key. The [formatting guide](docs/formatting-and-metadata.md) explains the differences and the available fine-tuning options.
+See the [Rust guide](docs/rust.md) for HTML options, or the [JavaScript guide](docs/wasm.md) for browser and Node usage.
 
 ## License
 
-JumpCut is released under the MIT license.
-
-[fountain]: https://fountain.io/
-[fdx]: https://www.finaldraft.com/
+MIT.

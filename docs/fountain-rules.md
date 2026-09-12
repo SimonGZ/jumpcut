@@ -1,53 +1,39 @@
-# Fountain syntax supported by JumpCut
+# Writing Fountain for JumpCut
 
-This is a quick reference for the Fountain features JumpCut recognizes. For the full language description, see the [Fountain syntax guide](https://fountain.io/syntax/).
+Fountain is a plain-text screenplay format. Write scene headings, action, character names, and dialogue like this:
 
----
+```text
+Title: Night Shift
+Author: Alex Morgan
 
-## Scene headings
-*   **Standard:** Must be preceded by a blank line. Starts with `INT`, `EXT`, `INT./EXT.`, `EST.`, etc.
-*   **Forced:** Start a line with a single period (`.`) to force a scene heading regardless of the starting text.
-*   **Scene Numbers:** Added at the end of the line, wrapped in `#` (e.g., `#1#` or `#A1#`).
+INT. HOTEL - NIGHT
 
-## Action
-*   **Standard:** Any paragraph that doesn't match other element types is treated as Action.
-*   **Forced:** Start a line with an exclamation mark (`!`) to force it as Action.
-*   **Indentation:** Leading tabs or spaces are generally ignored unless forcing a specific layout.
+Alex watches the revolving door.
 
-## Characters
-*   **Standard:** A line in ALL CAPS, preceded by a blank line, and followed by Dialogue or a Parenthetical.
-*   **Forced:** Start a line with `@` to force it as a Character name (useful for names with lowercase letters).
-*   **Extensions:** Character names can include extensions in parentheses, like `(O.S.)` or `(V.O.)`.
+ALEX
+(quietly)
+We’re closed.
+```
 
-## Dialogue and parentheticals
-*   **Dialogue:** Follows a Character cue or a Parenthetical.
-*   **Parentheticals:** Wrapped in `(parentheses)` and must occur between a Character and Dialogue, or between two Dialogue blocks.
-*   **Dual Dialogue:** Add a caret (`^`) at the end of the second Character cue to indicate it should be rendered side-by-side with the preceding block.
+JumpCut recognizes scene headings, action, dialogue, parentheticals, transitions, title pages, scene numbers, dual dialogue, lyrics, notes, sections, and synopses. See the [Fountain syntax guide](https://fountain.io/syntax/) for the full syntax.
 
-## Transitions
-*   **Standard:** Must be in ALL CAPS, preceded by a blank line, and end in `TO:`.
-*   **Forced:** Start a line with a greater-than symbol (`>`) to force a Transition (useful for "FADE OUT" or other non-standard cues).
+## Useful marks
 
-## Formatting and lyrics
-*   **Emphasis:** Supports standard Markdown:
-    *   `*Italic*`
-    *   `**Bold**`
-    *   `***Bold Italic***`
-    *   `_Underline_`
-*   **Lyrics:** Start a line with a tilde (`~`) to indicate sung lyrics.
-*   **Centered Text:** Wrap text in greater-than/less-than symbols: `> Center This <`.
+| Mark | Meaning |
+| --- | --- |
+| `.Heading` | Force a scene heading. |
+| `!Action` | Force an action paragraph. |
+| `@Name` | Force a character cue, including names with lowercase letters. |
+| `NAME ^` | Put this character’s dialogue beside the preceding dialogue. |
+| `>FADE OUT.` | Force a transition. |
+| `> Text <` | Center text. |
+| `~Text` | Lyrics. |
+| `*text*`, `**text**`, `***text***` | Italic, bold, or both. |
+| `_text_` | Underline. |
+| `[[note]]` | A note. |
+| `/* comment */` | A comment. |
+| `===` | A page break. |
 
-## Notes, comments, and page breaks
-*   **Notes:** Wrapped in double brackets: `[[This is a note]]`.
-*   **Boneyard:** Block comments wrapped in `/*` and `*/`.
-*   **Page Breaks:** A line with three or more equals signs `===` forces a page break.
+## JumpCut additions
 
-## Title page
-*   Metadata is placed at the very top of the document.
-*   Format: `Key: Value`.
-*   Keys like `Title`, `Credit`, `Author`, `Source`, `Draft date`, `Contact`.
-*   Multiline values are supported by indenting subsequent lines.
-
-## Sections and synopses
-*   **Sections:** Start with one or more `#` (e.g., `# Part 1`, `## Sequence A`). Used for navigation and organization.
-*   **Synopses:** Start with an equals sign (`=`) followed by text. Usually placed after a Scene Heading or Section.
+Use `Fmt` metadata to change document formatting, and `.lift` or `.widen` notes to adjust individual paragraphs. These additions are described in the [formatting guide](formatting-and-metadata.md).

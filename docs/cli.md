@@ -1,61 +1,59 @@
 # Command-line guide
 
-JumpCut reads a Fountain or FDX screenplay and converts it to another format. The simplest form is:
+Give JumpCut an input file and an output filename:
 
 ```sh
-jumpcut input.fountain output.pdf
+jumpcut script.fountain script.pdf
+jumpcut script.fountain script.fdx
+jumpcut script.fdx script.fountain
 ```
 
-JumpCut will infer the format from the file extension. But this can be written more explicitly:
+Input can be Fountain or FDX. Output can be `fountain`, `fdx`, `pdf`, `html`, `text`, or `json`. JumpCut chooses the output format from the extension, or you can set it with `--format`.
+
+## Output files and pipes
+
+Use `--write` to keep the input’s name with a new extension:
 
 ```sh
-jumpcut input.fountain --format pdf --output output.pdf
+jumpcut script.fountain --format pdf --write
 ```
 
-If you want the same filename you can specify just the format and use `--write`:
+This creates `script.pdf` beside the input. 
+
+If you don't provide an output filename (or pass the `--write`) option, then Jumpcut writes to stdout and you can pipe the text somewhere else.
+
+If you want to pipe something into Jumpcut, use `-` to read from stdin:
 
 ```sh
-jumpcut input.fountain --format pdf --write
-# This produces input.pdf in the same folder as input.fountain
+cat script.fountain | jumpcut - --format html
 ```
 
-## Common examples
+## Layout options
+
+JumpCut has a full pagination engine so that it can produce nice looking PDFs, but you can also pass the `--paginate` option to paginate text and html output.
+
+By default, HTML output lets the browser decide where lines break, but if you want the HTML to exactly match the line breaks of the PDF or Final Draft output, you can pass `--exact-wraps`:
 
 ```sh
-# Paginated plain text
-jumpcut script.fountain --format text --paginate --output script.txt
-
-# HTML with screenplay line wraps
-jumpcut script.fountain --format html --exact-wraps --output script.html
-
-# Read from stdin
-cat script.fountain | jumpcut - --format json
+jumpcut script.fountain script.txt --paginate
+jumpcut script.fountain script.html --exact-wraps
 ```
 
-Supported output formats are `fountain`, `fdx`, `html`, `json`, `text`, and `pdf`.
+For HTML and PDF, `--no-title-page` leaves out the title page. Use `--no-continueds` to leave out `(MORE)` and `(CONT'D)` markers.
 
-## Options
+See the [formatting guide](formatting-and-metadata.md) for paper size, page-break profiles, and metadata. Run `jumpcut --help` for the complete option list.
 
-| Option | What it does |
-| --- | --- |
-| `-f, --format FORMAT` | Choose the output format. |
-| `-o, --output FILE` | Write to a specific file. |
-| `-w, --write` | Derive the output filename from the input and format. |
-| `--paginate` | Add pagination to text output. |
-| `--exact-wraps` | Preserve screenplay line wraps in HTML output. |
-| `--line-numbers` | Add line numbers to text output. |
-| `--render-profile PROFILE` | Use `jumpcut` or `industry` pagination behavior. |
-| `--no-continueds` | Omit `(MORE)` and `(CONT'D)` markers. |
-| `--no-title-page` | Omit the title page from HTML and PDF. |
-| `--metadata [FILE]` | Prepend metadata from a Fountain file. With no file, look for `metadata.fountain`. |
-| `--embed-courier-prime` | Put the screenplay font directly into HTML. |
-| `--font-dir DIR` | Use a custom four-face TrueType font family for PDF or embedded-font HTML. |
-| `-h, --help` | Show help. |
-| `-V, --version` | Show the installed version. |
+## Fonts
 
-## Fonts and PDF details
+PDFs use the bundled Courier Prime font and include bookmarks for scene headings.
 
-PDF output uses the bundled Courier Prime family by default. To use another family, provide all four faces in a directory:
+To include Courier Prime in an HTML file, add `--embed-courier-prime`. The file can then display the font on computers where it isn’t installed:
+
+```sh
+jumpcut script.fountain script.html --embed-courier-prime
+```
+
+To use a different font family, put four TrueType files in a folder:
 
 ```text
 my-fonts/
@@ -65,16 +63,11 @@ my-fonts/
 └── bold-italic.ttf
 ```
 
-Then pass the directory when creating a PDF:
+Pass that folder with `--font-dir`. For HTML, also add `--embed-courier-prime`:
 
 ```sh
-jumpcut script.fountain --format pdf --font-dir ./my-fonts --output script.pdf
+jumpcut script.fountain script.pdf --font-dir ./my-fonts
+jumpcut script.fountain script.html --font-dir ./my-fonts --embed-courier-prime
 ```
 
-For HTML, add `--embed-courier-prime` as well. See [Embedded HTML fonts](html-embedded-fonts.md) for the browser and WASM APIs.
-
-PDF files include bookmarks for scene headings. The title page is included by default; use `--no-title-page` when you want only the screenplay pages.
-
-## Metadata and formatting
-
-For reusable metadata, profiles, page geometry, and one-off layout adjustments, see [Formatting and metadata](formatting-and-metadata.md).
+Embedding fonts makes the HTML file larger.

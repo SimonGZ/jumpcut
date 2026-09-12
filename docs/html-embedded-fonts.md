@@ -1,83 +1,9 @@
-# Self-contained HTML with embedded fonts
+# Embedded HTML fonts
 
-JumpCut can put the four Courier Prime font files directly into generated HTML. The result is a single file that keeps its screenplay layout even on a machine without the font installed.
+Including fonts in an HTML file lets it display Courier Prime on computers where the font isn’t installed. It also makes the file larger.
 
-## Command line and Rust
+The examples are now in the guides for each interface:
 
-The embedded-font path is off by default.
-
-CLI:
-
-```sh
-jumpcut --format html --embed-courier-prime input.fountain output.html
-```
-
-To embed a custom four-face TrueType family instead of the bundled Courier Prime files, use the `--font-dir` option alongside `--embed-courier-prime`:
-
-```sh
-jumpcut --format html --embed-courier-prime --font-dir ./my-fonts input.fountain output.html
-```
-
-The directory must contain `regular.ttf`, `bold.ttf`, `italic.ttf`, and `bold-italic.ttf`, or the Courier Prime-style aliases documented in the README. The custom faces are mapped to the CSS family name `Courier Prime`, so the existing screenplay stylesheet uses them without other changes.
-
-Rust:
-
-```rust
-let mut screenplay = jumpcut::parse(&content);
-let html = screenplay.to_html_with_options(jumpcut::html_output::HtmlRenderOptions {
-    head: true,
-    exact_wraps: false,
-    paginated: true,
-    embed_courier_prime: true,
-    embedded_courier_prime_css: None,
-});
-```
-
-When `embed_courier_prime` is `false`, JumpCut keeps the normal local-font lookup plus Courier fallbacks.
-
-## JavaScript and WASM
-
-For wasm, JumpCut does **not** compile the Courier Prime font bytes into the `.wasm` binary.
-
-Instead, the wasm wrapper exposes a runtime-supplied path:
-
-- `parse_to_html_string(text, include_head)`
-- `parse_to_html_string_with_options(text, include_head, exact_wraps, paginated)`
-- `parse_to_html_string_with_embedded_courier_prime(text, include_head, exact_wraps, paginated, regular_ttf_base64, italic_ttf_base64, bold_ttf_base64, bold_italic_ttf_base64)`
-
-That lets the app fetch or bundle the font files separately and only pay the cost when the user actually requests embedded-font export.
-
-Example:
-
-```js
-import init, {
-  parse_to_html_string_with_embedded_courier_prime,
-} from "./jumpcut_wasm.js";
-
-await init();
-
-const [regular, italic, bold, boldItalic] = await Promise.all([
-  fetch("/fonts/CourierPrime-Regular.ttf").then(r => r.arrayBuffer()),
-  fetch("/fonts/CourierPrime-Italic.ttf").then(r => r.arrayBuffer()),
-  fetch("/fonts/CourierPrime-Bold.ttf").then(r => r.arrayBuffer()),
-  fetch("/fonts/CourierPrime-BoldItalic.ttf").then(r => r.arrayBuffer()),
-]);
-
-const toBase64 = buf =>
-  btoa(String.fromCharCode(...new Uint8Array(buf)));
-
-const html = parse_to_html_string_with_embedded_courier_prime(
-  fountainText,
-  true,
-  false,
-  true,
-  toBase64(regular),
-  toBase64(italic),
-  toBase64(bold),
-  toBase64(boldItalic),
-);
-```
-
-## Size Notes
-
-Embedding Courier Prime materially increases HTML size because the font data is stored inline.
+- [Command line](cli.md#fonts)
+- [Rust](rust.md#html-options)
+- [JavaScript](wasm.md#embedded-html-fonts)
