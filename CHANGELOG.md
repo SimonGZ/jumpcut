@@ -5,12 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.1.0] - 2026-09-11
+## [2.0.0] - 2026-09-11
 
 ### Changed
-- I've rethought the two pagination profiles. The default which includes my pesronal aesthetic tweaks is now just called `jumpcut`.
+- I've rethought the two pagination profiles. The default which includes my personal aesthetic tweaks is now just called `jumpcut`.
 - `industry` is now the name of the profile that closely emulates Final Draft-style pagination. This profile has been rewritten and should now provide PDF pagination that almost exactly matches Final Draft, even in cases where I think Final Draft's choices are ugly.
-- Renamed the FDX serialization API to `Screenplay::to_fdx()`.
+- Breaking Rust API changes: pagination configuration now uses `PaginationPolicy`; public pagination functions, fields, and wrapping names have changed. Callers using these APIs must migrate to the new policy-based interfaces.
+- Renamed the FDX serialization API to `Screenplay::to_fdx()`, retaining `to_final_draft()` as a deprecated alias.
 
 ## [1.0.0] - 2026-08-02
 

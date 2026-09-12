@@ -34,6 +34,13 @@ impl Screenplay {
         crate::rendering::fdx::render_document(self)
     }
 
+    /// Serialize as Final Draft XML. Prefer [`Self::to_fdx`].
+    #[cfg(feature = "fdx")]
+    #[deprecated(since = "2.0.0", note = "Use to_fdx() instead")]
+    pub fn to_final_draft(&mut self) -> String {
+        self.to_fdx()
+    }
+
     #[cfg(feature = "html")]
     pub fn to_html(&mut self, head: bool) -> String {
         crate::rendering::html::render_document(

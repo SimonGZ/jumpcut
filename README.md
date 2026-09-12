@@ -41,7 +41,7 @@ See the [formatting guide](docs/formatting-and-metadata.md) for details, or the 
 Add JumpCut to a Rust project:
 
 ```toml
-jumpcut = { version = "1.1.0-beta.1", default-features = false, features = ["lib-only"] }
+jumpcut = { version = "2.0.0", default-features = false, features = ["lib-only"] }
 ```
 
 Then parse and render a screenplay:
@@ -49,7 +49,7 @@ Then parse and render a screenplay:
 ```rust
 let mut screenplay = jumpcut::parse(&content);
 let fdx = screenplay.to_fdx();
-let html = screenplay.to_html();
+let html = screenplay.to_html(true);
 ```
 
 See the [Rust guide](docs/rust.md) for HTML options, or the [JavaScript guide](docs/wasm.md) for browser and Node usage.
