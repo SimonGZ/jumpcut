@@ -71,6 +71,11 @@
   font-size: inherit;
 }
 
+/* PDF places body characters every 7pt, independent of the font's natural pitch. */
+.screenplay .body {
+  letter-spacing: calc(var(--body-cell-width) - 1ch);
+}
+
 .screenplay a {
   color: inherit;
   text-decoration: none;
@@ -220,8 +225,10 @@
 
 .screenplay .trans,
 .screenplay .transition {
-  max-width: 2in;
-  margin-left: 63%;
+  max-width: var(--transition-width);
+  margin-left: max(0px, calc(min(100%, var(--transition-right)) - var(--transition-width)));
+  margin-right: 0;
+  text-align: right;
   clear: both;
   page-break-before: avoid;
 }
@@ -255,6 +262,13 @@
   line-height: 1;
   white-space: pre;
   position: relative;
+}
+
+/* Visual lines include indentation; align them at the PDF's character-grid edge. */
+.screenplay.exactWraps .visualLine.transition,
+.screenplay.paginatedHtml .visualLine.transition {
+  max-width: none;
+  width: min(100%, var(--transition-right));
 }
 
 .screenplay.exactWraps .blankLine,

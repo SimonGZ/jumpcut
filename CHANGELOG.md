@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.1] - 2026-09-12
+
+### Fixed
+- Right-align HTML transitions such as `CUT TO:` at the same position relative to action text as PDF output, using the layout profile's transition margin and the PDF character grid in normal, exact-wrap, and paginated output.
+- Match HTML body character spacing to the PDF's fixed 7-point advance, keeping text alignment consistent with physical screenplay margins. This can change browser-selected line breaks in normal HTML.
+- Add an opt-in browser regression test that measures transition placement, including styled and wrapped transitions and responsive normal HTML.
+
 ## [2.0.0] - 2026-09-11
 
 ### Changed

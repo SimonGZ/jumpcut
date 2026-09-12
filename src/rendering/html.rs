@@ -1,3 +1,4 @@
+use super::BODY_TEXT_CELL_WIDTH;
 use super::shared::{escape_html, join_metadata, sorted_style_names};
 
 use crate::pagination::margin::dual_dialogue_character_left_indent;
@@ -311,7 +312,22 @@ fn stylesheet_css(options: &HtmlRenderOptions, layout_profile: &ScreenplayLayout
     css.push_str(HTML_STYLE);
     css.push('\n');
     css.push_str(&layout_profile_css(layout_profile));
+    css.push_str(&transition_layout_css(layout_profile));
     css
+}
+
+fn transition_layout_css(profile: &ScreenplayLayoutProfile) -> String {
+    // Keep screenplay margins in physical inches. The body uses the PDF's cell
+    // advance so text positions agree even when the font's natural pitch differs.
+    let right = css_inches(
+        profile.styles.transition.right_indent - profile.styles.action.left_indent,
+    );
+    let width = css_inches(
+        profile.styles.transition.right_indent - profile.styles.transition.left_indent,
+    );
+    format!(
+        ".screenplay {{\n  --body-cell-width: {BODY_TEXT_CELL_WIDTH}pt;\n  --transition-right: {right};\n  --transition-width: {width};\n}}\n"
+    )
 }
 
 fn layout_profile_css(layout_profile: &ScreenplayLayoutProfile) -> String {
@@ -1236,6 +1252,24 @@ mod tests {
             embed_courier_prime: false,
             embedded_courier_prime_css: None,
         }
+    }
+
+    #[test]
+    fn transition_css_uses_physical_margins_and_pdf_body_pitch() {
+        let mut profile = ScreenplayLayoutProfile::from_metadata(&Metadata::new());
+        let css = transition_layout_css(&profile);
+        // The 7.1in page coordinate is 5.6in from action's 1.5in left edge.
+        assert!(css.contains("--body-cell-width: 7pt;"));
+        assert!(css.contains("--transition-right: 5.6in;"));
+        assert!(css.contains("--transition-width: 1.6in;"));
+
+        // Profiles (including imported FDX) can move both action and transition.
+        profile.styles.action.left_indent = 2.0;
+        profile.styles.transition.left_indent = 5.0;
+        profile.styles.transition.right_indent = 7.25;
+        let css = transition_layout_css(&profile);
+        assert!(css.contains("--transition-right: 5.25in;"));
+        assert!(css.contains("--transition-width: 2.25in;"));
     }
 
     #[test]

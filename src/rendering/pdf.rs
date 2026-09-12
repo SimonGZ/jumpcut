@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 
+use super::BODY_TEXT_CELL_WIDTH;
 use crate::pagination::ScreenplayLayoutProfile;
 use crate::pagination::margin::{LayoutGeometry, dual_dialogue_character_left_indent};
 use crate::pagination::visual_lines::{
@@ -56,7 +57,6 @@ const FONT_REGULAR_NAME: Name<'static> = Name(b"F1");
 const FONT_BOLD_NAME: Name<'static> = Name(b"F2");
 const FONT_ITALIC_NAME: Name<'static> = Name(b"F3");
 const FONT_BOLD_ITALIC_NAME: Name<'static> = Name(b"F4");
-const BODY_TEXT_CELL_WIDTH: f32 = 7.0;
 const ORDINARY_CHARACTER_CONTD_SUFFIX_X_ADJUSTMENT: f32 = 0.5625;
 const UNDERLINE_LINE_WIDTH: f32 = 0.75;
 const UNDERLINE_Y_OFFSET: f32 = 1.5;
