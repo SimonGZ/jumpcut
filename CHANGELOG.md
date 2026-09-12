@@ -5,22 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
-
-### Added
-- Added explicit `PaginationPolicy` and `PaginationProfile` types so behavioral pagination rules no longer live in physical layout geometry.
-- Added a Jumpcut preference that avoids beginning a continuation page with a parenthetical when another legal split exists.
+## [1.1.0] - 2026-09-11
 
 ### Changed
-- Made `jumpcut` the canonical default profile and `industry` the stable compatibility profile.
-- Kept `balanced` as an alias for `jumpcut` and `final-draft` as an alias for `industry` during migration.
-- Renamed pagination internals around Jumpcut and Industry behavior while retaining commercial product names only in research provenance and FDX schema data.
+- I've rethought the two pagination profiles. The default which includes my pesronal aesthetic tweaks is now just called `jumpcut`.
+- `industry` is now the name of the profile that closely emulates Final Draft-style pagination. This profile has been rewritten and should now provide PDF pagination that almost exactly matches Final Draft, even in cases where I think Final Draft's choices are ugly.
 - Renamed the FDX serialization API to `Screenplay::to_fdx()`.
-
-## [1.1.0-beta.1] - 2026-08-03
-
-### Added
-- Added the experimental `final-draft` pagination compatibility profile.
 
 ## [1.0.0] - 2026-08-02
 
