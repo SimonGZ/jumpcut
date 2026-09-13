@@ -2266,10 +2266,6 @@ fn line_kind_left(kind: Option<PdfLineKind>, geometry: &LayoutGeometry) -> f32 {
         .unwrap_or(geometry.action_left * 72.0)
 }
 
-fn snap_character_left_inches(left: f32) -> f32 {
-    (left * 8.0).round() / 8.0
-}
-
 fn dual_side_left(side: &PdfRenderDualSide, geometry: &LayoutGeometry) -> f32 {
     let left = match side.kind {
         PdfLineKind::DualDialogueCharacterLeft => {
@@ -2303,7 +2299,7 @@ fn element_left_inches(kind: PdfLineKind, geometry: &LayoutGeometry) -> f32 {
         PdfLineKind::ColdOpening => geometry.cold_opening_left,
         PdfLineKind::NewAct => geometry.new_act_left,
         PdfLineKind::EndOfAct => geometry.end_of_act_left,
-        PdfLineKind::Character => snap_character_left_inches(geometry.character_left),
+        PdfLineKind::Character => geometry.character_left,
         PdfLineKind::Dialogue => geometry.dialogue_left,
         PdfLineKind::Parenthetical => geometry.parenthetical_left,
         PdfLineKind::Transition => geometry.transition_left,
@@ -6756,6 +6752,41 @@ mod tests {
     }
 
     #[test]
+    fn custom_fmt_edges_reach_pdf_text_positions_after_conversions() {
+        let mut source = crate::parse(
+            "Fmt: al-2.125 ar-6.875 shl-1.25 shr-7.25 cl-3.2 cr-7 dl-2.375 dr-5.875 pl-2.875 pr-5.125 tl-4 tr-6.625 nal-1 nar-6 no-auto-act-breaks\n\nINT. ROOM - DAY\n\nAction.\n\nBOB\n(quietly)\nHello.\n\nCUT TO:\n\n> ACT TWO <",
+        );
+        let imported = crate::parse_fdx(&source.to_fdx()).unwrap();
+        for script in [&source, &imported, &crate::parse(&imported.to_fountain())] {
+            let profile = ScreenplayLayoutProfile::from_screenplay(script);
+            let geometry = profile.to_pagination_geometry();
+            let document = build_render_document(script, PdfRenderOptions::default(), &geometry);
+            for (text, expected) in [
+                ("INT. ROOM - DAY", 1.25 * 72.0),
+                ("Action.", 2.125 * 72.0),
+                ("BOB", 3.2 * 72.0),
+                ("(quietly)", (2.875 - 0.1) * 72.0),
+                ("Hello.", 2.375 * 72.0),
+                ("CUT TO:", 6.625 * 72.0 - 7.0 * 7.0),
+                ("ACT TWO", 1.0 * 72.0 + (5.0 * 72.0 - 7.0 * 7.0) / 2.0),
+            ] {
+                let line = document
+                    .body_pages
+                    .iter()
+                    .flat_map(|page| &page.lines)
+                    .find(|line| line.text.trim() == text)
+                    .expect(text);
+                assert_eq!(rendered_body_line_text(line, &geometry), text);
+                assert!(
+                    (body_line_left(line, &geometry) - expected).abs() < 0.001,
+                    "{text}: expected {expected}, got {}",
+                    body_line_left(line, &geometry)
+                );
+            }
+        }
+    }
+
+    #[test]
     fn body_line_left_uses_layout_geometry_for_element_kinds() {
         let geometry = LayoutGeometry::default();
 
@@ -6795,14 +6826,11 @@ mod tests {
     }
 
     #[test]
-    fn ordinary_character_cues_snap_left_indent_to_eighth_inches() {
+    fn ordinary_character_cues_preserve_fractional_left_indent() {
         let mut geometry = LayoutGeometry::default();
         geometry.character_left = 3.38;
 
-        assert_eq!(
-            line_kind_left(Some(PdfLineKind::Character), &geometry),
-            243.0
-        );
+        assert!((line_kind_left(Some(PdfLineKind::Character), &geometry) - 243.36).abs() < 0.001);
     }
 
     #[test]

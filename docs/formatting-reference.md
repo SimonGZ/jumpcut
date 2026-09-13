@@ -54,6 +54,8 @@ Fmt: industry al-1.75 ar-7.25 cl-3.75 dl-2.50 dr-6.00
 
 Imported FDX element margins and page margins are written to these `Fmt` tags when exporting Fountain, preserving their values when reopened in Jumpcut. Other Fountain applications must support these Jumpcut extensions to apply them.
 
+Element edges control wrapping and placement in PDF and all HTML modes, and are preserved in FDX and Fountain exports, including fractional values such as `2.125`. Ordinary HTML adapts to narrower viewports; exact-wrap and paginated HTML retain physical layout. Centered elements are centered between their own edges. Dialogue tags apply to ordinary dialogue; dual dialogue retains its separate column geometry.
+
 - `tm-X.XX`: Sets the page top margin in inches.
 - `bm-X.XX`: Sets the page bottom margin in inches.
 - `hm-X.XX`: Sets the page header margin in inches.

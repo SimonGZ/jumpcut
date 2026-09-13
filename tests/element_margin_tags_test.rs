@@ -103,3 +103,65 @@ fn scene_heading_wrapping_and_geometry_are_independent_of_action() {
             > WrapConfig::from_geometry_industry(&geometry, ElementType::Action).exact_width_chars
     );
 }
+
+#[test]
+fn fdx_settings_preserve_independent_scene_heading_geometry() {
+    use jumpcut::pagination::margin::{FdxExtractedSettings, LayoutGeometry};
+    let settings: FdxExtractedSettings = serde_json::from_str(r#"{"paragraph_styles":{"Action":{"left_indent":2,"right_indent":6,"space_before":12,"spacing":1},"Scene Heading":{"left_indent":1.25,"right_indent":6.875,"first_indent":0.25,"space_before":12,"spacing":1}}}"#).unwrap();
+    let geometry = LayoutGeometry::from_fdx_settings(&settings);
+    assert_eq!(
+        (
+            geometry.scene_heading_left,
+            geometry.scene_heading_right,
+            geometry.scene_heading_first_indent
+        ),
+        (1.25, 6.875, 0.25)
+    );
+    assert_eq!((geometry.action_left, geometry.action_right), (2.0, 6.0));
+}
+
+#[test]
+fn fractional_margins_survive_fountain_fdx_fountain_conversion() {
+    let tags = ELEMENT_MARGIN_TAGS
+        .iter()
+        .map(|(_, l, r)| format!("{l}-2.125 {r}-6.875"))
+        .collect::<Vec<_>>()
+        .join(" ");
+    let mut original = parse(&format!(
+        "Fmt: {tags} tm-0.8125 bm-0.9375 hm-0.375 fm-0.4375\n\nINT. ROOM - DAY\n\nAction."
+    ));
+    let imported = parse_fdx(&original.to_fdx()).unwrap();
+    for script in [&imported, &parse(&imported.to_fountain())] {
+        let profile = ScreenplayLayoutProfile::from_screenplay(script);
+        for &(kind, _, _) in ELEMENT_MARGIN_TAGS {
+            assert_eq!(edges(&profile, kind), (2.125, 6.875));
+        }
+        assert_eq!(
+            (
+                profile.top_margin,
+                profile.bottom_margin,
+                profile.header_margin,
+                profile.footer_margin
+            ),
+            (0.8125, 0.9375, 0.375, 0.4375)
+        );
+    }
+}
+
+#[cfg(feature = "html")]
+#[test]
+fn ordinary_html_changes_when_element_margins_change() {
+    for (_, left, right) in ELEMENT_MARGIN_TAGS {
+        let mut original = parse(
+            "INT. ROOM - DAY\n\nAction.\n\nBOB\n(quietly)\nHello.\n\nCUT TO:\n\n~Song\n\n> COLD OPENING <\n\n> ACT TWO <\n\n> END OF ACT TWO <",
+        );
+        let mut custom = parse(&format!(
+            "Fmt: {left}-2.125 {right}-6.875\n\n{}",
+            original.to_fountain()
+        ));
+        assert!(
+            original.to_html(true) != custom.to_html(true),
+            "{left}/{right} should affect HTML"
+        );
+    }
+}

@@ -276,10 +276,10 @@ fn render_header_and_footer(out: &mut String, metadata: &Metadata) {
 }
 
 fn render_page_layout(out: &mut String, layout_profile: &ScreenplayLayoutProfile) {
-    let top_margin = (layout_profile.top_margin * 72.0).round() as i32;
-    let bottom_margin = (layout_profile.bottom_margin * 72.0).round() as i32;
-    let header_margin = (layout_profile.header_margin * 72.0).round() as i32;
-    let footer_margin = (layout_profile.footer_margin * 72.0).round() as i32;
+    let top_margin = layout_profile.top_margin * 72.0;
+    let bottom_margin = layout_profile.bottom_margin * 72.0;
+    let header_margin = layout_profile.header_margin * 72.0;
+    let footer_margin = layout_profile.footer_margin * 72.0;
     let break_at_sentences = if layout_profile
         .pagination
         .break_dialogue_and_action_at_sentences
@@ -554,7 +554,14 @@ fn alignment_name(alignment: Alignment) -> String {
 }
 
 fn format_indent(value: f32) -> String {
-    format!("{value:.2}")
+    // Keep conventional two-place output where it is lossless, while retaining
+    // finer user-supplied edges (for example, 7.375 inches).
+    let rounded = format!("{value:.2}");
+    if rounded.parse::<f32>().ok() == Some(value) {
+        rounded
+    } else {
+        value.to_string()
+    }
 }
 
 fn format_spacing(value: f32) -> String {

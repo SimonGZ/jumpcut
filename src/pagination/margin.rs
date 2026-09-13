@@ -268,6 +268,9 @@ impl LayoutGeometry {
             geometry.end_of_act_line_height = style.spacing;
         }
         if let Some(style) = settings.paragraph_styles.get("Scene Heading") {
+            geometry.scene_heading_left = style.left_indent;
+            geometry.scene_heading_right = style.right_indent;
+            geometry.scene_heading_first_indent = style.first_indent;
             geometry.scene_heading_spacing_before =
                 spacing_lines_from_points(style.space_before, lpi);
             geometry.scene_heading_alignment = style.alignment;

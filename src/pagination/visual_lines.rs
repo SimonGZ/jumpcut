@@ -1254,7 +1254,7 @@ fn indent_spaces_for_element_type(element_type: ElementType, geometry: &LayoutGe
     ((left_indent_in - geometry.action_left) * geometry.cpi).floor() as usize
 }
 
-fn indent_spaces_for_rendered_text(
+pub(crate) fn indent_spaces_for_rendered_text(
     element_type: ElementType,
     rendered_text: &str,
     geometry: &LayoutGeometry,

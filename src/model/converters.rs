@@ -356,7 +356,7 @@ mod tests {
 
         assert!(actual.contains("<ElementSettings Type=\"Lyric\">"));
         assert!(actual.contains(
-            "<ParagraphSpec Alignment=\"Left\" FirstIndent=\"0.00\" Leading=\"Regular\" LeftIndent=\"2.50\" RightIndent=\"7.38\" SpaceBefore=\"0\" Spacing=\"1\" StartsNewPage=\"No\"/>"
+            "<ParagraphSpec Alignment=\"Left\" FirstIndent=\"0.00\" Leading=\"Regular\" LeftIndent=\"2.50\" RightIndent=\"7.375\" SpaceBefore=\"0\" Spacing=\"1\" StartsNewPage=\"No\"/>"
         ));
     }
 
@@ -762,7 +762,10 @@ mod tests {
         } else {
             input.to_string()
         };
-        normalize_markup(&without_style)
+        // The legacy template has no physical paragraph layout. Compare the
+        // markup structure here; renderer tests cover layout independently.
+        let inline_styles = regex::Regex::new(r#" style="[^"]*""#).unwrap();
+        normalize_markup(&inline_styles.replace_all(&without_style, ""))
     }
 
     fn render_html_with_handlebars(screenplay: &Screenplay, head: bool) -> String {

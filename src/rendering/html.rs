@@ -313,6 +313,11 @@ fn stylesheet_css(options: &HtmlRenderOptions, layout_profile: &ScreenplayLayout
     css.push('\n');
     css.push_str(&layout_profile_css(layout_profile));
     css.push_str(&transition_layout_css(layout_profile));
+    let body_width = css_inches(
+        (layout_profile.styles.action.right_indent - layout_profile.styles.action.left_indent)
+            .max(0.0),
+    );
+    writeln!(css, ".screenplay:not(.paginatedHtml), .screenplay.paginatedHtml .pageBody {{ max-width: {body_width}; }}\n.screenplay .body > .dialogueBlock {{ width: 100%; max-width: none; margin-left: 0; }}").unwrap();
     css
 }
 
@@ -336,13 +341,19 @@ fn layout_profile_css(layout_profile: &ScreenplayLayoutProfile) -> String {
         (layout_profile.page_width - layout_profile.styles.action.right_indent).max(0.0),
     );
 
+    let top_margin = css_inches(layout_profile.top_margin);
+    let bottom_margin = css_inches(layout_profile.bottom_margin);
+    let header_margin = css_inches(layout_profile.header_margin.min(layout_profile.top_margin));
+    let header_height =
+        css_inches((layout_profile.top_margin - layout_profile.header_margin).max(0.0));
+
     format!(
-        "@page screenplay, screenplay-title {{\n  size: {page_width} {page_height};\n  margin-top: 1in;\n  margin-right: {page_right_margin};\n  margin-bottom: 0.75in;\n  margin-left: {page_left_margin};\n}}\n\n.screenplay.paginatedHtml .page {{\n  width: {page_width};\n  min-height: {page_height};\n  padding-left: {page_left_margin};\n  padding-right: {page_right_margin};\n}}\n\n.screenplay .title-page {{\n  width: {page_width};\n  min-height: {page_height};\n  padding-left: {page_left_margin};\n  padding-right: {page_right_margin};\n}}\n\n.screenplay .title-page.importedTitlePage {{\n  padding-left: 0;\n  padding-right: 0;\n}}\n"
+        "@page screenplay, screenplay-title {{\n  size: {page_width} {page_height};\n  margin-top: {top_margin};\n  margin-right: {page_right_margin};\n  margin-bottom: {bottom_margin};\n  margin-left: {page_left_margin};\n}}\n\n.screenplay.paginatedHtml .page {{\n  width: {page_width};\n  min-height: {page_height};\n  padding-left: {page_left_margin};\n  padding-right: {page_right_margin};\n  padding-top: {header_margin};\n  padding-bottom: {bottom_margin};\n}}\n\n.screenplay.paginatedHtml .pageHeader {{ height: {header_height}; }}\n\n.screenplay .title-page {{\n  width: {page_width};\n  min-height: {page_height};\n  padding-left: {page_left_margin};\n  padding-right: {page_right_margin};\n}}\n\n.screenplay .title-page.importedTitlePage {{\n  padding-left: 0;\n  padding-right: 0;\n}}\n"
     )
 }
 
 fn css_inches(value: f32) -> String {
-    let trimmed = format!("{value:.2}");
+    let trimmed = format!("{value:.6}");
     let trimmed = trimmed.trim_end_matches('0').trim_end_matches('.');
     format!("{trimmed}in")
 }
@@ -396,7 +407,7 @@ fn render_body(
             Element::DialogueBlock(block) => {
                 out.push_str("    <div class=\"dialogueBlock\">\n");
                 for child in block {
-                    render_paragraph(out, child, layout_profile);
+                    render_paragraph(out, child, layout_profile, false);
                 }
                 out.push_str("                </div>\n");
             }
@@ -406,14 +417,14 @@ fn render_body(
                     out.push_str("                    <div class=\"dialogueBlock\">\n");
                     if let Element::DialogueBlock(dialogue_block) = block {
                         for child in dialogue_block {
-                            render_paragraph(out, child, layout_profile);
+                            render_paragraph(out, child, layout_profile, true);
                         }
                     }
                     out.push_str("                    </div>\n");
                 }
                 out.push_str("                </div>\n");
             }
-            _ => render_paragraph(out, element, layout_profile),
+            _ => render_paragraph(out, element, layout_profile, false),
         }
     }
     out.push_str("        </section>\n");
@@ -518,15 +529,7 @@ fn render_visual_line(
         out,
         "                    <div class=\"{}\"{}>",
         classes.join(" "),
-        line.element_type
-            .and_then(|kind| default_styles_for_element_type(kind, layout_profile))
-            .filter(|style| !line.centered
-                && style.left_indent < layout_profile.styles.action.left_indent)
-            .map(|style| format!(
-                " style=\"margin-left: {}in\"",
-                style.left_indent - layout_profile.styles.action.left_indent
-            ))
-            .unwrap_or_default()
+        visual_line_layout_style(line, layout_profile)
     )
     .unwrap();
     if line.text.is_empty() {
@@ -551,6 +554,63 @@ fn render_visual_line(
         render_visual_fragments(out, &line.fragments);
     }
     out.push_str("</div>\n");
+}
+
+fn html_alignment(alignment: crate::pagination::Alignment) -> &'static str {
+    match alignment {
+        crate::pagination::Alignment::Left => "left",
+        crate::pagination::Alignment::Center => "center",
+        crate::pagination::Alignment::Right => "right",
+    }
+}
+
+fn visual_line_layout_style(line: &VisualLine, profile: &ScreenplayLayoutProfile) -> String {
+    if line.dual.is_some() || line.text.is_empty() {
+        return String::new();
+    }
+    let Some(kind) = line.element_type else {
+        return String::new();
+    };
+    let Some(base) = default_styles_for_element_type(kind, profile) else {
+        return String::new();
+    };
+    let style = base.apply_element_layout_overrides(&line.layout_overrides);
+    let geometry = profile.to_pagination_geometry();
+    let padding_cells = if line.centered {
+        0
+    } else {
+        (crate::pagination::visual_lines::indent_spaces_for_rendered_text(
+            kind,
+            line.text.trim_start(),
+            &geometry,
+        ) as f32
+            + line.layout_overrides.left_indent_delta.unwrap_or(0.0) * geometry.cpi)
+            .round()
+            .max(0.0) as usize
+    };
+    let text = line.text.get(padding_cells..).unwrap_or(&line.text);
+    let hang = if !line.centered && hangs_opening_parenthesis(kind, text) {
+        style.first_indent.abs()
+    } else {
+        0.0
+    };
+    // Plain-text exports need whole-cell padding. Compensate in CSS so HTML
+    // retains physical positions, including fractional and negative offsets.
+    let left = style.left_indent
+        - profile.styles.action.left_indent
+        - hang
+        - padding_cells as f32 * BODY_TEXT_CELL_WIDTH / 72.0;
+    let width = style.right_indent - profile.styles.action.left_indent - left;
+    let left = css_inches(left);
+    let width = css_inches(width.max(0.0));
+    let alignment = if line.centered {
+        "center"
+    } else {
+        html_alignment(style.alignment)
+    };
+    format!(
+        " style=\"margin-left: {left}; width: {width}; max-width: none; text-align: {alignment}\""
+    )
 }
 
 fn render_visual_dual_line(
@@ -635,7 +695,12 @@ fn render_visual_fragments(
     }
 }
 
-fn render_paragraph(out: &mut String, element: &Element, layout_profile: &ScreenplayLayoutProfile) {
+fn render_paragraph(
+    out: &mut String,
+    element: &Element,
+    layout_profile: &ScreenplayLayoutProfile,
+    dual: bool,
+) {
     let (type_name, text, attributes) = match element {
         Element::Action(text, attributes)
         | Element::Character(text, attributes)
@@ -677,7 +742,30 @@ fn render_paragraph(out: &mut String, element: &Element, layout_profile: &Screen
     if attributes.centered {
         out.push_str(" centered");
     }
-    out.push_str("\">");
+    out.push('"');
+    if !dual && let Some(style) = default_styles_for_type_name(type_name, layout_profile) {
+        let style = style.apply_element_layout_overrides(&attributes.layout_overrides);
+        let left = css_inches(style.left_indent - layout_profile.styles.action.left_indent);
+        let width = css_inches((style.right_indent - style.left_indent).max(0.0));
+        // An element may extend beyond either action edge; those regions are
+        // still available even though the body container follows action width.
+        let extension = (style.right_indent - layout_profile.styles.action.right_indent).max(0.0)
+            + (layout_profile.styles.action.left_indent - style.left_indent).max(0.0);
+        let available = if extension > 0.0 {
+            format!("calc(100% + {})", css_inches(extension))
+        } else {
+            "100%".to_owned()
+        };
+        let alignment = if attributes.centered {
+            "center"
+        } else {
+            html_alignment(style.alignment)
+        };
+        let first_indent = css_inches(style.first_indent);
+        // Responsive paragraphs retain physical edges whenever the viewport fits.
+        write!(out, " style=\"margin-left: min({left}, max(0px, calc({available} - {width}))); margin-right: 0; width: min({available}, {width}); max-width: none; text-align: {alignment}; text-indent: {first_indent}\"").unwrap();
+    }
+    out.push('>');
     if type_name == "Scene Heading"
         && let Some(scene_number) = &attributes.scene_number
     {
@@ -1500,6 +1588,83 @@ mod tests {
     }
 
     #[test]
+    fn custom_visual_margins_use_physical_edges_in_both_html_modes() {
+        let mut source = crate::parse(
+            "Fmt: al-2.125 ar-6.875 shl-1.25 shr-7.25 cl-3.2 dl-2.375 dr-5.875 pl-1.875 pr-5.125 tl-4 tr-6.625 nal-1 nar-6 no-auto-act-breaks\n\nINT. ROOM - DAY\n\nAction.\n\nBOB\n(quietly)\nHello.\n\nCUT TO:\n\n> ACT TWO <",
+        );
+        let imported = crate::parse_fdx(&source.to_fdx()).unwrap();
+        for script in [&source, &imported, &crate::parse(&imported.to_fountain())] {
+            for paginated in [false, true] {
+                let html = render_document(script, html_options(true, !paginated, paginated));
+                for (text, expected_left, expected_right, alignment) in [
+                    ("INT. ROOM - DAY", 1.25, 7.25, "left"),
+                    ("Action.", 2.125, 6.875, "left"),
+                    ("BOB", 3.2, 7.25, "left"),
+                    ("(quietly)", 1.775, 5.125, "left"),
+                    ("Hello.", 2.375, 5.875, "left"),
+                    ("ACT TWO", 1.0, 6.0, "center"),
+                ] {
+                    let row = html
+                        .lines()
+                        .find(|row| row.contains(&format!("{text}</div>")))
+                        .expect(text);
+                    let declaration = row
+                        .split("style=\"")
+                        .nth(1)
+                        .unwrap()
+                        .split('"')
+                        .next()
+                        .unwrap();
+                    let inches = |name: &str| -> f32 {
+                        declaration
+                            .split(&format!("{name}: "))
+                            .nth(1)
+                            .unwrap()
+                            .split("in")
+                            .next()
+                            .unwrap()
+                            .parse()
+                            .unwrap()
+                    };
+                    let content = row.split('>').nth(1).unwrap();
+                    let spaces = content.len() - content.trim_start_matches(' ').len();
+                    let origin = 2.125 + inches("margin-left");
+                    let text_left = origin + spaces as f32 * 7.0 / 72.0;
+                    assert!(
+                        (text_left - expected_left).abs() < 0.0001,
+                        "{text}: {text_left}"
+                    );
+                    assert!(
+                        (origin + inches("width") - expected_right).abs() < 0.0001,
+                        "{text}"
+                    );
+                    assert!(declaration.contains(&format!("text-align: {alignment}")));
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn ordinary_html_allows_headings_to_extend_beyond_action_edges() {
+        let script = crate::parse(
+            "Fmt: al-2.125 ar-6.875 shl-1.25 shr-7.25 dl-2.375 dr-5.875\n\nINT. ROOM - DAY\n\nBOB\nHello.",
+        );
+        let html = render_document(&script, html_options(true, false, false));
+        let heading = html
+            .lines()
+            .find(|row| row.contains("<p class=\"sceneHeading"))
+            .unwrap();
+        assert!(heading.contains("margin-left: min(-0.875in,"));
+        assert!(heading.contains("width: min(calc(100% + 1.25in), 6in)"));
+        let dialogue = html
+            .lines()
+            .find(|row| row.contains("<p class=\"dialogue\""))
+            .unwrap();
+        assert!(dialogue.contains("margin-left: min(0.25in,"));
+        assert!(dialogue.contains("width: min(100%, 3.5in)"));
+    }
+
+    #[test]
     fn exact_wrap_html_hangs_the_opening_parenthesis_one_cell_left() {
         let screenplay = Screenplay {
             metadata: Metadata::new(),
@@ -1513,10 +1678,8 @@ mod tests {
 
         let output = render_document(&screenplay, html_options(false, true, false));
 
-        assert!(
-            output
-                .contains("<div class=\"visualLine parenthetical\">              (quietly)</div>")
-        );
+        assert!(output.contains("visualLine parenthetical"));
+        assert!(output.contains(">              (quietly)</div>"));
     }
 
     #[test]
