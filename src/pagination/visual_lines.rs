@@ -1229,7 +1229,8 @@ fn take_rendered_lines_from_bottom_by_height(
 
 fn indent_spaces_for_element_type(element_type: ElementType, geometry: &LayoutGeometry) -> usize {
     let left_indent_in = match element_type {
-        ElementType::Action | ElementType::SceneHeading => geometry.action_left,
+        ElementType::Action => geometry.action_left,
+        ElementType::SceneHeading => geometry.scene_heading_left,
         ElementType::ColdOpening => geometry.cold_opening_left,
         ElementType::NewAct => geometry.new_act_left,
         ElementType::EndOfAct => geometry.end_of_act_left,
@@ -1270,7 +1271,8 @@ fn indent_spaces_for_rendered_text(
 
 fn first_indent_for_element_type(element_type: ElementType, geometry: &LayoutGeometry) -> f32 {
     match element_type {
-        ElementType::Action | ElementType::SceneHeading => geometry.action_first_indent,
+        ElementType::Action => geometry.action_first_indent,
+        ElementType::SceneHeading => geometry.scene_heading_first_indent,
         ElementType::ColdOpening => geometry.cold_opening_first_indent,
         ElementType::NewAct => geometry.new_act_first_indent,
         ElementType::EndOfAct => geometry.end_of_act_first_indent,

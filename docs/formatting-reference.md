@@ -33,8 +33,27 @@ Fmt: industry bold-scene-headings single-space-before-scene-headings no-auto-act
 
 You can also customize the margins for different element types. Measurements below are in inches, except `lpp`, which sets the number of body lines per page.
 
-- `dl-X.XX`: Sets the dialogue left indent in inches.
-- `dr-X.XX`: Sets the dialogue right indent in inches.
+| Element | Left edge | Right edge |
+| --- | --- | --- |
+| Action | `al-X.XX` | `ar-X.XX` |
+| Scene heading | `shl-X.XX` | `shr-X.XX` |
+| Character | `cl-X.XX` | `cr-X.XX` |
+| Dialogue | `dl-X.XX` | `dr-X.XX` |
+| Parenthetical | `pl-X.XX` | `pr-X.XX` |
+| Transition | `tl-X.XX` | `tr-X.XX` |
+| Lyrics | `ll-X.XX` | `lr-X.XX` |
+| Cold opening | `col-X.XX` | `cor-X.XX` |
+| New act | `nal-X.XX` | `nar-X.XX` |
+| End of act | `eal-X.XX` | `ear-X.XX` |
+
+Both edges are absolute positions measured from the **left edge of the page**; the right value is not a distance from the right edge. Each tag changes only one edge. Omitted edges keep their profile defaults. Tags are case-insensitive, and the last valid occurrence of a tag wins. Use nonnegative finite values with the right edge greater than the left edge. Decimal precision is not limited to two places (for example, `lr-7.375`).
+
+```text
+Fmt: industry al-1.75 ar-7.25 cl-3.75 dl-2.50 dr-6.00
+```
+
+Imported FDX element margins and page margins are written to these `Fmt` tags when exporting Fountain, preserving their values when reopened in Jumpcut. Other Fountain applications must support these Jumpcut extensions to apply them.
+
 - `tm-X.XX`: Sets the page top margin in inches.
 - `bm-X.XX`: Sets the page bottom margin in inches.
 - `hm-X.XX`: Sets the page header margin in inches.

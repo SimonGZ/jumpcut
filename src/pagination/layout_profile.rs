@@ -136,6 +136,9 @@ impl ScreenplayLayoutProfile {
     pub fn to_pagination_geometry(&self) -> LayoutGeometry {
         let mut geometry = LayoutGeometry::default();
 
+        geometry.scene_heading_left = self.styles.scene_heading.left_indent;
+        geometry.scene_heading_right = self.styles.scene_heading.right_indent;
+        geometry.scene_heading_first_indent = self.styles.scene_heading.first_indent;
         geometry.action_left = self.styles.action.left_indent;
         geometry.action_first_indent = self.styles.action.first_indent;
         geometry.action_right = self.styles.action.right_indent;
@@ -645,6 +648,8 @@ fn apply_fmt_template_option(profile: &mut ScreenplayLayoutProfile, option: &str
 }
 
 fn apply_fmt_geometry_override_option(profile: &mut ScreenplayLayoutProfile, option: &str) {
+    let normalized = option.to_ascii_lowercase();
+    let option = normalized.as_str();
     if matches_fmt_option(option, &["ssbsh", "single-space-before-scene-headings"]) {
         profile.styles.scene_heading.spacing_before = 1.0;
     } else if matches_fmt_option(option, &["bsh", "bold-scene-headings"]) {
@@ -659,13 +664,24 @@ fn apply_fmt_geometry_override_option(profile: &mut ScreenplayLayoutProfile, opt
         profile.styles.cold_opening.underline = false;
         profile.styles.new_act.underline = false;
         profile.styles.end_of_act.underline = false;
-    } else if let Some(value) = option.strip_prefix("dl-") {
-        if let Ok(indent) = value.parse::<f32>() {
-            profile.styles.dialogue.left_indent = indent;
-        }
-    } else if let Some(value) = option.strip_prefix("dr-") {
-        if let Ok(indent) = value.parse::<f32>() {
-            profile.styles.dialogue.right_indent = indent;
+    } else if let Some((kind, left, value)) = parse_element_margin_option(option) {
+        use ImportedElementKind::*;
+        let style = match kind {
+            Action => &mut profile.styles.action,
+            SceneHeading => &mut profile.styles.scene_heading,
+            Character => &mut profile.styles.character,
+            Dialogue => &mut profile.styles.dialogue,
+            Parenthetical => &mut profile.styles.parenthetical,
+            Transition => &mut profile.styles.transition,
+            Lyric => &mut profile.styles.lyric,
+            ColdOpening => &mut profile.styles.cold_opening,
+            NewAct => &mut profile.styles.new_act,
+            EndOfAct => &mut profile.styles.end_of_act,
+        };
+        if left {
+            style.left_indent = value;
+        } else {
+            style.right_indent = value;
         }
     } else if let Some(value) = option.strip_prefix("tm-") {
         if let Ok(margin) = value.parse::<f32>() {
@@ -695,3 +711,35 @@ fn matches_fmt_option(option: &str, accepted: &[&str]) -> bool {
         .iter()
         .any(|candidate| option.eq_ignore_ascii_case(candidate))
 }
+
+/// Parse an element edge Fmt option. Coordinates are inches from the left page edge.
+/// Unknown, negative, and non-finite values are ignored like other invalid Fmt options.
+pub fn parse_element_margin_option(option: &str) -> Option<(ImportedElementKind, bool, f32)> {
+    let (tag, number) = option.split_once('-')?;
+    let tag = tag.to_ascii_lowercase();
+    let (kind, left) = ELEMENT_MARGIN_TAGS.iter().find_map(|&(kind, l, r)| {
+        if tag == l {
+            Some((kind, true))
+        } else if tag == r {
+            Some((kind, false))
+        } else {
+            None
+        }
+    })?;
+    let value = number.parse::<f32>().ok()?;
+    (value.is_finite() && value >= 0.0).then_some((kind, left, value))
+}
+
+/// Canonical left/right Fmt tags, shared by the layout parser and Fountain exporter.
+pub const ELEMENT_MARGIN_TAGS: &[(ImportedElementKind, &str, &str)] = &[
+    (ImportedElementKind::Action, "al", "ar"),
+    (ImportedElementKind::SceneHeading, "shl", "shr"),
+    (ImportedElementKind::Character, "cl", "cr"),
+    (ImportedElementKind::Dialogue, "dl", "dr"),
+    (ImportedElementKind::Parenthetical, "pl", "pr"),
+    (ImportedElementKind::Transition, "tl", "tr"),
+    (ImportedElementKind::Lyric, "ll", "lr"),
+    (ImportedElementKind::ColdOpening, "col", "cor"),
+    (ImportedElementKind::NewAct, "nal", "nar"),
+    (ImportedElementKind::EndOfAct, "eal", "ear"),
+];

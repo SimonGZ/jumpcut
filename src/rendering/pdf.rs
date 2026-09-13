@@ -2298,7 +2298,8 @@ fn body_line_indent_spaces(kind: PdfLineKind, text: &str, geometry: &LayoutGeome
 
 fn element_left_inches(kind: PdfLineKind, geometry: &LayoutGeometry) -> f32 {
     match kind {
-        PdfLineKind::Action | PdfLineKind::SceneHeading => geometry.action_left,
+        PdfLineKind::Action => geometry.action_left,
+        PdfLineKind::SceneHeading => geometry.scene_heading_left,
         PdfLineKind::ColdOpening => geometry.cold_opening_left,
         PdfLineKind::NewAct => geometry.new_act_left,
         PdfLineKind::EndOfAct => geometry.end_of_act_left,
@@ -2322,7 +2323,8 @@ fn element_left_inches(kind: PdfLineKind, geometry: &LayoutGeometry) -> f32 {
 
 fn element_right_inches(kind: PdfLineKind, geometry: &LayoutGeometry) -> f32 {
     match kind {
-        PdfLineKind::Action | PdfLineKind::SceneHeading => geometry.action_right,
+        PdfLineKind::Action => geometry.action_right,
+        PdfLineKind::SceneHeading => geometry.scene_heading_right,
         PdfLineKind::ColdOpening => geometry.cold_opening_right,
         PdfLineKind::NewAct => geometry.new_act_right,
         PdfLineKind::EndOfAct => geometry.end_of_act_right,
@@ -2346,7 +2348,8 @@ fn element_right_inches(kind: PdfLineKind, geometry: &LayoutGeometry) -> f32 {
 
 fn element_first_indent_inches(kind: PdfLineKind, geometry: &LayoutGeometry) -> f32 {
     match kind {
-        PdfLineKind::Action | PdfLineKind::SceneHeading => geometry.action_first_indent,
+        PdfLineKind::Action => geometry.action_first_indent,
+        PdfLineKind::SceneHeading => geometry.scene_heading_first_indent,
         PdfLineKind::ColdOpening => geometry.cold_opening_first_indent,
         PdfLineKind::NewAct => geometry.new_act_first_indent,
         PdfLineKind::EndOfAct => geometry.end_of_act_first_indent,

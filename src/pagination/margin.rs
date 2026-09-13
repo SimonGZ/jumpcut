@@ -49,6 +49,9 @@ pub struct LayoutGeometry {
     pub parenthetical_first_indent: f32,
     pub transition_first_indent: f32,
     pub lyric_first_indent: f32,
+    pub scene_heading_left: f32,
+    pub scene_heading_right: f32,
+    pub scene_heading_first_indent: f32,
     pub action_left: f32,
     pub action_right: f32,
     pub cold_opening_left: f32,
@@ -145,6 +148,9 @@ impl Default for LayoutGeometry {
             parenthetical_first_indent: -0.1,
             transition_first_indent: 0.0,
             lyric_first_indent: 0.0,
+            scene_heading_left: 1.5,
+            scene_heading_right: 7.5,
+            scene_heading_first_indent: 0.0,
             action_left: 1.5,
             action_right: 7.5,
             cold_opening_left: 1.5,
@@ -339,7 +345,7 @@ pub fn calculate_element_width(geometry: &LayoutGeometry, element_type: ElementT
         ElementType::ColdOpening => (geometry.cold_opening_left, geometry.cold_opening_right),
         ElementType::NewAct => (geometry.new_act_left, geometry.new_act_right),
         ElementType::EndOfAct => (geometry.end_of_act_left, geometry.end_of_act_right),
-        ElementType::SceneHeading => (geometry.action_left, geometry.action_right), // Standard default
+        ElementType::SceneHeading => (geometry.scene_heading_left, geometry.scene_heading_right), // Standard default
         ElementType::DualDialogueLeft => (
             geometry.dual_dialogue_left_left,
             geometry.dual_dialogue_left_right,

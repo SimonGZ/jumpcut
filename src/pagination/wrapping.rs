@@ -190,7 +190,7 @@ fn apply_right_indent_delta(
         ElementType::ColdOpening => geometry.cold_opening_right += right_indent_delta,
         ElementType::NewAct => geometry.new_act_right += right_indent_delta,
         ElementType::EndOfAct => geometry.end_of_act_right += right_indent_delta,
-        ElementType::SceneHeading => geometry.action_right += right_indent_delta,
+        ElementType::SceneHeading => geometry.scene_heading_right += right_indent_delta,
         ElementType::Character => geometry.character_right += right_indent_delta,
         ElementType::Dialogue => geometry.dialogue_right += right_indent_delta,
         ElementType::Parenthetical => geometry.parenthetical_right += right_indent_delta,

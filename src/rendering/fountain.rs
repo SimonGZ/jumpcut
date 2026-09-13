@@ -60,6 +60,57 @@ fn export_metadata(screenplay: &Screenplay) -> Metadata {
     let mut metadata = screenplay.metadata.clone();
     metadata.remove("frontmatter");
 
+    // FDX element settings take precedence over Fmt. Serialize their explicit
+    // edges using canonical tags so the same layout survives a Fountain round trip.
+    if let Some(layout) = &screenplay.imported_layout {
+        let mut edges = Vec::new();
+        for &(kind, left_tag, right_tag) in crate::pagination::layout_profile::ELEMENT_MARGIN_TAGS {
+            if let Some(style) = layout.element_styles.get(&kind) {
+                if let Some(value) = style.left_indent {
+                    edges.push((left_tag, value));
+                }
+                if let Some(value) = style.right_indent {
+                    edges.push((right_tag, value));
+                }
+            }
+        }
+        for (tag, value) in [
+            ("tm", layout.page.top_margin),
+            ("bm", layout.page.bottom_margin),
+            ("hm", layout.page.header_margin),
+            ("fm", layout.page.footer_margin),
+        ] {
+            if let Some(value) = value {
+                edges.push((tag, value));
+            }
+        }
+        edges.retain(|(_, value)| value.is_finite() && *value >= 0.0);
+        if !edges.is_empty() {
+            let existing = metadata
+                .get("fmt")
+                .and_then(|v| v.first())
+                .map(|v| v.plain_text())
+                .unwrap_or_default();
+            let mut tokens: Vec<String> = existing
+                .split_whitespace()
+                .filter(|token| {
+                    !token.split_once('-').is_some_and(|(prefix, _)| {
+                        edges
+                            .iter()
+                            .any(|(tag, _)| prefix.eq_ignore_ascii_case(tag))
+                    })
+                })
+                .map(str::to_owned)
+                .collect();
+            tokens.extend(
+                edges
+                    .into_iter()
+                    .map(|(tag, value)| format!("{tag}-{value}")),
+            );
+            metadata.insert("fmt".into(), vec![tokens.join(" ").into()]);
+        }
+    }
+
     if let Some(imported_title_page) = &screenplay.imported_title_page
         && imported_title_page.pages.len() > 1
     {

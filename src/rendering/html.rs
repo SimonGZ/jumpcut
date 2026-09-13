@@ -319,12 +319,10 @@ fn stylesheet_css(options: &HtmlRenderOptions, layout_profile: &ScreenplayLayout
 fn transition_layout_css(profile: &ScreenplayLayoutProfile) -> String {
     // Keep screenplay margins in physical inches. The body uses the PDF's cell
     // advance so text positions agree even when the font's natural pitch differs.
-    let right = css_inches(
-        profile.styles.transition.right_indent - profile.styles.action.left_indent,
-    );
-    let width = css_inches(
-        profile.styles.transition.right_indent - profile.styles.transition.left_indent,
-    );
+    let right =
+        css_inches(profile.styles.transition.right_indent - profile.styles.action.left_indent);
+    let width =
+        css_inches(profile.styles.transition.right_indent - profile.styles.transition.left_indent);
     format!(
         ".screenplay {{\n  --body-cell-width: {BODY_TEXT_CELL_WIDTH}pt;\n  --transition-right: {right};\n  --transition-width: {width};\n}}\n"
     )
@@ -518,8 +516,17 @@ fn render_visual_line(
 
     write!(
         out,
-        "                    <div class=\"{}\">",
-        classes.join(" ")
+        "                    <div class=\"{}\"{}>",
+        classes.join(" "),
+        line.element_type
+            .and_then(|kind| default_styles_for_element_type(kind, layout_profile))
+            .filter(|style| !line.centered
+                && style.left_indent < layout_profile.styles.action.left_indent)
+            .map(|style| format!(
+                " style=\"margin-left: {}in\"",
+                style.left_indent - layout_profile.styles.action.left_indent
+            ))
+            .unwrap_or_default()
     )
     .unwrap();
     if line.text.is_empty() {

@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+- Add `Fmt` left/right edge tags for action (`al`/`ar`), scene headings (`shl`/`shr`), character cues (`cl`/`cr`), parentheticals (`pl`/`pr`), transitions (`tl`/`tr`), lyrics (`ll`/`lr`), cold openings (`col`/`cor`), new acts (`nal`/`nar`), and end-of-act headings (`eal`/`ear`), alongside existing dialogue tags (`dl`/`dr`).
+- Preserve imported element and page margins in Fountain exports using canonical `Fmt` tags.
+- Keep scene-heading geometry independent from action geometry in wrapping and PDF, and retain elements to the left of the action edge in visual HTML.
+
 ## [2.0.1] - 2026-09-12
 
 ### Fixed
