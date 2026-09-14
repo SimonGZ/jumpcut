@@ -29,9 +29,9 @@ Fmt: industry bold-scene-headings single-space-before-scene-headings no-auto-act
 - `no-act-underlines`: Removes the default underline styling from cold openings and act markers.
 - `courier-final-draft`: Uses "Courier Final Draft" instead of the default "Courier Prime". Alias: `cfd`.
 
-## Margins and page size
+## Element Margins / Settings
 
-You can also customize the margins for different element types. Measurements below are in inches, except `lpp`, which sets the number of body lines per page.
+You can customize the margins for different element types. Measurements below are in inches.
 
 | Element | Left edge | Right edge |
 | --- | --- | --- |
@@ -52,15 +52,21 @@ Both edges are absolute positions measured from the **left edge of the page**; t
 Fmt: industry al-1.75 ar-7.25 cl-3.75 dl-2.50 dr-6.00
 ```
 
-Imported FDX element margins and page margins are written to these `Fmt` tags when exporting Fountain, preserving their values when reopened in Jumpcut. Other Fountain applications must support these Jumpcut extensions to apply them.
+Centered elements are centered between their own edges. Dialogue tags apply to ordinary dialogue; dual dialogue is its own special case and can't be customized at this time.
 
-Element edges control wrapping and placement in PDF and all HTML modes, and are preserved in FDX and Fountain exports, including fractional values such as `2.125`. Ordinary HTML adapts to narrower viewports; exact-wrap and paginated HTML retain physical layout. Centered elements are centered between their own edges. Dialogue tags apply to ordinary dialogue; dual dialogue retains its separate column geometry.
+Imported FDX element margins and page margins are written to these `Fmt` tags when exporting Fountain, preserving their values when reopened in Jumpcut. NOTE: No other Fountain converters honor these tags. They are currently JumpCut specific.
+
+JumpCut will try to honor custom element margins in PDF and all HTML modes, including fractional values such as `2.125`. Ordinary HTML output will adapt to narrower viewports (like mobile phones), but exact-wrap and paginated HTML will not automatically adapt to smaller screens. 
+
+## Page Margins
+
+You can also customize page margins.
 
 - `tm-X.XX`: Sets the page top margin in inches.
 - `bm-X.XX`: Sets the page bottom margin in inches.
 - `hm-X.XX`: Sets the page header margin in inches.
 - `fm-X.XX`: Sets the page footer margin in inches.
-- `lpp-X.XX`: Overrides the default body-page line count used by pagination and layout.
+- `lpp-X.XX`: Overrides the default body-page line count (it changes the number of lines the pagination engine tries to fit on a page).
 
 ## Other options
 
@@ -70,7 +76,7 @@ Element edges control wrapping and placement in PDF and all HTML modes, and are 
 
 ## Cheats / Paragraph adjustments
 
-If you're trying to save space and you have a single element that you want to manually tweak, JumpCut lets you change the margins and spacing of individual elements by sticking special markup in fountain notes.
+If you're trying to save space and you have a single element that you want to manually tweak (without tweaking all other elements of the same type), JumpCut lets you change the margins and spacing of individual elements by sticking special markup in fountain notes.
 
 Use `.lift` and `.widen` inside `[[ ... ]]` notes:
 
