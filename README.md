@@ -41,7 +41,7 @@ See the [formatting guide](docs/formatting-and-metadata.md) for details, or the 
 Add JumpCut to a Rust project:
 
 ```toml
-jumpcut = { version = "2.0.1", default-features = false, features = ["lib-only"] }
+jumpcut = { version = "2.1.0", default-features = false, features = ["lib-only"] }
 ```
 
 Then parse and render a screenplay:

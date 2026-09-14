@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [2.1.0] - 2026-09-13
+
 - Add `Fmt` left/right edge tags for action (`al`/`ar`), scene headings (`shl`/`shr`), character cues (`cl`/`cr`), parentheticals (`pl`/`pr`), transitions (`tl`/`tr`), lyrics (`ll`/`lr`), cold openings (`col`/`cor`), new acts (`nal`/`nar`), and end-of-act headings (`eal`/`ear`), alongside existing dialogue tags (`dl`/`dr`).
 - Preserve imported element and page margins in Fountain exports using `Fmt` tags.
 - Honor element edges in ordinary, exact-wrap, and paginated HTML, including fractional offsets and centered headings. Preserve fractional margins in FDX exports and character-cue positions in PDF.

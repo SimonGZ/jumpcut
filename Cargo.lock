@@ -545,7 +545,7 @@ dependencies = [
 
 [[package]]
 name = "jumpcut"
-version = "2.0.1"
+version = "2.1.0"
 dependencies = [
  "base64",
  "clap",
@@ -567,7 +567,7 @@ dependencies = [
 
 [[package]]
 name = "jumpcut-wasm"
-version = "2.0.1"
+version = "2.1.0"
 dependencies = [
  "jumpcut",
  "wasm-bindgen",
